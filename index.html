@@ -219,6 +219,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .tactic input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); border: 3px solid var(--ink); box-shadow: 0 2px 6px rgba(0, 0, 0, .3); cursor: pointer; }
 .tactic input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: var(--surface); border: 3px solid var(--ink); cursor: pointer; }
 .tactic .tnow { font-weight: 700; }
+.plink { color: var(--muted); }
 .msg { margin: 0; font-weight: 600; } .msg.bad { color: var(--bib); }
 .side { flex: 1; min-width: 0; } .side .lbl { text-align: center; overflow-wrap: anywhere; }
 .orow { display: grid; grid-template-columns: 1fr 36px; gap: 8px; align-items: center; padding-block: 5px; border-bottom: 1px solid var(--line); }
@@ -245,6 +246,7 @@ button:disabled { opacity: .4; cursor: default; }
     <p class="msg" id="joinMsg"></p></section>
   <section><h2>Organisers</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button></div></section>
   <p class="note" id="sync2"></p>
+  <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a></p>
 </div>
 
 <div class="view" id="v-account" hidden>
@@ -261,8 +263,12 @@ button:disabled { opacity: .4; cursor: default; }
     <section><h2>Join a team as an organiser</h2><p class="note">Another organiser can give you the team's 10-character organiser code from Options.</p>
       <div class="joinrow"><input id="aOrgCode" type="text" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Organiser code"><button class="plain primary" id="aOrgJoin" type="button">Join</button></div></section>
     <div class="actions"><button class="plain" id="aSignOut" type="button">Sign out</button></div>
+    <section><h2>Delete account</h2>
+      <p class="note">Deletes your organiser account and your sign-in. Teams you organise on your own are deleted too, including their games and stats, and followers lose access. Teams with other organisers carry on without you.</p>
+      <div class="actions"><button class="plain" id="aDelete" type="button">Delete my account</button></div></section>
   </div>
   <p class="msg" id="aMsg" hidden></p>
+  <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a></p>
 </div>
 
 <div class="view" id="v-create" hidden>
@@ -1075,6 +1081,19 @@ button:disabled { opacity: .4; cursor: default; }
   $('aSignUp').addEventListener('click', function () { authDo('up'); });
   $('aPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') authDo('in'); });
   $('aSignOut').addEventListener('click', async function () { await sb.auth.signOut(); aSay(''); go('welcome'); });
+  armed($('aDelete'), 'Tap again to delete it for good', async function () {
+    if (!sb || !me) return;
+    aSay('Deleting your account\u2026');
+    try {
+      await q(sb.rpc('delete_my_account'));
+      A.teams.forEach(function (t) { t.org = false; }); myTeams = null;
+      closeTeam(); A.active = null; S = blankTeam(); S.view = 'account'; saveApp(); // teams deleted with the account drop off this list next time they're opened
+      try { await sb.auth.signOut(); } catch (e) {}
+      renderAccount(); aSay('Your account has been deleted.');
+    } catch (e) { aSay('Couldn\u2019t delete the account. Check your signal and try again.', true); }
+  });
+  // the privacy policy lives on the website; the iOS app opens it there
+  document.querySelectorAll('[data-privacy]').forEach(function (a) { if (!/^https?:/.test(location.protocol) && CFG.siteUrl) a.href = CFG.siteUrl + 'privacy.html'; });
   $('acctBtn').addEventListener('click', function () { go('account'); });
   $('aOrgJoin').addEventListener('click', async function () {
     var c = $('aOrgCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');

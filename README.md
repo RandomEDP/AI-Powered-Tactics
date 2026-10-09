@@ -22,7 +22,8 @@ An iOS app (and the same app on the web) backed by Supabase, usable offline at t
 | `sw.js` | Offline support: caches the app shell; team data is kept on the phone and syncs when back online |
 | `supabase/migrations/` | Database schema, row level security and functions |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team |
-| `tests/` | Browser tests against an in-memory stand-in for Supabase, and for the iOS alerts |
+| `privacy.html` | Privacy policy (linked from the app and needed for the App Store listing) |
+| `tests/` | Browser tests against an in-memory stand-in for Supabase, the iOS alerts and account deletion |
 | `vendor/` | Bundled Supabase library and fonts, so the app works with no signal |
 | `ios/`, `capacitor.config.json`, `package.json` | The iOS app (see below) |
 
@@ -56,7 +57,7 @@ Never put the `.p8` key, or any secret, in the code or in chat. GitHub secrets a
 
 - All tables have row level security. Only a team's organisers can read or change its rows directly.
 - Followers read a team only through `get_team(code)`, which needs the exact code, never returns the organiser code, and cannot list teams.
-- `create_team`, `join_as_organiser` and `new_organiser_code` require a signed-in user.
+- `create_team`, `join_as_organiser`, `new_organiser_code` and `delete_my_account` require a signed-in user. Deleting an account also deletes teams that person organises alone.
 - `queue_goal` lets followers log a goal only when the team allows it, and only as a sanitised payload the organiser's app folds in.
 - Live updates use a Supabase Realtime broadcast channel per team that only says "something changed"; clients then re-read through the functions above.
 
@@ -70,5 +71,5 @@ Never put the `.p8` key, or any secret, in the code or in chat. GitHub secrets a
 
 ```
 python3 -m http.server 8766        # from the repo root
-cd tests && npm i playwright && node flow.mjs && node native.mjs
+cd tests && npm i playwright && node flow.mjs && node native.mjs && node delete.mjs
 ```
