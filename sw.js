@@ -1,8 +1,10 @@
 // Offline support: keep the app shell on the phone so it opens with no signal at the pitch.
 // Team data is stored by the app itself and syncs with Supabase when there's a connection.
-const CACHE = 'apt-v1';
+const CACHE = 'apt-v2';
 const SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js'];
+  'vendor/supabase.js', 'vendor/fonts.css',
+  'vendor/fonts/Barlow-400.woff2', 'vendor/fonts/Barlow-500.woff2', 'vendor/fonts/Barlow-600.woff2',
+  'vendor/fonts/BarlowCondensed-500.woff2', 'vendor/fonts/BarlowCondensed-600.woff2', 'vendor/fonts/BarlowCondensed-700.woff2'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -20,7 +22,7 @@ self.addEventListener('fetch', (e) => {
       .catch(() => caches.match(e.request).then((r) => r || caches.match('index.html'))));
     return;
   }
-  // icons, fonts and the Supabase library: cached copy first
+  // icons, fonts and bundled libraries: cached copy first
   e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request).then((res) => {
     if (res.ok || res.type === 'opaque') { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); }
     return res;

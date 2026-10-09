@@ -13,8 +13,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+
+<link rel="stylesheet" href="vendor/fonts.css">
 <style>
 /* base */
 :root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); -webkit-text-size-adjust: 100%; }
@@ -519,7 +519,7 @@ button:disabled { opacity: .4; cursor: default; }
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script src="vendor/supabase.js"></script>
 <script src="config.js"></script>
 <script>
 (function () {
@@ -530,6 +530,7 @@ button:disabled { opacity: .4; cursor: default; }
   try { if (window.supabase && CFG.url && CFG.key) sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }); } catch (e) { sb = null; }
   var SESSION = Math.random().toString(36).slice(2, 10); // tells this device's own broadcasts apart from others'
   var me = null; // the signed-in organiser account, if any
+  var NATIVE_SITE = /^https?:/.test(location.protocol) ? null : (CFG.siteUrl || null); // the iOS app sends confirmation links to the website
 
   // ---- teams on this device. The team itself lives in the database; this device remembers which ones it follows
   // and keeps a copy of each so the app opens instantly and works with no signal.
@@ -977,6 +978,7 @@ button:disabled { opacity: .4; cursor: default; }
     else if (S.view === 'reel') renderReel();
     else if (S.view === 'season') renderSeason();
     else renderOptions();
+    if (S.view !== 'game') syncAlerts();
   }
   document.addEventListener('click', function (e) { var t = e.target.closest ? e.target.closest('[data-go]') : null; if (t) go(t.getAttribute('data-go')); });
 
@@ -1052,7 +1054,7 @@ button:disabled { opacity: .4; cursor: default; }
     aSay(kind === 'up' ? 'Creating your account…' : 'Signing in…');
     try {
       if (kind === 'up') {
-        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: location.origin + location.pathname } });
+        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: NATIVE_SITE || (location.origin + location.pathname) } });
         if (r1.error) throw r1.error;
         if (!r1.data.session) { aSay('Check your email and tap the link to confirm your account, then sign in here.'); return; }
       } else {
@@ -1467,7 +1469,7 @@ button:disabled { opacity: .4; cursor: default; }
     $('rota').innerHTML = html;
     var gm = gameMins(m), ids = (m.squad || []).slice().sort(function (x, y) { return gm[y] - gm[x]; });
     $('minsNote').textContent = ids.length ? 'Minutes today: ' + ids.map(function (id) { return nm(id) + ' ' + gm[id] + (m.gone.indexOf(id) >= 0 ? ' (out)' : ''); }).join(', ') + '.' : '';
-    renderOut(); renderEdit(); renderQuick(); renderScore(); renderClock();
+    renderOut(); renderEdit(); renderQuick(); renderScore(); renderClock(); syncAlerts();
   }
 
   // ---- edit upcoming subs: swap a pitch player (A) and a bench player (B) for stretch t, then swap them back in the
@@ -1688,8 +1690,52 @@ button:disabled { opacity: .4; cursor: default; }
     pick = null; addGoal(ev);
   });
 
+  // ---- extras when running as the iOS app: lock-screen alerts for changes, haptics, screen kept awake
+  var NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  function plugin(name) {
+    if (!NATIVE) return null;
+    var C = window.Capacitor;
+    try { return (C.Plugins && C.Plugins[name]) || (C.registerPlugin ? C.registerPlugin(name) : null); } catch (e) { return null; }
+  }
+  var Haptics = plugin('Haptics'), Notes = plugin('LocalNotifications'), KeepAwake = plugin('KeepAwake');
+  function buzz(strong) { try { if (Haptics) Haptics.notification({ type: strong ? 'WARNING' : 'SUCCESS' }).catch(function () {}); } catch (e) {} }
+  function stayAwake(on) { try { if (KeepAwake) (on ? KeepAwake.keepAwake() : KeepAwake.allowSleep()).catch(function () {}); } catch (e) {} }
+  function upcomingAlerts(m) { // the changes and whistle still to come this half, as clock times
+    if (!m || !m.running || (m.phase !== 'h1' && m.phase !== 'h2')) return [];
+    var e = elapsed(m), now = Date.now(), cb = curSeg(m), h = m.segs[cb].h, out = [];
+    var names = function (ids) { return ids.map(nm).join(', '); };
+    for (var t = cb + 1; t < m.segs.length && m.segs[t].h === h; t++) {
+      var sw = swapAt(m, t); if (!sw.off.length && !sw.on.length) continue;
+      var at = now + m.segs[t].from * 60000 - e;
+      if (at - now > 2000) out.push({ at: at, title: 'Change at ' + m.segs[t].from + ':00', body: 'Off: ' + names(sw.off) + '. On: ' + names(sw.on) + '.' });
+    }
+    var end = now + halfMs(m) - e;
+    if (end - now > 2000) out.push({ at: end, title: m.phase === 'h1' ? 'Half time' : 'Full time', body: 'Time is up. Tap ' + (m.phase === 'h1' ? 'Half time' : 'Full time') + ' on the whistle.' });
+    return out;
+  }
+  var alertKey = '', alertBusy = false;
+  async function syncAlerts() { // keep scheduled notifications in step with the live game, so a locked phone still buzzes
+    if (!Notes || alertBusy) return;
+    var list = role === 'owner' ? upcomingAlerts(S.match) : [];
+    var key = JSON.stringify(list.map(function (a) { return [Math.round(a.at / 5000), a.body]; }));
+    if (key === alertKey) return;
+    alertBusy = true; alertKey = key;
+    try {
+      var pend = await Notes.getPending();
+      if (pend && pend.notifications && pend.notifications.length) await Notes.cancel({ notifications: pend.notifications.map(function (n) { return { id: n.id }; }) });
+      if (list.length) {
+        var perm = await Notes.checkPermissions();
+        if (perm.display !== 'granted') perm = await Notes.requestPermissions();
+        if (perm.display === 'granted') await Notes.schedule({ notifications: list.map(function (a, i) { return { id: 100 + i, title: a.title, body: a.body, schedule: { at: new Date(a.at), allowWhileIdle: true } }; }) });
+      }
+    } catch (e) { alertKey = ''; }
+    alertBusy = false;
+    stayAwake(!!(S.match && S.match.running));
+  }
+
   var actx = null;
   function beep(n) {
+    buzz(n >= 3);
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       for (var i = 0; i < n; i++) {

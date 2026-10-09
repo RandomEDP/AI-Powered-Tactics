@@ -1,0 +1,22 @@
+{
+  "name": "ai-powered-tactics",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI Powered Tactics: line-ups, sub rotations, live scores and highlights for small-sided football.",
+  "scripts": {
+    "build:web": "node scripts/build-web.mjs",
+    "ios:sync": "npm run build:web && npx cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor-community/keep-awake": "^8.0.1",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3"
+  }
+}

@@ -1,12 +1,12 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');
-const BASE = 'http://localhost:8765/';
+const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const ctx = await b.newContext({ viewport: { width: 400, height: 900 } });
 await ctx.route('**/*', (r) => {
   const u = r.request().url();
-  if (u.includes('supabase-js')) return r.fulfill({ contentType: 'application/javascript', body: MOCK });
+  if (u.includes('vendor/supabase.js')) return r.fulfill({ contentType: 'application/javascript', body: MOCK });
   if (u.startsWith(BASE)) return r.continue();
   return r.abort();
 });

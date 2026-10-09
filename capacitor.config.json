@@ -1,0 +1,21 @@
+{
+  "appId": "com.randomedp.aipoweredtactics",
+  "appName": "Tactics",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#1f6b4a",
+    "scheme": "Tactics"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "launchAutoHide": true,
+      "backgroundColor": "#1f6b4a",
+      "showSpinner": false
+    },
+    "LocalNotifications": {
+      "presentationOptions": []
+    }
+  }
+}
