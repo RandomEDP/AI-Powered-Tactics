@@ -1,0 +1,2106 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Powered Tactics</title>
+<meta name="description" content="Fair or aggressive line-ups, sub rotations, live scores, stats and highlight reels for small-sided football teams.">
+<meta name="theme-color" content="#1f6b4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tactics">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+/* base */
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+img { max-width: 100%; }
+/* Layout: one phone-width column, five screens (home, new game, game, stats, options). The pitch-green panel is the hero on home and the clock in a game. */
+:root {
+  --bg: #f3f1f8; --surface: #ffffff; --ink: #1a1430; --muted: #645d7a; --line: #dad5e8;
+  --team: #1f6b4a; --team-ink: #f7f5ec;
+  --pitch: var(--team); --pitch-ink: var(--team-ink); --pitch-dim: color-mix(in srgb, var(--team-ink) 72%, var(--team)); --pitch-deep: color-mix(in srgb, var(--team) 60%, #000);
+  --on: var(--team); --on-soft: color-mix(in srgb, var(--team) 12%, #fff); --on-ink: var(--team-ink);
+  --bib: #c9480a; --bib-soft: #fde6d6; --scrim: rgba(26, 20, 48, .6); --agg: #c62828; --mid: #e0a100; --fair: #1e8e4e;
+  --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #100c1c; --surface: #19142a; --ink: #ece9f5; --muted: #9c95b3; --line: #2b2442;
+  --pitch: color-mix(in srgb, var(--team) 82%, #000); --pitch-ink: var(--team-ink); --pitch-dim: color-mix(in srgb, var(--team-ink) 72%, var(--team)); --pitch-deep: color-mix(in srgb, var(--team) 60%, #000);
+  --on: color-mix(in srgb, var(--team) 55%, #fff); --on-soft: color-mix(in srgb, var(--team) 26%, #19142a); --on-ink: #120f1c;
+  --bib: #ff8a4a; --bib-soft: #3a2114; --scrim: rgba(5, 3, 12, .72); --agg: #ff5a52; --mid: #f2c14e; --fair: #3fcf7f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #100c1c; --surface: #19142a; --ink: #ece9f5; --muted: #9c95b3; --line: #2b2442;
+  --pitch: color-mix(in srgb, var(--team) 82%, #000); --pitch-ink: var(--team-ink); --pitch-dim: color-mix(in srgb, var(--team-ink) 72%, var(--team)); --pitch-deep: color-mix(in srgb, var(--team) 60%, #000);
+  --on: color-mix(in srgb, var(--team) 55%, #fff); --on-soft: color-mix(in srgb, var(--team) 26%, #19142a); --on-ink: #120f1c;
+  --bib: #ff8a4a; --bib-soft: #3a2114; --scrim: rgba(5, 3, 12, .72); --agg: #ff5a52; --mid: #f2c14e; --fair: #3fcf7f; color-scheme: dark }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.4; padding-inline: 16px; padding-block: 20px 40px; }
+.app { max-width: 520px; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
+h1, h2 { font-family: var(--display); margin: 0; text-wrap: balance; }
+h1 { font-size: 30px; font-weight: 700; letter-spacing: .01em; text-transform: uppercase; line-height: 1; }
+h2 { font-size: 15px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.game { font-family: var(--display); font-size: 18px; font-weight: 600; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+section { display: flex; flex-direction: column; gap: 10px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--bib); outline-offset: 2px; }
+
+/* Clock */
+.clock { position: relative; overflow: hidden; background: var(--pitch); color: var(--pitch-ink); border-radius: 14px; padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 12px; }
+.clock::before { content: ""; position: absolute; left: 50%; top: 50%; width: 190px; height: 190px; margin: -95px 0 0 -95px; border: 2px solid var(--pitch-ink); border-radius: 50%; opacity: .1; pointer-events: none; }
+.clock::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--pitch-ink); opacity: .1; pointer-events: none; }
+.clock > * { position: relative; z-index: 1; }
+.phase { display: flex; justify-content: space-between; gap: 12px; font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--pitch-dim); }
+.count { font-family: var(--display); font-weight: 700; font-size: clamp(84px, 30vw, 128px); line-height: .9; font-variant-numeric: tabular-nums; text-align: center; }
+.count-label { text-align: center; font-family: var(--display); font-size: 17px; letter-spacing: .08em; text-transform: uppercase; color: var(--pitch-dim); }
+.blocks { display: flex; gap: 4px; }
+.blocks span { flex: 1; height: 8px; border-radius: 4px; background: var(--pitch-ink); opacity: .2; }
+.blocks span.done { opacity: .55; }
+.blocks span.now { opacity: 1; }
+.blocks span.gap { flex: 0 0 8px; background: none; }
+.controls { display: flex; gap: 8px; }
+.go { flex: 1; min-height: 54px; border: 0; border-radius: 10px; background: var(--pitch-ink); color: var(--pitch-deep); font-family: var(--display); font-size: 24px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.ghost { min-height: 54px; padding-inline: 12px; border: 2px solid var(--pitch-dim); border-radius: 10px; background: none; color: var(--pitch-ink); font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.ghost.armed { background: var(--bib); border-color: var(--bib); }
+.clock.flash { animation: flash .5s 4; }
+@keyframes flash { 50% { background: var(--bib); } }
+@media (prefers-reduced-motion: reduce) { .clock.flash { animation: none; } }
+
+/* Swap */
+.swap { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.swap-rows { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: start; }
+.tag { font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: .08em; text-transform: uppercase; padding-top: 5px; }
+.tag.off { color: var(--bib); } .tag.on { color: var(--on); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.chip { font-weight: 600; font-size: 17px; padding: 4px 11px; border-radius: 999px; overflow-wrap: anywhere; }
+.chip.on { background: var(--on-soft); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--on); }
+.chip.off { background: var(--bib-soft); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--bib); }
+.note { color: var(--muted); font-size: 15px; margin: 0; }
+
+/* Rota */
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th { text-align: left; font-family: var(--display); font-size: 14px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.t { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+tr.now td { background: var(--bib-soft); color: var(--ink); font-weight: 600; }
+tr.past td { opacity: .5; }
+
+/* Squad */
+.squad { display: flex; flex-direction: column; }
+.row { display: grid; grid-template-columns: 22px 1fr 40px 44px 44px 32px; gap: 8px; align-items: center; padding-block: 5px; border-bottom: 1px solid var(--line); }
+.row.head { font-family: var(--display); font-size: 14px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.num { font-family: var(--display); font-weight: 700; font-size: 18px; color: var(--muted); text-align: center; }
+.row input { min-width: 0; width: 100%; font: inherit; font-weight: 500; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.mins { text-align: right; font-variant-numeric: tabular-nums; }
+.mins.short { color: var(--bib); font-weight: 600; }
+.gk { height: 36px; border: 1.5px solid var(--line); border-radius: 8px; background: none; color: var(--muted); font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: .05em; padding: 0; }
+.gk.is { background: var(--on); border-color: var(--on); color: var(--on-ink); }
+.x { width: 32px; height: 36px; border: 0; background: none; color: var(--muted); font-size: 20px; border-radius: 8px; }
+.plain { min-height: 46px; padding-inline: 16px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface); font-weight: 600; }
+.plain.primary { background: var(--on); border-color: var(--on); color: var(--on-ink); }
+.plain.armed { background: var(--bib); border-color: var(--bib); color: var(--on-ink); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.score { display: flex; align-items: center; justify-content: center; gap: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; }
+.side { display: flex; flex-direction: column; align-items: center; min-width: 84px; }
+.side .lbl { font-family: var(--display); font-size: 15px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.side .n { font-family: var(--display); font-weight: 700; font-size: 64px; line-height: 1; font-variant-numeric: tabular-nums; }
+.dash { font-family: var(--display); font-size: 40px; color: var(--muted); }
+.picker { background: var(--surface); border: 1.5px solid var(--on); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.picker strong { font-family: var(--display); font-size: 20px; letter-spacing: .04em; text-transform: uppercase; }
+.pick { min-height: 44px; padding: 6px 14px; border-radius: 999px; border: 1.5px solid var(--on); background: var(--on-soft); color: var(--ink); font-weight: 600; font-size: 17px; overflow-wrap: anywhere; }
+.pick.benchp { border-color: var(--line); background: none; }
+.pick.alt { border-color: var(--line); background: none; color: var(--muted); }
+.events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.events li { display: grid; grid-template-columns: 52px 1fr; gap: 8px; padding-block: 7px; border-bottom: 1px solid var(--line); }
+.events .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.events .ag { color: var(--bib); font-weight: 600; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+.setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.setup label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--muted); min-width: 0; }
+.setup input { min-width: 0; width: 100%; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+
+.view { display: flex; flex-direction: column; gap: 20px; }
+.bar { display: flex; align-items: center; gap: 12px; }
+.bar h1 { font-size: 26px; min-width: 0; overflow-wrap: anywhere; }
+.back { min-height: 40px; padding-inline: 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface); font-weight: 600; white-space: nowrap; }
+.hero { position: relative; overflow: hidden; background: var(--pitch); color: var(--pitch-ink); border-radius: 14px; padding: 34px 20px; display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center; }
+.hero::before { display: none; content: ""; position: absolute; left: 50%; top: 50%; width: 190px; height: 190px; margin: -95px 0 0 -95px; border: 2px solid var(--pitch-ink); border-radius: 50%; opacity: .1; }
+.hero::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--pitch-ink); opacity: .1; }
+.hero > * { position: relative; z-index: 1; }
+.hero h1 { font-size: 46px; line-height: .95; }
+.hero img { width: 132px; height: auto; }
+.hero .app-name { font-size: 15px; letter-spacing: .14em; opacity: .9; }
+.hero p { margin: 0; color: var(--pitch-dim); font-family: var(--display); font-size: 18px; letter-spacing: .06em; text-transform: uppercase; }
+.menu { display: flex; flex-direction: column; gap: 10px; }
+.menu button { min-height: 60px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); font-family: var(--display); font-size: 24px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; text-align: left; padding-inline: 18px; }
+.menu button.primary { background: var(--on); border-color: var(--on); color: var(--on-ink); }
+.menu button.armed { background: var(--bib); border-color: var(--bib); color: var(--on-ink); }
+.menu small { display: block; font-family: var(--body); font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; opacity: .85; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--muted); }
+.field input { font: inherit; font-size: 18px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; width: 100%; }
+.lrow { display: grid; grid-template-columns: 1fr 40px auto; gap: 8px; align-items: center; padding-block: 6px; border-bottom: 1px solid var(--line); }
+.lrow .who { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.lrow .who small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
+.seg { display: flex; }
+.seg button { min-height: 36px; padding-inline: 9px; border: 1.5px solid var(--line); background: none; color: var(--muted); font-weight: 600; font-size: 14px; margin-left: -1.5px; }
+.seg button:first-child { border-radius: 8px 0 0 8px; margin-left: 0; } .seg button:last-child { border-radius: 0 8px 8px 0; }
+.seg button.is { position: relative; z-index: 1; color: var(--on-ink); }
+.seg button.is[data-set="start"] { background: var(--on); border-color: var(--on); }
+.seg button.is[data-set="bench"] { background: var(--bib); border-color: var(--bib); }
+.seg button.is[data-set="out"] { background: var(--muted); border-color: var(--muted); }
+.note.warn { color: var(--bib); }
+.check { display: flex; align-items: center; gap: 10px; font-weight: 600; min-height: 44px; }
+.check input { width: 24px; height: 24px; margin: 0; accent-color: var(--on); flex: none; }
+.check small { font-weight: 400; color: var(--muted); }
+.field textarea { font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; width: 100%; resize: vertical; }
+.field select { font: inherit; font-size: 18px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; width: 100%; }
+.tagf { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; margin-left: 6px; white-space: nowrap; }
+.mrow { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding-block: 7px; border-bottom: 1px solid var(--line); }
+.mrow .who { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.mrow .who small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
+.step { display: flex; align-items: center; gap: 6px; }
+.step button { width: 44px; height: 44px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); font-size: 22px; font-weight: 600; line-height: 1; }
+.step b { min-width: 62px; text-align: center; font-family: var(--display); font-size: 24px; font-variant-numeric: tabular-nums; }
+.step b small { font-size: 14px; font-weight: 500; color: var(--muted); }
+.tag.gone { color: var(--muted); }
+.chip.gone { color: var(--muted); box-shadow: inset 0 0 0 1.5px var(--line); text-decoration: line-through; }
+.swap.notice { border: 1.5px solid var(--bib); }
+.picker.out { border-color: var(--bib); }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--scrim); }
+.modal .picker { width: 100%; max-width: 440px; max-height: 100%; overflow: auto; box-shadow: 0 12px 40px rgba(0, 0, 0, .35); }
+.picker.out .pick.best { background: var(--on); border-color: var(--on); color: var(--on-ink); }
+.picker.out .pick { border-color: var(--line); background: none; }
+.picker.out .pick.warn { background: var(--bib); border-color: var(--bib); color: var(--on-ink); }
+body.ro .own { display: none !important; }
+body.ro:not(.sc) .scr { display: none !important; }
+.rowbtns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.code { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-height: 260px; }
+.code pre { margin: 0; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre; user-select: all; -webkit-user-select: all; }
+.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.steps code { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 1px 5px; overflow-wrap: anywhere; }
+.ed .pick { border-color: var(--line); background: none; }
+.ed .pick.sel { background: var(--on); border-color: var(--on); color: var(--on-ink); }
+.ed .pick.b.sel { background: var(--bib); border-color: var(--bib); }
+.ed .pick:disabled { opacity: .55; }
+.ed .nav { display: flex; gap: 8px; justify-content: space-between; }
+.tapchip { font-family: inherit; border: 0; cursor: pointer; min-height: 40px; padding: 6px 14px; text-decoration: underline dotted; text-underline-offset: 4px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sw { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1.5px var(--line); cursor: pointer; padding: 0; }
+.sw.is { box-shadow: 0 0 0 3px var(--ink); }
+.swatches input[type=color] { width: 48px; height: 40px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface); padding: 2px; }
+.crestrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; color: var(--ink); }
+.crestrow img { width: 64px; height: 64px; object-fit: contain; border-radius: 10px; background: var(--pitch); padding: 6px; }
+.crestrow input { min-width: 0; max-width: 100%; font: inherit; font-size: 14px; }
+.joinrow { display: flex; gap: 8px; }
+.joinrow input { flex: 1; min-width: 0; font: inherit; font-family: var(--display); font-size: 26px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.bigcode { font-family: var(--display); font-size: 56px; font-weight: 700; letter-spacing: .18em; padding: 6px 18px; border: 2px dashed var(--pitch-dim); border-radius: 12px; user-select: all; -webkit-user-select: all; }
+.codeline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#orgCodeRow { display: flex; flex-direction: column; gap: 6px; }
+#aOut, #aIn { display: flex; flex-direction: column; gap: 14px; }
+.field input[type=email], .field input[type=password] { font: inherit; font-size: 18px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; width: 100%; }
+.codeline span { color: var(--muted); }
+.codeline b { font-family: var(--display); font-size: 28px; letter-spacing: .16em; }
+.menu button small.code { font-family: var(--display); letter-spacing: .14em; }
+.tactic { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.tlabels { display: flex; justify-content: space-between; font-family: var(--display); font-size: 17px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.tlabels .agg { color: var(--agg); } .tlabels .fair { color: var(--fair); }
+.tactic input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; border-radius: 7px; margin: 10px 0; background: linear-gradient(90deg, var(--agg), var(--mid), var(--fair)); outline-offset: 6px; }
+.tactic input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); border: 3px solid var(--ink); box-shadow: 0 2px 6px rgba(0, 0, 0, .3); cursor: pointer; }
+.tactic input[type=range]::-moz-range-thumb { width: 26px; height: 26px; border-radius: 50%; background: var(--surface); border: 3px solid var(--ink); cursor: pointer; }
+.tactic .tnow { font-weight: 700; }
+.msg { margin: 0; font-weight: 600; } .msg.bad { color: var(--bib); }
+.side { flex: 1; min-width: 0; } .side .lbl { text-align: center; overflow-wrap: anywhere; }
+.orow { display: grid; grid-template-columns: 1fr 36px; gap: 8px; align-items: center; padding-block: 5px; border-bottom: 1px solid var(--line); }
+.orow input { min-width: 0; width: 100%; font: inherit; font-weight: 500; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+button:disabled { opacity: .4; cursor: default; }
+.res { list-style: none; margin: 0; padding: 0; } .res li { align-items: center; display: grid; grid-template-columns: 24px 52px 1fr auto; gap: 8px; padding-block: 7px; border-bottom: 1px solid var(--line); }
+.res span { min-width: 0; overflow-wrap: anywhere; }
+.del { min-height: 36px; padding-inline: 10px; border: 1.5px solid var(--line); border-radius: 8px; background: none; color: var(--muted); font-weight: 600; font-size: 14px; }
+.del.armed { background: var(--bib); border-color: var(--bib); color: var(--on-ink); }
+.res b { font-family: var(--display); font-size: 17px; } .res .W { color: var(--on); } .res .L { color: var(--bib); } .res .D { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<div class="view" id="v-welcome" hidden>
+  <div class="hero"><h1>AI Powered Tactics</h1><p>Line-ups, minutes, live scores and highlights for small-sided football</p></div>
+  <section id="myTeamsSec" hidden><h2>Your teams</h2><div class="menu" id="myTeams"></div></section>
+  <section><h2>Start a team</h2><p class="note">Set up your squad and colours. You get a code to share so others can follow the team.</p>
+    <div class="actions"><button class="plain primary" id="createBtn" type="button">Create a team</button></div></section>
+  <section><h2>Follow a team</h2><p class="note">Enter the 6-character code the team's organiser gave you. No account needed.</p>
+    <div class="joinrow"><input id="joinCode" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="K7Q2MX" aria-label="Team code"><button class="plain primary" id="joinBtn" type="button">Join</button></div>
+    <p class="msg" id="joinMsg"></p></section>
+  <section><h2>Organisers</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button></div></section>
+  <p class="note" id="sync2"></p>
+</div>
+
+<div class="view" id="v-account" hidden>
+  <div class="bar"><button class="back" type="button" data-go="welcome">&lsaquo; Teams</button><h1>Organiser account</h1></div>
+  <div id="aOut">
+    <p class="note">Organisers create teams and run games. Followers don't need an account.</p>
+    <label class="field" for="aEmail">Email<input id="aEmail" type="email" autocomplete="email" inputmode="email"></label>
+    <label class="field" for="aPass">Password<input id="aPass" type="password" autocomplete="current-password" minlength="8"></label>
+    <div class="actions"><button class="plain primary" id="aSignIn" type="button">Sign in</button><button class="plain" id="aSignUp" type="button">Create account</button></div>
+    <p class="note">New accounts get a confirmation email. Tap the link once, then sign in here.</p>
+  </div>
+  <div id="aIn" hidden>
+    <p class="msg">Signed in as <span id="aWho"></span></p>
+    <section><h2>Join a team as an organiser</h2><p class="note">Another organiser can give you the team's 10-character organiser code from Options.</p>
+      <div class="joinrow"><input id="aOrgCode" type="text" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Organiser code"><button class="plain primary" id="aOrgJoin" type="button">Join</button></div></section>
+    <div class="actions"><button class="plain" id="aSignOut" type="button">Sign out</button></div>
+  </div>
+  <p class="msg" id="aMsg" hidden></p>
+</div>
+
+<div class="view" id="v-create" hidden>
+  <div class="bar"><button class="back" type="button" data-go="welcome">&lsaquo; Teams</button><h1>New team</h1></div>
+  <label class="field" for="tName">Team name<input id="tName" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Sunday Strikers"></label>
+  <label class="field" for="tShort">Short name for the scoreboard<input id="tShort" type="text" maxlength="10" autocomplete="off" placeholder="e.g. SSFC"></label>
+  <div class="field"><span>Team colour</span><div class="swatches" id="tColors"></div></div>
+  <div class="field"><span>Crest (optional)</span><div class="crestrow"><img id="tCrestImg" alt="" hidden><input id="tCrest" type="file" accept="image/*"><button class="plain" id="tCrestRm" type="button" hidden>Remove</button></div></div>
+  <label class="field" for="tPlayers">Players, one per line<textarea id="tPlayers" rows="8" autocomplete="off" placeholder="Leave empty to start with Player 1 to Player 8"></textarea></label>
+  <p class="note">The first name in the list starts as keeper. You can change everything later in Options.</p>
+  <p class="msg bad" id="tMsg" hidden></p>
+  <div class="actions"><button class="plain primary" id="tCreate" type="button">Create team</button></div>
+</div>
+
+<div class="view" id="v-code" hidden>
+  <div class="hero"><p>Team created</p><h1 id="codeTeam"></h1><p>Share this code so others can follow the team</p><div class="bigcode" id="codeBig"></div></div>
+  <div class="actions"><button class="plain" id="codeCopy" type="button">Copy code</button><button class="plain primary" type="button" data-go="home">Go to the team</button></div>
+  <p class="note">Anyone with the code can follow live games and see the stats. To add another organiser, share the organiser code from Options.</p>
+</div>
+
+<div class="view" id="v-home">
+  <div class="hero"><img id="heroCrest" alt="" hidden><h1 id="heroName"></h1><p id="homeRecord"></p><p class="app-name">AI Powered Tactics</p></div>
+  <div class="menu">
+    <button class="primary" id="mResume" type="button" hidden><span id="mResumeLbl">Resume game</span><small id="mResumeSub"></small></button>
+    <button id="mNew" class="own" type="button">New game</button>
+    <button id="mStats" type="button">Stats</button>
+    <button id="mOptions" class="own" type="button">Options</button>
+    <button id="mSwitch" type="button">Switch team</button>
+  </div>
+  <p class="note" id="homeNote" hidden>No game on right now. When one starts, it appears here.</p>
+  <p class="note" id="sync"></p>
+</div>
+
+<div class="view" id="v-setup" hidden>
+  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>New game</h1></div>
+  <label class="field" for="oppPick" id="oppPickWrap" hidden>Played them before?<select id="oppPick"></select></label>
+  <label class="field" for="opp" id="oppWrap">Who are you playing?<input id="opp" type="text" placeholder="Opponent's name" autocomplete="off" maxlength="40"></label>
+  <p class="msg bad" id="oppErr" hidden>Enter the opponent's name before you carry on.</p>
+  <label class="check" for="friendly"><input id="friendly" type="checkbox"><span>Friendly <small>(kept out of the league record and stats)</small></span></label>
+  <section>
+    <h2>Line-up</h2>
+    <p class="note">Up to 8 can play. Set who starts, who starts on the bench and who's out. Tap GK for the keeper, who stays on all game.</p>
+    <div id="lineup"></div>
+    <p class="msg" id="lineMsg"></p>
+    <div class="actions">
+      <button class="plain" id="auto" type="button">Auto-pick bench</button>
+      <button class="plain primary" id="startGame" type="button">Next: minutes</button>
+    </div>
+    <p class="note">Auto-pick benches the players with the most minutes so far this season. If you leave the bench to auto-pick, the tactic slider on the next screen chooses who starts on the bench.</p>
+  </section>
+</div>
+
+<div class="view" id="v-mins" hidden>
+  <div class="bar"><button class="back" type="button" id="backSetup">&lsaquo; Line-up</button><h1>Minutes</h1></div>
+  <div class="tactic">
+    <div class="tlabels"><span class="agg">Aggressive</span><span class="fair">Fairness</span></div>
+    <input id="tactic" type="range" min="0" max="100" step="5" aria-label="Tactic, from aggressive to fair">
+    <p class="tnow" id="tacticNow"></p>
+    <p class="note" id="tacticNote"></p>
+  </div>
+  <p class="note">Fine-tune anyone with the buttons. Moving the slider again resets the split.</p>
+  <div id="minsList"></div>
+  <p class="msg" id="minsMsg"></p>
+  <div class="actions">
+    <button class="plain" id="minsAuto" type="button">Reset to the slider</button>
+    <button class="plain primary" id="kick" type="button">Go to kick-off</button>
+  </div>
+</div>
+
+<div class="view" id="v-game" hidden>
+  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1 id="gameTitle"></h1></div>
+
+  <div class="clock" id="clock">
+    <div class="phase"><span id="phase"></span><span id="played"></span></div>
+    <div class="count" id="count">5:00</div>
+    <div class="count-label" id="countLabel"></div>
+    <div class="blocks" id="blocks"></div>
+    <div class="controls own">
+      <button class="go" id="go" type="button">Kick off</button>
+      <button class="ghost" id="endHalf" type="button" hidden>Half time</button>
+      <button class="ghost" id="reset" type="button">Reset</button>
+    </div>
+  </div>
+
+  <div class="swap notice" id="notice" hidden><p class="msg" id="noticeText"></p><div class="actions own"><button class="plain" id="noticeOk" type="button">Got it</button></div></div>
+
+  <div class="swap"><h2 id="swapTitle">Next change</h2><div id="swapBody"></div>
+    <div class="actions own"><button class="plain" id="edBtn" type="button">Edit upcoming subs</button></div></div>
+  <div id="subEdit"></div>
+  <div id="quickSwap"></div>
+
+  <section>
+    <h2>Score</h2>
+    <div class="score">
+      <div class="side"><span class="lbl" id="usLbl">Us</span><span class="n" id="usN">0</span></div>
+      <span class="dash">&ndash;</span>
+      <div class="side"><span class="lbl" id="themLbl">Them</span><span class="n" id="themN">0</span></div>
+    </div>
+    <div class="actions">
+      <button class="plain primary scr" id="goalUs" type="button">Goal for us</button>
+      <button class="plain scr" id="goalThem" type="button">Goal against</button>
+      <button class="plain own" id="hlBtn" type="button">Mark a highlight</button>
+      <button class="plain own" id="svBtn" type="button">Keeper save</button>
+      <button class="plain own" id="undo" type="button">Undo last</button>
+    </div>
+    <div id="picker"></div>
+    <p class="note" id="goalMsg" hidden></p>
+    <ul class="events" id="events"></ul>
+  </section>
+
+  <section>
+    <h2 id="nowTitle">Right now</h2>
+    <div class="swap-rows">
+      <div class="tag on">Pitch</div><div class="chips" id="pitchNow"></div>
+      <div class="tag off">Bench</div><div class="chips" id="benchNow"></div>
+      <div class="tag gone" id="goneTag" hidden>Out</div><div class="chips" id="goneNow" hidden></div>
+    </div>
+    <div class="actions own"><button class="plain" id="outBtn" type="button">Player injured or leaving</button></div>
+    <div id="outPicker"></div>
+  </section>
+
+  <section>
+    <h2>Full rota</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Half</th><th>From</th><th>On the bench</th></tr></thead>
+      <tbody id="rota"></tbody>
+    </table></div>
+    <p class="note" id="minsNote"></p>
+  </section>
+
+  <section class="own">
+    <div class="actions"><button class="plain primary" id="finish" type="button">Finish game</button></div>
+    <p class="note">Finish game saves the result, goals, assists and minutes to your stats.</p>
+  </section>
+</div>
+
+<div class="view" id="v-stats" hidden>
+  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Stats</h1></div>
+  <p class="msg" id="record"></p>
+  <label class="check" for="showF"><input id="showF" type="checkbox"><span>Include friendlies</span></label>
+  <section>
+    <h2>Players</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Player</th><th class="n">Games</th><th class="n">Mins</th><th class="n">Goals</th><th class="n">Assists</th></tr></thead>
+      <tbody id="season"></tbody>
+    </table></div>
+  </section>
+  <section><h2>Results</h2><ul class="res" id="results"></ul><p class="note" id="resNote"></p></section>
+  <section><h2>Season reels</h2><p class="note">A highlights video for each player, cut from every recorded game.</p><div class="actions"><button class="plain" type="button" data-go="season">Make player reels</button></div></section>
+</div>
+
+<div class="view" id="v-reel" hidden>
+  <div class="bar"><button class="back" type="button" data-go="stats">&lsaquo; Stats</button><h1>Highlights</h1></div>
+  <p class="msg" id="reelTitle"></p>
+  <p class="note" id="reelCount"></p>
+  <section>
+    <h2>Line it up with the video</h2>
+    <p class="note">Play the GoPro footage, find the moment of kick-off, and enter the time shown on the video. If the GoPro split the game into several files, count from the start of the first one.</p>
+    <div class="three">
+      <label class="field" for="syncIn">Kick-off at<input id="syncIn" type="text" inputmode="numeric" placeholder="m:ss" autocomplete="off"></label>
+      <label class="field" for="preIn">Seconds before<input id="preIn" type="number" inputmode="numeric" min="0" max="120"></label>
+      <label class="field" for="postIn">Seconds after<input id="postIn" type="number" inputmode="numeric" min="0" max="120"></label>
+    </div>
+    <label class="check" for="capIn"><input id="capIn" type="checkbox"><span>Show scorer and score on each clip</span></label>
+    <p class="msg bad" id="syncMsg"></p>
+  </section>
+  <section class="own">
+    <h2>Watch highlights</h2>
+    <p class="note">Paste the times your watch shortcut saved. Any that fall during this game are added as highlight clips.</p>
+    <label class="field" for="impWho">Whose highlights are these?<select id="impWho"></select></label>
+    <label class="field" for="impIn">Times, one per line<textarea id="impIn" rows="4" autocomplete="off" placeholder="2026-10-06T19:12:40+01:00"></textarea></label>
+    <div class="actions"><button class="plain" id="impBtn" type="button">Add watch highlights</button></div>
+    <p class="msg" id="impMsg"></p>
+  </section>
+  <section>
+    <h2>Make the reel</h2>
+    <ol class="steps">
+      <li>Copy the GoPro files into a folder named <code id="reelFolder"></code>. Using that exact name lets the season reels find this game later.</li>
+      <li>Copy the script below and save it in that folder as <code>highlights.sh</code>.</li>
+      <li>In a terminal in that folder, run <code>bash highlights.sh GX01*.MP4 GX02*.MP4</code> with your files in order. It needs ffmpeg installed.</li>
+    </ol>
+    <div class="actions"><button class="plain primary" id="copyScript" type="button">Copy script</button></div>
+    <div class="code"><pre id="scriptOut"></pre></div>
+  </section>
+  <section>
+    <h2>YouTube chapters</h2>
+    <p class="note">Paste these into the description if you upload the full match.</p>
+    <div class="actions"><button class="plain" id="copyChap" type="button">Copy chapters</button></div>
+    <div class="code"><pre id="chapOut"></pre></div>
+  </section>
+</div>
+
+<div class="view" id="v-season" hidden>
+  <div class="bar"><button class="back" type="button" data-go="stats">&lsaquo; Stats</button><h1>Season reels</h1></div>
+  <label class="field" for="seaWho">Reel for<select id="seaWho"></select></label>
+  <p class="msg" id="seaCount"></p>
+  <p class="note" id="seaMissing"></p>
+  <section>
+    <h2>Make the reels</h2>
+    <ol class="steps">
+      <li>Keep one folder per game inside a season folder. The folder names are listed below.</li>
+      <li>Copy the script and save it in the season folder as <code>season.sh</code>.</li>
+      <li>In a terminal in the season folder, run <code>bash season.sh</code>. You get one video per player, named after them.</li>
+    </ol>
+    <div class="actions"><button class="plain primary" id="copySeason" type="button">Copy script</button></div>
+    <div class="code"><pre id="seasonOut"></pre></div>
+  </section>
+  <section><h2>Game folders</h2><div class="code"><pre id="seaFolders"></pre></div></section>
+</div>
+
+<div class="view" id="v-options" hidden>
+  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Options</h1></div>
+  <section>
+    <h2>Team</h2>
+    <div class="codeline"><span>Team code</span><b id="optCode"></b><button class="plain" id="optCopy" type="button">Copy</button></div>
+    <p class="note">Share this code so others can follow the team.</p>
+    <div id="orgCodeRow" hidden>
+      <div class="codeline"><span>Organiser code</span><b id="orgCode"></b><button class="plain" id="orgCopy" type="button">Copy</button><button class="plain" id="orgNew" type="button">New code</button></div>
+      <p class="note">Only give this to people who should run games. They sign in, then enter it under Organiser account.</p>
+    </div>
+    <label class="check" for="oScore"><input id="oScore" type="checkbox"><span>Followers can log goals <small>(they show in the game tagged as logged by a teammate)</small></span></label>
+    <label class="field" for="oName">Team name<input id="oName" type="text" maxlength="40" autocomplete="off"></label>
+    <label class="field" for="oShort">Short name for the scoreboard<input id="oShort" type="text" maxlength="10" autocomplete="off"></label>
+    <div class="field"><span>Team colour</span><div class="swatches" id="oColors"></div></div>
+    <div class="field"><span>Crest</span><div class="crestrow"><img id="oCrestImg" alt="" hidden><input id="oCrest" type="file" accept="image/*"><button class="plain" id="oCrestRm" type="button">Remove</button></div></div>
+    <p class="msg bad" id="oMsg" hidden></p>
+  </section>
+  <section>
+    <h2>Squad</h2>
+    <div id="squad"></div>
+    <p class="note" id="squadNote"></p>
+    <div class="actions"><button class="plain" id="add" type="button">Add player</button></div>
+  </section>
+  <section>
+    <h2>Match format</h2>
+    <div class="setup">
+      <label for="setHalf">Half (min)<input id="setHalf" type="number" inputmode="numeric" min="1" max="60"></label>
+      <label for="setSub">Sub every (min)<input id="setSub" type="number" inputmode="numeric" min="1" max="60"></label>
+      <label for="setPitch">On pitch<input id="setPitch" type="number" inputmode="numeric" min="1" max="15"></label>
+    </div>
+    <p class="note">On pitch includes the keeper. Changes apply from the next game you start.</p>
+  </section>
+  <section>
+    <h2>Stats</h2>
+    <div class="actions"><button class="plain" id="wipe" type="button">Reset all stats</button></div>
+    <p class="note">Clears every result and each player's games, minutes, goals and assists. The squad stays.</p>
+  </section>
+  <section>
+    <h2>This device</h2>
+    <div class="actions"><button class="plain" id="leave" type="button">Remove team from this device</button></div>
+    <p class="note">The team stays in the database. You can add it back with its code.</p>
+  </section>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  // ---- backend: Supabase. config.js holds the project URL and publishable key (both are meant to be public;
+  // the database's row level security decides who can change what).
+  var CFG = window.APT_CONFIG || {}, sb = null;
+  try { if (window.supabase && CFG.url && CFG.key) sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }); } catch (e) { sb = null; }
+  var SESSION = Math.random().toString(36).slice(2, 10); // tells this device's own broadcasts apart from others'
+  var me = null; // the signed-in organiser account, if any
+
+  // ---- teams on this device. The team itself lives in the database; this device remembers which ones it follows
+  // and keeps a copy of each so the app opens instantly and works with no signal.
+  var AKEY = 'apt-app', TKEY = 'apt-team-', DEFAULT_COLOR = '#1f6b4a';
+  function blankTeam() { return { name: '', short: '', color: DEFAULT_COLOR, players: [], nextId: 1, half: 15, sub: 5, pitch: 5, lastKeeper: null, results: [], match: null, followersCanScore: false }; }
+  var A = { teams: [], active: null, view: 'welcome' };
+  try { var a0 = JSON.parse(localStorage.getItem(AKEY)); if (a0 && Array.isArray(a0.teams)) A = Object.assign(A, a0); } catch (e) {}
+  function saveApp() { try { localStorage.setItem(AKEY, JSON.stringify(A)); } catch (e) {} }
+  function loadCache(code) { try { var v = JSON.parse(localStorage.getItem(TKEY + code)); if (v && v.players) return v; } catch (e) {} return null; }
+  function loadSynced(code) { try { return JSON.parse(localStorage.getItem(TKEY + code + ':synced')); } catch (e) { return null; } }
+  var S = blankTeam(); S.view = 'welcome';
+  if (A.active) { // this phone's copy of the open team; if it was cleared, the team is fetched again on start-up
+    var c0 = loadCache(A.active), m0 = A.teams.filter(function (x) { return x.code === A.active; })[0];
+    if (c0 || m0) { S = Object.assign(blankTeam(), c0 || { name: m0.name }); S.view = c0 ? (A.view || 'home') : 'home'; } else A.active = null;
+  }
+  function saveLocal() {
+    A.view = S.view; saveApp();
+    if (A.active) { try { var b = Object.assign({}, S); delete b.view; localStorage.setItem(TKEY + A.active, JSON.stringify(b)); } catch (e) {} }
+  }
+  var teamMeta = function (code) { return A.teams.filter(function (x) { return x.code === code; })[0] || null; };
+  function rememberTeam(code, name, org) {
+    var t = teamMeta(code);
+    if (t) { t.name = name || t.name; if (org != null) t.org = !!org; } else A.teams.push({ code: code, name: name || code, org: !!org });
+    saveApp();
+  }
+  function forgetTeam(code) {
+    A.teams = A.teams.filter(function (x) { return x.code !== code; });
+    try { ['', ':crest', ':synced'].forEach(function (k) { localStorage.removeItem(TKEY + code + k); }); } catch (e) {}
+    if (A.active === code) A.active = null;
+    saveApp();
+  }
+  var teamName = function () { return (S.name || '').trim() || 'Your team'; };
+  var teamShort = function () { return (S.short || '').trim() || teamName(); };
+  function applyTheme(over) { // the team colour drives the whole palette; dark text goes on light team colours
+    var want = over || (A.active ? S.color : DEFAULT_COLOR), c = /^#[0-9a-f]{6}$/i.test(want || '') ? want : DEFAULT_COLOR;
+    var r = parseInt(c.substr(1, 2), 16) / 255, g = parseInt(c.substr(3, 2), 16) / 255, b = parseInt(c.substr(5, 2), 16) / 255;
+    var lin = function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    var lum = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    document.documentElement.style.setProperty('--team', c);
+    document.documentElement.style.setProperty('--team-ink', lum > 0.4 ? '#15140f' : '#f7f5ec');
+    var meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', c);
+  }
+  var crest = null;
+  function setCrest(data, fromRemote) {
+    crest = data || null;
+    if (A.active) { try { if (crest) localStorage.setItem(TKEY + A.active + ':crest', crest); else localStorage.removeItem(TKEY + A.active + ':crest'); } catch (e) {} }
+    renderCrest();
+    if (!fromRemote) save();
+  }
+  function renderCrest() {
+    ['heroCrest', 'oCrestImg'].forEach(function (id) { var el = $(id); if (el) { el.hidden = !crest; if (crest) el.src = crest; else el.removeAttribute('src'); } });
+  }
+
+  // role in the open team: owner = organiser (runs games); scorer = follower who may log goals; viewer = follower
+  var role = 'viewer', teamId = null, orgCode = null;
+  var VIEWER_VIEWS = ['welcome', 'account', 'home', 'game', 'stats', 'reel', 'season'];
+  function setRole(r) {
+    role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
+    if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
+  }
+
+  var sync = 'local';
+  var SYNC = {
+    local: 'This copy isn’t connected to the database yet, so changes stay on this device.',
+    ok: 'Saved. Everyone following the team sees changes live.',
+    saving: 'Saving…',
+    watch: 'Following live. Only the team’s organisers can change things.',
+    watchS: 'Following live. You can log goals during a game.',
+    offline: 'Offline. Changes are kept on this phone and upload when you’re back online.',
+    err: 'Couldn’t save to the database. Changes are kept on this phone and the app keeps retrying.',
+    gone: 'That team no longer exists.'
+  };
+  function setSync(v) {
+    if (v) sync = v;
+    ['sync', 'sync2'].forEach(function (id) { var el = $(id); if (el) { el.textContent = SYNC[sync] || ''; el.className = 'note' + (sync === 'err' || sync === 'offline' || sync === 'local' ? ' warn' : ''); } });
+  }
+
+  // ---- mapping between the app's team object and the database rows
+  var stripNull = function (o) { Object.keys(o).forEach(function (k) { if (o[k] == null) delete o[k]; }); return o; };
+  var nn = function (v) { return v == null ? null : v; };
+  function uuid() {
+    try { return crypto.randomUUID(); } catch (e) {}
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+  }
+  function fromRemote(d) {
+    var t = d.team, st = t.settings || {}, s = blankTeam();
+    s.name = t.name; s.short = t.short || ''; s.color = t.color; s.followersCanScore = !!t.followers_can_score;
+    ['half', 'sub', 'pitch', 'tactic', 'lastKeeper', 'me', 'nextId'].forEach(function (k) { if (st[k] != null) s[k] = st[k]; });
+    s.players = (d.players || []).map(function (p) { return { id: p.pid, name: p.name }; });
+    var maxId = s.players.reduce(function (m, p) { return Math.max(m, p.id); }, 0);
+    if (!(s.nextId > maxId)) s.nextId = maxId + 1;
+    s.results = (d.games || []).map(function (g) {
+      var per = {}; (g.players || []).forEach(function (p) { per[p.pid] = { mins: p.mins, g: p.goals, a: p.assists }; });
+      var ev = (g.events || []).map(function (e) {
+        var o = { min: e.min, x: e.x, at: e.at };
+        if (e.kind === 'goal') { o.us = true; o.p = e.pid; o.a = e.assist; }
+        else if (e.kind === 'against') o.us = false;
+        else { o.hl = true; o.p = e.pid; if (e.kind === 'save') o.k = 'save'; }
+        if (e.watch) o.w = true; if (e.by_team) o.by = 'team';
+        return stripNull(o);
+      });
+      return stripNull({ id: g.id, opp: g.opp, friendly: g.friendly, us: g.us, them: g.them, half: g.half, koAt: g.ko_at, htAt: g.ht_at, h2At: g.h2_at,
+        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev });
+    });
+    s.match = d.live || null;
+    return s;
+  }
+  function teamRow() {
+    return { name: (S.name || '').trim() || 'Team', short: (S.short || '').trim().slice(0, 12), color: /^#[0-9a-f]{6}$/i.test(S.color || '') ? S.color : DEFAULT_COLOR,
+      followers_can_score: !!S.followersCanScore,
+      settings: { half: S.half, sub: S.sub, pitch: S.pitch, tactic: nn(S.tactic), lastKeeper: nn(S.lastKeeper), me: nn(S.me), nextId: S.nextId } };
+  }
+  function gameParts(r, i, tid) {
+    var row = { id: r.id, team_id: tid, seq: i, opp: (r.opp || '').slice(0, 60), friendly: !!r.friendly, us: r.us | 0, them: r.them | 0, half: nn(r.half),
+      ko_at: nn(r.koAt), ht_at: nn(r.htAt), h2_at: nn(r.h2At), ft_at: nn(r.ftAt), finished_at: nn(r.at),
+      sync: typeof r.sync === 'number' ? r.sync : null, pre: nn(r.pre), post: nn(r.post), cap: r.cap == null ? null : !!r.cap };
+    var players = Object.keys(r.per || {}).map(function (k) { var x = r.per[k]; return { game_id: r.id, pid: +k, mins: x.mins | 0, goals: x.g | 0, assists: x.a | 0 }; });
+    var events = (r.ev || []).map(function (e, j) {
+      return { game_id: r.id, seq: j, kind: e.hl ? (e.k === 'save' ? 'save' : 'highlight') : e.us ? 'goal' : 'against',
+        pid: nn(e.p), assist: nn(e.a), min: nn(e.min), x: nn(e.x), at: nn(e.at), watch: !!e.w, by_team: !!e.by };
+    });
+    return { row: row, players: players, events: events };
+  }
+  function snapshot() { // what the database should hold, as comparable strings
+    (S.results || []).forEach(function (r) { if (!r.id) r.id = uuid(); });
+    var snap = { team: JSON.stringify(teamRow()), crest: crest || null, players: {}, live: S.match ? JSON.stringify(S.match) : null, games: {} };
+    S.players.forEach(function (p) { snap.players[p.id] = (p.name || '').slice(0, 40); });
+    S.results.forEach(function (r, i) { snap.games[r.id] = JSON.stringify(gameParts(r, i, '')); });
+    return snap;
+  }
+
+  // ---- saving: organisers' changes go up a moment after each edit, only the parts that changed
+  var synced = null, syncing = false, dirty = false, wt = null, chan = null, chanCode = null, pollT = null;
+  function save() {
+    if (role !== 'owner' || !A.active) return;
+    S.ts = Date.now(); saveLocal(); dirty = true;
+    clearTimeout(wt); wt = setTimeout(syncAll, 600);
+  }
+  async function q(p) { var res = await p; if (res && res.error) throw res.error; return res; }
+  async function syncAll() {
+    if (!sb || !teamId || role !== 'owner' || !A.active) return;
+    if (syncing) { dirty = true; return; }
+    syncing = true; dirty = false;
+    var tid = teamId, code = A.active, prev = synced || { players: {}, games: {} }, snap = snapshot();
+    saveLocal();
+    try {
+      if (snap.team !== prev.team) await q(sb.from('teams').update(JSON.parse(snap.team)).eq('id', tid));
+      if (snap.crest !== prev.crest) await q(sb.from('teams').update({ crest: snap.crest }).eq('id', tid));
+      var up = [], gone = [];
+      Object.keys(snap.players).forEach(function (pid) { if (prev.players[pid] !== snap.players[pid]) up.push({ team_id: tid, pid: +pid, name: snap.players[pid] }); });
+      Object.keys(prev.players).forEach(function (pid) { if (!(pid in snap.players)) gone.push(+pid); });
+      if (up.length) await q(sb.from('players').upsert(up));
+      if (gone.length) await q(sb.from('players').delete().eq('team_id', tid).in('pid', gone));
+      if (snap.live !== prev.live) {
+        if (snap.live) await q(sb.from('live_matches').upsert({ team_id: tid, state: JSON.parse(snap.live), updated_by: SESSION }));
+        else await q(sb.from('live_matches').delete().eq('team_id', tid));
+      }
+      for (var i = 0; i < S.results.length; i++) {
+        var r = S.results[i];
+        if (prev.games[r.id] === snap.games[r.id]) continue;
+        var g = gameParts(r, i, tid);
+        await q(sb.from('games').upsert(g.row));
+        await q(sb.from('game_players').delete().eq('game_id', r.id));
+        if (g.players.length) await q(sb.from('game_players').insert(g.players));
+        await q(sb.from('game_events').delete().eq('game_id', r.id));
+        if (g.events.length) await q(sb.from('game_events').insert(g.events));
+      }
+      var dropped = Object.keys(prev.games).filter(function (id) { return !(id in snap.games); });
+      if (dropped.length) await q(sb.from('games').delete().in('id', dropped));
+      if (A.active === code) {
+        synced = snap; try { localStorage.setItem(TKEY + code + ':synced', JSON.stringify(snap)); } catch (e) {}
+        setSync('ok'); ping('changed');
+      }
+    } catch (e) {
+      dirty = true; setSync(navigator.onLine === false ? 'offline' : 'err');
+      clearTimeout(wt); wt = setTimeout(syncAll, 15000);
+    } finally {
+      syncing = false;
+      if (dirty && A.active === code && sync === 'ok') { clearTimeout(wt); wt = setTimeout(syncAll, 600); }
+    }
+  }
+  window.addEventListener('online', function () { if (dirty) syncAll(); else refetch(); });
+
+  // ---- live updates: a broadcast channel per team says "something changed"; everyone else re-reads the team
+  function ping(event, payload) { if (chan) chan.send({ type: 'broadcast', event: event, payload: Object.assign({ by: SESSION }, payload || {}) }).catch(function () {}); }
+  var refT = null;
+  function refetch() { clearTimeout(refT); refT = setTimeout(pull, 250); }
+  async function pull() {
+    var code = A.active; if (!sb || !code) return;
+    try {
+      var res = await q(sb.rpc('get_team', { p_code: code })), d = res.data;
+      if (A.active !== code) return;
+      if (!d) { forgetTeam(code); closeTeam(); S = blankTeam(); S.view = 'welcome'; go('welcome'); setSync('gone'); return; }
+      teamId = d.team.id; orgCode = d.team.organiser_code || null;
+      var org = !!d.is_organiser;
+      rememberTeam(code, d.team.name, org);
+      if (org && (dirty || syncing)) return; // our own edits are on their way up; theirs will arrive after
+      var remote = fromRemote(d);
+      if (org && synced === null) {
+        var saved = loadSynced(code), local = loadCache(code);
+        if (saved && local) { // this phone has edits that never reached the database: send them rather than overwrite them
+          var S0 = S; S = Object.assign(blankTeam(), local); S.view = S0.view;
+          var mine = snapshot(); S = S0;
+          if (JSON.stringify(mine) !== JSON.stringify(saved)) { synced = saved; setRole('owner'); dirty = true; syncAll(); return; }
+        }
+      }
+      adopt(remote);
+      setCrest(d.team.crest, true);
+      synced = org ? snapshot() : null;
+      if (org) { try { localStorage.setItem(TKEY + code + ':synced', JSON.stringify(synced)); } catch (e) {} }
+      setRole(org ? 'owner' : remote.followersCanScore ? 'scorer' : 'viewer');
+      setSync(org ? 'ok' : remote.followersCanScore ? 'watchS' : 'watch');
+      if (org) pullGoals();
+    } catch (e) { setSync(navigator.onLine === false ? 'offline' : 'err'); }
+  }
+  function adopt(r) {
+    var view = S.view;
+    S = Object.assign(blankTeam(), JSON.parse(JSON.stringify(r)));
+    S.view = view; saveLocal(); applyTheme();
+    upgrade(S.match); lastBlock = S.match ? curSeg(S.match) : -1; pick = null; outPick = null;
+    if (S.view === 'game' && !S.match) go('home');
+    else if (['setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0) { /* keep what is being built */ }
+    else if (!(S.view === 'options' && document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName))) render();
+  }
+  async function pullGoals() { // organisers: fold in goals that followers logged, then clear them
+    var tid = teamId; if (!sb || !tid || role !== 'owner') return;
+    try {
+      var res = await q(sb.from('goal_queue').select('id,payload').eq('team_id', tid)), rows = res.data || [], m = S.match, ids = [];
+      rows.forEach(function (row) {
+        var g = row.payload || {}; ids.push(row.id);
+        var ok = function (v) { return v == null || (typeof v === 'number' && m.squad.indexOf(v) >= 0); };
+        if (m && m.phase !== 'ft' && typeof g.us === 'boolean' && ok(g.p) && ok(g.a)) {
+          m.events.push(stripNull({ us: g.us, p: g.us && g.p != null ? g.p : null, a: g.us && g.a != null ? g.a : null, by: 'team', at: typeof g.ts === 'number' ? g.ts : Date.now(),
+            min: typeof g.min === 'number' ? Math.max(0, Math.min(m.half * 2, Math.round(g.min))) : matchMin(m),
+            x: typeof g.x === 'number' && g.x >= 1 ? Math.min(60, Math.round(g.x)) : null }));
+        }
+      });
+      if (ids.length) {
+        await q(sb.from('goal_queue').delete().in('id', ids));
+        save(); if (S.view === 'game') renderScore(); else if (S.view === 'home') renderHome();
+      }
+    } catch (e) {}
+  }
+  function closeTeam() {
+    if (chan && sb) { try { sb.removeChannel(chan); } catch (e) {} }
+    chan = null; chanCode = null; teamId = null; orgCode = null; synced = null; dirty = false; clearTimeout(wt); clearInterval(pollT);
+  }
+  function listen(code) {
+    if (!sb || chanCode === code) return;
+    if (chan) { try { sb.removeChannel(chan); } catch (e) {} }
+    chanCode = code;
+    chan = sb.channel('team:' + code, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'changed' }, function (m) { if (!m.payload || m.payload.by !== SESSION) refetch(); })
+      .on('broadcast', { event: 'goal' }, function () { if (role === 'owner') pullGoals(); })
+      .subscribe();
+    clearInterval(pollT); // a slow safety net in case a broadcast is missed
+    pollT = setInterval(function () { if (document.hidden) return; if (role !== 'owner' && S.match) refetch(); else if (role === 'owner' && S.match) pullGoals(); }, 20000);
+  }
+  // Open a team: show this device's copy straight away, then catch up with the database and follow it live.
+  function openTeam(code, view) {
+    if (A.active !== code) closeTeam();
+    A.active = code;
+    var cache = loadCache(code), meta = teamMeta(code);
+    S = Object.assign(blankTeam(), cache || { name: meta ? meta.name : '' });
+    S.view = view || 'home';
+    try { crest = localStorage.getItem(TKEY + code + ':crest'); } catch (e) { crest = null; }
+    applyTheme(); renderCrest(); upgrade(S.match); lastBlock = S.match ? curSeg(S.match) : -1; pick = null; outPick = null;
+    var org = !!(meta && meta.org && me);
+    role = org ? 'owner' : 'viewer'; document.body.className = org ? '' : 'ro';
+    saveLocal(); go(S.view);
+    if (!sb) { setRole('owner'); setSync('local'); return; }
+    setSync(org ? 'saving' : 'watch');
+    listen(code); pull();
+  }
+  async function addGoal(ev) {
+    var m = S.match; if (!m) return;
+    if (role === 'owner') { ev.at = Date.now(); m.events.push(ev); save(); renderScore(); return; }
+    if (!sb || !A.active) return;
+    var say = function (t) { goalMsg = t; clearTimeout(goalT); goalT = setTimeout(function () { goalMsg = ''; renderScore(); }, 8000); renderScore(); };
+    ev.ts = Date.now(); say('Sending the goal…');
+    try {
+      var res = await q(sb.rpc('queue_goal', { p_code: A.active, p_payload: ev }));
+      if (res.data) { ping('goal'); say('Goal sent. It shows up once an organiser’s phone picks it up.'); }
+      else { say('Goal logging is switched off for this team.'); setRole('viewer'); setSync('watch'); }
+    } catch (e) { say('Couldn’t send the goal. Check your signal and try again.'); }
+  }
+  var goalMsg = '', goalT = null;
+  function connect() {
+    if (!sb) { role = 'owner'; document.body.className = ''; setSync('local'); renderWelcome(); return; }
+    sb.auth.getSession().then(function (r) { me = r.data && r.data.session ? r.data.session.user : null; afterAuth(); });
+    sb.auth.onAuthStateChange(function (ev, session) {
+      var was = me && me.id; me = session ? session.user : null;
+      if ((me && me.id) !== was) afterAuth();
+    });
+  }
+  function afterAuth() {
+    myTeams = null; renderAccount();
+    if (A.active) openTeam(A.active, S.view);
+    else { role = me ? 'owner' : 'viewer'; document.body.className = me ? '' : 'ro'; renderWelcome(); }
+  }
+
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var P = function (id) { for (var i = 0; i < S.players.length; i++) if (S.players[i].id === id) return S.players[i]; return null; };
+  var nm = function (id) { var p = P(id); return p ? (p.name.trim() || 'Player') : 'Player'; };
+  var fmt = function (ms) { var s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); };
+  var fmt2 = function (ms) { var s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); };
+  var listAnd = function (a) { return a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : (a[0] || ''); };
+
+  // ---- match maths (m = S.match). A game is a list of segments: { h: half 0|1, from, to (minutes into the half), gk, on: [ids], bench: [ids] }
+  var halfMs = function (m) { return m.half * 60000; };
+  function mkSegs(sched, order, keeper, half, sub) {
+    var ph = Math.ceil(half / sub), out = [];
+    for (var b = 0; b < ph * 2; b++) {
+      var i = b % ph, be = (sched[b] || []).slice();
+      out.push({ h: b < ph ? 0 : 1, from: i * sub, to: Math.min(half, (i + 1) * sub), gk: keeper, bench: be,
+                 on: order.filter(function (id) { return be.indexOf(id) < 0; }) });
+    }
+    return out;
+  }
+  function upgrade(m) { // games started before segments existed
+    if (!m || m.segs) return;
+    var ph = Math.ceil(m.half / m.sub), n = m.order.length, k = Math.max(0, n - (m.pitch - (m.keeper != null ? 1 : 0))), sched = m.sched;
+    if (!sched) { sched = []; for (var b = 0; b < ph * 2; b++) { var o = []; for (var i = 0; i < k; i++) o.push(m.order[(b * k + i) % n]); sched.push(o); } }
+    m.segs = mkSegs(sched, m.order, m.keeper, m.half, m.sub);
+    m.squad = m.order.concat(m.keeper != null ? [m.keeper] : []); m.gone = [];
+    delete m.sched;
+  }
+  function gameMins(m) {
+    var r = {};
+    (m.squad || []).forEach(function (id) { r[id] = 0; });
+    m.segs.forEach(function (s) {
+      var d = s.to - s.from;
+      if (s.gk != null) r[s.gk] = (r[s.gk] || 0) + d;
+      s.on.forEach(function (id) { r[id] = (r[id] || 0) + d; });
+    });
+    return r;
+  }
+  function elapsed(m) { return m.base + (m.running ? Date.now() - m.t0 : 0); } // keeps running into added time until the half is ended by hand
+  function curSeg(m) {
+    if (m.phase === 'pre') return 0;
+    if (m.phase === 'ft') return m.segs.length - 1;
+    var h = m.phase === 'h1' ? 0 : 1, e = m.phase === 'ht' ? 0 : elapsed(m) / 60000, cur = -1;
+    for (var i = 0; i < m.segs.length; i++) if (m.segs[i].h === h && m.segs[i].from <= e) cur = i;
+    return cur < 0 ? 0 : cur;
+  }
+  function onPitch(m, i) { var s = m.segs[i]; return (s.gk != null ? [s.gk] : []).concat(s.on); }
+  function swapAt(m, to) { // who changes when segment `to` starts
+    var a = m.segs[to - 1], b = m.segs[to];
+    if (!a || !b) return { off: [], on: [] };
+    return { off: a.on.filter(function (id) { return b.bench.indexOf(id) >= 0; }), on: b.on.filter(function (id) { return a.bench.indexOf(id) >= 0; }) };
+  }
+  function nextChange(m, i) { // first later segment where somebody actually swaps, or -1
+    for (var t = i + 1; t < m.segs.length; t++) { var sw = swapAt(m, t); if (sw.off.length || sw.on.length) return t; }
+    return -1;
+  }
+  function hasBench(m) { return m.segs.some(function (s) { return s.bench.length > 0; }); }
+  function matchMin(m) {
+    if (m.phase === 'pre') return 0;
+    if (m.phase === 'ht') return m.half;
+    if (m.phase === 'ft') return m.half * 2;
+    return (m.phase === 'h2' ? m.half : 0) + Math.min(m.half, Math.floor(elapsed(m) / 60000) + 1);
+  }
+  function stamped(m, o) { // minute label for an event: 15 in normal time, 15 + 2 in added time
+    var live = m.phase === 'h1' || m.phase === 'h2', over = live ? elapsed(m) - halfMs(m) : -1;
+    o.min = matchMin(m);
+    if (over >= 0) o.x = Math.floor(over / 60000) + 1;
+    return o;
+  }
+  var ml = function (e) { return e.min == null ? '' : e.min + (e.x ? '+' + e.x : '') + "'"; };
+  function tally(m) {
+    var t = { us: 0, them: 0, g: {}, a: {} };
+    m.events.forEach(function (e) {
+      if (e.hl) return;
+      if (!e.us) { t.them++; return; }
+      t.us++;
+      if (e.p != null) t.g[e.p] = (t.g[e.p] || 0) + 1;
+      if (e.a != null) t.a[e.a] = (t.a[e.a] || 0) + 1;
+    });
+    return t;
+  }
+  var chips = function (m, list, cls) {
+    return list.map(function (id) { return '<span class="chip ' + cls + '">' + esc(nm(id)) + (id === m.keeper ? ' · GK' : '') + '</span>'; }).join('') || '<span class="note">Nobody</span>';
+  };
+  // Take player X out from minute `tm` of the current half onward. G = new keeper when X was in goal.
+  // Each pitch spot X leaves is filled from that segment's bench by whoever has the fewest minutes, so X's time is shared round.
+  function applyOut(m, X, G, i, tm, R, added) {
+    var s = m.segs[i], j;
+    if (tm <= s.from) j = i;
+    else if (tm >= s.to) {
+      if (added && (!m.segs[i + 1] || m.segs[i + 1].h !== s.h)) { var z = JSON.parse(JSON.stringify(s)); z.from = s.to; z.to = s.to; m.segs.splice(i + 1, 0, z); } // added time: a zero-length stretch so the change shows now
+      j = i + 1;
+    }
+    else { var tail = JSON.parse(JSON.stringify(s)); tail.from = tm; s.to = tm; m.segs.splice(i + 1, 0, tail); j = i + 1; }
+    var gm = gameMins(m), extra = {}, before = m.segs[j] ? m.segs[j].on.slice() : [], cameOn = [];
+    var score = function (id) { return (gm[id] || 0) + (extra[id] || 0); };
+    for (var t = j; t < m.segs.length; t++) {
+      var q = m.segs[t], d = q.to - q.from;
+      if (q.gk === X) q.gk = G != null ? G : null;
+      q.on = q.on.filter(function (id) { return id !== X && id !== G; });
+      q.bench = q.bench.filter(function (id) { return id !== X && id !== G; });
+      var spots = m.pitch - (q.gk != null ? 1 : 0);
+      if (t === j && R != null && q.on.length < spots && q.bench.indexOf(R) >= 0) {
+        q.bench.splice(q.bench.indexOf(R), 1); q.on.push(R); extra[R] = (extra[R] || 0) + d;
+      }
+      while (q.on.length < spots && q.bench.length) {
+        var best = 0;
+        for (var b = 1; b < q.bench.length; b++) if (score(q.bench[b]) < score(q.bench[best])) best = b;
+        var id = q.bench.splice(best, 1)[0]; q.on.push(id); extra[id] = (extra[id] || 0) + d;
+      }
+    }
+    if (m.segs[j]) cameOn = m.segs[j].on.filter(function (id) { return before.indexOf(id) < 0; });
+    m.order = m.order.filter(function (id) { return id !== X && id !== G; });
+    if (m.keeper === X) m.keeper = G != null ? G : null;
+    m.gone.push(X);
+    return cameOn;
+  }
+
+  // ---- navigation
+  var VIEWS = ['welcome', 'account', 'create', 'code', 'home', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  function go(view, keep) {
+    var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
+    if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
+    if (!A.active && ['welcome', 'create', 'account'].indexOf(view) < 0) view = 'welcome';
+    if (view === 'create' && S.view !== 'create') resetCreate();
+    if (view === 'reel' && !S.results[reelIdx]) view = 'stats';
+    if (view === 'game' && !S.match) view = 'home';
+    if (view === 'mins' && !D) view = 'home';
+    if (view === 'setup' && !(keep && D)) newDraft();
+    S.view = view; saveLocal();
+    if (view === 'welcome' || view === 'account') applyTheme(DEFAULT_COLOR); else if (view !== 'create') applyTheme();
+    VIEWS.forEach(function (v) { $('v-' + v).hidden = v !== view; });
+    render();
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+  function render() {
+    if (S.view === 'welcome') renderWelcome();
+    else if (S.view === 'account') renderAccount();
+    else if (S.view === 'create') renderCreate();
+    else if (S.view === 'code') renderCode();
+    else if (S.view === 'home') renderHome();
+    else if (S.view === 'setup') renderSetup();
+    else if (S.view === 'mins') renderMins();
+    else if (S.view === 'game') renderGame();
+    else if (S.view === 'stats') renderStats();
+    else if (S.view === 'reel') renderReel();
+    else if (S.view === 'season') renderSeason();
+    else renderOptions();
+  }
+  document.addEventListener('click', function (e) { var t = e.target.closest ? e.target.closest('[data-go]') : null; if (t) go(t.getAttribute('data-go')); });
+
+  // two-tap confirm; cond() false means no confirmation needed
+  function armed(btn, label, fn, cond) {
+    var t = null, orig = null;
+    function disarm() { clearTimeout(t); btn.classList.remove('armed'); if (orig !== null) btn.textContent = orig; orig = null; }
+    btn.addEventListener('click', function () {
+      if (btn.classList.contains('armed') || (cond && !cond())) { disarm(); fn(); return; }
+      orig = btn.textContent; btn.classList.add('armed'); btn.textContent = label;
+      t = setTimeout(disarm, 3000);
+    });
+  }
+
+  function recordLine(all) {
+    var rs = S.results.filter(function (r) { return all || !r.friendly; });
+    var W = 0, D = 0, L = 0, gf = 0, ga = 0;
+    rs.forEach(function (r) { gf += r.us; ga += r.them; if (r.us > r.them) W++; else if (r.us < r.them) L++; else D++; });
+    return rs.length ? { short: 'Played ' + rs.length + ' · W' + W + ' D' + D + ' L' + L, long: 'Played ' + rs.length + ': won ' + W + ', drew ' + D + ', lost ' + L + '. Scored ' + gf + ', conceded ' + ga + '.' } : null;
+  }
+
+  // ---- welcome: your teams, create, follow by code
+  var myTeams = null;
+  function joinSay(t, bad) { var el = $('joinMsg'); if (el) { el.textContent = t || ''; el.className = 'msg' + (bad ? ' bad' : ''); } }
+  function renderWelcome() {
+    var list = A.teams.slice();
+    (myTeams || []).forEach(function (t) { if (!list.some(function (x) { return x.code === t.code; })) list.push(t); });
+    $('myTeamsSec').hidden = !list.length;
+    $('myTeams').innerHTML = list.map(function (t) {
+      return '<button type="button" data-team="' + esc(t.code) + '"' + (t.code === A.active ? ' class="primary"' : '') + '>' + esc(t.name || t.code) +
+        '<small class="code">' + esc(t.code) + (t.org && me ? ' · organiser' : '') + '</small></button>';
+    }).join('');
+    $('acctLine').textContent = me ? 'Signed in as ' + (me.email || 'organiser') + '.' : 'Organisers sign in to create and run teams. Following a team needs no account.';
+    $('acctBtn').textContent = me ? 'Account' : 'Sign in';
+    setSync(sb ? (me ? 'ok' : 'watch') : 'local');
+    if (sb && me && myTeams === null) { // teams this account organises, wherever they were created
+      myTeams = [];
+      sb.from('teams').select('code,name').then(function (res) {
+        myTeams = (res.data || []).map(function (t) { return { code: t.code, name: t.name, org: true }; });
+        myTeams.forEach(function (t) { rememberTeam(t.code, t.name, true); });
+        if (S.view === 'welcome') renderWelcome();
+      });
+    }
+  }
+  $('myTeams').addEventListener('click', function (e) { var b = e.target.closest('button[data-team]'); if (b) openTeam(b.getAttribute('data-team')); });
+  async function joinTeam() {
+    var code = $('joinCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length !== 6) { joinSay('Team codes are 6 letters and numbers.', true); return; }
+    if (!sb) { if (loadCache(code)) openTeam(code); else joinSay('This copy of the app isn’t connected to the database.', true); return; }
+    joinSay('Looking for the team…');
+    try {
+      var res = await q(sb.rpc('get_team', { p_code: code }));
+      if (!res.data) { joinSay('No team has that code. Check it with the organiser.', true); return; }
+      rememberTeam(code, res.data.team.name, !!res.data.is_organiser); joinSay(''); $('joinCode').value = ''; openTeam(code);
+    } catch (e) { joinSay('Couldn’t reach the database. Check your signal and try again.', true); }
+  }
+  $('joinBtn').addEventListener('click', joinTeam);
+  $('joinCode').addEventListener('keydown', function (e) { if (e.key === 'Enter') joinTeam(); });
+  $('mSwitch').addEventListener('click', function () { go('welcome'); });
+  $('createBtn').addEventListener('click', function () { if (me || !sb) go('create'); else { A.after = 'create'; go('account'); } });
+
+  // ---- account: organisers sign in with email and password
+  function aSay(t, bad) { var el = $('aMsg'); el.textContent = t || ''; el.className = 'msg' + (bad ? ' bad' : ''); el.hidden = !t; }
+  function renderAccount() {
+    var el = $('v-account'); if (!el) return;
+    $('aOut').hidden = !!me; $('aIn').hidden = !me;
+    if (me) $('aWho').textContent = me.email || '';
+  }
+  async function authDo(kind) {
+    var email = $('aEmail').value.trim(), pw = $('aPass').value;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { aSay('Enter your email address.', true); return; }
+    if (pw.length < 8) { aSay('Passwords need at least 8 characters.', true); return; }
+    aSay(kind === 'up' ? 'Creating your account…' : 'Signing in…');
+    try {
+      if (kind === 'up') {
+        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: location.origin + location.pathname } });
+        if (r1.error) throw r1.error;
+        if (!r1.data.session) { aSay('Check your email and tap the link to confirm your account, then sign in here.'); return; }
+      } else {
+        var r2 = await sb.auth.signInWithPassword({ email: email, password: pw });
+        if (r2.error) throw r2.error;
+      }
+      $('aPass').value = ''; aSay('');
+      var next = A.after; A.after = null; go(next || 'welcome');
+    } catch (e) {
+      var m = (e && e.message) || '';
+      aSay(/invalid login/i.test(m) ? 'That email and password don’t match. If you only just signed up, confirm your email first.'
+        : /not confirmed/i.test(m) ? 'Confirm your email first: tap the link we sent you, then sign in.'
+        : /already registered/i.test(m) ? 'There’s already an account with that email. Sign in instead.'
+        : m || 'That didn’t work. Check your signal and try again.', true);
+    }
+  }
+  $('aSignIn').addEventListener('click', function () { authDo('in'); });
+  $('aSignUp').addEventListener('click', function () { authDo('up'); });
+  $('aPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') authDo('in'); });
+  $('aSignOut').addEventListener('click', async function () { await sb.auth.signOut(); aSay(''); go('welcome'); });
+  $('acctBtn').addEventListener('click', function () { go('account'); });
+  $('aOrgJoin').addEventListener('click', async function () {
+    var c = $('aOrgCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (c.length !== 10) { aSay('Organiser codes are 10 letters and numbers.', true); return; }
+    try {
+      var res = await q(sb.rpc('join_as_organiser', { p_organiser_code: c }));
+      if (!res.data) { aSay('No team has that organiser code.', true); return; }
+      $('aOrgCode').value = ''; aSay(''); myTeams = null; rememberTeam(res.data, '', true); openTeam(res.data);
+    } catch (e) { aSay('Couldn’t add you as an organiser. Check your signal and try again.', true); }
+  });
+
+  // ---- shared bits for team colour and crest
+  var PRESETS = ['#1f6b4a', '#4c2bb0', '#b3202a', '#1d4ed8', '#1e2a4a', '#d9620b', '#e3b505', '#6d1a36', '#3a8fd6', '#1a1a1a'];
+  function swatches(el, cur, onPick) {
+    cur = (cur || DEFAULT_COLOR).toLowerCase();
+    el.innerHTML = PRESETS.map(function (c) { return '<button class="sw' + (c === cur ? ' is' : '') + '" type="button" data-c="' + c + '" style="background:' + c + '" aria-label="Colour ' + c + '"></button>'; }).join('') +
+      '<input type="color" value="' + cur + '" aria-label="Pick any colour">';
+    el.onclick = function (e) { var c = e.target.getAttribute && e.target.getAttribute('data-c'); if (c) onPick(c, false); };
+    el.querySelector('input').oninput = function (e) { onPick(e.target.value.toLowerCase(), true); };
+  }
+  function readCrest(file) { // shrink to at most 320px so it stays small in the database
+    return new Promise(function (res, rej) {
+      if (!file || !/^image\//.test(file.type)) { rej(new Error('That file isn’t an image.')); return; }
+      var fr = new FileReader();
+      fr.onerror = function () { rej(new Error('Couldn’t read that image.')); };
+      fr.onload = function () {
+        var img = new Image();
+        img.onerror = function () { rej(new Error('Couldn’t read that image.')); };
+        img.onload = function () {
+          var k = Math.min(1, 320 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+          cv.width = Math.max(1, Math.round(img.width * k)); cv.height = Math.max(1, Math.round(img.height * k));
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          var u = cv.toDataURL('image/png');
+          if (u.length > 200000) u = cv.toDataURL('image/jpeg', 0.85);
+          if (u.length > 200000) rej(new Error('That image is too detailed. Try a simpler version of the crest.')); else res(u);
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+  var initials = function (name) {
+    if (name.length <= 10) return name;
+    return name.split(/\s+/).map(function (w) { return w[0] || ''; }).join('').toUpperCase().slice(0, 6);
+  };
+
+  // ---- create a team
+  var draft = { color: PRESETS[0], crest: null };
+  function resetCreate() {
+    draft = { color: PRESETS[0], crest: null };
+    ['tName', 'tShort', 'tPlayers', 'tCrest'].forEach(function (id) { $(id).value = ''; });
+    $('tMsg').hidden = true; $('tCreate').disabled = false; renderCreate();
+  }
+  function renderCreate() {
+    applyTheme(draft.color);
+    swatches($('tColors'), draft.color, function (c, fromPicker) { draft.color = c; applyTheme(c); if (!fromPicker) renderCreate(); });
+    $('tCrestImg').hidden = $('tCrestRm').hidden = !draft.crest; if (draft.crest) $('tCrestImg').src = draft.crest;
+  }
+  function tSay(t) { $('tMsg').textContent = t; $('tMsg').hidden = !t; }
+  $('tCrest').addEventListener('change', function (e) {
+    readCrest(e.target.files[0]).then(function (u) { draft.crest = u; tSay(''); renderCreate(); }, function (err) { e.target.value = ''; tSay(err.message); });
+  });
+  $('tCrestRm').addEventListener('click', function () { draft.crest = null; $('tCrest').value = ''; renderCreate(); });
+  $('tCreate').addEventListener('click', async function () {
+    var name = $('tName').value.trim();
+    if (!name) { tSay('Give the team a name.'); $('tName').focus(); return; }
+    var names = $('tPlayers').value.split('\n').map(function (x) { return x.trim().slice(0, 24); }).filter(Boolean).slice(0, 40);
+    if (!names.length) for (var i = 1; i <= 8; i++) names.push('Player ' + i);
+    var t = blankTeam();
+    t.name = name; t.short = $('tShort').value.trim() || initials(name); t.color = draft.color;
+    t.players = names.map(function (n, i) { return { id: i + 1, name: n }; }); t.nextId = names.length + 1; t.lastKeeper = 1; t.tactic = 100;
+    var crestData = draft.crest;
+    $('tCreate').disabled = true; tSay('');
+    var done = function (code) {
+      try { localStorage.setItem(TKEY + code, JSON.stringify(t)); if (crestData) localStorage.setItem(TKEY + code + ':crest', crestData); } catch (e) {}
+      rememberTeam(code, name, true); myTeams = null; openTeam(code, 'code');
+    };
+    if (!sb) { done(Math.random().toString(36).slice(2, 8).toUpperCase()); return; }
+    try {
+      var res = await q(sb.rpc('create_team', { p_name: name, p_short: t.short, p_color: t.color, p_crest: crestData,
+        p_settings: { half: t.half, sub: t.sub, pitch: t.pitch, tactic: 100, lastKeeper: 1, nextId: t.nextId },
+        p_players: t.players.map(function (p) { return { pid: p.id, name: p.name }; }) }));
+      done(res.data.code);
+    } catch (e) { $('tCreate').disabled = false; tSay('Couldn’t create the team. Check your signal and that you’re signed in.'); }
+  });
+  function renderCode() { $('codeTeam').textContent = teamName(); $('codeBig').textContent = A.active || ''; }
+
+  // ---- home
+  function renderHome() {
+    var r = recordLine(), m = S.match;
+    $('heroName').textContent = teamName(); renderCrest();
+    $('homeRecord').textContent = r ? r.short : 'Season starts here';
+    $('mResume').hidden = !m; $('mResumeLbl').textContent = role === 'owner' ? 'Resume game' : 'Watch the game';
+    $('homeNote').hidden = role === 'owner' || !!m;
+    $('mNew').className = 'own' + (m ? '' : ' primary');
+    if (m) { var t = tally(m); $('mResumeSub').textContent = 'v ' + m.opp + ', ' + t.us + '–' + t.them; }
+  }
+  $('mResume').addEventListener('click', function () { go('game'); });
+  armed($('mNew'), 'Scrap the game in progress?', function () { S.match = null; go('setup'); }, function () { return !!S.match; });
+  $('mStats').addEventListener('click', function () { go('stats'); });
+  $('mOptions').addEventListener('click', function () { go('options'); });
+
+  // ---- new game setup
+  // player totals are always worked out from the saved games, never stored
+  function totals(all) {
+    var t = {};
+    S.players.forEach(function (p) { t[p.id] = { mins: 0, g: 0, a: 0, apps: 0 }; });
+    S.results.forEach(function (r) {
+      if (!r.per || (!all && r.friendly)) return;
+      Object.keys(r.per).forEach(function (k) {
+        var x = t[k], d = r.per[k]; if (!x) return;
+        x.mins += d.mins || 0; x.g += d.g || 0; x.a += d.a || 0; x.apps += 1;
+      });
+    });
+    return t;
+  }
+  var D = null, MAX = 8;
+  function playing() { return S.players.filter(function (p) { return D.sel[p.id] !== 'out'; }).length; }
+  function newDraft() {
+    D = { keeper: P(S.lastKeeper) ? S.lastKeeper : null, sel: {}, manualBench: false };
+    S.players.forEach(function (p, i) { D.sel[p.id] = i < MAX ? 'start' : 'out'; });
+    if (D.keeper != null && D.sel[D.keeper] === 'out') D.keeper = null;
+    autoPick(); $('opp').value = ''; $('friendly').checked = false; $('oppErr').hidden = true;
+    var seen = {}, names = [];
+    S.results.forEach(function (r) { var n = (r.opp || '').trim(), k = n.toLowerCase(); if (n && n !== 'Opponents' && !seen[k]) { seen[k] = 1; names.push(n); } });
+    names.sort(function (a, b) { return a.localeCompare(b); });
+    $('oppPickWrap').hidden = !names.length;
+    $('oppPick').innerHTML = '<option value="">New team</option>' + names.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+    $('oppWrap').hidden = false;
+  }
+  function draftOutfield() { return S.players.filter(function (p) { return D.sel[p.id] !== 'out' && p.id !== D.keeper; }).map(function (p) { return p.id; }); }
+  function needBench() { return Math.max(0, draftOutfield().length - (S.pitch - (D.keeper != null ? 1 : 0))); }
+  function byMins(ids) {
+    var pos = {}; S.players.forEach(function (p, i) { pos[p.id] = i; });
+    var T = totals(true);
+    return ids.slice().sort(function (x, y) { return (T[y].mins - T[x].mins) || (pos[x] - pos[y]); });
+  }
+  function autoPick() { var k = needBench(); byMins(draftOutfield()).forEach(function (id, i) { D.sel[id] = i < k ? 'bench' : 'start'; }); }
+  function draftOk() {
+    var ids = draftOutfield(), b = ids.filter(function (id) { return D.sel[id] === 'bench'; }).length;
+    return { need: needBench(), have: b, total: ids.length + (D.keeper != null ? 1 : 0) };
+  }
+  function renderSetup() {
+    if (!D) newDraft();
+    var html = '', T = totals(true);
+    S.players.forEach(function (p) {
+      var isK = D.keeper === p.id, v = isK ? 'start' : D.sel[p.id];
+      html += '<div class="lrow"><span class="who">' + esc(nm(p.id)) + '<small>' + T[p.id].mins + ' min so far</small></span>' +
+        '<button class="gk' + (isK ? ' is' : '') + '" type="button" data-gk="1" data-id="' + p.id + '" aria-pressed="' + isK + '" aria-label="Keeper: ' + esc(nm(p.id)) + '">GK</button>' +
+        '<span class="seg">' + [['start', 'Start'], ['bench', 'Bench'], ['out', 'Out']].map(function (o) {
+          return '<button type="button" data-set="' + o[0] + '" data-id="' + p.id + '" class="' + (v === o[0] ? 'is' : '') + '">' + o[1] + '</button>';
+        }).join('') + '</span></div>';
+    });
+    $('lineup').innerHTML = html;
+    var c = draftOk(), msg, bad = false;
+    if (D.warn) { msg = MAX + ' players is the most for one game. Set someone to Out first.'; bad = c.have !== c.need; }
+    else if (!c.total) { msg = 'Pick at least one player.'; bad = true; }
+    else if (c.need === 0 && c.have === 0) msg = c.total + ' playing, so everyone is on the pitch all game.';
+    else if (c.have === c.need) msg = c.total + ' playing: ' + (c.total - c.need) + ' on the pitch, ' + c.need + ' on the bench.';
+    else { msg = 'Put ' + c.need + ' on the bench to start. You have ' + c.have + '.'; bad = true; }
+    $('lineMsg').textContent = msg; $('lineMsg').className = 'msg' + (bad || D.warn ? ' bad' : ''); D.warn = false;
+    $('startGame').disabled = bad;
+  }
+  $('lineup').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var id = +b.getAttribute('data-id'), v = b.getAttribute('data-set');
+    if (D.sel[id] === 'out' && v !== 'out' && playing() >= MAX) { D.warn = true; renderSetup(); return; }
+    if (b.getAttribute('data-gk')) {
+      D.keeper = D.keeper === id ? null : id; D.sel[id] = 'start'; autoPick();
+    } else if (v) {
+      var was = D.sel[id];
+      if (D.keeper === id) { if (v === 'start') return; D.keeper = null; was = 'out'; }
+      D.sel[id] = v; if (v !== 'out') D.manualBench = true;
+      if (v === 'out' || was === 'out') { autoPick(); if (v !== 'out') D.sel[id] = v; }
+    }
+    renderSetup();
+  });
+  $('oppPick').addEventListener('change', function (e) {
+    $('opp').value = e.target.value; $('oppWrap').hidden = !!e.target.value; if (e.target.value) $('oppErr').hidden = true;
+    if (!e.target.value) $('opp').focus();
+  });
+  $('opp').addEventListener('input', function () { if ($('opp').value.trim()) $('oppErr').hidden = true; });
+  $('auto').addEventListener('click', function () { autoPick(); D.manualBench = false; renderSetup(); });
+  // ---- minutes plan: sits = how many sub blocks a player spends on the bench
+  function fairSits(ids, benchIds, k, B, season, full, sub) {
+    var sits = {}, n = ids.length, total = B * k;
+    if (!n) return sits;
+    var avg = total / n, lo = Math.max(0, Math.floor(avg) - 1), hi = Math.ceil(avg), left = total;
+    var isB = function (id) { return benchIds.indexOf(id) >= 0; };
+    var cap = function (id) { return isB(id) ? B : B - 1; };
+    ids.forEach(function (id) { sits[id] = Math.min(cap(id), Math.max(isB(id) ? 1 : 0, lo)); left -= sits[id]; });
+    while (left > 0) {
+      var best = null, bv = -Infinity;
+      ids.forEach(function (id) {
+        if (sits[id] >= Math.min(hi, cap(id))) return;
+        var v = (season[id] || 0) + full - sits[id] * sub + (isB(id) ? 0.5 : 0);
+        if (v > bv) { bv = v; best = id; }
+      });
+      if (best === null) ids.forEach(function (id) { if (best === null && sits[id] < cap(id)) best = id; });
+      if (best === null) break;
+      sits[best]++; left--;
+    }
+    return sits;
+  }
+  function buildSched(ids, benchIds, sits, k, B) {
+    var rem = {}, last = {}, out = [], sum = 0;
+    ids.forEach(function (id) { rem[id] = sits[id] || 0; last[id] = -9; sum += rem[id]; });
+    if (sum !== B * k) return null;
+    for (var b = 0; b < B; b++) {
+      var left = B - b, got;
+      if (b === 0) got = benchIds.slice();
+      else got = ids.filter(function (id) { return rem[id] > 0; }).sort(function (x, y) {
+        return ((rem[y] >= left) - (rem[x] >= left)) || (rem[y] - rem[x]) || (last[x] - last[y]);
+      }).slice(0, k);
+      if (got.length !== k) return null;
+      for (var i = 0; i < got.length; i++) { if (rem[got[i]] <= 0) return null; rem[got[i]]--; last[got[i]] = b; }
+      out.push(got);
+    }
+    for (var j = 0; j < ids.length; j++) if (rem[ids[j]] !== 0) return null;
+    return out;
+  }
+
+  function plan() {
+    var ids = draftOutfield(), benchIds = byMins(ids.filter(function (id) { return D.sel[id] === 'bench'; }));
+    var order = benchIds.concat(byMins(ids.filter(function (id) { return D.sel[id] !== 'bench'; })));
+    return { ids: order, benchIds: benchIds, k: needBench(), B: Math.ceil(S.half / S.sub) * 2 };
+  }
+  // ---- tactic slider: 0 = strongest team, 100 = complete fairness. sits = sub stretches a player spends on the bench.
+  function tacticSits(ids, benchIds, k, B, T, squadPos, t) {
+    var out = {}, total = B * k, n = ids.length;
+    ids.forEach(function (id) { out[id] = 0; });
+    if (!n || !k) return out;
+    var cap = B - 1; // everyone plays at least one stretch (5 minutes)
+    // fairness: equal shares; any extra bench time goes to whoever has played most this season, then squad order
+    var fairOrder = ids.slice().sort(function (a, b) { return (T[b].mins - T[a].mins) || (squadPos[a] - squadPos[b]); });
+    var fr = {}; fairOrder.forEach(function (id, i) { fr[id] = i; });
+    var F = {}, base = Math.floor(total / n), rem = total % n;
+    fairOrder.forEach(function (id, i) { F[id] = Math.min(cap, base + (i < rem ? 1 : 0)); });
+    // strongest team: rate goal involvement per minute, pulled towards the team average until a player has some minutes
+    var sg = 0, sm = 0; ids.forEach(function (id) { sg += T[id].g + 0.7 * T[id].a; sm += T[id].mins; });
+    var p0 = sm ? sg / sm : 0, rate = {};
+    ids.forEach(function (id) { rate[id] = (T[id].g + 0.7 * T[id].a + p0 * 60) / (T[id].mins + 60); });
+    var aggOrder = ids.slice().sort(function (a, b) { return (rate[a] - rate[b]) || (fr[a] - fr[b]); }); // weakest first
+    var G = {}, left = total;
+    aggOrder.forEach(function (id) { G[id] = Math.min(cap, left); left -= G[id]; });
+    if (sg <= 0) G = F; // nothing recorded yet, so there is no basis to rank anyone
+    // blend the two plans and round so the bench time still adds up exactly
+    var raw = {}, sum = 0;
+    ids.forEach(function (id) { raw[id] = t * F[id] + (1 - t) * G[id]; out[id] = Math.floor(raw[id] + 1e-9); sum += out[id]; });
+    var byRem = ids.slice().sort(function (a, b) { return ((raw[b] - out[b]) - (raw[a] - out[a])) || (fr[a] - fr[b]); });
+    for (var pass = 0; pass < 2 && sum < total; pass++) {
+      var lim = pass ? B : cap;
+      for (var i = 0; i < byRem.length && sum < total; i++) if (out[byRem[i]] < lim) { out[byRem[i]]++; sum++; }
+    }
+    // anyone starting on the bench must sit at least one stretch
+    benchIds.forEach(function (id) {
+      if (out[id] >= 1) return;
+      var donor = ids.filter(function (x) { return benchIds.indexOf(x) < 0 && out[x] > 0; }).sort(function (a, b) { return out[b] - out[a]; })[0];
+      if (donor != null) { out[donor]--; out[id]++; }
+    });
+    return { sits: out, rate: rate, fr: fr, hasStats: sg > 0 };
+  }
+
+  var tacticVal = function () { return S.tactic != null ? S.tactic : 100; };
+  function setFair() { // plan today's minutes from the slider; also picks who starts on the bench unless that was set by hand
+    var pos = {}; S.players.forEach(function (p, i) { pos[p.id] = i; });
+    var T = totals(true), t = tacticVal() / 100, pl = plan();
+    var res = tacticSits(pl.ids, pl.benchIds, pl.k, pl.B, T, pos, t);
+    if (!D.manualBench && pl.k) {
+      var first = pl.ids.slice().sort(function (a, b) { return (res.sits[b] - res.sits[a]) || (res.fr[a] - res.fr[b]); }).slice(0, pl.k);
+      pl.ids.forEach(function (id) { D.sel[id] = first.indexOf(id) >= 0 ? 'bench' : 'start'; });
+      pl = plan(); res = tacticSits(pl.ids, pl.benchIds, pl.k, pl.B, T, pos, t);
+    }
+    D.sits = res.sits; D.hasStats = res.hasStats;
+  }
+  function renderMins() {
+    if (!D || !D.sits) { go('home'); return; }
+    var pl = plan(), T = totals(true), full = S.half * 2, html = '', sum = 0, tv = tacticVal();
+    if (document.activeElement !== $('tactic')) $('tactic').value = tv;
+    $('tacticNow').textContent = tv >= 100 ? 'Complete fairness' : tv <= 0 ? 'Strongest team' : tv > 60 ? 'Leaning fair' : tv < 40 ? 'Leaning aggressive' : 'Balanced';
+    $('tacticNow').style.color = tv >= 67 ? 'var(--fair)' : tv <= 33 ? 'var(--agg)' : 'var(--mid)';
+    $('tacticNote').textContent = (tv >= 100 ? 'Everyone gets as close to equal minutes as possible. Any extra time goes to whoever has played least this season.'
+      : tv <= 0 ? 'Your most effective players by goals and assists per minute play the most. Everyone still plays at least 5 minutes.'
+      : 'A mix of the two: the further left, the more minutes go to your most effective players.')
+      + (tv < 100 && !D.hasStats ? ' No goals or assists are recorded yet, so there is nothing to rank players on until you finish some games.' : '')
+      + (D.manualBench && tv < 100 ? ' You picked the starting bench yourself, so it stays as you set it.' : '');
+    var sched = buildSched(pl.ids, pl.benchIds, D.sits, pl.k, pl.B), real = null;
+    if (sched) real = gameMins({ squad: pl.ids, segs: mkSegs(sched, pl.ids, null, S.half, S.sub) });
+    if (D.keeper != null) html += '<div class="mrow"><span class="who">' + esc(nm(D.keeper)) + '<small>In goal all game</small></span><span class="step"><b>' + full + ' <small>min</small></b></span></div>';
+    pl.ids.forEach(function (id) {
+      var isB = pl.benchIds.indexOf(id) >= 0, st = D.sits[id], lo = isB ? 1 : 0, hi = isB ? pl.B : pl.B - 1;
+      var mins = real ? real[id] : Math.max(0, full - st * S.sub);
+      sum += st;
+      html += '<div class="mrow"><span class="who">' + esc(nm(id)) + '<small>' + T[id].mins + ' min so far' + (T[id].g || T[id].a ? ' · ' + T[id].g + 'G ' + T[id].a + 'A' : '') + ' · ' + (isB ? 'starts on the bench' : 'starts') + '</small></span>' +
+        '<span class="step"><button type="button" data-id="' + id + '" data-d="1" aria-label="Less time for ' + esc(nm(id)) + '"' + (st >= hi || !pl.k ? ' disabled' : '') + '>&minus;</button>' +
+        '<b>' + mins + ' <small>min</small></b>' +
+        '<button type="button" data-id="' + id + '" data-d="-1" aria-label="More time for ' + esc(nm(id)) + '"' + (st <= lo || !pl.k ? ' disabled' : '') + '>+</button></span></div>';
+    });
+    $('minsList').innerHTML = html;
+    var diff = (sum - pl.B * pl.k) * S.sub, msg, bad = false;
+    if (!pl.k) msg = 'Everyone fits on the pitch, so everyone plays the whole game.';
+    else if (diff > 0) { msg = diff + ' minutes still to hand out. Give someone more time.'; bad = true; }
+    else if (diff < 0) { msg = (-diff) + ' minutes too many. Take time off someone.'; bad = true; }
+    else if (!sched) { msg = 'That split can’t be fitted into the changes. Try a different mix.'; bad = true; }
+    else msg = 'All the outfield minutes are handed out.';
+    $('minsMsg').textContent = msg; $('minsMsg').className = 'msg' + (bad ? ' bad' : '');
+    $('kick').disabled = bad;
+  }
+  $('startGame').addEventListener('click', function () {
+    var c = draftOk(); if (!c.total || c.have !== c.need || playing() > MAX) return;
+    if (!$('opp').value.trim()) {
+      $('oppErr').hidden = false; $('oppWrap').hidden = false; $('oppPick').value = '';
+      try { $('opp').scrollIntoView({ block: 'center' }); $('opp').focus(); } catch (e) {}
+      return;
+    }
+    setFair(); go('mins');
+  });
+  $('backSetup').addEventListener('click', function () { go('setup', true); });
+  $('minsAuto').addEventListener('click', function () { setFair(); renderMins(); });
+  $('tactic').addEventListener('input', function (e) { S.tactic = +e.target.value; setFair(); renderMins(); });
+  $('tactic').addEventListener('change', function (e) { S.tactic = +e.target.value; save(); });
+  $('minsList').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || b.disabled) return;
+    var id = +b.getAttribute('data-id'); D.sits[id] += +b.getAttribute('data-d'); renderMins();
+  });
+  $('kick').addEventListener('click', function () {
+    var pl = plan(), sched = buildSched(pl.ids, pl.benchIds, D.sits, pl.k, pl.B); if (!sched) return;
+    S.match = { opp: $('opp').value.trim() || 'Opponents', friendly: $('friendly').checked, order: pl.ids, keeper: D.keeper, segs: mkSegs(sched, pl.ids, D.keeper, S.half, S.sub),
+                squad: pl.ids.concat(D.keeper != null ? [D.keeper] : []), gone: [],
+                half: S.half, sub: S.sub, pitch: S.pitch, events: [], phase: 'pre', running: false, base: 0, t0: 0 };
+    D = null; lastBlock = -1; pick = null; save(); go('game');
+  });
+
+  // ---- game
+  var lastBlock = -1, pick = null, outPick = null;
+  function renderClock() {
+    var m = S.match; if (!m) return;
+    var i = curSeg(m), s = m.segs[i], e = elapsed(m), live = m.phase === 'h1' || m.phase === 'h2';
+    var t = nextChange(m, i), sameHalf = t >= 0 && m.segs[t].h === s.h, target = (sameHalf ? m.segs[t].from : m.half) * 60000;
+    $('phase').textContent = { pre: 'Before kick-off', h1: 'First half', ht: 'Half time', h2: 'Second half', ft: 'Full time' }[m.phase];
+    $('played').textContent = live ? fmt2(e) + ' played' : '';
+    if (m.phase === 'ft') { $('count').textContent = '0:00'; $('countLabel').textContent = 'Game over'; }
+    else {
+      var first = m.phase === 'pre' || m.phase === 'h1', added = live && !sameHalf && e >= halfMs(m);
+      $('count').textContent = added ? '+' + fmt2(e - halfMs(m)) : fmt(target - (live ? e : 0));
+      $('countLabel').textContent = added ? 'Added time, until the ' + (first ? 'half-time' : 'final') + ' whistle'
+        : sameHalf ? (live ? 'Until the next change' : 'Until the first change') : (first ? 'Until half time' : 'Until full time');
+    }
+    $('go').textContent = m.phase === 'pre' ? 'Kick off' : m.phase === 'ht' ? 'Start 2nd half' : m.phase === 'ft' ? 'Full time' : m.running ? 'Pause' : 'Resume';
+    $('go').disabled = m.phase === 'ft';
+    $('endHalf').hidden = !live;
+    if (!$('endHalf').classList.contains('armed')) $('endHalf').textContent = m.phase === 'h2' ? 'Full time' : 'Half time';
+  }
+  function renderGame() {
+    var m = S.match; if (!m) return;
+    var cb = curSeg(m), n = m.segs.length, html = '', i;
+    $('gameTitle').textContent = 'v ' + m.opp + (m.friendly ? ' (friendly)' : '');
+    for (i = 0; i < n; i++) {
+      if (i > 0 && m.segs[i].h !== m.segs[i - 1].h) html += '<span class="gap"></span>';
+      html += '<span style="flex:' + (m.segs[i].to - m.segs[i].from) + '" class="' + ((m.phase === 'ft' || i < cb) ? 'done' : (i === cb && m.phase !== 'pre' && m.phase !== 'ht') ? 'now' : '') + '"></span>';
+    }
+    $('blocks').innerHTML = html;
+    $('pitchNow').innerHTML = chips(m, onPitch(m, cb), 'on');
+    $('benchNow').innerHTML = chips(m, m.segs[cb].bench, 'off');
+    $('goneTag').hidden = $('goneNow').hidden = !m.gone.length;
+    $('goneNow').innerHTML = m.gone.map(function (id) { return '<span class="chip gone">' + esc(nm(id)) + '</span>'; }).join('');
+    $('nowTitle').textContent = m.phase === 'pre' ? 'Starting line-up' : m.phase === 'ht' ? 'Second half line-up' : 'Right now';
+    $('notice').hidden = !m.notice; $('noticeText').textContent = m.notice || '';
+
+    var title, body, t, sw;
+    if (m.phase === 'ht') { t = cb; sw = swapAt(m, t); if (!sw.off.length && !sw.on.length) t = -1; }
+    else { t = m.phase === 'ft' ? -1 : nextChange(m, cb); if (t >= 0) sw = swapAt(m, t); }
+    if (!hasBench(m)) { title = 'No changes'; body = '<p class="note">Nobody is on the bench, so there are no subs to make.</p>'; }
+    else if (t < 0) { title = m.phase === 'ht' ? 'No change at half time' : 'No more changes'; body = '<p class="note">' + (m.phase === 'ht' ? 'The same line-up starts the second half.' : 'This line-up finishes the game.') + '</p>'; }
+    else {
+      title = m.phase === 'ht' ? 'Change now, for the second half' : m.segs[t].h !== m.segs[cb].h ? 'Next change at half time' : 'Next change at ' + m.segs[t].from + ':00';
+      var tap = function (list, cls) { // the gaffer can tap a name to change who it is
+        if (role !== 'owner') return chips(m, list, cls);
+        return list.map(function (id) { return '<button class="chip tapchip ' + cls + '" type="button" data-q="' + cls + '" data-id="' + id + '" data-t="' + t + '">' + esc(nm(id)) + '</button>'; }).join('') || '<span class="note">Nobody</span>';
+      };
+      body = '<div class="swap-rows"><div class="tag off">Off</div><div class="chips">' + tap(sw.off, 'off') +
+             '</div><div class="tag on">On</div><div class="chips">' + tap(sw.on, 'on') + '</div></div>' +
+             (role === 'owner' ? '<p class="note">Tap a name to swap in someone else.</p>' : '');
+    }
+    $('swapTitle').textContent = title; $('swapBody').innerHTML = body;
+
+    html = '';
+    for (i = 0; i < n; i++) {
+      html += '<tr class="' + (m.phase === 'ft' || i < cb ? 'past' : i === cb ? 'now' : '') + '"><td class="t">' + (m.segs[i].h ? '2nd' : '1st') + '</td><td class="t">' + m.segs[i].from + ':00</td><td>' +
+              (m.segs[i].bench.map(function (id) { return esc(nm(id)); }).join(', ') || 'Nobody') + '</td></tr>';
+    }
+    $('rota').innerHTML = html;
+    var gm = gameMins(m), ids = (m.squad || []).slice().sort(function (x, y) { return gm[y] - gm[x]; });
+    $('minsNote').textContent = ids.length ? 'Minutes today: ' + ids.map(function (id) { return nm(id) + ' ' + gm[id] + (m.gone.indexOf(id) >= 0 ? ' (out)' : ''); }).join(', ') + '.' : '';
+    renderOut(); renderEdit(); renderQuick(); renderScore(); renderClock();
+  }
+
+  // ---- edit upcoming subs: swap a pitch player (A) and a bench player (B) for stretch t, then swap them back in the
+  // earliest later stretch where that is possible, so both end the game on the minutes they were planned.
+  function editSwap(m, t, A, B) {
+    var s = m.segs[t], before = gameMins(m), u, back = -1;
+    if (!s || s.on.indexOf(A) < 0 || s.bench.indexOf(B) < 0) return null;
+    s.on[s.on.indexOf(A)] = B; s.bench[s.bench.indexOf(B)] = A;
+    for (u = t + 1; u < m.segs.length; u++) {
+      var q = m.segs[u];
+      if (q.to > q.from && q.bench.indexOf(A) >= 0 && q.on.indexOf(B) >= 0) { q.bench[q.bench.indexOf(A)] = B; q.on[q.on.indexOf(B)] = A; back = u; break; }
+    }
+    var after = gameMins(m);
+    return { back: back, a: [before[A], after[A]], b: [before[B], after[B]] };
+  }
+
+  function balMsg(m, r, A, B) {
+    var totals = nm(A) + ' ends on ' + r.a[1] + ' minutes (was ' + r.a[0] + ') and ' + nm(B) + ' on ' + r.b[1] + ' (was ' + r.b[0] + ').';
+    if (r.back < 0) return 'There\u2019s no later stretch to swap them back, so ' + totals;
+    return 'They swap back at ' + segName(m.segs[r.back]) + ', so ' + (r.a[0] === r.a[1] && r.b[0] === r.b[1] ? 'everyone\u2019s minutes stay the same.' : totals);
+  }
+  // quick swap from the Next change card: tap an incoming or outgoing name and pick someone else
+  var qs = null;
+  function renderQuick() {
+    var m = S.match, el = $('quickSwap'); if (!m) return;
+    var s = qs ? m.segs[qs.t] : null, prev = qs ? m.segs[qs.t - 1] : null;
+    if (!qs || role !== 'owner' || !s || qs.t < edFirst(m) || (qs.kind === 'on' ? s.on : s.bench).indexOf(qs.id) < 0) { qs = null; el.innerHTML = ''; el.className = ''; return; }
+    var onNow = function (id) { return !prev || prev.on.indexOf(id) >= 0; };
+    var cands = qs.kind === 'on' ? s.bench.slice() : s.on.slice(), html;
+    html = '<div class="picker ed"><strong>' + (qs.kind === 'on' ? 'Who comes on instead of ' : 'Who goes off instead of ') + esc(nm(qs.id)) + '?</strong>' +
+      '<p class="note">From ' + segName(s) + '. The app swaps them back later where it can, so minutes still add up.</p><div class="chips">' +
+      cands.map(function (id) {
+        var label = qs.kind === 'on' ? (onNow(id) ? ' stays on' : ' comes on') : (onNow(id) ? ' goes off' : ' stays on the bench');
+        return '<button class="pick" type="button" data-c="' + id + '">' + esc(nm(id)) + label + '</button>';
+      }).join('') + (cands.length ? '' : '<span class="note">Nobody else is available for this change.</span>') +
+      '<button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div>';
+    el.innerHTML = html; el.className = 'modal';
+  }
+  $('swapBody').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-q]'); if (!b || role !== 'owner') return;
+    qs = { t: +b.getAttribute('data-t'), kind: b.getAttribute('data-q'), id: +b.getAttribute('data-id') }; renderQuick();
+  });
+  $('quickSwap').addEventListener('click', function (e) {
+    var m = S.match, b = e.target.closest('button'); if (!m || !qs) return;
+    if (e.target === $('quickSwap') || (b && b.getAttribute('data-cancel'))) { qs = null; renderQuick(); return; }
+    var c = b ? b.getAttribute('data-c') : null; if (c === null) return;
+    var s = m.segs[qs.t], prev = m.segs[qs.t - 1], other = +c, A = qs.kind === 'on' ? qs.id : other, B = qs.kind === 'on' ? other : qs.id;
+    var wasOn = !prev || prev.on.indexOf(other) >= 0, at = segName(s), r = editSwap(m, qs.t, A, B), first;
+    if (!r) { qs = null; renderQuick(); return; }
+    if (qs.kind === 'on') first = wasOn ? nm(other) + ' stays on at ' + at + ' and ' + nm(qs.id) + ' stays on the bench.' : nm(other) + ' comes on at ' + at + ' instead of ' + nm(qs.id) + '.';
+    else first = wasOn ? nm(other) + ' goes off at ' + at + ' instead of ' + nm(qs.id) + '.' : nm(qs.id) + ' stays on at ' + at + ' and ' + nm(other) + ' stays on the bench.';
+    m.notice = first + ' ' + balMsg(m, r, A, B); qs = null; save(); renderGame();
+  });
+  var ed = null;
+  function edFirst(m) { var c = curSeg(m); return m.phase === 'pre' || m.phase === 'ht' ? c : c + 1; } // first stretch that hasn't started
+  var segName = function (s) { return s.from + ':00, ' + (s.h ? 'second' : 'first') + ' half'; };
+  function renderEdit() {
+    var m = S.match, el = $('subEdit'); if (!m) return;
+    var first = edFirst(m), open = [];
+    for (var i = first; i < m.segs.length; i++) if (m.segs[i].to > m.segs[i].from) open.push(i);
+    $('edBtn').disabled = m.phase === 'ft' || !open.length || !hasBench(m);
+    if (!ed || role !== 'owner' || !open.length) { ed = null; el.innerHTML = ''; el.className = ''; return; }
+    if (open.indexOf(ed.t) < 0) { ed.t = open[0]; ed.a = ed.b = null; }
+    var s = m.segs[ed.t], at = open.indexOf(ed.t), html;
+    var btn = function (id, side) { return '<button class="pick' + (side === 'b' ? ' b' : '') + (ed[side] === id ? ' sel' : '') + '" type="button" data-side="' + side + '" data-id="' + id + '">' + esc(nm(id)) + '</button>'; };
+    html = '<div class="picker ed"><strong>Line-up from ' + segName(s) + '</strong>' +
+      '<div class="nav"><button class="pick alt" type="button" data-nav="-1"' + (at <= 0 ? ' disabled' : '') + '>&lsaquo; Earlier</button>' +
+      '<button class="pick alt" type="button" data-nav="1"' + (at >= open.length - 1 ? ' disabled' : '') + '>Later &rsaquo;</button></div>' +
+      (s.bench.length ? '<p class="note">Tap one player on the pitch and one on the bench to swap them for this stretch.</p>' : '<p class="note">Nobody is on the bench in this stretch.</p>') +
+      '<div class="swap-rows"><div class="tag on">Pitch</div><div class="chips">' + (s.gk != null ? '<button class="pick" type="button" disabled>' + esc(nm(s.gk)) + ' · GK</button>' : '') + s.on.map(function (id) { return btn(id, 'a'); }).join('') + '</div>' +
+      '<div class="tag off">Bench</div><div class="chips">' + (s.bench.map(function (id) { return btn(id, 'b'); }).join('') || '<span class="note">Nobody</span>') + '</div></div>' +
+      (ed.msg ? '<p class="msg">' + esc(ed.msg) + '</p>' : '') +
+      '<div class="chips"><button class="pick best" type="button" data-done="1">Done</button></div></div>';
+    el.innerHTML = html; el.className = 'modal';
+  }
+  $('edBtn').addEventListener('click', function () {
+    var m = S.match; if (!m || role !== 'owner') return;
+    var t = nextChange(m, curSeg(m)), first = edFirst(m);
+    if (m.phase === 'pre' || m.phase === 'ht') t = first;
+    ed = { t: t >= first ? t : first, a: null, b: null, msg: '' }; renderEdit();
+  });
+  $('subEdit').addEventListener('click', function (e) {
+    var m = S.match, b = e.target.closest('button'); if (!m || !ed) return;
+    if (e.target === $('subEdit') || (b && b.getAttribute('data-done'))) { ed = null; renderEdit(); return; }
+    if (!b || b.disabled) return;
+    var nav = b.getAttribute('data-nav'), side = b.getAttribute('data-side');
+    if (nav) {
+      var open = []; for (var i = edFirst(m); i < m.segs.length; i++) if (m.segs[i].to > m.segs[i].from) open.push(i);
+      var at = open.indexOf(ed.t) + +nav; if (at >= 0 && at < open.length) ed = { t: open[at], a: null, b: null, msg: '' };
+      renderEdit(); return;
+    }
+    if (!side) return;
+    var id = +b.getAttribute('data-id'); ed[side] = ed[side] === id ? null : id;
+    if (ed.a != null && ed.b != null) {
+      var A = ed.a, B = ed.b, r = editSwap(m, ed.t, A, B), from = segName(m.segs[ed.t]);
+      ed.a = ed.b = null;
+      if (r) {
+        ed.msg = nm(B) + ' now plays from ' + from + ' and ' + nm(A) + ' sits out. ' + balMsg(m, r, A, B);
+        save(); renderGame(); return;
+      }
+    }
+    renderEdit();
+  });
+
+  // ---- player injured or leaving
+  function renderOut() {
+    var m = S.match; if (!m) return;
+    var html = '', btn = function (attr, label, cls) { return '<button class="pick' + (cls ? ' ' + cls : '') + '" type="button" ' + attr + '>' + label + '</button>'; };
+    var cancel = btn('data-cancel="1"', 'Cancel', 'alt');
+    $('outBtn').disabled = m.phase === 'ft' || !(m.order.length || m.keeper != null);
+    if (outPick && outPick.step === 'who') {
+      html = '<div class="picker out"><strong>Who is out?</strong><div class="chips">' +
+        (m.keeper != null ? [m.keeper] : []).concat(m.order).map(function (id) { return btn('data-o="' + id + '"', esc(nm(id)) + (id === m.keeper ? ' · GK' : '')); }).join('') + cancel + '</div></div>';
+    } else if (outPick && outPick.step === 'gk') {
+      html = '<div class="picker out"><strong>Who goes in goal for ' + esc(nm(outPick.x)) + '?</strong><div class="chips">' +
+        m.order.map(function (id) { return btn('data-g="' + id + '"', esc(nm(id))); }).join('') + cancel + '</div></div>';
+    } else if (outPick && outPick.step === 'sub') {
+      var c = subCands(m, outPick.x, outPick.g), best = c[0];
+      html = '<div class="picker out"><strong>' + (outPick.g != null ? esc(nm(outPick.g)) + ' goes in goal. Who comes on?' : 'Who comes on for ' + esc(nm(outPick.x)) + '?') + '</strong>' +
+        '<p class="note">' + esc(nm(best)) + ' is suggested, with the fewest minutes today.</p><div class="chips">' +
+        c.map(function (id, n) { return btn('data-r="' + id + '"', esc(nm(id)) + (n === 0 ? ' · suggested' : ''), n === 0 ? 'best' : ''); }).join('') + cancel + '</div></div>';
+    } else if (outPick) {
+      html = '<div class="picker out"><strong>Take ' + esc(nm(outPick.x)) + ' out for the rest of the game?</strong><p class="note">' +
+        (m.segs[curSeg(m)].bench.indexOf(outPick.x) >= 0 ? 'They\u2019re on the bench now, so nobody needs to come on.' : 'Nobody is on the bench, so you\u2019ll play one short.') +
+        ' This can\u2019t be undone.</p><div class="chips">' + btn('data-yes="1"', 'Yes, take ' + esc(nm(outPick.x)) + ' out', 'warn') + cancel + '</div></div>';
+    }
+    $('outPicker').className = html ? 'modal' : '';
+    $('outPicker').innerHTML = html;
+  }
+  // bench players who could fill the pitch spot X (or the new keeper G) leaves right now, fewest minutes first
+  function subCands(m, X, G) {
+    var s = m.segs[curSeg(m)], vacancy = s.on.indexOf(X) >= 0 || (s.gk === X && (G == null || s.on.indexOf(G) >= 0));
+    if (s.gk === X && G == null) vacancy = false;
+    if (!vacancy) return [];
+    var gm = gameMins(m);
+    return s.bench.filter(function (id) { return id !== X && id !== G; }).sort(function (a, b) { return (gm[a] || 0) - (gm[b] || 0); });
+  }
+  function afterWho(x, g) {
+    var m = S.match;
+    if (subCands(m, x, g).length) outPick = { step: 'sub', x: x, g: g };
+    else if (g != null) { takeOut(x, g, null); return; }
+    else outPick = { step: 'confirm', x: x, g: null };
+    renderOut();
+  }
+  function takeOut(X, G, R) {
+    var m = S.match; if (!m) return;
+    var i = curSeg(m), s = m.segs[i], live = m.phase === 'h1' || m.phase === 'h2';
+    var tm = live ? Math.max(s.from, Math.min(s.to, Math.floor(elapsed(m) / 60000))) : s.from;
+    var wasOn = s.on.indexOf(X) >= 0 || s.gk === X, hadBench = s.bench.filter(function (id) { return id !== X; }).length > 0;
+    var cameOn = applyOut(m, X, G, i, tm, R, live && elapsed(m) >= halfMs(m)), msg = nm(X) + ' is out.';
+    if (G != null) msg += ' ' + nm(G) + ' goes in goal.';
+    if (cameOn.length) msg += ' ' + listAnd(cameOn.map(nm)) + (cameOn.length > 1 ? ' come' : ' comes') + ' on now.';
+    else if (wasOn && !hadBench) msg += ' Nobody is on the bench, so you play one short.';
+    msg += ' The rota below is updated.';
+    m.notice = msg; outPick = null; pick = null; lastBlock = curSeg(m); save(); renderGame();
+  }
+  $('outBtn').addEventListener('click', function () { outPick = outPick ? null : { step: 'who' }; renderOut(); });
+  $('outPicker').addEventListener('click', function (e) {
+    var m = S.match, b = e.target.closest('button'); if (!m || !b || !outPick) return;
+    if (b.getAttribute('data-cancel')) { outPick = null; renderOut(); return; }
+    var o = b.getAttribute('data-o'), g = b.getAttribute('data-g');
+    var r = b.getAttribute('data-r');
+    if (o !== null) { if (+o === m.keeper && m.order.length) { outPick = { step: 'gk', x: +o }; renderOut(); } else afterWho(+o, null); }
+    else if (g !== null) afterWho(outPick.x, +g);
+    else if (r !== null) takeOut(outPick.x, outPick.g, +r);
+    else if (b.getAttribute('data-yes')) takeOut(outPick.x, null, null);
+  });
+  $('noticeOk').addEventListener('click', function () { var m = S.match; if (!m) return; delete m.notice; save(); renderGame(); });
+
+  // ---- score
+  function pickBtns(m, skip) {
+    var cb = curSeg(m), on = onPitch(m, cb), html = '';
+    on.concat(m.segs[cb].bench).forEach(function (id) {
+      if (id === skip) return;
+      html += '<button class="pick' + (on.indexOf(id) < 0 ? ' benchp' : '') + '" type="button" data-p="' + id + '">' + esc(nm(id)) + '</button>';
+    });
+    return html;
+  }
+  function renderScore() {
+    var m = S.match; if (!m) return;
+    var t = tally(m), html = '';
+    $('usN').textContent = t.us; $('themN').textContent = t.them; $('themLbl').textContent = m.opp;
+    $('usLbl').textContent = teamShort(); $('goalUs').textContent = 'Goal for ' + teamShort();
+    $('undo').disabled = !m.events.length; $('hlBtn').disabled = m.phase === 'pre' || m.phase === 'ft';
+    $('svBtn').disabled = $('hlBtn').disabled || m.segs[curSeg(m)].gk == null;
+    $('goalMsg').hidden = !goalMsg; $('goalMsg').textContent = goalMsg;
+    $('goalUs').disabled = $('goalThem').disabled = m.phase === 'ft' && role !== 'owner';
+    if (pick && pick.step === 'scorer') html = '<div class="picker"><strong>Who scored?</strong><div class="chips">' + pickBtns(m, null) +
+      '<button class="pick alt" type="button" data-p="x">Own goal or not sure</button><button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div>';
+    else if (pick) html = '<div class="picker"><strong>Who set up ' + esc(nm(pick.p)) + '?</strong><div class="chips">' + pickBtns(m, pick.p) +
+      '<button class="pick alt" type="button" data-p="x">No assist</button></div></div>';
+    $('picker').innerHTML = html;
+    html = '';
+    m.events.slice().reverse().forEach(function (e) {
+      var who = e.hl ? '<span class="note">' + (e.k === 'save' ? 'Save by ' + esc(nm(e.p)) : 'Highlight marked') + '</span>' : !e.us ? '<span class="ag">Goal for ' + esc(m.opp) + '</span>' :
+        (e.p != null ? esc(nm(e.p)) : 'Goal for ' + esc(teamShort())) + (e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '');
+      if (e.by) who += ' <span class="tagf">Logged by a teammate</span>';
+      html += '<li><span class="t">' + ml(e) + '</span><span>' + who + '</span></li>';
+    });
+    $('events').innerHTML = html;
+  }
+  $('goalUs').addEventListener('click', function () { pick = { step: 'scorer' }; renderScore(); });
+  $('hlBtn').addEventListener('click', function () { var m = S.match; if (!m || role !== 'owner') return; pick = null; m.events.push(stamped(m, { hl: true, at: Date.now() })); save(); renderScore(); });
+  $('svBtn').addEventListener('click', function () {
+    var m = S.match; if (!m || role !== 'owner') return;
+    var gk = m.segs[curSeg(m)].gk; if (gk == null) return;
+    pick = null; m.events.push(stamped(m, { hl: true, k: 'save', p: gk, at: Date.now() })); save(); renderScore();
+  });
+  $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; pick = null; addGoal(stamped(m, { us: false })); });
+  $('undo').addEventListener('click', function () { var m = S.match; if (!m) return; pick = null; m.events.pop(); save(); renderScore(); });
+  $('picker').addEventListener('click', function (e) {
+    var m = S.match; if (!m || !pick) return;
+    if (e.target.getAttribute('data-cancel')) { pick = null; renderScore(); return; }
+    var v = e.target.getAttribute('data-p'); if (v === null) return;
+    var id = v === 'x' ? null : +v;
+    if (pick.step === 'scorer' && id != null) { pick = { step: 'assist', p: id }; renderScore(); return; }
+    var ev = stamped(m, { us: true, p: pick.step === 'scorer' ? null : pick.p, a: pick.step === 'scorer' ? null : id });
+    pick = null; addGoal(ev);
+  });
+
+  var actx = null;
+  function beep(n) {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      for (var i = 0; i < n; i++) {
+        var o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + i * 0.35;
+        o.frequency.value = 880; o.connect(g); g.connect(actx.destination);
+        g.gain.setValueAtTime(0.4, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+        o.start(t); o.stop(t + 0.3);
+      }
+    } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate([300, 150, 300]); } catch (e) {}
+    var c = $('clock'); c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+  }
+  function wake() { try { if (navigator.wakeLock && S.match && S.match.running) navigator.wakeLock.request('screen').catch(function () {}); } catch (e) {} }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { wake(); tick(); } });
+  function tick() {
+    var m = S.match; if (!m || !m.running) return;
+    if (!m.et && elapsed(m) >= halfMs(m)) { m.et = true; if (role === 'owner') { save(); beep(4); } } // time is up; the clock carries on as added time
+    var cb = curSeg(m);
+    if (cb !== lastBlock) {
+      var sw = swapAt(m, cb);
+      if (lastBlock >= 0 && (sw.off.length || sw.on.length)) beep(3);
+      lastBlock = cb; renderGame();
+    } else renderClock();
+  }
+  setInterval(tick, 250);
+
+  $('go').addEventListener('click', function () {
+    var m = S.match; if (!m || m.phase === 'ft') return;
+    if (m.phase === 'pre') m.koAt = Date.now();
+    if (m.phase === 'ht') m.h2At = Date.now();
+    if (m.phase === 'pre' || m.phase === 'ht') m.et = false;
+    if (m.phase === 'pre' || m.phase === 'ht') { m.phase = m.phase === 'pre' ? 'h1' : 'h2'; m.base = 0; m.t0 = Date.now(); m.running = true; beep(1); }
+    else if (m.running) { m.base = elapsed(m); m.running = false; }
+    else { m.t0 = Date.now(); m.running = true; }
+    lastBlock = curSeg(m); wake(); save(); renderGame();
+  });
+  armed($('reset'), 'Sure?', function () { var m = S.match; if (!m) return; m.phase = 'pre'; m.running = false; m.base = 0; m.et = false; delete m.koAt; delete m.htAt; delete m.h2At; delete m.ftAt; lastBlock = -1; save(); renderGame(); });
+  armed($('endHalf'), 'End it early?', function () {
+    var m = S.match; if (!m || (m.phase !== 'h1' && m.phase !== 'h2')) return;
+    m[m.phase === 'h1' ? 'htAt' : 'ftAt'] = Date.now();
+    m.running = false; m.base = 0; m.et = false; m.phase = m.phase === 'h1' ? 'ht' : 'ft';
+    lastBlock = curSeg(m); save(); renderGame();
+  }, function () { var m = S.match; return !!m && elapsed(m) < halfMs(m); });
+  armed($('finish'), 'Tap again to finish', function () {
+    var m = S.match; if (!m) return;
+    var gm = gameMins(m), t = tally(m), per = {};
+    Object.keys(gm).forEach(function (k) { if (P(+k)) per[k] = { mins: gm[k], g: t.g[k] || 0, a: t.a[k] || 0 }; });
+    var ev = m.events.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; } return o; });
+    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, ev: ev, at: Date.now() });
+    S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
+    S.match = null; pick = null; outPick = null; ed = null; save(); go('stats');
+  });
+
+  // ---- stats
+  function renderStats() {
+    var r = recordLine(showF), html = '';
+    $('record').textContent = r ? r.long : S.results.length ? 'No league games yet. Tick Include friendlies to count the rest.' : 'No finished games yet. Stats appear here after you finish your first game.';
+    var T = totals(showF);
+    S.players.slice().sort(function (a, b) { var x = T[a.id], y = T[b.id]; return (y.g - x.g) || (y.a - x.a) || (y.mins - x.mins); }).forEach(function (p) {
+      var x = T[p.id];
+      html += '<tr><td>' + esc(nm(p.id)) + '</td><td class="n">' + x.apps + '</td><td class="n">' + x.mins + '</td><td class="n">' + x.g + '</td><td class="n">' + x.a + '</td></tr>';
+    });
+    $('season').innerHTML = html;
+    html = '';
+    for (var i = S.results.length - 1; i >= 0; i--) {
+      var x = S.results[i], w = x.us > x.them ? 'W' : x.us < x.them ? 'L' : 'D';
+      html += '<li><b class="' + w + '">' + w + '</b><span>' + x.us + '–' + x.them + '</span><span>' + (x.opp ? 'v ' + esc(x.opp) : '') + (x.friendly ? '<span class="tagf">Friendly</span>' : '') + '</span>' +
+        '<span class="rowbtns">' + (x.koAt && x.ev && x.ev.length ? '<button class="del" type="button" data-reel="' + i + '">Highlights</button>' : '') +
+        (role === 'owner' ? '<button class="del' + (delIdx === i ? ' armed' : '') + '" type="button" data-del="' + i + '">' + (delIdx === i ? 'Tap to confirm' : 'Remove') + '</button>' : '') + '</span></li>';
+    }
+    $('results').innerHTML = html || '<li><span></span><span></span><span class="note">Nothing yet</span></li>';
+    $('resNote').textContent = S.results.length && role === 'owner' ? "Player totals are worked out from these games, so removing one takes its minutes, goals and assists off too." : '';
+  }
+  var delIdx = -1, delT = null, showF = false;
+  $('showF').addEventListener('change', function (e) { showF = e.target.checked; renderStats(); });
+  $('results').addEventListener('click', function (e) {
+    var rl = e.target.getAttribute('data-reel'); if (rl !== null) { reelIdx = +rl; go('reel'); return; }
+    var v = e.target.getAttribute('data-del'); if (v === null || role !== 'owner') return;
+    var i = +v; clearTimeout(delT);
+    if (delIdx !== i) { delIdx = i; delT = setTimeout(function () { delIdx = -1; renderStats(); }, 3000); renderStats(); return; }
+    delIdx = -1;
+    S.results.splice(i, 1); save(); renderStats();
+  });
+
+
+  // ---- highlights export: turn a finished game's event times into an ffmpeg cut list
+  // a plain highlight that lands in the same clip as a goal or save is the same moment: keep the goal's caption only
+  function foldLabels(items) {
+    var named = items.filter(function (x) { return !x.plain; });
+    return (named.length ? named : items.slice(0, 1)).map(function (x) { return x.text; });
+  }
+  function reelClips(r, sync, pre, post) {
+    var us = 0, them = 0, raw = [];
+    (r.ev || []).slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).forEach(function (e) {
+      var label;
+      if (e.hl) label = e.k === 'save' ? 'Save: ' + nm(e.p) : e.p != null ? 'Highlight: ' + nm(e.p) : 'Highlight';
+      else if (e.us) { us++; label = (e.p != null ? nm(e.p) : 'Goal') + (e.a != null ? ' (' + nm(e.a) + ')' : '') + '  ' + teamShort() + ' ' + us + '-' + them + ' ' + r.opp; }
+      else { them++; label = 'Goal for ' + r.opp + '  ' + teamShort() + ' ' + us + '-' + them + ' ' + r.opp; }
+      if (typeof e.at !== 'number' || typeof r.koAt !== 'number') return;
+      var t = (e.at - r.koAt) / 1000 + sync;
+      raw.push({ t: t, start: Math.max(0, t - pre), end: Math.max(0, t - pre) + pre + post, label: (e.min != null ? ml(e) + ' ' : '') + label, goal: !e.hl, plain: !!e.hl && e.k !== 'save' });
+    });
+    var out = [];
+    raw.forEach(function (c) {
+      var last = out[out.length - 1];
+      var item = { text: c.label, plain: c.plain };
+      if (last && c.start <= last.end) { last.end = Math.max(last.end, c.end); last.items.push(item); }
+      else out.push({ start: c.start, end: c.end, items: [item], t: c.t, goal: c.goal });
+    });
+    out.forEach(function (c) { c.labels = foldLabels(c.items); });
+    return out;
+  }
+  function reelScript(r, clips, captions) {
+    var L = [], pad = function (n) { return ('0' + n).slice(-2); }, clean = function (s) { return String(s).replace(/[\r\n]+/g, ' '); };
+    L.push('#!/usr/bin/env bash');
+    L.push('# ' + clean(teamName()) + ' v ' + clean(r.opp) + ' (' + r.us + '-' + r.them + ') highlights, made by AI Powered Tactics.');
+    L.push('# Run it with the GoPro files in recording order:  bash highlights.sh GX010001.MP4 GX020001.MP4');
+    L.push('set -euo pipefail');
+    L.push('[ "$#" -ge 1 ] || { echo "Give the GoPro files in order, e.g. bash highlights.sh GX01*.MP4 GX02*.MP4"; exit 1; }');
+    L.push('CAPTIONS=' + (captions ? 1 : 0) + '   # set to 0 if ffmpeg complains about drawtext');
+    L.push('W=sop_work; mkdir -p "$W"');
+    L.push('if [ "$#" -gt 1 ]; then');
+    L.push('  : > "$W/in.txt"');
+    L.push('  for f in "$@"; do printf "file \'%s\'\\n" "$(cd "$(dirname "$f")" && pwd)/$(basename "$f")" >> "$W/in.txt"; done');
+    L.push('  echo "Joining the GoPro chapters..."');
+    L.push('  ffmpeg -y -loglevel error -stats -f concat -safe 0 -i "$W/in.txt" -map 0:v:0 -map "0:a:0?" -c copy "$W/full.mp4"');
+    L.push('  SRC="$W/full.mp4"');
+    L.push('else SRC="$1"; fi');
+    L.push('clip() { # number, start seconds, length seconds');
+    L.push('  local n="$1" vf="null"');
+    L.push('  if [ "$CAPTIONS" = 1 ]; then vf="drawtext=textfile=$W/cap_$n.txt:expansion=none:fontsize=h/24:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=16:x=40:y=h-th-40"; fi');
+    L.push('  echo "Cutting clip $n..."');
+    L.push('  ffmpeg -y -loglevel error -stats -ss "$2" -i "$SRC" -t "$3" -vf "$vf" -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 160k -ar 48000 "$W/clip_$n.mp4"');
+    L.push('  printf "file \'clip_%s.mp4\'\\n" "$n" >> "$W/list.txt"');
+    L.push('}');
+    L.push(': > "$W/list.txt"');
+    clips.forEach(function (c, i) {
+      var n = pad(i + 1);
+      L.push('cat > "$W/cap_' + n + '.txt" <<\'CAPTION_END\'');
+      c.labels.forEach(function (t) { L.push(clean(t)); });
+      L.push('CAPTION_END');
+      L.push('clip ' + n + ' ' + c.start.toFixed(1) + ' ' + (c.end - c.start).toFixed(1));
+    });
+    L.push('ffmpeg -y -loglevel error -stats -f concat -safe 0 -i "$W/list.txt" -c copy highlights.mp4');
+    L.push('echo "Done: highlights.mp4 (' + clips.length + ' clip' + (clips.length === 1 ? '' : 's') + ')"');
+    return L.join('\n') + '\n';
+  }
+  function hms(sec) {
+    sec = Math.max(0, Math.round(sec));
+    var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return (h ? h + ':' + ('0' + m).slice(-2) : m) + ':' + ('0' + s).slice(-2);
+  }
+  function parseClock(v) {
+    v = String(v).trim(); if (!v) return null;
+    var parts = v.split(':'), t = 0;
+    for (var i = 0; i < parts.length; i++) { var n = Number(parts[i]); if (parts[i] === '' || !isFinite(n) || n < 0) return null; t = t * 60 + n; }
+    return parts.length > 3 ? null : t;
+  }
+  function reelChapters(r, clips, sync) {
+    var L = ['0:00 Warm-up'];
+    if (sync >= 10) L.push(hms(sync) + ' Kick-off');
+    clips.forEach(function (c) { if (c.start > 0) L.push(hms(c.start) + ' ' + c.labels.join(' / ').replace(/\s+/g, ' ')); });
+    return L.join('\n');
+  }
+
+  function parseStamp(line, day) {
+    line = String(line).trim(); if (!line) return null;
+    var m = line.match(/(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})\D+(\d{1,2}):(\d{2})(?::(\d{2}))?/); // UK day-first dates
+    if (m) return new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], m[2] - 1, +m[1], +m[4], +m[5], +(m[6] || 0)).getTime();
+    m = line.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/); // time only: assume the day of the game
+    if (m) { var d = new Date(day); d.setHours(+m[1], +m[2], +(m[3] || 0), 0); return d.getTime(); }
+    var t = Date.parse(line); return isNaN(t) ? null : t;
+  }
+  function minFor(r, at) { // minute label for a time on the wall clock
+    var half = r.half || 15, o = {}, e;
+    if (r.h2At && at >= r.h2At) { e = (at - r.h2At) / 60000; o.min = half + Math.min(half, Math.floor(e) + 1); if (e >= half) o.x = Math.floor(e - half) + 1; }
+    else if (r.htAt && at >= r.htAt) o.min = half;
+    else { e = Math.max(0, (at - r.koAt) / 60000); o.min = Math.min(half, Math.floor(e) + 1); if (e >= half) o.x = Math.floor(e - half) + 1; }
+    return o;
+  }
+  $('impBtn').addEventListener('click', function () {
+    var r = S.results[reelIdx]; if (!r || role !== 'owner') return;
+    var lines = $('impIn').value.split(/\n+/).filter(function (l) { return l.trim(); }), added = 0, outside = 0, bad = 0;
+    var end = (r.ftAt || r.koAt + 3 * 3600000) + 60000, who = +$('impWho').value || null;
+    if (who && S.me !== who) S.me = who;
+    lines.forEach(function (l) {
+      var t = parseStamp(l, r.koAt);
+      if (t === null) { bad++; return; }
+      if (t < r.koAt - 60000 || t > end) { outside++; return; }
+      if (r.ev.some(function (e) { return e.hl && Math.abs(e.at - t) < 2000; })) return;
+      var o = minFor(r, t); o.hl = true; o.at = t; o.w = true; if (who) o.p = who; r.ev.push(o); added++;
+    });
+    $('impMsg').textContent = !lines.length ? 'Paste the times first.' : added + ' added' + (outside ? ', ' + outside + ' ignored (not during this game)' : '') + (bad ? ', ' + bad + ' not recognised as a time' : '') + '.';
+    if (added) { $('impIn').value = ''; save(); reelOut(); }
+  });
+  // ---- season reels: one reel per player, cut from every game folder
+  var slugify = function (s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); };
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function folderOf(r) {
+    var d = new Date(r.koAt || r.at || 0), p2 = function (n) { return ('0' + n).slice(-2); };
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + (slugify(r.opp) || 'game');
+  }
+  function evLabel(e, pid) { // what this event was, from one player's point of view
+    if (e.hl) return e.k === 'save' ? 'Save' : 'Highlight';
+    if (e.p === pid) return 'Goal';
+    return 'Assist for ' + (e.p != null ? nm(e.p) : 'a goal');
+  }
+  function seasonClips(results, pid, pre, post) {
+    var out = [];
+    results.slice().sort(function (a, b) { return (a.koAt || 0) - (b.koAt || 0); }).forEach(function (r) {
+      if (typeof r.koAt !== 'number' || typeof r.sync !== 'number' || !r.ev) return;
+      var d = new Date(r.koAt), head = 'v ' + r.opp + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()], last = null;
+      r.ev.slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).forEach(function (e) {
+        var mine = e.hl ? e.p === pid : (e.us && (e.p === pid || e.a === pid));
+        if (!mine || typeof e.at !== 'number') return;
+        var t = (e.at - r.koAt) / 1000 + r.sync, start = Math.max(0, t - pre), end = start + pre + post, label = head + '  ' + (e.min != null ? ml(e) + ' ' : '') + evLabel(e, pid);
+        var plain = !!e.hl && e.k !== 'save';
+        if (plain) { // their highlight right next to a goal or save is about that moment: stretch the clip to show it and say so
+          var nb = null;
+          r.ev.forEach(function (o) { if (o !== e && (!o.hl || o.k === 'save') && typeof o.at === 'number' && Math.abs(o.at - e.at) <= 20000 && (!nb || Math.abs(o.at - e.at) < Math.abs(nb.at - e.at))) nb = o; });
+          if (nb) {
+            var nt = (nb.at - r.koAt) / 1000 + r.sync;
+            start = Math.max(0, Math.min(start, nt - pre)); end = Math.max(end, nt + post);
+            label += ', ' + (nb.hl ? nm(nb.p) + '\u2019s save' : !nb.us ? 'goal for ' + r.opp : nb.p != null ? nm(nb.p) + '\u2019s goal' : 'our goal');
+          }
+        }
+        var item = { text: label, plain: plain };
+        if (last && start <= last.end) { last.end = Math.max(last.end, end); last.items.push(item); }
+        else { last = { folder: folderOf(r), start: start, end: end, items: [item] }; out.push(last); }
+      });
+    });
+    out.forEach(function (c) { c.labels = foldLabels(c.items); });
+    return out;
+  }
+  function seasonScript(people) { // people: [{ slug, name, clips }]
+    var L = [], clean = function (s) { return String(s).replace(/[\r\n]+/g, ' '); }, n = 0;
+    L.push('#!/usr/bin/env bash');
+    L.push('# ' + clean(teamName()) + ' season reels, made by AI Powered Tactics.');
+    L.push('# Run it from the folder that holds one folder per game:  bash season.sh');
+    L.push('set -euo pipefail');
+    L.push('CAPTIONS=1   # set to 0 if ffmpeg complains about drawtext');
+    L.push('W=sop_work; mkdir -p "$W"; rm -f "$W"/*_list.txt');
+    L.push('src() { # game folder -> one video file for that game (GoPro chapters joined once, then reused)');
+    L.push('  local d="$1" files=()');
+    L.push('  [ -d "$d" ] || return 1');
+    L.push('  for f in "$d"/*.[mM][pP]4; do [ -f "$f" ] && files+=("$f"); done');
+    L.push('  [ "${#files[@]}" -ge 1 ] || return 1');
+    L.push('  if [ "${#files[@]}" -eq 1 ]; then printf "%s" "${files[0]}"; return 0; fi');
+    L.push('  if [ ! -f "$W/$d.mp4" ]; then');
+    L.push('    : > "$W/$d.txt"; for f in "${files[@]}"; do printf "file \'%s\'\\n" "$(pwd)/$f" >> "$W/$d.txt"; done');
+    L.push('    echo "Joining the GoPro chapters for $d..." >&2');
+    L.push('    ffmpeg -y -loglevel error -f concat -safe 0 -i "$W/$d.txt" -map 0:v:0 -map "0:a:0?" -c copy "$W/$d.mp4" >&2');
+    L.push('  fi');
+    L.push('  printf "%s" "$W/$d.mp4"');
+    L.push('}');
+    L.push('clip() { # player, clip number, game folder, start seconds, length seconds');
+    L.push('  local s vf="scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30"');
+    L.push('  if ! s="$(src "$3")"; then echo "Skipping $3: no video files found in that folder"; return 0; fi');
+    L.push('  if [ "$CAPTIONS" = 1 ]; then vf="$vf,drawtext=textfile=$W/cap_$2.txt:expansion=none:fontsize=44:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=16:x=40:y=h-th-40"; fi');
+    L.push('  echo "$1: cutting clip $2 from $3..."');
+    L.push('  ffmpeg -y -loglevel error -ss "$4" -i "$s" -t "$5" -vf "$vf" -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 160k -ar 48000 -ac 2 "$W/clip_$2.mp4"');
+    L.push('  printf "file \'clip_%s.mp4\'\\n" "$2" >> "$W/$1_list.txt"');
+    L.push('}');
+    L.push('reel() { if [ -s "$W/$1_list.txt" ]; then ffmpeg -y -loglevel error -f concat -safe 0 -i "$W/$1_list.txt" -c copy "$1.mp4"; echo "Done: $1.mp4"; else echo "No clips for $1"; fi; }');
+    people.forEach(function (p) {
+      L.push('');
+      L.push('# ' + clean(p.name));
+      p.clips.forEach(function (c) {
+        var id = ('000' + (++n)).slice(-4);
+        L.push('cat > "$W/cap_' + id + '.txt" <<\'CAPTION_END\'');
+        c.labels.forEach(function (t) { L.push(clean(t)); });
+        L.push('CAPTION_END');
+        L.push('clip ' + p.slug + ' ' + id + ' ' + c.folder + ' ' + c.start.toFixed(1) + ' ' + (c.end - c.start).toFixed(1));
+      });
+      L.push('reel ' + p.slug);
+    });
+    return L.join('\n') + '\n';
+  }
+
+  var seaWho = 'all';
+  function renderSeason() {
+    var recorded = S.results.filter(function (r) { return typeof r.koAt === 'number' && r.ev; });
+    var ready = recorded.filter(function (r) { return typeof r.sync === 'number'; }), need = recorded.filter(function (r) { return typeof r.sync !== 'number'; });
+    $('seaWho').innerHTML = '<option value="all">Everyone, one reel each</option>' + S.players.map(function (p) { return '<option value="' + p.id + '"' + (String(seaWho) === String(p.id) ? ' selected' : '') + '>' + esc(nm(p.id)) + '</option>'; }).join('');
+    var used = {}, people = [], total = 0;
+    S.players.forEach(function (p) {
+      if (seaWho !== 'all' && String(seaWho) !== String(p.id)) return;
+      var clips = seasonClips(ready, p.id, 15, 6), slug = slugify(nm(p.id)) || 'player';
+      if (used[slug]) slug += '-' + p.id; used[slug] = 1;
+      if (clips.length || seaWho !== 'all') { people.push({ slug: slug, name: nm(p.id), clips: clips }); total += clips.length; }
+    });
+    $('seaCount').textContent = !recorded.length ? 'No timed games yet. Reels are built from games finished from now on.'
+      : total + ' clip' + (total === 1 ? '' : 's') + ' across ' + ready.length + ' game' + (ready.length === 1 ? '' : 's') + (seaWho === 'all' ? ', for ' + people.length + ' player' + (people.length === 1 ? '' : 's') : '') + '.';
+    $('seaMissing').textContent = need.length ? 'Left out until you enter a kick-off time on their Highlights screen: ' + listAnd(need.map(function (r) { return 'v ' + r.opp; })) + '.' : '';
+    $('seasonOut').textContent = seasonScript(people);
+    $('seaFolders').textContent = recorded.map(function (r) { return folderOf(r) + '    v ' + r.opp + ' (' + r.us + '-' + r.them + ')'; }).join('\n') || 'None yet';
+  }
+  $('seaWho').addEventListener('change', function (e) { seaWho = e.target.value; renderSeason(); });
+  var reelIdx = -1;
+  function reelOut() {
+    var r = S.results[reelIdx]; if (!r) return;
+    var sync = typeof r.sync === 'number' ? r.sync : null, pre = r.pre != null ? r.pre : 15, post = r.post != null ? r.post : 6;
+    var clips = reelClips(r, sync || 0, pre, post), secs = 0;
+    clips.forEach(function (c) { secs += c.end - c.start; });
+    $('reelCount').textContent = clips.length ? clips.length + ' clip' + (clips.length === 1 ? '' : 's') + ', about ' + hms(secs) + ' in total.' : 'No timed goals or highlights were logged in this game.';
+    $('syncMsg').hidden = sync !== null;
+    $('syncMsg').textContent = 'Enter the kick-off time first. Until then the clips assume the video starts exactly at kick-off.';
+    $('scriptOut').textContent = reelScript(r, clips, r.cap !== false);
+    $('chapOut').textContent = reelChapters(r, clips, sync || 0);
+  }
+  function renderReel() {
+    var r = S.results[reelIdx]; if (!r) { go('stats'); return; }
+    $('reelTitle').textContent = teamShort() + ' ' + r.us + '–' + r.them + ' ' + r.opp;
+    $('impWho').innerHTML = '<option value="">Nobody in particular</option>' + S.players.map(function (p) { return '<option value="' + p.id + '"' + (S.me === p.id ? ' selected' : '') + '>' + esc(nm(p.id)) + '</option>'; }).join('');
+    $('reelFolder').textContent = folderOf(r);
+    $('syncIn').value = typeof r.sync === 'number' ? hms(r.sync) : '';
+    $('preIn').value = r.pre != null ? r.pre : 15; $('postIn').value = r.post != null ? r.post : 6;
+    $('capIn').checked = r.cap !== false; $('impMsg').textContent = '';
+    reelOut();
+  }
+  function reelEdit() {
+    var r = S.results[reelIdx]; if (!r) return;
+    var t = parseClock($('syncIn').value), a = Math.round(+$('preIn').value), b = Math.round(+$('postIn').value);
+    if (t === null) delete r.sync; else r.sync = t;
+    r.pre = a >= 0 && a <= 120 ? a : 15; r.post = b >= 0 && b <= 120 ? b : 6; r.cap = $('capIn').checked;
+    save(); reelOut();
+  }
+  ['syncIn', 'preIn', 'postIn', 'capIn'].forEach(function (id) { $(id).addEventListener(id === 'capIn' ? 'change' : 'input', reelEdit); });
+  function copyFrom(btn, pre) {
+    btn.addEventListener('click', function () {
+      var done = function (ok) { var o = btn.textContent; btn.textContent = ok ? 'Copied' : 'Select the text below and copy it'; setTimeout(function () { btn.textContent = o; }, 2500); };
+      var sel = function () { try { var rg = document.createRange(); rg.selectNodeContents(pre); var s = window.getSelection(); s.removeAllRanges(); s.addRange(rg); } catch (e) {} done(false); };
+      try { navigator.clipboard.writeText(pre.textContent).then(function () { done(true); }, sel); } catch (e) { sel(); }
+    });
+  }
+  copyFrom($('copyScript'), $('scriptOut')); copyFrom($('copyChap'), $('chapOut')); copyFrom($('copySeason'), $('seasonOut'));
+
+  // ---- options
+  function renderOptions() {
+    renderTeamOpts();
+    var html = '', busy = !!S.match;
+    S.players.forEach(function (p) {
+      html += '<div class="orow"><input id="name-' + p.id + '" data-id="' + p.id + '" value="' + esc(p.name) + '" aria-label="Player name" autocomplete="off" maxlength="24">' +
+        '<button class="x" type="button" data-rm="' + p.id + '" aria-label="Remove ' + esc(p.name) + '"' + (busy || S.players.length <= 1 ? ' disabled' : '') + '>&times;</button></div>';
+    });
+    $('squad').innerHTML = html;
+    $('squadNote').textContent = busy ? 'You can rename players now. Removing players is locked while a game is in progress.' : 'Removing a player also removes their stats.';
+    $('setHalf').value = S.half; $('setSub').value = S.sub; $('setPitch').value = S.pitch;
+  }
+  $('squad').addEventListener('input', function (e) { var p = P(+e.target.getAttribute('data-id')); if (p) { p.name = e.target.value; save(); } });
+  $('squad').addEventListener('click', function (e) {
+    var id = e.target.getAttribute('data-rm'); if (id === null || S.match || S.players.length <= 1) return;
+    S.players = S.players.filter(function (p) { return p.id !== +id; });
+    if (S.lastKeeper === +id) S.lastKeeper = null;
+    save(); renderOptions();
+  });
+  $('add').addEventListener('click', function () {
+    var p = { id: S.nextId++, name: 'Player ' + (S.players.length + 1), mins: 0, g: 0, a: 0, apps: 0 };
+    S.players.push(p); save(); renderOptions();
+    var el = $('name-' + p.id); if (el) { el.focus(); el.select(); }
+  });
+  [['setHalf', 'half', 60], ['setSub', 'sub', 60], ['setPitch', 'pitch', 15]].forEach(function (c) {
+    $(c[0]).addEventListener('change', function (e) {
+      var v = Math.round(+e.target.value);
+      if (!(v >= 1)) v = S[c[1]]; if (v > c[2]) v = c[2];
+      S[c[1]] = v; e.target.value = v; save();
+    });
+  });
+  armed($('wipe'), 'Tap again to clear everything', function () {
+    S.results = [];
+    save(); renderOptions();
+  });
+
+  // ---- team settings in Options
+  function renderTeamOpts() {
+    $('optCode').textContent = A.active || '';
+    $('orgCodeRow').hidden = !orgCode; $('orgCode').textContent = orgCode || '';
+    var f = document.activeElement;
+    if (f !== $('oName')) $('oName').value = S.name || '';
+    if (f !== $('oShort')) $('oShort').value = S.short || '';
+    $('oScore').checked = !!S.followersCanScore;
+    swatches($('oColors'), S.color, function (c, fromPicker) { S.color = c; applyTheme(); save(); if (!fromPicker) renderTeamOpts(); });
+    renderCrest();
+  }
+  function oSay(t) { $('oMsg').textContent = t; $('oMsg').hidden = !t; }
+  $('oName').addEventListener('input', function (e) { S.name = e.target.value; if (A.active) rememberTeam(A.active, S.name.trim() || A.active); save(); });
+  $('oShort').addEventListener('input', function (e) { S.short = e.target.value; save(); });
+  $('oScore').addEventListener('change', function (e) { S.followersCanScore = e.target.checked; save(); });
+  $('oCrest').addEventListener('change', function (e) {
+    readCrest(e.target.files[0]).then(function (u) { oSay(''); setCrest(u); e.target.value = ''; }, function (err) { e.target.value = ''; oSay(err.message); });
+  });
+  $('oCrestRm').addEventListener('click', function () { setCrest(null); });
+  copyFrom($('optCopy'), $('optCode')); copyFrom($('codeCopy'), $('codeBig')); copyFrom($('orgCopy'), $('orgCode'));
+  armed($('orgNew'), 'Tap again to replace it', async function () {
+    if (!sb || !teamId) return;
+    try { var res = await q(sb.rpc('new_organiser_code', { p_team: teamId })); orgCode = res.data; renderTeamOpts(); }
+    catch (e) { oSay('Couldn’t make a new organiser code. Check your signal.'); }
+  });
+  armed($('leave'), 'Tap again to remove it', function () {
+    var code = A.active; closeTeam(); forgetTeam(code); S = blankTeam(); S.view = 'welcome'; crest = null; go('welcome');
+  });
+
+  // boot
+  upgrade(S.match);
+  if (S.match) lastBlock = curSeg(S.match);
+  var first = !A.active ? 'welcome' : S.view === 'reel' ? 'stats' : ['setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
+  go(first);
+  setSync();
+  connect();
+  if ('serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js'); } catch (e) {} }
+})();
+</script>
+</body>
+</html>

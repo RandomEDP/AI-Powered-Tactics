@@ -1,0 +1,80 @@
+import { chromium } from 'playwright';
+import fs from 'fs';
+const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');
+const BASE = 'http://localhost:8765/';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const ctx = await b.newContext({ viewport: { width: 400, height: 900 } });
+await ctx.route('**/*', (r) => {
+  const u = r.request().url();
+  if (u.includes('supabase-js')) return r.fulfill({ contentType: 'application/javascript', body: MOCK });
+  if (u.startsWith(BASE)) return r.continue();
+  return r.abort();
+});
+const errs = [];
+const open = async (label) => { const p = await ctx.newPage(); p.on('pageerror', (e) => errs.push(label + ': ' + e)); await p.goto(BASE); await p.waitForTimeout(300); return p; };
+const db = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')));
+const vis = (p, s) => p.isVisible(s);
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// --- organiser A: sign up, sign in, create a team
+const A = await open('A');
+console.log('A welcome:', await vis(A, '#v-welcome'), '|', await A.textContent('#acctLine'));
+await A.click('#createBtn'); console.log('create while signed out goes to:', await A.evaluate(() => [...document.querySelectorAll('.view')].find((v) => !v.hidden).id));
+await A.fill('#aEmail', 'ethan@example.com'); await A.fill('#aPass', 'longpassword'); await A.click('#aSignUp'); await wait(100); console.log('sign up:', await A.textContent('#aMsg'));
+await A.click('#aSignIn'); await wait(300); console.log('after sign in view:', await A.evaluate(() => [...document.querySelectorAll('.view')].find((v) => !v.hidden).id));
+await A.fill('#tName', 'Sunday Strikers'); await A.fill('#tPlayers', 'Keeper\nAce\nBen\nCal\nDan\nEd\nFin\nGus'); await A.click('#tCreate'); await wait(400);
+const code = await A.textContent('#codeBig'); console.log('created code:', code, '| db teams:', (await db(A)).teams.length, 'players:', (await db(A)).players.length);
+await A.click('#v-code [data-go="home"]'); await wait(200);
+console.log('A home:', await A.textContent('#heroName'), '| sync:', await A.textContent('#sync'));
+
+// --- a game: line-up, slider, kick-off, goal, highlight, finish
+await A.click('#mNew'); await A.fill('#opp', 'Dog'); await A.click('#startGame'); await A.click('#kick'); await A.click('#go');
+await A.click('#goalUs'); await A.click('#picker button[data-p]'); await A.click('#picker button[data-p="x"]'); await A.click('#hlBtn');
+await wait(900); console.log('live in db during game:', !!(await db(A)).live_matches.length, '| events:', (await db(A)).live_matches[0]?.state.events.length);
+
+// --- follower B (new device): follows by code and sees the live game
+const B = await open('B');
+await B.evaluate(() => { Object.keys(localStorage).filter((k) => k.startsWith('apt-')).forEach((k) => localStorage.removeItem(k)); }); await B.reload(); await wait(300);
+await B.fill('#joinCode', code.toLowerCase()); await B.click('#joinBtn'); await wait(400);
+console.log('B joined:', await B.textContent('#heroName'), '| watch btn:', await B.textContent('#mResumeLbl'), '| new game hidden:', !(await vis(B, '#mNew')), '| options hidden:', !(await vis(B, '#mOptions')));
+await B.click('#mResume'); await wait(200);
+console.log('B game score:', await B.textContent('#usN'), '-', await B.textContent('#themN'), '| clock controls hidden:', !(await vis(B, '#go')), '| goal button hidden:', !(await vis(B, '#goalUs')));
+
+// --- A scores again; B updates live via broadcast
+await A.click('#goalThem'); await wait(1200);
+console.log('B after A logs goal against:', await B.textContent('#usN'), '-', await B.textContent('#themN'));
+
+// --- A lets followers log goals; B logs one; A folds it in
+await A.click('#v-game .back'); await A.click('#mOptions'); await A.check('#oScore'); await wait(1200);
+console.log('A organiser code shown:', await A.textContent('#orgCode'));
+await B.waitForTimeout(500); await B.reload(); await wait(500);
+console.log('B role after setting:', await B.evaluate(() => document.body.className), '| goal btn visible:', await vis(B, '#goalUs'));
+await B.click('#goalUs'); await B.click('#picker button[data-p]'); await B.click('#picker button[data-p="x"]'); await wait(1500);
+console.log('B message:', await B.textContent('#goalMsg'));
+await A.click('#v-options .back'); await A.click('#mResume'); await wait(300);
+console.log('A score after follower goal:', await A.textContent('#usN'), '-', await A.textContent('#themN'), '| tag:', (await A.textContent('#events')).includes('teammate'), '| queue empty:', (await db(A)).goal_queue.length === 0);
+
+// --- finish; stats land in the database; B sees them
+await A.click('#finish'); await A.click('#finish'); await wait(1500);
+const d1 = await db(A);
+console.log('db after finish: games', d1.games.length, '| game_players', d1.game_players.length, '| events', d1.game_events.length, '| live rows', d1.live_matches.length);
+await wait(800); await B.click('#v-game .back').catch(() => {}); await B.goto(BASE); await wait(500); await B.click('#mStats').catch(() => {}); await wait(200);
+console.log('B stats:', await B.textContent('#record'));
+
+// --- organiser C joins with the organiser code
+const orgCode = d1.teams[0].organiser_code;
+const C = await open('C');
+await C.evaluate(() => { Object.keys(localStorage).filter((k) => k.startsWith('apt-')).forEach((k) => localStorage.removeItem(k)); }); await C.reload(); await wait(300);
+await C.click('#acctBtn'); await C.fill('#aEmail', 'co@example.com'); await C.fill('#aPass', 'anotherpassword'); await C.click('#aSignUp'); await C.click('#aSignIn'); await wait(300);
+await C.click('#acctBtn'); await C.fill('#aOrgCode', orgCode.toLowerCase()); await C.click('#aOrgJoin'); await wait(500);
+console.log('C after organiser code:', await C.textContent('#heroName'), '| role:', await C.evaluate(() => document.body.className || 'owner'), '| new game visible:', await vis(C, '#mNew'));
+await C.click('#mStats'); console.log('C stats:', await C.textContent('#record'));
+
+// --- A reloads: everything comes back from the database
+await A.evaluate(() => { Object.keys(localStorage).filter((k) => k.startsWith('apt-team')).forEach((k) => localStorage.removeItem(k)); }); await A.goto(BASE); await wait(600);
+console.log('A after wiping its copy and reloading:', await A.textContent('#heroName'), '|', await A.textContent('#homeRecord'));
+await A.click('#mStats'); await wait(100); console.log('A stats rows:', (await A.$$eval('#season tr', (r) => r.slice(0, 3).map((x) => x.textContent))).join(' / '));
+await A.click('#results button[data-reel]'); await A.fill('#syncIn', '1:00'); await wait(900);
+console.log('reel:', await A.textContent('#reelCount'), '| sync saved:', (await db(A)).games[0].sync);
+console.log('errors:', JSON.stringify(errs));
+await b.close();
