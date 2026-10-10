@@ -291,7 +291,8 @@ tr.past td { opacity: .45; }
 .lrow, .mrow, .orow { display: grid; gap: 8px; align-items: center; padding-block: 9px; border-bottom: 1px solid var(--line); }
 .lrow { grid-template-columns: 1fr 44px auto; }
 .mrow { grid-template-columns: 1fr auto; }
-.orow { grid-template-columns: 1fr 118px 36px; border-bottom: 0; padding-block: 4px; }
+.orow { grid-template-columns: 1fr 52px 112px 36px; border-bottom: 0; padding-block: 4px; }
+.orow input.shirt { text-align: center; padding-inline: 4px; }
 .orow select { font: inherit; font-size: 15px; font-weight: 500; color: var(--ink); background: var(--surface); border: 0; border-radius: var(--r-ctl); padding: 13px 8px; min-width: 0; width: 100%; }
 .lrow .who, .mrow .who { min-width: 0; overflow-wrap: anywhere; font-weight: 650; }
 .lrow .who small, .mrow .who small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
@@ -1089,7 +1090,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var t = d.team, st = t.settings || {}, s = blankTeam();
     s.name = t.name; s.short = t.short || ''; s.color = t.color; s.followersCanScore = !!t.followers_can_score;
     ['half', 'sub', 'pitch', 'tactic', 'lastKeeper', 'me', 'nextId', 'poll', 'fmt'].forEach(function (k) { if (st[k] != null) s[k] = st[k]; });
-    s.players = (d.players || []).map(function (p) { return stripNull({ id: p.pid, name: p.name, pos: p.position || null }); });
+    s.players = (d.players || []).map(function (p) { return stripNull({ id: p.pid, name: p.name, pos: p.position || null, num: typeof p.number === 'number' ? p.number : null }); });
     var maxId = s.players.reduce(function (m, p) { return Math.max(m, p.id); }, 0);
     if (!(s.nextId > maxId)) s.nextId = maxId + 1;
     s.results = (d.games || []).map(function (g) {
@@ -1128,7 +1129,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function snapshot() { // what the database should hold, as comparable strings
     (S.results || []).forEach(function (r) { if (!r.id) r.id = uuid(); });
     var snap = { team: JSON.stringify(teamRow()), crest: crest || null, players: {}, live: S.match ? JSON.stringify(S.match) : null, games: {} };
-    S.players.forEach(function (p) { snap.players[p.id] = (p.name || '').slice(0, 40) + '\u0001' + (p.pos || ''); });
+    S.players.forEach(function (p) { snap.players[p.id] = (p.name || '').slice(0, 40) + '\u0001' + (p.pos || '') + '\u0001' + (p.num == null ? '' : p.num); });
     S.results.forEach(function (r, i) { snap.games[r.id] = JSON.stringify(gameParts(r, i, '')); });
     return snap;
   }
@@ -1156,7 +1157,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       Object.keys(snap.players).forEach(function (pid) {
         if (prev.players[pid] === snap.players[pid]) return;
         var v = snap.players[pid].split('\u0001');
-        if (v[1]) upPos.push({ team_id: tid, pid: +pid, name: v[0], position: v[1] }); else up.push({ team_id: tid, pid: +pid, name: v[0] });
+        var shirt = v[2] === '' || v[2] == null ? null : +v[2];
+        if (v[1]) upPos.push({ team_id: tid, pid: +pid, name: v[0], position: v[1], shirt_number: shirt }); else up.push({ team_id: tid, pid: +pid, name: v[0], shirt_number: shirt });
       });
       if (upPos.length) await q(sb.from('players').upsert(upPos));
       Object.keys(prev.players).forEach(function (pid) { if (!(pid in snap.players)) gone.push(+pid); });
@@ -1886,6 +1888,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // ---- positions
   var POS = [['fwd', 'Up front'], ['mix', 'Mixed'], ['def', 'Defender'], ['gk', 'Goalkeeper']];
   var posName = function (k) { var x = POS.filter(function (p) { return p[0] === k; })[0]; return x ? x[1] : ''; };
+  var tag = function (pid) { var q = P(pid); return q && q.num != null ? String(q.num) : nm(pid).slice(0, 2); };
   var posOf = function (pid) { var p = P(pid); return (p && p.pos) || null; };
   function posButtons(cur, attr) {
     return '<div class="posrow">' + POS.map(function (p) { return '<button type="button" ' + attr + '="' + p[0] + '" aria-pressed="' + (cur === p[0]) + '">' + p[1] + '</button>'; }).join('') + '</div>';
@@ -1949,7 +1952,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (s.gk != null || s.start.length) {
       html += '<div class="pitchmap' + (own ? ' edit' : '') + '"' + (home ? ' id="pitchMap"' : '') + ' data-fx="' + f.id + '"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width=".6" opacity=".28" vector-effect="non-scaling-stroke">' +
         '<rect x="3" y="3" width="94" height="94" rx="2"/><line x1="3" y1="50" x2="97" y2="50"/><ellipse cx="50" cy="50" rx="14" ry="10.5"/><rect x="30" y="85" width="40" height="12"/><rect x="30" y="3" width="40" height="12"/></g></svg>' +
-        Object.keys(spots).map(function (id) { id = +id; return '<button type="button" class="dot' + (id === s.gk ? ' gk' : '') + (id === myPid ? ' me' : '') + '" data-dot="' + id + '" style="left:' + spots[id][0] + '%;top:' + spots[id][1] + '%"' + (own ? '' : ' tabindex="-1"') + '><i>' + esc(nm(id).slice(0, 2)) + '</i><span>' + esc(nm(id)) + '</span></button>'; }).join('') + '</div>';
+        Object.keys(spots).map(function (id) { id = +id; return '<button type="button" class="dot' + (id === s.gk ? ' gk' : '') + (id === myPid ? ' me' : '') + '" data-dot="' + id + '" style="left:' + spots[id][0] + '%;top:' + spots[id][1] + '%"' + (own ? '' : ' tabindex="-1"') + '><i>' + esc(tag(id)) + '</i><span>' + esc(nm(id)) + '</span></button>'; }).join('') + '</div>';
       if (own) html += '<p class="note">Drag a player to move them. Tap one to send them to the bench.</p>';
     }
     if (s.bench.length) html += '<div class="swap-rows"><div class="tag off">Bench</div><div class="chips">' + s.bench.map(function (id) { return own ? '<button type="button" class="chip off tapchip" data-unbench="' + id + '">' + esc(nm(id)) + '</button>' : '<span class="chip off">' + esc(nm(id)) + '</span>'; }).join('') + '</div></div>';
@@ -3258,7 +3261,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function renderTrack() {
     if (!(A.exp && A.exp.track)) { go('options'); return; }
-    var mv = plugin('MatchVision'), html = '', nums = trStore('nums') || {}, on = trStore('trackOn') || {}, runs = trStore('tracking') || [];
+    var mv = plugin('MatchVision'), html = '', nums = trNums(), on = trStore('trackOn') || {}, runs = trStore('tracking') || [];
     html += '<p class="note">Experimental. It follows the players you name through a recording and gives each a heat map and the distance covered. It doesn’t track the ball or the score.</p>';
     if (!mv) html += '<div class="hcard"><h3>Needs the iPhone app</h3><p class="note">The tracking runs on the phone’s own chip, so it isn’t available on the website.</p></div>';
     else if (TR.stage === 'work') html += '<div class="hcard"><h3>Working…</h3><p class="msg" id="trProg">' + esc(TR.prog || 'Starting…') + '</p><p class="note">Keep the app open and the phone on charge. A five-minute stretch can take several minutes.</p><div class="actions"><button class="plain" type="button" data-tr="stop">Stop</button></div></div>';
@@ -3269,8 +3272,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         '<label class="field" for="trFrom">From<input id="trFrom" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + esc(TR.from || '') + '"></label>' +
         '<label class="field" for="trTo">To<input id="trTo" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + esc(TR.to || '') + '"></label>' +
         '<label class="field" for="trLen">Pitch length (m)<input id="trLen" type="number" inputmode="numeric" min="10" max="80" value="' + (trStore('pitchLen') || 30) + '"></label></div></section>';
-      html += '<section><h2>3. Who’s on, and their numbers</h2><p class="note">Tick everyone on the pitch in your kit for this stretch, the keeper too if he wears the same shirt.</p><div class="inslist" style="padding-block:4px">' + S.players.map(function (p) {
-        return '<div class="trow"><input type="checkbox" id="trOn' + p.id + '" data-tron="' + p.id + '"' + (on[p.id] ? ' checked' : '') + ' aria-label="' + esc(nm(p.id)) + ' is on"><label for="trOn' + p.id + '"><b>' + esc(nm(p.id)) + '</b></label><input type="text" inputmode="numeric" maxlength="2" placeholder="No." data-trnum="' + p.id + '" value="' + (nums[p.id] == null ? '' : nums[p.id]) + '" aria-label="' + esc(nm(p.id)) + ' shirt number"></div>';
+      html += '<section><h2>3. Who’s on</h2><p class="note">Tick everyone on the pitch in your kit for this stretch, the keeper too if he wears the same shirt. Shirt numbers come from the team’s settings; fill in any that are missing.</p><div class="inslist" style="padding-block:4px">' + S.players.map(function (p) {
+        return '<div class="trow"><input type="checkbox" id="trOn' + p.id + '" data-tron="' + p.id + '"' + (on[p.id] ? ' checked' : '') + ' aria-label="' + esc(nm(p.id)) + ' is on"><label for="trOn' + p.id + '"><b>' + esc(nm(p.id)) + '</b></label><input type="text" inputmode="numeric" maxlength="2" placeholder="No." data-trnum="' + p.id + '" value="' + (nums[p.id] == null ? '' : nums[p.id]) + '"' + (p.num != null ? ' readonly' : '') + ' aria-label="' + esc(nm(p.id)) + ' shirt number"></div>';
       }).join('') + '</div></section>';
       if (TR.msg) html += '<p class="msg bad">' + esc(TR.msg) + '</p>';
       html += '<div class="actions"><button class="plain primary" type="button" data-tr="go"' + (TR.src ? '' : ' disabled') + '>Track these players</button></div>';
@@ -3279,12 +3282,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (runs.length) html += '<section><h2>Earlier runs on this phone</h2><div class="tbrow">' + runs.map(function (r, i) { return '<button type="button" data-trrun="' + i + '">' + esc(r.label) + '</button>'; }).join('') + '</div></section>';
     $('trackBody').innerHTML = html;
   }
+  function trNums() { // shirt numbers from the team's settings, with anything typed here on top
+    var n = {}, own = trStore('nums') || {}; S.players.forEach(function (p) { if (p.num != null) n[p.id] = p.num; }); Object.keys(own).forEach(function (k) { if (P(+k) && P(+k).num == null) n[k] = own[k]; }); return n;
+  }
   function trKeep() { // remember what's been typed before the screen is redrawn
     var nums = trStore('nums') || {}, on = {};
     Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-trnum]'), function (el) { var v = el.value.replace(/\D/g, ''); if (v === '') delete nums[el.getAttribute('data-trnum')]; else nums[el.getAttribute('data-trnum')] = +v; });
     Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-tron]'), function (el) { if (el.checked) on[el.getAttribute('data-tron')] = 1; });
     if ($('trFrom')) { TR.from = $('trFrom').value; TR.to = $('trTo').value; var L = +$('trLen').value; if (L >= 10 && L <= 80) trStore('pitchLen', Math.round(L)); trStore('nums', nums); trStore('trackOn', on); }
-    return { nums: nums, on: on };
+    return { nums: trNums(), on: on };
   }
   $('trackBody').addEventListener('click', async function (e) {
     var t = e.target.closest('button'); if (!t) return;
@@ -3381,7 +3387,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     TB.lines.forEach(function (l) { o += '<path d="' + tbPath(l.pts) + '" fill="none" stroke="' + (l.k === 'pass' ? gold : ink) + '" stroke-width="1.1" stroke-linecap="round"' + (l.k === 'run' ? ' stroke-dasharray="2.4 2.2"' : '') + ' marker-end="url(#' + (l.k === 'pass' ? 'tbB' : 'tbA') + ')"/>'; });
     o += '<path id="tbPenPath" fill="none" stroke="' + (tbMode === 'pass' ? gold : ink) + '" stroke-width="1.1" stroke-linecap="round" d=""/>';
     TB.pieces.forEach(function (c) {
-      var us = c.t === 'us', name = us ? tbName(c) : '', label = name ? name.slice(0, 2) : us ? (c.gk ? 'GK' : '') : '';
+      var us = c.t === 'us', name = us ? tbName(c) : '', label = name ? tag(c.pid) : us ? (c.gk ? 'GK' : '') : '';
       o += '<g data-pc="' + c.id + '" transform="translate(' + c.x.toFixed(1) + ' ' + c.y.toFixed(1) + ')">' +
         '<circle r="9" fill="transparent"/><circle r="5.4" fill="' + (us ? (c.gk ? gold : ink) : '#d9432f') + '" stroke="' + (tbSel === c.id ? gold : us ? pitch : '#7a1d12') + '" stroke-width="' + (tbSel === c.id ? 1.6 : .8) + '"/>' +
         (label ? '<text y="1.7" text-anchor="middle" font-family="system-ui,sans-serif" font-size="4.4" font-weight="800" fill="#12251b">' + esc(label) + '</text>' : '') +
@@ -3789,6 +3795,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var html = '', busy = !!S.match;
     S.players.forEach(function (p) {
       html += '<div class="orow"><input id="name-' + p.id + '" data-id="' + p.id + '" value="' + esc(p.name) + '" aria-label="Player name" autocomplete="off" maxlength="24">' +
+        '<input class="shirt" data-shirt="' + p.id + '" value="' + (p.num == null ? '' : p.num) + '" inputmode="numeric" maxlength="2" placeholder="No." aria-label="Shirt number for ' + esc(p.name) + '" autocomplete="off">' +
         '<select data-posfor="' + p.id + '" aria-label="Position for ' + esc(p.name) + '"><option value="">Position</option>' + POS.map(function (o) { return '<option value="' + o[0] + '"' + (p.pos === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
         '<button class="x" type="button" data-rm="' + p.id + '" aria-label="Remove ' + esc(p.name) + '"' + (busy || S.players.length <= 1 ? ' disabled' : '') + '>&times;</button></div>';
     });
@@ -3796,6 +3803,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('squadNote').textContent = busy ? 'You can rename players now. Removing players is locked while a game is in progress.' : 'Removing a player also removes their stats.';
     $('setHalf').value = S.half; $('setSub').value = S.sub; $('setPitch').value = S.pitch;
   }
+  $('squad').addEventListener('input', function (e) {
+    var sh = e.target.getAttribute('data-shirt'); if (sh === null) return;
+    var v = e.target.value.replace(/\D/g, '').slice(0, 2), q = P(+sh); if (e.target.value !== v) e.target.value = v;
+    if (q) { if (v === '') delete q.num; else q.num = +v; save(); }
+  });
   $('squad').addEventListener('input', function (e) { if (!e.target.hasAttribute('data-id')) return; var p = P(+e.target.getAttribute('data-id')); if (p) { p.name = e.target.value; save(); } });
   $('squad').addEventListener('change', function (e) { var id = e.target.getAttribute('data-posfor'); if (id === null || !e.target.value) return; var p = P(+id); if (p) { p.pos = e.target.value; save(); } });
   $('squad').addEventListener('click', function (e) {

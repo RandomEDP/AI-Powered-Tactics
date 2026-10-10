@@ -20,7 +20,7 @@
       const org = isOrg(d, t.id);
       return ok({ team: Object.assign({}, t, { organiser_code: org ? t.organiser_code : null }), is_organiser: org,
         my_pid: (d.players.find((p) => p.team_id === t.id && uid() && p.user_id === uid()) || {}).pid ?? null,
-        players: d.players.filter((p) => p.team_id === t.id).sort((x, y) => x.pid - y.pid).map((p) => ({ pid: p.pid, name: p.name, position: p.position || null, claimed: !!p.user_id, me: !!p.user_id && p.user_id === uid(),
+        players: d.players.filter((p) => p.team_id === t.id).sort((x, y) => x.pid - y.pid).map((p) => ({ pid: p.pid, name: p.name, position: p.position || null, number: p.shirt_number ?? null, claimed: !!p.user_id, me: !!p.user_id && p.user_id === uid(),
           gaffer: !!p.user_id && d.team_members.some((mm) => mm.team_id === t.id && mm.user_id === p.user_id), last_name: org || p.user_id === uid() ? p.last_name || null : null })),
         games: d.games.filter((g) => g.team_id === t.id).sort((x, y) => x.seq - y.seq).map((g) => Object.assign({}, g, {
           players: d.game_players.filter((p) => p.game_id === g.id).map((p) => ({ pid: p.pid, mins: p.mins, goals: p.goals, assists: p.assists, scored_on: p.scored_on ?? null, conceded: p.conceded ?? null })),
