@@ -67,7 +67,8 @@ struct MatchState: Codable, Equatable {
     /// Seconds on the current half's clock.
     func seconds(at date: Date) -> Int {
         let now = date.timeIntervalSince1970 * 1000
-        return max(0, Int((base + (running ? now - t0 : 0)) / 1000))
+        let seconds = (base + (running ? now - t0 : 0)) / 1000
+        return seconds.isFinite ? Int(max(0, min(seconds, 360_000))) : 0 // capped so a bad clock can never overflow the watch's small Int
     }
 
     var halfIndex: Int { phase == "h2" || phase == "ft" ? 1 : 0 }
@@ -158,7 +159,8 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         let live = game.live && game.running && (game.phase == "h1" || game.phase == "h2")
         let now = game.seconds(at: Date())
         let coming = live ? game.changes.filter { $0.h == game.halfIndex && $0.from * 60 - now > 3 } : []
-        let key = coming.map { "\($0.id)@\(Int(game.t0))-\(Int(game.base))" }.joined(separator: ",")
+        // (Int64: a watch's ordinary Int is too small to hold a time in milliseconds)
+        let key = coming.map { "\($0.id)@\(Int64(game.t0))-\(Int64(game.base))" }.joined(separator: ",")
         if key == scheduled { return }
         scheduled = key
         center.removeAllPendingNotificationRequests()
