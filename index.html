@@ -382,7 +382,20 @@ tr.past td { opacity: .45; }
 .kickbox p { font-size: 20px; font-weight: 750; }
 #tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); box-shadow: 0 -1px 0 var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
 #tabs[hidden] { display: none; }
-#tabs .tabrow { max-width: 552px; margin-inline: auto; display: grid; grid-template-columns: 1fr 1fr 1fr; }
+#tabs .tabrow { max-width: 552px; margin-inline: auto; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; }
+#boardBody { display: flex; flex-direction: column; gap: 14px; }
+.tbsvg { width: 100%; display: block; border-radius: var(--r-card); touch-action: none; user-select: none; -webkit-user-select: none; }
+.tbrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.tbrow button, .tbchip { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--surface); font-weight: 650; font-size: 14px; }
+.tbrow button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
+.tbrow.tools button { flex: 1 1 auto; }
+.tbsec { display: flex; flex-direction: column; gap: 8px; }
+.tbsec h2 { font-size: 17px; }
+.tbout { background: var(--surface); border-radius: var(--r-ctl); padding: 14px 16px; font-weight: 650; font-size: 17px; }
+.tbout ol { margin: 6px 0 0; padding-left: 22px; font-weight: 500; font-size: 15px; }
+.tbsave { display: flex; gap: 8px; } .tbsave input { flex: 1; min-width: 0; font: inherit; color: var(--ink); background: var(--surface); border: 0; border-radius: var(--r-ctl); padding: 13px 14px; }
+.tbsaved { display: inline-flex; align-items: center; background: var(--surface); border-radius: 999px; overflow: hidden; }
+.tbsaved button { border: 0; background: none; min-height: 40px; padding: 0 12px; font-weight: 650; font-size: 14px; } .tbsaved button + button { padding-left: 4px; color: var(--muted); }
 #tabs button { position: relative; border: 0; background: none; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 650; color: var(--muted); }
 #tabs button svg { width: 24px; height: 24px; }
 #tabs button[aria-current="page"] { color: var(--on); }
@@ -632,11 +645,18 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="dots gdots" id="gamesDots"></div>
 </div>
 
+<div class="view" id="v-board" hidden>
+  <div class="bar"><h1>Tactics board</h1></div>
+  <p class="note">A sandbox for line-ups, shapes and set pieces. Nothing here changes your real games, and it stays on this phone.</p>
+  <div id="boardBody"></div>
+</div>
+
 <nav id="tabs" aria-label="Main" hidden>
   <p class="msg" id="tabMsg" role="status"></p>
   <div class="tabrow">
     <button type="button" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Home</span></button>
     <button type="button" data-tab="games"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Games</span><b id="tabBadge" hidden></b></button>
+    <button type="button" data-tab="board"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="9" r="1.6" fill="currentColor"/><path d="M14 8l3 3M17 8l-3 3M9 13.5c0 2.5 2 3.5 5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Tactics</span></button>
     <button type="button" id="mOptions" data-tab="options"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Settings</span></button>
   </div>
 </nav>
@@ -1014,7 +1034,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var role = 'viewer', teamId = null, orgCode = null;
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'board', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1446,7 +1466,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'board', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1481,6 +1501,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'code') renderCode();
     else if (S.view === 'home') renderHome();
     else if (S.view === 'games') renderGames();
+    else if (S.view === 'board') renderBoard();
     else if (S.view === 'setup') renderSetup();
     else if (S.view === 'mins') renderMins();
     else if (S.view === 'game') renderGame();
@@ -2041,7 +2062,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('gamesNew').addEventListener('click', function () { if (role !== 'owner') return; fxEdit = null; pollBack = 'games'; go('poll'); });
   // ---- the bar along the bottom: Home, Games, Settings
   function renderTabs() {
-    var show = !!A.active && ['home', 'games', 'options'].indexOf(S.view) >= 0, own = role === 'owner';
+    var show = !!A.active && ['home', 'games', 'board', 'options'].indexOf(S.view) >= 0, own = role === 'owner';
     $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
     Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === S.view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
     var opt = $('mOptions'); opt.className = own ? '' : 'locked'; opt.setAttribute('aria-disabled', !own);
@@ -3190,6 +3211,196 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function sayLine(t) {
     try { if (!sayOn || !t || !window.speechSynthesis) return; speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(t); u.lang = 'en-GB'; u.rate = 1.08; u.pitch = 1.05; speechSynthesis.speak(u); } catch (e) {}
   }
+
+  // ================= tactics board: a sandbox. Everything in this block stands alone and is kept on this phone only.
+  var TB = null, tbMode = 'move', tbSel = null, tbDrag = null, tbPen = null, tbAnim = 0, tbSnap = null, tbOut = '', tbSet = -1, tbFor = null;
+  var TBW = 100, TBH = 140;
+  var FORMS = {
+    5: { '2-2': [[30, 105], [70, 105], [30, 60], [70, 60]], '1-2-1': [[50, 110], [25, 82], [75, 82], [50, 52]], '2-1-1': [[30, 108], [70, 108], [50, 80], [50, 50]], '1-1-2': [[50, 110], [50, 82], [30, 52], [70, 52]], '3-1': [[22, 105], [50, 110], [78, 105], [50, 55]] },
+    7: { '2-3-1': [[32, 110], [68, 110], [20, 80], [50, 84], [80, 80], [50, 48]], '3-2-1': [[22, 108], [50, 112], [78, 108], [35, 80], [65, 80], [50, 48]], '2-1-2-1': [[32, 112], [68, 112], [50, 92], [25, 68], [75, 68], [50, 44]], '3-1-2': [[22, 108], [50, 112], [78, 108], [50, 82], [35, 52], [65, 52]] }
+  };
+  // Set pieces, drawn for the four outfield players of a 5-a-side (7-a-side adds two holding the middle). Attack goes up the screen.
+  var SETS = [
+    { n: 'Corner: near-post dart', d: 'One darts across the near post for a first-time finish while another peels to the back. One stays home.', ball: [96, 10], us: [[92, 13], [58, 32], [44, 40], [50, 80]], lines: [['run', [58, 32], [66, 22], [74, 13]], ['run', [44, 40], [38, 28], [34, 16]], ['pass', [96, 10], [86, 12], [75, 14]]] },
+    { n: 'Kick-in: the wall pass', d: 'Play it short, sprint up the line, and get it straight back in behind their marker.', ball: [3, 72], us: [[5, 75], [26, 62], [60, 50], [50, 100]], lines: [['pass', [3, 72], [14, 68], [25, 63]], ['run', [5, 75], [7, 58], [10, 40]], ['pass', [26, 62], [18, 50], [11, 41]]] },
+    { n: 'Free kick: the dummy', d: 'One runs over the ball and keeps going. The second hits it while the wall is still watching the first.', ball: [50, 46], us: [[40, 52], [56, 54], [78, 34], [50, 90]], lines: [['run', [40, 52], [50, 44], [62, 32]], ['run', [56, 54], [52, 49], [50, 47]], ['pass', [50, 46], [48, 26], [46, 6]], ['run', [78, 34], [74, 24], [68, 14]]] },
+    { n: 'Kick-off: straight at them', d: 'Roll it back, both wide players go, and the ball follows the quicker one.', ball: [50, 70], us: [[50, 72], [50, 88], [22, 72], [78, 72]], lines: [['pass', [50, 70], [50, 79], [50, 87]], ['run', [22, 72], [18, 52], [24, 32]], ['run', [78, 72], [82, 52], [76, 32]], ['pass', [50, 87], [36, 60], [25, 33]]] },
+    { n: 'Goal kick: split wide', d: 'Defenders split to the corners, one drops into the hole, and the striker pins their last man.', ball: [50, 127], us: [[36, 112], [64, 112], [50, 84], [50, 40]], lines: [['run', [36, 112], [24, 113], [13, 110]], ['run', [64, 112], [76, 113], [87, 110]], ['run', [50, 84], [50, 92], [50, 100]], ['pass', [50, 127], [32, 120], [14, 111]]] },
+    { n: 'The overload', d: 'Three down one side to drag them across, then switch it to the player left alone on the other.', ball: [22, 78], us: [[22, 80], [14, 60], [34, 62], [80, 70]], lines: [['run', [14, 60], [10, 46], [14, 34]], ['run', [34, 62], [30, 50], [36, 40]], ['run', [80, 70], [82, 54], [76, 38]], ['pass', [22, 78], [50, 62], [76, 40]]] }
+  ];
+  var TALKS = ['Win your first tackle and the rest follows.', 'Nobody walks. If you’re tired, shout for a sub.', 'Play the way you’re facing. Simple wins.', 'Their keeper hates low shots. Test him early.', 'If in doubt, kick it out. No heroes at the back.', 'Talk to each other. A quiet team is a losing team.', 'First five minutes at full pelt, then we see who they are.', 'Pass and move. Standing still is helping them.', 'We’ve lost to worse and beaten better. Enjoy it.', 'Shoot. You miss every shot you square to someone worse.', 'Last man never dribbles. Ever.', 'Whoever scores buys nothing. Whoever misses an open goal buys the round.'];
+  function tbKey() { return TKEY + (A.active || 'x') + ':board'; }
+  function tbStore() { try { localStorage.setItem(tbKey(), JSON.stringify(TB)); } catch (e) {} }
+  function tbLoad() {
+    if (TB && tbFor === A.active) return;
+    tbFor = A.active; TB = null; tbSel = null; tbSet = -1; tbOut = ''; tbSnap = null;
+    try { TB = JSON.parse(localStorage.getItem(tbKey())); } catch (e) {}
+    if (!TB || !Array.isArray(TB.pieces) || !FORMS[TB.side]) { TB = { side: defSide(), form: null, pieces: [], ball: { x: 50, y: 70 }, lines: [], saves: [], chem: false, them: false }; tbShape(Object.keys(FORMS[TB.side])[0]); }
+    TB.pieces.forEach(function (c) { if (c.pid != null && !P(c.pid)) c.pid = null; });
+  }
+  function tbUs() { return TB.pieces.filter(function (c) { return c.t === 'us'; }); }
+  function tbShape(name, pts) { // put our players in a shape, keeping whoever was already named
+    var old = tbUs().map(function (c) { return c.pid; }), spots = pts || FORMS[TB.side][name], them = TB.pieces.filter(function (c) { return c.t === 'them'; });
+    TB.pieces = [{ id: 'u0', t: 'us', gk: true, x: 50, y: 125, pid: old[0] == null ? null : old[0] }].concat(spots.map(function (q, i) { return { id: 'u' + (i + 1), t: 'us', x: q[0], y: q[1], pid: old[i + 1] == null ? null : old[i + 1] }; })).concat(them);
+    TB.form = pts ? null : name;
+  }
+  function tbThem(on) {
+    TB.pieces = tbUs(); TB.them = !!on; if (!on) return;
+    TB.pieces = TB.pieces.concat(tbUs().map(function (c, i) { return { id: 't' + i, t: 'them', gk: !!c.gk, x: 100 - c.x, y: Math.max(8, TBH - c.y - (c.gk ? 0 : 6)) }; }));
+  }
+  var tbName = function (c) { return c.pid != null && P(c.pid) ? nm(c.pid) : ''; };
+  function tbChem() { // how well each named pair gets on, from the same numbers Insights uses
+    var d = insightData(), sc = {}, key = function (a, b) { return a < b ? a + '-' + b : b + '-' + a; };
+    d.links.forEach(function (l) { sc[key(l.a, l.p)] = (sc[key(l.a, l.p)] || 0) + l.n; });
+    d.pairs.forEach(function (x) { sc[key(x.a, x.b)] = (sc[key(x.a, x.b)] || 0) + (x.gf - x.ga) / 2; });
+    return function (a, b) { return sc[key(a, b)] || 0; };
+  }
+  function tbPath(pts) { // a smooth line through the points
+    if (pts.length < 3) return 'M' + pts.map(function (q) { return q[0].toFixed(1) + ' ' + q[1].toFixed(1); }).join(' L');
+    var dd = 'M' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+    for (var i = 1; i < pts.length - 1; i++) { var mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2; dd += ' Q' + pts[i][0].toFixed(1) + ' ' + pts[i][1].toFixed(1) + ' ' + mx.toFixed(1) + ' ' + my.toFixed(1); }
+    var e = pts[pts.length - 1]; return dd + ' L' + e[0].toFixed(1) + ' ' + e[1].toFixed(1);
+  }
+  function tbSvg(solo) { // the whole board as SVG; solo = a standalone picture for sharing
+    var cs = getComputedStyle(document.documentElement), col = function (v, f) { return (cs.getPropertyValue(v) || '').trim() || f; };
+    var pitch = col('--pitch', '#1f6b4a'), ink = col('--pitch-ink', '#f7f5ec'), gold = '#ffc83d', o = '';
+    o += '<rect width="100" height="140" rx="5" fill="' + pitch + '"/>';
+    o += '<g fill="none" stroke="' + ink + '" stroke-opacity=".3" stroke-width=".7"><rect x="4" y="4" width="92" height="132" rx="2"/><line x1="4" y1="70" x2="96" y2="70"/><circle cx="50" cy="70" r="12"/><path d="M30 4v14a20 20 0 0 0 40 0V4"/><path d="M30 136v-14a20 20 0 0 1 40 0v14"/><rect x="40" y="1.5" width="20" height="2.5"/><rect x="40" y="136" width="20" height="2.5"/></g>';
+    o += '<defs><marker id="tbA" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="' + ink + '"/></marker><marker id="tbB" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="' + gold + '"/></marker></defs>';
+    if (TB.chem) { var ch = tbChem(), us = tbUs().filter(function (c) { return c.pid != null; });
+      for (var i = 0; i < us.length; i++) for (var j = i + 1; j < us.length; j++) { var v = ch(us[i].pid, us[j].pid); if (v > 0) o += '<line x1="' + us[i].x + '" y1="' + us[i].y + '" x2="' + us[j].x + '" y2="' + us[j].y + '" stroke="#7dffb0" stroke-opacity="' + Math.min(.9, .25 + v * .15) + '" stroke-width="' + Math.min(3.2, .8 + v * .5) + '" stroke-linecap="round"/>'; } }
+    TB.lines.forEach(function (l) { o += '<path d="' + tbPath(l.pts) + '" fill="none" stroke="' + (l.k === 'pass' ? gold : ink) + '" stroke-width="1.1" stroke-linecap="round"' + (l.k === 'run' ? ' stroke-dasharray="2.4 2.2"' : '') + ' marker-end="url(#' + (l.k === 'pass' ? 'tbB' : 'tbA') + ')"/>'; });
+    o += '<path id="tbPenPath" fill="none" stroke="' + (tbMode === 'pass' ? gold : ink) + '" stroke-width="1.1" stroke-linecap="round" d=""/>';
+    TB.pieces.forEach(function (c) {
+      var us = c.t === 'us', name = us ? tbName(c) : '', label = name ? name.slice(0, 2) : us ? (c.gk ? 'GK' : '') : '';
+      o += '<g data-pc="' + c.id + '" transform="translate(' + c.x.toFixed(1) + ' ' + c.y.toFixed(1) + ')">' +
+        '<circle r="9" fill="transparent"/><circle r="5.4" fill="' + (us ? (c.gk ? gold : ink) : '#d9432f') + '" stroke="' + (tbSel === c.id ? gold : us ? pitch : '#7a1d12') + '" stroke-width="' + (tbSel === c.id ? 1.6 : .8) + '"/>' +
+        (label ? '<text y="1.7" text-anchor="middle" font-family="system-ui,sans-serif" font-size="4.4" font-weight="800" fill="#12251b">' + esc(label) + '</text>' : '') +
+        (name ? '<text y="10.6" text-anchor="middle" font-family="system-ui,sans-serif" font-size="3.6" font-weight="700" fill="' + ink + '">' + esc(name) + '</text>' : '') + '</g>';
+    });
+    o += '<g data-pc="ball" transform="translate(' + TB.ball.x.toFixed(1) + ' ' + TB.ball.y.toFixed(1) + ')"><circle r="7" fill="transparent"/><circle r="2.3" fill="#fff" stroke="#111" stroke-width=".7"/></g>';
+    return solo ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140" width="1000" height="1400">' + o + '</svg>' : o;
+  }
+  function tbPaint() { var el = $('tbSvg'); if (el) el.innerHTML = tbSvg(false); }
+  function renderBoard() {
+    tbLoad();
+    var b = function (attr, val, text, on) { return '<button type="button" ' + attr + '="' + val + '"' + (on == null ? '' : ' aria-pressed="' + !!on + '"') + '>' + text + '</button>'; }, html = '';
+    html += '<div class="toggle" role="group" aria-label="Team size">' + b('data-tbside', 5, '5-a-side', TB.side === 5) + b('data-tbside', 7, '7-a-side', TB.side === 7) + '</div>';
+    html += '<div class="tbrow">' + Object.keys(FORMS[TB.side]).map(function (k) { return b('data-tbform', k, k, TB.form === k); }).join('') + '</div>';
+    html += '<div class="tbrow tools">' + b('data-tbmode', 'move', 'Move', tbMode === 'move') + b('data-tbmode', 'run', 'Draw a run', tbMode === 'run') + b('data-tbmode', 'pass', 'Draw a pass', tbMode === 'pass') + b('data-tb', 'undo', 'Undo') + b('data-tb', 'wipe', 'Clear') + '</div>';
+    html += '<svg class="tbsvg" id="tbSvg" viewBox="0 0 100 140" role="img" aria-label="Tactics board">' + tbSvg(false) + '</svg>';
+    var sel = tbSel && TB.pieces.filter(function (c) { return c.id === tbSel; })[0];
+    if (sel && sel.t === 'us') { var used = {}; tbUs().forEach(function (c) { if (c.pid != null) used[c.pid] = c.id; });
+      html += '<div class="tbsec"><h2>Who’s this?</h2><div class="tbrow">' + S.players.map(function (p) { return b('data-tbpid', p.id, esc(nm(p.id)), sel.pid === p.id); }).join('') + b('data-tbpid', '', 'Nobody', sel.pid == null) + '</div></div>'; }
+    else html += '<p class="note">' + (tbMode === 'move' ? 'Drag players and the ball. Tap one of yours to put a name on it.' : tbMode === 'run' ? 'Draw with your finger: a dashed line for a run.' : 'Draw with your finger: a gold line for a pass.') + '</p>';
+    html += '<div class="tbrow">' + b('data-tb', 'best', 'Pick my best side') + b('data-tb', 'shuffle', 'Shuffle') + b('data-tb', 'them', TB.them ? 'Hide opposition' : 'Show opposition', TB.them) + b('data-tb', 'chem', 'Chemistry lines', TB.chem) + '</div>';
+    html += '<div class="tbsec"><h2>Set pieces</h2><div class="tbrow">' + SETS.map(function (sp, i) { return b('data-tbset', i, esc(sp.n), tbSet === i); }).join('') + '</div>' +
+      (tbSet >= 0 ? '<p class="note">' + esc(SETS[tbSet].d) + '</p>' : '') + '<div class="tbrow">' + b('data-tb', 'play', '▶ Play the arrows') + (tbSnap ? b('data-tb', 'reset', 'Back to the start') : '') + '</div></div>';
+    html += '<div class="tbsec"><h2>Keep it</h2><div class="tbsave"><input id="tbName" type="text" maxlength="30" placeholder="Name this board" autocomplete="off"><button class="plain" type="button" data-tb="save">Save</button></div>' +
+      (TB.saves.length ? '<div class="tbrow">' + TB.saves.map(function (sv, i) { return '<span class="tbsaved"><button type="button" data-tbload="' + i + '">' + esc(sv.n) + '</button><button type="button" data-tbdel="' + i + '" aria-label="Delete ' + esc(sv.n) + '">✕</button></span>'; }).join('') + '</div>' : '') +
+      '<div class="tbrow">' + b('data-tb', 'share', 'Share as a picture') + '</div></div>';
+    html += '<div class="tbsec"><h2>Just for fun</h2><div class="tbrow">' + b('data-tb', 'talk', 'Team talk') + b('data-tb', 'coin', 'Coin toss') + b('data-tb', 'pens', 'Penalty order') + b('data-tb', 'captain', 'Pick a captain') + '</div>' + (tbOut ? '<div class="tbout" role="status">' + tbOut + '</div>' : '') + '</div>';
+    $('boardBody').innerHTML = html;
+  }
+  function tbXY(e) { var r = $('tbSvg').getBoundingClientRect(); return [Math.max(2, Math.min(98, (e.clientX - r.left) / r.width * TBW)), Math.max(2, Math.min(138, (e.clientY - r.top) / r.height * TBH))]; }
+  function tbShuffled(a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function tbFill(order) { // names onto the board: keeper first, then defenders at the back and forwards up top
+    var us = tbUs(), gkP = order.filter(function (id) { return posOf(id) === 'gk'; })[0]; if (gkP == null) gkP = P(S.lastKeeper) && order.indexOf(S.lastKeeper) >= 0 ? S.lastKeeper : order[order.length - 1];
+    var rest = order.filter(function (id) { return id !== gkP; }).slice(0, us.length - 1), rank = { def: 0, mix: 1, fwd: 2 };
+    rest.sort(function (a, b) { return (rank[posOf(a)] == null ? 1 : rank[posOf(a)]) - (rank[posOf(b)] == null ? 1 : rank[posOf(b)]); });
+    var slots = us.filter(function (c) { return !c.gk; }).sort(function (a, b) { return b.y - a.y; });
+    us.forEach(function (c) { c.pid = null; }); us[0].pid = gkP == null ? null : gkP;
+    slots.forEach(function (c, i) { c.pid = rest[i] == null ? null : rest[i]; });
+  }
+  function tbAlong(pts, u) {
+    var L = [0], i; for (i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    var at = u * L[L.length - 1]; for (i = 1; i < pts.length; i++) if (at <= L[i]) { var f = (at - L[i - 1]) / ((L[i] - L[i - 1]) || 1); return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f]; }
+    return pts[pts.length - 1];
+  }
+  function tbPlay() { // runs all go at once; the ball follows the passes one after another
+    if (tbAnim || !TB.lines.length) return;
+    if (!tbSnap) tbSnap = JSON.stringify({ pieces: TB.pieces, ball: TB.ball });
+    var runs = [], passes = [], taken = {};
+    TB.lines.forEach(function (l) {
+      if (l.k === 'pass') { passes.push(l.pts); return; }
+      var best = null, bd = 10; TB.pieces.forEach(function (c) { var dd = Math.hypot(c.x - l.pts[0][0], c.y - l.pts[0][1]); if (dd < bd && !taken[c.id]) { bd = dd; best = c; } });
+      if (best) { taken[best.id] = 1; runs.push({ c: best, pts: l.pts }); }
+    });
+    var t0 = performance.now(), D = 1300, total = D * Math.max(1, passes.length), ease = function (u) { return u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2; };
+    (function step(now) {
+      var t = now - t0;
+      runs.forEach(function (r) { var q = tbAlong(r.pts, ease(Math.min(1, t / total))); r.c.x = q[0]; r.c.y = q[1]; });
+      if (passes.length) { var pi = Math.min(passes.length - 1, Math.floor(t / D)), q = tbAlong(passes[pi], ease(Math.max(0, Math.min(1, (t - pi * D) / D)))); TB.ball.x = q[0]; TB.ball.y = q[1]; }
+      tbPaint();
+      if (t < total) tbAnim = requestAnimationFrame(step); else { tbAnim = 0; renderBoard(); }
+    })(t0);
+  }
+  $('boardBody').addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t || tbAnim) return;
+    var g = function (a) { return t.getAttribute(a); }, v;
+    if ((v = g('data-tbside')) !== null) { if (+v !== TB.side) { TB.side = +v; TB.lines = []; tbSet = -1; tbSnap = null; var keep = tbUs().map(function (c) { return c.pid; }); tbShape(Object.keys(FORMS[TB.side])[0]); tbUs().forEach(function (c, i) { c.pid = keep[i] == null ? null : keep[i]; }); tbThem(TB.them); } }
+    else if ((v = g('data-tbform')) !== null) { tbShape(v); tbThem(TB.them); tbSet = -1; tbSnap = null; }
+    else if ((v = g('data-tbmode')) !== null) { tbMode = v; tbSel = null; }
+    else if ((v = g('data-tbpid')) !== null) { var c = TB.pieces.filter(function (x) { return x.id === tbSel; })[0]; if (c) { var pid = v === '' ? null : +v; tbUs().forEach(function (x) { if (pid != null && x.pid === pid) x.pid = c.pid; }); c.pid = pid; tbSel = null; } }
+    else if ((v = g('data-tbset')) !== null) { var sp = SETS[+v]; tbSet = +v; tbSnap = null; tbShape(null, sp.us.concat(TB.side === 7 ? [[30, 96], [70, 96]] : [])); tbThem(TB.them); TB.ball = { x: sp.ball[0], y: sp.ball[1] }; TB.lines = sp.lines.map(function (l) { return { k: l[0], pts: l.slice(1) }; }); }
+    else if ((v = g('data-tbload')) !== null) { var sv = TB.saves[+v]; if (sv) { var d = JSON.parse(sv.d); TB.side = d.side; TB.form = d.form; TB.pieces = d.pieces; TB.ball = d.ball; TB.lines = d.lines; TB.them = d.them; tbSet = -1; tbSnap = null; tbOut = ''; } }
+    else if ((v = g('data-tbdel')) !== null) { TB.saves.splice(+v, 1); }
+    else if ((v = g('data-tb')) !== null) {
+      if (v === 'undo') TB.lines.pop();
+      else if (v === 'wipe') { TB.lines = []; tbSet = -1; tbSnap = null; }
+      else if (v === 'them') tbThem(!TB.them);
+      else if (v === 'chem') { TB.chem = !TB.chem; if (TB.chem && !tbUs().some(function (c) { return c.pid != null; })) tbOut = 'Put names on the board first: the lines join players who score together.'; }
+      else if (v === 'shuffle') tbFill(tbShuffled(S.players.map(function (p) { return p.id; })));
+      else if (v === 'best') { var d2 = insightData(), avg = function (id) { var f = d2.form[id]; return f && f.n ? f.sum / f.n : 0; }; tbFill(S.players.map(function (p) { return p.id; }).sort(function (a, b2) { return avg(b2) - avg(a); }).slice(0, tbUs().length)); tbOut = d2.games.length ? 'Picked on average match rating this season.' : 'No games yet, so this is just the first names on the list.'; }
+      else if (v === 'play') { tbStore(); tbPlay(); return; }
+      else if (v === 'reset' && tbSnap) { var z = JSON.parse(tbSnap); TB.pieces = z.pieces; TB.ball = z.ball; tbSnap = null; }
+      else if (v === 'save') { var n = ($('tbName').value || '').trim() || 'Board ' + (TB.saves.length + 1); TB.saves.push({ n: n.slice(0, 30), d: JSON.stringify({ side: TB.side, form: TB.form, pieces: TB.pieces, ball: TB.ball, lines: TB.lines, them: TB.them }) }); if (TB.saves.length > 12) TB.saves.shift(); }
+      else if (v === 'share') { tbShare(); return; }
+      else if (v === 'talk') tbOut = '“' + esc(TALKS[Math.floor(Math.random() * TALKS.length)]) + '”';
+      else if (v === 'coin') tbOut = Math.random() < .5 ? 'Heads. Your kick-off.' : 'Tails. Pick your end.';
+      else if (v === 'captain') { var pool = S.players.length ? S.players : []; tbOut = pool.length ? esc(nm(pool[Math.floor(Math.random() * pool.length)].id)) + ' has the armband today.' : 'Add some players first.'; }
+      else if (v === 'pens') { var named = tbUs().filter(function (c) { return c.pid != null; }).map(function (c) { return c.pid; }), ids = named.length >= 3 ? named : S.players.map(function (p) { return p.id; }); tbOut = 'Penalty order<ol>' + tbShuffled(ids).map(function (id) { return '<li>' + esc(nm(id)) + '</li>'; }).join('') + '</ol>'; }
+    } else return;
+    tbStore(); renderBoard();
+  });
+  $('boardBody').addEventListener('pointerdown', function (e) {
+    var svg = e.target.closest && e.target.closest('#tbSvg'); if (!svg || tbAnim) return;
+    e.preventDefault(); try { svg.setPointerCapture(e.pointerId); } catch (err) {}
+    var q = tbXY(e);
+    if (tbMode !== 'move') { tbPen = [q]; return; }
+    var gEl = e.target.closest('[data-pc]'); if (!gEl) { if (tbSel) { tbSel = null; renderBoard(); } return; }
+    var id = gEl.getAttribute('data-pc'), c = id === 'ball' ? TB.ball : TB.pieces.filter(function (x) { return x.id === id; })[0]; if (!c) return;
+    tbDrag = { id: id, c: c, el: gEl, x0: q[0], y0: q[1], moved: false };
+  });
+  $('boardBody').addEventListener('pointermove', function (e) {
+    if (tbPen) { var q = tbXY(e), last = tbPen[tbPen.length - 1]; if (Math.hypot(q[0] - last[0], q[1] - last[1]) > 2.5) { tbPen.push(q); var el = $('tbPenPath'); if (el) { el.setAttribute('d', tbPath(tbPen)); if (tbMode === 'run') el.setAttribute('stroke-dasharray', '2.4 2.2'); } } return; }
+    var d = tbDrag; if (!d) return; var q2 = tbXY(e);
+    if (!d.moved && Math.hypot(q2[0] - d.x0, q2[1] - d.y0) < 2) return;
+    d.moved = true; d.c.x = q2[0]; d.c.y = q2[1]; d.el.setAttribute('transform', 'translate(' + q2[0].toFixed(1) + ' ' + q2[1].toFixed(1) + ')');
+  });
+  function tbUp() {
+    if (tbPen) { var pts = tbPen; tbPen = null; if (pts.length >= 2) { var step = Math.max(1, Math.floor(pts.length / 8)), thin = pts.filter(function (q, i) { return i % step === 0 || i === pts.length - 1; }); TB.lines.push({ k: tbMode, pts: thin }); if (TB.lines.length > 24) TB.lines.shift(); tbStore(); } renderBoard(); return; }
+    var d = tbDrag; tbDrag = null; if (!d) return;
+    if (d.moved) { TB.form = null; tbSnap = null; } else if (d.id !== 'ball' && d.c.t === 'us') tbSel = tbSel === d.id ? null : d.id;
+    tbStore(); renderBoard();
+  }
+  $('boardBody').addEventListener('pointerup', tbUp);
+  $('boardBody').addEventListener('pointercancel', function () { tbPen = null; tbDrag = null; renderBoard(); });
+  function tbShare() { // the board as a picture, through the share sheet where there is one
+    var img = new Image(), was = tbSel; tbSel = null; var svg = tbSvg(true); tbSel = was;
+    img.onload = function () {
+      var cv = document.createElement('canvas'); cv.width = 1000; cv.height = 1400; cv.getContext('2d').drawImage(img, 0, 0, 1000, 1400);
+      cv.toBlob(function (blob) {
+        if (!blob) { tbOut = 'Couldn’t make the picture on this phone.'; renderBoard(); return; }
+        var file = null; try { file = new File([blob], 'tactics.png', { type: 'image/png' }); } catch (e) {}
+        if (file && navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: teamName() + ' tactics' }).catch(function () {}); return; }
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'tactics.png'; document.body.appendChild(a); a.click(); a.remove();
+      }, 'image/png');
+    };
+    img.onerror = function () { tbOut = 'Couldn’t make the picture on this phone.'; renderBoard(); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  // ================= end of the tactics board
   var delIdx = -1, delT = null, showF = false, statScope = null;
   $('scopeRow').addEventListener('click', function (e) { var v = e.target.getAttribute('data-scope'); if (v === null) return; statScope = v || null; renderStats(); });
   $('showF').addEventListener('change', function (e) { showF = e.target.checked; renderStats(); });
