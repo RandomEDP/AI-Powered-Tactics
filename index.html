@@ -3250,13 +3250,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function trResult(res) {
     var mmss2 = function (sec) { sec = Math.round(sec); return Math.floor(sec / 60) + ':' + p2(sec % 60); }, html = '';
-    html += '<p class="msg">' + mmss2(res.duration) + ' analysed. Pitch worked out as about ' + Math.round(res.pitch.width) + ' m wide; camera about ' + (Math.round(res.cameraHeight * 10) / 10) + ' m up.</p><div class="heatwrap">';
+    html += '<p class="msg">' + mmss2(res.duration) + ' analysed on a ' + Math.round(res.pitch.length) + ' by ' + Math.round(res.pitch.width) + ' m pitch. Camera worked out as about ' + (Math.round(res.cameraHeight * 10) / 10) + ' m up.</p><div class="heatwrap">';
     res.players.forEach(function (x) {
       html += '<div class="heatcard"><b>' + esc(P(x.pid) ? nm(x.pid) : 'Player') + ' <small>#' + x.number + '</small></b>' + heatSvg(x.heat, res.columns, res.rows) +
         '<small>Followed for ' + mmss2(x.seconds) + ' of ' + mmss2(res.duration) + (x.readSeconds ? '' : ', number never read') + '</small><small>' + Math.round(x.metres) + ' m covered while followed</small></div>';
     });
     html += '<div class="heatcard"><b>Whole team</b>' + heatSvg(res.team.heat, res.columns, res.rows) + '<small>Everyone in your colour, named or not</small></div></div>';
-    html += '<p class="note">' + (res.numbersRead ? 'Shirt numbers were read ' + res.numbersRead + ' times. ' : 'No shirt numbers could be read, so nobody could be named. ') + (res.unknownSeconds > 1 ? mmss2(res.unknownSeconds) + ' of player time couldn’t be given to anyone and is left out. ' : '') + 'Distances only count the time a player was followed, so they run low. The far end of the pitch is the least accurate.</p>';
+    html += '<p class="note">' + (res.numbersRead ? 'Shirt numbers were read ' + res.numbersRead + ' times. ' : 'No shirt numbers could be read, so nobody could be named. Numbers are only readable when a player is close to the camera with his back to it, so a longer stretch gives it more chances. ') + (res.unknownSeconds > 1 ? mmss2(res.unknownSeconds) + ' of player time couldn’t be given to anyone and is left out. ' : '') + 'Distances only count the time a player was followed, so they run low. The far end of the pitch is the least accurate.</p>';
     return html;
   }
   function renderTrack() {
@@ -3264,14 +3264,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var mv = plugin('MatchVision'), html = '', nums = trNums(), on = trStore('trackOn') || {}, runs = trStore('tracking') || [];
     html += '<p class="note">Experimental. It follows the players you name through a recording and gives each a heat map and the distance covered. It doesn’t track the ball or the score.</p>';
     if (!mv) html += '<div class="hcard"><h3>Needs the iPhone app</h3><p class="note">The tracking runs on the phone’s own chip, so it isn’t available on the website.</p></div>';
-    else if (TR.stage === 'work') html += '<div class="hcard"><h3>Working…</h3><p class="msg" id="trProg">' + esc(TR.prog || 'Starting…') + '</p><p class="note">Keep the app open and the phone on charge. A five-minute stretch can take several minutes.</p><div class="actions"><button class="plain" type="button" data-tr="stop">Stop</button></div></div>';
+    else if (TR.stage === 'work') html += '<div class="hcard"><h3>Working…</h3><p class="msg" id="trProg">' + esc(TR.prog || 'Starting…') + '</p><p class="note">Keep the app open and the phone on charge. A five-minute stretch can take ten minutes or more.</p><div class="actions"><button class="plain" type="button" data-tr="stop">Stop</button></div></div>';
     else {
       html += '<section><h2>1. The recording</h2><p class="note">Filmed in landscape from a fixed spot behind a goal, as high as you can, with the whole pitch in view. Original quality reads numbers best.</p>' +
         '<div class="actions"><button class="plain' + (TR.src ? '' : ' primary') + '" type="button" data-tr="pick">' + (TR.src ? 'Choose a different video' : 'Choose the video') + '</button></div>' + (TR.src ? '<p class="msg">Video chosen, ' + Math.floor(TR.src.duration / 60) + ':' + p2(Math.round(TR.src.duration % 60)) + ' long.</p>' : '') + '</section>';
       html += '<section><h2>2. Which part</h2><p class="note">Analyse one stretch at a time, between changes, so the same players are on throughout. Leave both empty for the whole video.</p><div class="three">' +
         '<label class="field" for="trFrom">From<input id="trFrom" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + esc(TR.from || '') + '"></label>' +
         '<label class="field" for="trTo">To<input id="trTo" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + esc(TR.to || '') + '"></label>' +
-        '<label class="field" for="trLen">Pitch length (m)<input id="trLen" type="number" inputmode="numeric" min="10" max="80" value="' + (trStore('pitchLen') || 30) + '"></label></div></section>';
+        '<label class="field" for="trLen">Pitch length (m)<input id="trLen" type="number" inputmode="numeric" min="10" max="80" value="' + (trStore('pitchLen') || 30) + '"></label></div>' +
+        '<div class="three"><label class="field" for="trWid">Pitch width (m)<input id="trWid" type="number" inputmode="numeric" min="6" max="60" value="' + (trStore('pitchWid') || Math.round((trStore('pitchLen') || 30) * 2 / 3)) + '"></label></div><p class="note">A rough size is fine. A usual 5-a-side pitch is about 30 by 20.</p></section>';
       html += '<section><h2>3. Who’s on</h2><p class="note">Tick everyone on the pitch in your kit for this stretch, the keeper too if he wears the same shirt. Shirt numbers come from the team’s settings; fill in any that are missing.</p><div class="inslist" style="padding-block:4px">' + S.players.map(function (p) {
         return '<div class="trow"><input type="checkbox" id="trOn' + p.id + '" data-tron="' + p.id + '"' + (on[p.id] ? ' checked' : '') + ' aria-label="' + esc(nm(p.id)) + ' is on"><label for="trOn' + p.id + '"><b>' + esc(nm(p.id)) + '</b></label><input type="text" inputmode="numeric" maxlength="2" placeholder="No." data-trnum="' + p.id + '" value="' + (nums[p.id] == null ? '' : nums[p.id]) + '"' + (p.num != null ? ' readonly' : '') + ' aria-label="' + esc(nm(p.id)) + ' shirt number"></div>';
       }).join('') + '</div></section>';
@@ -3289,7 +3290,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var nums = trStore('nums') || {}, on = {};
     Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-trnum]'), function (el) { var v = el.value.replace(/\D/g, ''); if (v === '') delete nums[el.getAttribute('data-trnum')]; else nums[el.getAttribute('data-trnum')] = +v; });
     Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-tron]'), function (el) { if (el.checked) on[el.getAttribute('data-tron')] = 1; });
-    if ($('trFrom')) { TR.from = $('trFrom').value; TR.to = $('trTo').value; var L = +$('trLen').value; if (L >= 10 && L <= 80) trStore('pitchLen', Math.round(L)); trStore('nums', nums); trStore('trackOn', on); }
+    if ($('trFrom')) { TR.from = $('trFrom').value; TR.to = $('trTo').value; var L = +$('trLen').value; if (L >= 10 && L <= 80) trStore('pitchLen', Math.round(L)); var Wd = +$('trWid').value; if (Wd >= 6 && Wd <= 60) trStore('pitchWid', Math.round(Wd)); trStore('nums', nums); trStore('trackOn', on); }
     return { nums: trNums(), on: on };
   }
   $('trackBody').addEventListener('click', async function (e) {
@@ -3317,7 +3318,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (!trBound) { trBound = true; try { mv.addListener('progress', function (d) { TR.prog = d.stage === 'look' ? 'Watching the video, ' + Math.round((d.p || 0) * 100) + '%' : 'Working out who is who…'; var el = $('trProg'); if (el) el.textContent = TR.prog; }); } catch (err) {} }
     TR.stage = 'work'; TR.prog = ''; TR.res = null; renderTrack(); stayAwake(true);
     try {
-      var res = await mv.analyse({ path: TR.src.path, color: S.color, length: trStore('pitchLen') || 30, from: from || 0, to: to == null ? undefined : to, players: players.map(function (p) { return { pid: p.id, number: kept.nums[p.id] }; }) });
+      var res = await mv.analyse({ path: TR.src.path, color: S.color, length: trStore('pitchLen') || 30, width: trStore('pitchWid') || Math.round((trStore('pitchLen') || 30) * 2 / 3), from: from || 0, to: to == null ? undefined : to, players: players.map(function (p) { return { pid: p.id, number: kept.nums[p.id] }; }) });
       TR.res = res; var runs2 = trStore('tracking') || [], d = new Date();
       runs2.unshift({ label: d.getDate() + ' ' + MON[d.getMonth()] + ', ' + p2(d.getHours()) + ':' + p2(d.getMinutes()), res: res }); trStore('tracking', runs2.slice(0, 6));
     } catch (err) { TR.msg = (err && err.message) || 'The tracking didn’t finish.'; }

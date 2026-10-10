@@ -1,17 +1,21 @@
 import AVFoundation
 import Capacitor
 import CoreGraphics
+import CoreImage
 import Foundation
+import OnnxRuntimeBindings
 import Vision
 
 /// Experimental: follows named players through a match recording, on the phone.
 ///
-///   analyse({ path, players: [{ pid, number }], color, length, from?, to?, rate? })
+///   analyse({ path, players: [{ pid, number }], color, length, width?, from?, to?, rate? })
 ///     -> { duration, pitch: { width, length }, cameraHeight, players: [{ pid, number, seconds, metres, heat }], team: { heat }, pieces, unknownSeconds }
 ///   cancel()
 /// While working it emits "progress" events: { stage: "look" | "sort", p }.
 ///
-/// How it works: Apple's Vision finds people in about eight frames a second and reads shirt numbers where it can.
+/// How it works: a people detector (YOLOX-S, Apache 2.0, bundled as Resources/yolox_s.onnx and run with ONNX Runtime)
+/// looks at about eight frames a second, as two overlapping square halves so distant players get more pixels.
+/// Apple's Vision then reads shirt numbers from an enlarged crop of each of our players' backs.
 /// People in the team's colour are placed on the pitch using their own height as the ruler, followed from frame to
 /// frame, and the track is cut wherever two of them come close (which is where trackers swap people). Each clean piece
 /// with a number read on it is fixed to that player; the rest go to whoever could have been there.
@@ -26,6 +30,36 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private let queue = DispatchQueue(label: "matchvision.work", qos: .userInitiated)
     private var cancelled = false
+    private var env: ORTEnv?
+    private var session: ORTSession?
+    private var inputName = "images"
+    private var outputName = "output"
+    private let imageContext = CIContext(options: nil)
+    private var grid: [(Float, Float, Float)] = []   // for each of the detector's 8400 guesses: column, row, and cell size
+
+    /// Loads the detector the first time it is needed.
+    private func detector() throws -> ORTSession {
+        if let session = session { return session }
+        guard let url = Bundle.module.url(forResource: "yolox_s", withExtension: "onnx") else { throw Fail(message: "The player detector is missing from this build.") }
+        let env = try ORTEnv(loggingLevel: ORTLoggingLevel.warning)
+        let options = try ORTSessionOptions()
+        try options.setIntraOpNumThreads(4)
+        // the phone's neural chip where it can be used; otherwise the ordinary processor
+        let chip = ORTCoreMLExecutionProviderOptions()
+        try? options.appendCoreMLExecutionProvider(with: chip)
+        let made = try ORTSession(env: env, modelPath: url.path, sessionOptions: options)
+        if let name = try made.inputNames().first { inputName = name }
+        if let name = try made.outputNames().first { outputName = name }
+        var cells: [(Float, Float, Float)] = []
+        for stride in [8, 16, 32] {
+            let n = 640 / stride
+            for row in 0..<n { for column in 0..<n { cells.append((Float(column), Float(row), Float(stride))) } }
+        }
+        grid = cells
+        self.env = env
+        session = made
+        return made
+    }
 
     private struct Fail: LocalizedError {
         let message: String
@@ -86,6 +120,7 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         let kit = MatchVisionPlugin.rgb(call.getString("color") ?? "#1f6b4a")
         let pitchLength = max(10, min(80, call.getDouble("length") ?? 30))
+        let pitchWidth = max(6, min(60, call.getDouble("width") ?? pitchLength * 2 / 3))
         let rate = max(2, min(15, call.getDouble("rate") ?? 8))
         let from = max(0, call.getDouble("from") ?? 0)
         let to = call.getDouble("to")
@@ -93,7 +128,7 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
 
         queue.async {
             do {
-                let result = try self.run(path: path, numbers: numbers, pidFor: pidFor, kit: kit, pitchLength: pitchLength, rate: rate, from: from, to: to)
+                let result = try self.run(path: path, numbers: numbers, pidFor: pidFor, kit: kit, pitchLength: pitchLength, pitchWidth: pitchWidth, rate: rate, from: from, to: to)
                 call.resolve(result)
             } catch {
                 call.reject(error.localizedDescription)
@@ -103,8 +138,9 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // MARK: - The whole job
 
-    private func run(path: String, numbers: [Int], pidFor: [Int: Int], kit: (Double, Double, Double), pitchLength: Double,
+    private func run(path: String, numbers: [Int], pidFor: [Int: Int], kit: (Double, Double, Double), pitchLength: Double, pitchWidth: Double,
                      rate: Double, from: Double, to: Double?) throws -> [String: Any] {
+        let model = try detector()
         let asset = AVURLAsset(url: URL(fileURLWithPath: path))
         guard let track = asset.tracks(withMediaType: .video).first else { throw Fail(message: "That file has no video in it.") }
         let transform = track.preferredTransform
@@ -147,7 +183,7 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
             autoreleasepool {
                 W = Double(CVPixelBufferGetWidth(buffer))
                 H = Double(CVPixelBufferGetHeight(buffer))
-                let found = self.look(buffer, frame: frame, kit: kit, numbers: numbers, flipped: flipped, readNumbers: frame % 2 == 0)
+                let found = self.look(buffer, model: model, frame: frame, kit: kit, numbers: numbers, flipped: flipped, readNumbers: frame % 2 == 0)
                 dets.append(contentsOf: found)
             }
             frame += 1
@@ -184,11 +220,9 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
             dets[index].gz = min(pitchLength * 1.15, pitchLength * (farLine - horizon) / below)
             dets[index].gx = ((dets[index].x1 + dets[index].x2) / 2 - W / 2) * cameraHeight / below
         }
-        let ours = dets.filter { $0.ours && $0.y2 < H * 0.985 }
-        let across = ours.map { $0.gx }
-        let left = MatchVisionPlugin.percentile(across, 0.01)
-        let right = MatchVisionPlugin.percentile(across, 0.99)
-        let pitchWidth = max(6, right - left)
+        // the camera is taken to be behind the middle of the goal, so the pitch runs half its width either side of the centre line
+        let left = -pitchWidth / 2
+        let ours = dets.filter { $0.ours && $0.y2 < H * 0.985 && abs($0.gx) < pitchWidth / 2 + 1.5 && $0.gz < pitchLength + 2 }
 
         // 3) follow each of ours on the pitch, in metres
         var byFrame: [[Det]] = Array(repeating: [], count: frames)
@@ -327,7 +361,7 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
         func heat(_ list: [Det]) -> [Int] {
             var grid = Array(repeating: 0, count: columns * rows)
             for det in list {
-                let column = min(columns - 1, max(0, Int((det.gx - left) / pitchWidth * Double(columns))))
+                let column = min(columns - 1, max(0, Int(((det.gx - left) / pitchWidth * Double(columns)).rounded(.down))))
                 let row = min(rows - 1, max(0, Int(det.gz / pitchLength * Double(rows))))
                 grid[row * columns + column] += 1
             }
@@ -370,47 +404,121 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // MARK: - One frame
 
-    private func look(_ buffer: CVPixelBuffer, frame: Int, kit: (Double, Double, Double), numbers: [Int], flipped: Bool, readNumbers: Bool) -> [Det] {
-        let W = Double(CVPixelBufferGetWidth(buffer))
-        let H = Double(CVPixelBufferGetHeight(buffer))
-        let handler = VNImageRequestHandler(cvPixelBuffer: buffer, orientation: flipped ? .down : .up, options: [:])
-        let people = VNDetectHumanRectanglesRequest()
-        people.upperBodyOnly = false
-        guard (try? handler.perform([people])) != nil, let found = people.results else { return [] }
-
+    private func look(_ buffer: CVPixelBuffer, model: ORTSession, frame: Int, kit: (Double, Double, Double), numbers: [Int], flipped: Bool, readNumbers: Bool) -> [Det] {
+        let width = CVPixelBufferGetWidth(buffer)
+        let height = CVPixelBufferGetHeight(buffer)
+        let H = Double(height)
         CVPixelBufferLockBaseAddress(buffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer), width >= height else { return [] }
+        let pixels = base.assumingMemoryBound(to: UInt8.self)
+        let stride = CVPixelBufferGetBytesPerRow(buffer)
+
+        // people, from the left square and the right square of the picture
+        var boxes: [(Double, Double, Double, Double, Double)] = []
+        for x0 in Set([0, width - height]) {
+            boxes.append(contentsOf: people(pixels, stride: stride, width: width, height: height, x0: x0, flipped: flipped, model: model))
+        }
+        boxes.sort { $0.4 > $1.4 }
+        var kept: [(Double, Double, Double, Double, Double)] = []
+        for box in boxes {
+            var clash = false
+            for other in kept {
+                let ix = max(0, min(box.2, other.2) - max(box.0, other.0))
+                let iy = max(0, min(box.3, other.3) - max(box.1, other.1))
+                let inter = ix * iy
+                let union = (box.2 - box.0) * (box.3 - box.1) + (other.2 - other.0) * (other.3 - other.1) - inter
+                if union > 0 && inter / union > 0.5 { clash = true; break }
+            }
+            if !clash { kept.append(box) }
+        }
+
         var out: [Det] = []
-        var toRead: [(Int, CGRect)] = []
-        for person in found where person.confidence > 0.3 {
-            let box = person.boundingBox // 0 to 1, measured from the bottom left
-            var det = Det(frame: frame, x1: Double(box.minX) * W, y1: (1 - Double(box.maxY)) * H, x2: Double(box.maxX) * W, y2: (1 - Double(box.minY)) * H, ours: false, number: nil)
-            guard det.height > 12 else { continue }
+        for box in kept where box.3 - box.1 > 16 {
+            var det = Det(frame: frame, x1: box.0, y1: box.1, x2: box.2, y2: box.3, ours: false, number: nil)
             det.ours = MatchVisionPlugin.wearing(kit, in: buffer, det: det, flipped: flipped)
             out.append(det)
-            // a number is only worth trying to read on a player big enough for the digits to exist
-            if det.ours && readNumbers && det.height > H * 0.11 {
-                let back = CGRect(x: box.minX, y: box.minY + box.height * 0.45, width: box.width, height: box.height * 0.42)
-                toRead.append((out.count - 1, back.intersection(CGRect(x: 0, y: 0, width: 1, height: 1))))
-            }
         }
-        for (index, region) in toRead where region.width > 0.01 && region.height > 0.01 {
+        guard readNumbers else { return out }
+
+        // shirt numbers: enlarge each of our players' backs and let Vision read it
+        var picture = CIImage(cvPixelBuffer: buffer)
+        if flipped { picture = picture.oriented(.down) }
+        for index in out.indices where out[index].ours && out[index].height > H * 0.07 {
+            let det = out[index]
+            let w = det.x2 - det.x1
+            let top = det.y1 + det.height * 0.12
+            let bottom = det.y1 + det.height * 0.56
+            let crop = CGRect(x: det.x1 - w * 0.05, y: H - bottom, width: w * 1.1, height: bottom - top).intersection(picture.extent)
+            guard crop.width > 12, crop.height > 12 else { continue }
+            let scale = max(2, min(8, 260 / crop.height))
+            let enlarged = picture.cropped(to: crop)
+                .transformed(by: CGAffineTransform(translationX: -crop.minX, y: -crop.minY))
+                .transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+            guard let image = imageContext.createCGImage(enlarged, from: enlarged.extent) else { continue }
             let text = VNRecognizeTextRequest()
             text.recognitionLevel = .accurate
             text.usesLanguageCorrection = false
-            text.regionOfInterest = region
-            guard (try? handler.perform([text])) != nil, let lines = text.results else { continue }
-            for line in lines {
-                guard let candidate = line.topCandidates(1).first, candidate.confidence > 0.4 else { continue }
-                let digits = candidate.string.filter { $0.isNumber }
-                // only a clean read of one of the numbers we were told about counts
-                if digits.count == candidate.string.filter({ !$0.isWhitespace }).count, let value = Int(digits), numbers.contains(value) {
-                    out[index].number = value
-                    break
+            text.minimumTextHeight = 0.12
+            text.customWords = numbers.map { String($0) }
+            guard (try? VNImageRequestHandler(cgImage: image, options: [:]).perform([text])) != nil, let lines = text.results else { continue }
+            search: for line in lines {
+                for candidate in line.topCandidates(3) where candidate.confidence > 0.3 {
+                    let plain = candidate.string.filter { !$0.isWhitespace }
+                    // only a clean read of one of the numbers we were told about counts
+                    if !plain.isEmpty, plain.allSatisfy({ $0.isNumber }), let value = Int(plain), numbers.contains(value) {
+                        out[index].number = value
+                        break search
+                    }
                 }
             }
         }
         return out
+    }
+
+    /// Runs the detector on one square of the picture and returns people as (x1, y1, x2, y2, score) in picture pixels.
+    private func people(_ pixels: UnsafeMutablePointer<UInt8>, stride: Int, width: Int, height: Int, x0: Int, flipped: Bool, model: ORTSession) -> [(Double, Double, Double, Double, Double)] {
+        let size = 640
+        let side = height
+        var input = [Float](repeating: 0, count: 3 * size * size)
+        let ratio = Double(side) / Double(size)
+        input.withUnsafeMutableBufferPointer { target in
+            for y in 0..<size {
+                let sy = min(side - 1, Int((Double(y) + 0.5) * ratio))
+                let py = flipped ? height - 1 - sy : sy
+                for x in 0..<size {
+                    let sx = min(side - 1, Int((Double(x) + 0.5) * ratio)) + x0
+                    let px = flipped ? width - 1 - sx : sx
+                    let offset = py * stride + px * 4
+                    let at = y * size + x
+                    target[at] = Float(pixels[offset])                      // blue
+                    target[size * size + at] = Float(pixels[offset + 1])   // green
+                    target[2 * size * size + at] = Float(pixels[offset + 2]) // red
+                }
+            }
+        }
+        let data = input.withUnsafeBufferPointer { NSMutableData(bytes: $0.baseAddress, length: $0.count * MemoryLayout<Float>.size) }
+        guard let tensor = try? ORTValue(tensorData: data, elementType: ORTTensorElementDataType.float, shape: [1, 3, NSNumber(value: size), NSNumber(value: size)]),
+              let result = try? model.run(withInputs: [inputName: tensor], outputNames: [outputName], runOptions: nil),
+              let answer = result[outputName], let raw = try? answer.tensorData() else { return [] }
+        var found: [(Double, Double, Double, Double, Double)] = []
+        let fields = 85
+        do {
+            let values = UnsafeBufferPointer(start: raw.bytes.assumingMemoryBound(to: Float.self), count: raw.length / MemoryLayout<Float>.size)
+            let count = min(grid.count, values.count / fields)
+            for index in 0..<count {
+                let at = index * fields
+                let score = values[at + 4] * values[at + 5]   // "something is here" times "it is a person"
+                if score < 0.3 { continue }
+                let cell = grid[index]
+                let cx = Double((values[at] + cell.0) * cell.2) * ratio + Double(x0)
+                let cy = Double((values[at + 1] + cell.1) * cell.2) * ratio
+                let w = Double(exp(values[at + 2]) * cell.2) * ratio
+                let h = Double(exp(values[at + 3]) * cell.2) * ratio
+                found.append((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2, Double(score)))
+            }
+        }
+        return found
     }
 
     /// Is this person's shirt the team colour? Looks at the middle of the upper body.
