@@ -72,7 +72,7 @@ button:active:not(:disabled) { transform: scale(.955); filter: brightness(.93); 
 .view:not([hidden]) { animation: viewIn .3s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } }
 .menu button { animation: rise .36s cubic-bezier(.2, .8, .2, 1) both; }
-.menu button:nth-child(2) { animation-delay: .03s; } .menu button:nth-child(3) { animation-delay: .06s; } .menu button:nth-child(4) { animation-delay: .09s; } .menu button:nth-child(5) { animation-delay: .12s; }
+.menu button:nth-child(2) { animation-delay: .03s; } .menu button:nth-child(3) { animation-delay: .06s; } .menu button:nth-child(4) { animation-delay: .09s; } .menu button:nth-child(5) { animation-delay: .12s; } .menu button:nth-child(6) { animation-delay: .15s; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px) scale(.98); } }
 .bump { animation: bump .5s cubic-bezier(.2, 1.6, .4, 1); }
 @keyframes bump { 30% { transform: scale(1.35); } }
@@ -380,6 +380,23 @@ tr.past td { opacity: .45; }
 #kickPop[hidden] { display: none; }
 .kickbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); }
 .kickbox p { font-size: 20px; font-weight: 750; }
+#insBody { display: flex; flex-direction: column; gap: 24px; }
+.inslist { list-style: none; margin: 0; padding: 4px 16px; background: var(--surface); border-radius: var(--r-card); }
+.inslist li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--line); }
+.inslist li:last-child { border-bottom: 0; } .inslist b { font-weight: 700; } .inslist small { color: var(--muted); font-size: 14px; text-align: right; flex: none; }
+.heads { display: flex; flex-direction: column; gap: 8px; }
+.heads p { background: var(--surface); border-radius: var(--r-ctl); padding: 14px 16px; font-weight: 650; font-size: 17px; border-left: 4px solid var(--on); }
+.bars { background: var(--surface); border-radius: var(--r-card); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.bars .brow { display: grid; grid-template-columns: 54px 1fr 1fr; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bars i { display: block; height: 14px; border-radius: 7px; background: var(--on); min-width: 2px; } .bars i.ag { background: var(--bib); }
+.bars .bcell { display: flex; align-items: center; gap: 6px; } .bars .bcell span { flex: none; width: 14px; }
+.bars .key { display: flex; gap: 16px; font-size: 14px; color: var(--muted); } .bars .key i { display: inline-block; width: 12px; height: 12px; border-radius: 6px; margin-right: 6px; vertical-align: -1px; }
+.rate { font-weight: 800; font-stretch: 75%; font-size: 18px; font-variant-numeric: tabular-nums; }
+.motm { color: #9a6b00; font-weight: 750; } @media (prefers-color-scheme: dark) { .motm { color: #ffc83d; } }
+.gnav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gnav button { min-width: 44px; min-height: 44px; border: 0; border-radius: 999px; background: var(--fill); font-weight: 700; }
+.say { background: var(--bg); border-radius: var(--r-ctl); padding: 10px 14px; font-size: 15px; font-style: italic; }
+.saybtn { align-self: flex-start; }
 #fxCard.live { box-shadow: inset 0 0 0 2px var(--team); }
 #fxCard.ask { box-shadow: inset 0 0 0 3px #ffc83d; }
 .fxtag { align-self: flex-start; background: #ffc83d; color: #2a2100; font-size: 13px; font-weight: 750; border-radius: 999px; padding: 4px 10px; }
@@ -579,19 +596,24 @@ tr.past td { opacity: .45; }
 <div id="kickPop" role="alertdialog" aria-labelledby="kickPopText" hidden><div class="kickbox"><p id="kickPopText"></p>
   <div class="actions"><button class="plain primary" id="kickWatch" type="button">Watch along</button><button class="plain" id="kickLater" type="button">Not now</button></div></div></div>
 
+<div class="view" id="v-insights" hidden>
+  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Insights</h1></div>
+  <div id="insBody"></div>
+</div>
+
 <div class="view" id="v-soon" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Coming soon</h1></div>
   <div class="stage soon-stage">
     <svg class="lines" viewBox="0 0 320 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" opacity=".2"><rect x="30" y="20" width="260" height="260" rx="10"/><line x1="30" y1="150" x2="290" y2="150"/><circle cx="160" cy="150" r="42"/></g></svg>
-    <div class="mock"><b class="k">Insight</b><span>You score most in the five minutes after a change.</span></div>
+    <div class="mock"><b class="k">Match report</b><span>Dev was everywhere tonight: two goals, an assist, and nothing conceded while he was on.</span></div>
     <div class="mock"><b class="k">Commentary</b><div class="wave" aria-hidden="true"><i></i><i style="animation-delay:.1s"></i><i style="animation-delay:.2s"></i><i style="animation-delay:.3s"></i><i style="animation-delay:.4s"></i><i style="animation-delay:.5s"></i><i style="animation-delay:.6s"></i><i style="animation-delay:.7s"></i><i style="animation-delay:.8s"></i><i style="animation-delay:.9s"></i><i style="animation-delay:1s"></i><i style="animation-delay:.15s"></i><i style="animation-delay:.35s"></i><i style="animation-delay:.55s"></i><i style="animation-delay:.75s"></i><i style="animation-delay:.95s"></i></div><span>“He’s picked that up on the halfway line, and what a finish!”</span></div>
   </div>
   <span class="soon-tag">In the works</span>
-  <div class="itext"><h1>AI is coming to Gaffer</h1><p>The app already knows every goal, assist, save and minute. Next, it starts telling you what they mean.</p></div>
+  <div class="itext"><h1>AI is coming to Gaffer</h1><p>Insights already turns your stats into ratings, a man of the match and player chemistry. Next comes the part that watches the game.</p></div>
   <ul class="soon-list">
-    <li><b>AI powered insights</b><span>What your stats are really saying: who plays best together, when you score and concede, who’s in form, and the line-up to pick next.</span></li>
-    <li><b>AI match ratings and man of the match</b><span>A rating for every player after each game, and a man of the match, worked out from the video and the stats.</span></li>
-    <li><b>AI powered commentary</b><span>A commentator’s voice over your footage, calling the goals by name. For the full game or just the highlights.</span></li>
+    <li><b>AI match reports</b><span>A written report after every game, pulling the ratings, chemistry and turning points into a few paragraphs you can post in the group chat.</span></li>
+    <li><b>Ratings from the video</b><span>Match ratings and man of the match that look at the footage as well as the stats, so the work off the ball counts too.</span></li>
+    <li><b>AI powered commentary</b><span>A commentator’s voice on your footage, calling the goals by name. For the full game or just the highlights.</span></li>
   </ul>
   <p class="note">These aren’t in the app yet. The examples above are illustrations.</p>
 </div>
@@ -606,10 +628,11 @@ tr.past td { opacity: .45; }
     <button id="mNew" type="button">New game</button>
     <button id="mStats" type="button">Stats</button>
     <button id="mHighlights" type="button">Highlights</button>
+    <button id="mInsights" type="button">Insights</button>
     <button id="mOptions" type="button">Options</button>
   </div>
   <p class="msg" id="lockMsg" role="status"></p>
-  <button class="soon-pill" type="button" data-go="soon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI insights and commentary</small></button>
+  <button class="soon-pill" type="button" data-go="soon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI reports and commentary</small></button>
   <p class="note" id="homeNote" hidden>No game on right now. When one starts, it appears here.</p>
   <div class="card" id="meCard" hidden></div>
   <section id="squadSec" hidden><h2>Squad</h2><p class="note" id="squadNote" hidden></p><div class="plist" id="squadList"></div></section>
@@ -936,7 +959,7 @@ tr.past td { opacity: .45; }
   var role = 'viewer', teamId = null, orgCode = null;
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'soon', 'game', 'stats', 'reel', 'season'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -980,10 +1003,11 @@ tr.past td { opacity: .45; }
         else if (e.kind === 'against') o.us = false;
         else { o.hl = true; o.p = e.pid; if (e.kind === 'save') o.k = 'save'; }
         if (e.watch) o.w = true; if (e.by_team) o.by = 'team';
+        if (e.on_pitch && e.on_pitch.length) o.on = e.on_pitch;
         return stripNull(o);
       });
       return stripNull({ id: g.id, opp: g.opp, friendly: g.friendly, us: g.us, them: g.them, half: g.half, koAt: g.ko_at, htAt: g.ht_at, h2At: g.h2_at,
-        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev });
+        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null });
     });
     s.match = d.live || null;
     return s;
@@ -996,11 +1020,11 @@ tr.past td { opacity: .45; }
   function gameParts(r, i, tid) {
     var row = { id: r.id, team_id: tid, seq: i, opp: (r.opp || '').slice(0, 60), friendly: !!r.friendly, us: r.us | 0, them: r.them | 0, half: nn(r.half),
       ko_at: nn(r.koAt), ht_at: nn(r.htAt), h2_at: nn(r.h2At), ft_at: nn(r.ftAt), finished_at: nn(r.at),
-      sync: typeof r.sync === 'number' ? r.sync : null, pre: nn(r.pre), post: nn(r.post), cap: r.cap == null ? null : !!r.cap };
+      sync: typeof r.sync === 'number' ? r.sync : null, pre: nn(r.pre), post: nn(r.post), cap: r.cap == null ? null : !!r.cap, lineups: r.lu || null };
     var players = Object.keys(r.per || {}).map(function (k) { var x = r.per[k]; return { game_id: r.id, pid: +k, mins: x.mins | 0, goals: x.g | 0, assists: x.a | 0, scored_on: x.gf == null ? null : x.gf | 0, conceded: x.ga == null ? null : x.ga | 0 }; });
     var events = (r.ev || []).map(function (e, j) {
       return { game_id: r.id, seq: j, kind: e.hl ? (e.k === 'save' ? 'save' : 'highlight') : e.us ? 'goal' : 'against',
-        pid: nn(e.p), assist: nn(e.a), min: nn(e.min), x: nn(e.x), at: nn(e.at), watch: !!e.w, by_team: !!e.by };
+        pid: nn(e.p), assist: nn(e.a), min: nn(e.min), x: nn(e.x), at: nn(e.at), watch: !!e.w, by_team: !!e.by, on_pitch: e.on && e.on.length ? e.on : null };
     });
     return { row: row, players: players, events: events };
   }
@@ -1366,7 +1390,7 @@ tr.past td { opacity: .45; }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'poll', 'cut', 'soon', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1403,6 +1427,7 @@ tr.past td { opacity: .45; }
     else if (S.view === 'mins') renderMins();
     else if (S.view === 'game') renderGame();
     else if (S.view === 'stats') renderStats();
+    else if (S.view === 'insights') renderInsights();
     else if (S.view === 'reel') renderReel();
     else if (S.view === 'season') renderSeason();
     else renderOptions();
@@ -1986,6 +2011,7 @@ tr.past td { opacity: .45; }
   $('mStats').addEventListener('click', function () { go('stats'); });
   $('mOptions').addEventListener('click', function () { go('options'); });
   $('mHighlights').addEventListener('click', function () { go('highlights'); });
+  $('mInsights').addEventListener('click', function () { go('insights'); });
 
   // ---- highlights: every logged moment, by game and by player. Video appears here once a game's reel has been made.
   var hlBy = 'game';
@@ -2004,9 +2030,13 @@ tr.past td { opacity: .45; }
   }
   function novid(text, btn) { return '<div class="novid"><span>' + text + '</span>' + (btn || '') + '</div>'; }
   var clipUrl = function (c) { return (CFG.url || '') + '/storage/v1/object/public/clips/' + String(c.path).split('/').map(encodeURIComponent).join('/'); };
-  function clipPlayer(list) { // one video that plays a list of clips back to back
-    return '<div class="vplayer"><video controls playsinline preload="metadata" src="' + esc(clipUrl(list[0])) + '"></video><ol class="cliplist">' +
-      list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipUrl(c)) + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
+  function clipPlayer(list) { // one video that plays a list of clips back to back, with a line of commentary for each
+    var byId = {}; S.results.forEach(function (r) { byId[r.id] = r; });
+    var says = list.map(function (c) { var r = byId[c.game_id]; return r ? commentaryFor(r, c) : ''; });
+    return '<div class="vplayer"><video controls playsinline preload="metadata" src="' + esc(clipUrl(list[0])) + '"></video>' +
+      '<p class="say"' + (says[0] ? '' : ' hidden') + '>' + esc(says[0] || '') + '</p>' +
+      (says.some(Boolean) && window.speechSynthesis ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '') +
+      '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipUrl(c)) + '" data-line="' + esc(says[i] || '') + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
   function renderHighlights() {
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
@@ -2048,6 +2078,7 @@ tr.past td { opacity: .45; }
     }
     $('hlList').innerHTML = html;
     Array.prototype.forEach.call($('hlList').querySelectorAll('.vplayer video'), function (v) { // play the next clip when one ends
+      v.addEventListener('play', function () { if (v.currentTime < 1) { var cur = v.parentNode.querySelector('[data-clip][aria-pressed="true"]'); sayLine(cur ? cur.getAttribute('data-line') : ''); } });
       v.addEventListener('ended', function () {
         var btns = v.parentNode.querySelectorAll('[data-clip]'), cur = 0;
         Array.prototype.forEach.call(btns, function (b, i) { if (b.getAttribute('aria-pressed') === 'true') cur = i; });
@@ -2058,9 +2089,11 @@ tr.past td { opacity: .45; }
   $('hlToggle').addEventListener('click', function (e) { var by = e.target.getAttribute('data-by'); if (by) { hlBy = by; renderHighlights(); } });
   $('hlList').addEventListener('click', function (e) {
     var r = e.target.getAttribute('data-reel'), s = e.target.getAttribute('data-season'), c = e.target.getAttribute('data-clip'), cut = e.target.getAttribute('data-cut');
+    if (e.target.getAttribute('data-say')) { sayOn = !sayOn; try { localStorage.setItem('apt-say', sayOn ? '1' : '0'); if (!sayOn && window.speechSynthesis) speechSynthesis.cancel(); } catch (err) {} renderHighlights(); return; }
     if (c !== null) {
       var box = e.target.closest('.vplayer'), v = box.querySelector('video');
       Array.prototype.forEach.call(box.querySelectorAll('[data-clip]'), function (b) { b.setAttribute('aria-pressed', b === e.target); });
+      var sayEl = box.querySelector('.say'), ln = e.target.getAttribute('data-line') || ''; if (sayEl) { sayEl.textContent = ln; sayEl.hidden = !ln; }
       v.src = e.target.getAttribute('data-src'); try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {}
     }
     else if (cut !== null) { CUT = { idx: +cut, stage: 'pick', src: null, msg: '', prog: '' }; go('cut'); }
@@ -2822,8 +2855,9 @@ tr.past td { opacity: .45; }
     var gm = gameMins(m), t = tally(m), per = {};
     Object.keys(gm).forEach(function (k) { if (P(+k)) per[k] = { mins: gm[k], g: t.g[k] || 0, a: t.a[k] || 0, gf: 0, ga: 0 }; });
     m.events.forEach(function (e) { if (e.hl || !e.on) return; e.on.forEach(function (id) { if (per[id]) per[id][e.us ? 'gf' : 'ga']++; }); });
-    var ev = m.events.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; } return o; });
-    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, ev: ev, at: Date.now() });
+    var ev = m.events.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; if (e.on) o.on = e.on; } return o; });
+    var lu = m.segs.filter(function (s) { return s.to > s.from; }).map(function (s) { return { h: s.h, f: s.from, t: s.to, on: (s.gk != null ? [s.gk] : []).concat(s.on) }; });
+    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, ev: ev, lu: lu, at: Date.now() });
     S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
     if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
     S.match = null; pick = null; outPick = null; ed = null; save(); go('stats');
@@ -2843,12 +2877,113 @@ tr.past td { opacity: .45; }
     html = '';
     for (var i = S.results.length - 1; i >= 0; i--) {
       var x = S.results[i], w = x.us > x.them ? 'W' : x.us < x.them ? 'L' : 'D';
-      html += '<li><b class="' + w + '">' + w + '</b><span>' + x.us + '–' + x.them + '</span><span>' + (x.opp ? 'v ' + esc(x.opp) : '') + (x.friendly ? '<span class="tagf">Friendly</span>' : '') + '</span>' +
+      html += '<li><b class="' + w + '">' + w + '</b><span>' + x.us + '–' + x.them + '</span><span>' + (x.opp ? 'v ' + esc(x.opp) : '') + (x.friendly ? '<span class="tagf">Friendly</span>' : '') + (function () { var q = ratingsOf(x); return q.motm != null && P(q.motm) ? '<br><small class="motm">★ ' + esc(nm(q.motm)) + ' ' + q.r[q.motm].toFixed(1) + '</small>' : ''; })() + '</span>' +
         '<span class="rowbtns">' + (x.koAt && x.ev && x.ev.length ? '<button class="del" type="button" data-reel="' + i + '">Highlights</button>' : '') +
         (role === 'owner' ? '<button class="del' + (delIdx === i ? ' armed' : '') + '" type="button" data-del="' + i + '">' + (delIdx === i ? 'Tap to confirm' : 'Remove') + '</button>' : '') + '</span></li>';
     }
     $('results').innerHTML = html || '<li><span></span><span></span><span class="note">Nothing yet</span></li>';
     $('resNote').textContent = S.results.length && role === 'owner' ? "Player totals are worked out from these games, so removing one takes its minutes, goals and assists off too." : '';
+  }
+  // ---- insights: ratings, man of the match, chemistry and scoring patterns, all worked out from the logged stats
+  function ratingsOf(r) { // a mark out of 10 for everyone who played, and the highest one
+    var out = {}, saves = {}, motm = null;
+    (r.ev || []).forEach(function (e) { if (e.hl && e.k === 'save' && e.p != null) saves[e.p] = (saves[e.p] || 0) + 1; });
+    var res = r.us > r.them ? 0.3 : r.us < r.them ? -0.3 : 0;
+    Object.keys(r.per || {}).forEach(function (k) {
+      var d = r.per[k], v = 6 + res, i; if (!d.mins) return;
+      for (i = 0; i < (d.g || 0); i++) v += Math.max(0.4, 1 - 0.2 * i);
+      v += 0.6 * (d.a || 0) + Math.min(1.5, 0.25 * (saves[k] || 0));
+      if (saves[k] && r.them === 0) v += 0.5;
+      if (d.ga != null) v += Math.max(-1, Math.min(1, 0.15 * ((d.gf || 0) - d.ga)));
+      out[k] = Math.max(3, Math.min(10, Math.round(v * 10) / 10));
+    });
+    Object.keys(out).forEach(function (k) {
+      var a = r.per[k], b = motm == null ? null : r.per[motm];
+      if (motm == null || out[k] > out[motm] || (out[k] === out[motm] && ((a.g || 0) - (b.g || 0) || (a.a || 0) - (b.a || 0) || (a.mins || 0) - (b.mins || 0)) > 0)) motm = k;
+    });
+    return { r: out, motm: motm == null ? null : +motm };
+  }
+  function insightData() {
+    var games = S.results.filter(function (r) { return r.per; }), form = {}, links = {}, pairs = {}, buckets = [], half = S.half || 15, goalsFor = 0, inv = {};
+    S.players.forEach(function (p) { form[p.id] = { sum: 0, n: 0, motm: 0, last: [] }; });
+    var pk = function (a, b) { return a < b ? a + '-' + b : b + '-' + a; };
+    games.forEach(function (r) {
+      var q = ratingsOf(r);
+      Object.keys(q.r).forEach(function (k) { var f = form[k]; if (!f) return; f.sum += q.r[k]; f.n++; f.last.push(q.r[k]); });
+      if (q.motm != null && form[q.motm]) form[q.motm].motm++;
+      (r.lu || []).forEach(function (s) { var on = s.on || []; for (var i = 0; i < on.length; i++) for (var j = i + 1; j < on.length; j++) { var x = pairs[pk(on[i], on[j])] = pairs[pk(on[i], on[j])] || { a: Math.min(on[i], on[j]), b: Math.max(on[i], on[j]), mins: 0, gf: 0, ga: 0 }; x.mins += s.t - s.f; } });
+      (r.ev || []).forEach(function (e) {
+        if (e.hl) return;
+        var h = r.half || half, bi = Math.max(0, Math.min(Math.ceil(h * 2 / 5) - 1, Math.floor(((e.min || 1) - 1) / 5)));
+        buckets[bi] = buckets[bi] || { f: 0, a: 0 }; buckets[bi][e.us ? 'f' : 'a']++;
+        if (e.us) { goalsFor++; [e.p, e.a].forEach(function (id) { if (id != null) inv[id] = (inv[id] || 0) + 1; }); }
+        if (e.us && e.p != null && e.a != null && P(e.p) && P(e.a)) { var l = links[e.a + '>' + e.p] = links[e.a + '>' + e.p] || { a: e.a, p: e.p, n: 0 }; l.n++; }
+        var on = e.on || []; for (var i = 0; i < on.length; i++) for (var j = i + 1; j < on.length; j++) { var x = pairs[pk(on[i], on[j])]; if (x) x[e.us ? 'gf' : 'ga']++; }
+      });
+    });
+    for (var i = 0; i < buckets.length; i++) buckets[i] = buckets[i] || { f: 0, a: 0 };
+    return { games: games, form: form, goalsFor: goalsFor, inv: inv, buckets: buckets,
+      links: Object.keys(links).map(function (k) { return links[k]; }).sort(function (a, b) { return b.n - a.n; }),
+      pairs: Object.keys(pairs).map(function (k) { return pairs[k]; }).filter(function (x) { return x.mins >= 15 && P(x.a) && P(x.b); }).sort(function (a, b) { return ((b.gf - b.ga) / b.mins - (a.gf - a.ga) / a.mins) || (b.mins - a.mins); }) };
+  }
+  var insGame = null;
+  function renderInsights() {
+    var d = insightData(), html = '', heads = [], rng = function (i) { return (i * 5) + '’ to ' + (i * 5 + 5) + '’'; };
+    if (!d.games.length) { $('insBody').innerHTML = '<div class="hcard"><h3>No games yet</h3><p class="note">Ratings, a man of the match, player chemistry and scoring patterns appear here after your first finished game. They are worked out from the goals, assists, saves and minutes you log.</p></div>'; return; }
+    // headlines
+    var bf = -1, ba = -1; d.buckets.forEach(function (b, i) { if (b.f && (bf < 0 || b.f > d.buckets[bf].f)) bf = i; if (b.a && (ba < 0 || b.a > d.buckets[ba].a)) ba = i; });
+    if (bf >= 0 && d.goalsFor >= 3) heads.push('You score most from ' + rng(bf) + ': ' + d.buckets[bf].f + ' of your ' + d.goalsFor + ' goals.');
+    if (ba >= 0 && d.buckets[ba].a >= 2) heads.push('You concede most from ' + rng(ba) + '.');
+    var top = Object.keys(d.inv).sort(function (a, b) { return d.inv[b] - d.inv[a]; })[0];
+    if (top != null && P(+top) && d.goalsFor >= 3) heads.push(nm(+top) + ' has scored or set up ' + d.inv[top] + ' of your ' + d.goalsFor + ' goals.');
+    if (d.pairs[0] && d.pairs[0].gf - d.pairs[0].ga > 0) heads.push(nm(d.pairs[0].a) + ' and ' + nm(d.pairs[0].b) + ' are your best pairing: ' + d.pairs[0].gf + '–' + d.pairs[0].ga + ' in ' + d.pairs[0].mins + ' minutes together.');
+    else if (d.links[0] && d.links[0].n >= 2) heads.push(nm(d.links[0].a) + ' to ' + nm(d.links[0].p) + ' is your best link-up: ' + d.links[0].n + ' goals.');
+    if (heads.length) html += '<section><h2>The headlines</h2><div class="heads">' + heads.map(function (h) { return '<p>' + esc(h) + '</p>'; }).join('') + '</div></section>';
+    // match ratings, one game at a time
+    var gi = insGame == null || !d.games[insGame] ? d.games.length - 1 : insGame, r = d.games[gi], q = ratingsOf(r);
+    html += '<section><h2>Match ratings</h2><div class="gnav"><button type="button" data-ig="' + (gi - 1) + '"' + (gi <= 0 ? ' disabled' : '') + ' aria-label="Earlier game">‹</button><p class="msg">' + esc('v ' + r.opp + ' ' + r.us + '–' + r.them) + (dayOf(r) ? '<br><small class="note">' + esc(dayOf(r)) + '</small>' : '') + '</p><button type="button" data-ig="' + (gi + 1) + '"' + (gi >= d.games.length - 1 ? ' disabled' : '') + ' aria-label="Later game">›</button></div>' +
+      '<ul class="inslist">' + Object.keys(q.r).filter(function (k) { return P(+k); }).sort(function (a, b) { return q.r[b] - q.r[a]; }).map(function (k) {
+        var x = r.per[k], bits = [x.g ? x.g + (x.g === 1 ? ' goal' : ' goals') : '', x.a ? x.a + (x.a === 1 ? ' assist' : ' assists') : '', x.mins + ' min'].filter(Boolean).join(', ');
+        return '<li><span><b>' + esc(nm(+k)) + '</b>' + (+k === q.motm ? ' <span class="motm">★ Man of the match</span>' : '') + '<br><small class="note">' + bits + '</small></span><span class="rate">' + q.r[k].toFixed(1) + '</span></li>';
+      }).join('') + '</ul></section>';
+    // form
+    var fl = S.players.filter(function (p) { return d.form[p.id].n; }).sort(function (a, b) { var x = d.form[a.id], y = d.form[b.id]; return y.sum / y.n - x.sum / x.n; });
+    html += '<section><h2>Season form</h2><div class="scroll"><table><thead><tr><th>Player</th><th class="n">Average</th><th class="n">Last 3</th><th class="n">★</th></tr></thead><tbody>' + fl.map(function (p) {
+      var f = d.form[p.id], l3 = f.last.slice(-3); return '<tr><td>' + esc(nm(p.id)) + '</td><td class="n">' + (f.sum / f.n).toFixed(1) + '</td><td class="n">' + (l3.reduce(function (a, b) { return a + b; }, 0) / l3.length).toFixed(1) + '</td><td class="n">' + (f.motm || '') + '</td></tr>';
+    }).join('') + '</tbody></table></div><p class="note">★ is how many times each player has been man of the match.</p></section>';
+    // chemistry
+    html += '<section><h2>Chemistry</h2>';
+    if (d.pairs.length) html += '<p class="note">How the team does while two players are on the pitch together.</p><ul class="inslist">' + d.pairs.slice(0, 5).map(function (x) { var gd = x.gf - x.ga; return '<li><span><b>' + esc(nm(x.a)) + ' + ' + esc(nm(x.b)) + '</b></span><small>' + x.gf + '–' + x.ga + ' (' + (gd > 0 ? '+' : '') + gd + ') in ' + x.mins + ' min</small></li>'; }).join('') + '</ul>';
+    else html += '<p class="note">On-pitch pairings build up from games played on this version of the app. Link-ups below use every game.</p>';
+    if (d.links.length) html += '<h3 style="margin-top:8px">Link-ups</h3><ul class="inslist">' + d.links.slice(0, 5).map(function (l) { return '<li><span><b>' + esc(nm(l.a)) + ' → ' + esc(nm(l.p)) + '</b></span><small>' + l.n + (l.n === 1 ? ' goal' : ' goals') + '</small></li>'; }).join('') + '</ul>';
+    html += '</section>';
+    // when goals come
+    var mx = d.buckets.reduce(function (m, b) { return Math.max(m, b.f, b.a); }, 1);
+    html += '<section><h2>When the goals come</h2><div class="bars"><div class="key"><span><i></i>Scored</span><span><i class="ag"></i>Conceded</span></div>' + d.buckets.map(function (b, i) {
+      return '<div class="brow"><span>' + (i * 5) + '’–' + (i * 5 + 5) + '’</span><div class="bcell"><span>' + b.f + '</span><i style="width:' + Math.round(b.f / mx * 100) + '%"></i></div><div class="bcell"><span>' + b.a + '</span><i class="ag" style="width:' + Math.round(b.a / mx * 100) + '%"></i></div></div>';
+    }).join('') + '</div></section>';
+    html += '<p class="note">Ratings start at 6 and move with goals, assists, saves, the result, and how the team did while each player was on the pitch. Everything here is worked out from what you log, not from the video.</p>';
+    $('insBody').innerHTML = html;
+  }
+  $('insBody').addEventListener('click', function (e) { var g = e.target.getAttribute('data-ig'); if (g !== null && !e.target.disabled) { insGame = +g; renderInsights(); } });
+
+  // ---- commentary: a line for each highlight, shown under the clip and read out if switched on
+  function commentaryFor(r, c) {
+    var us = 0, them = 0, line = '', from = (c.at || 0) - 1500, to = (c.at || 0) + ((c.dur || 21) * 1000), pickOf = function (list, seed) { return list[Math.abs(seed) % list.length]; };
+    (r.ev || []).slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).forEach(function (e, i) {
+      if (!e.hl) { if (e.us) us++; else them++; }
+      if (line || typeof e.at !== 'number' || e.at < from || e.at > to) return;
+      var p = e.p != null ? nm(e.p) : null, a = e.a != null ? nm(e.a) : null, sc = us + '–' + them, t = teamShort();
+      if (e.hl) line = e.k === 'save' && p ? pickOf(['Big save from ' + p + ' to keep it at ' + sc + '.', p + ' gets down well. Still ' + sc + '.', 'Denied by ' + p + '! It stays ' + sc + '.'], i) : pickOf([(p || 'That') + ' with one worth another look.', 'One for the highlights reel' + (p ? ' from ' + p : '') + '.'], i);
+      else if (e.us) line = p && a ? pickOf([a + ' slides it through and ' + p + ' does the rest! ' + t + ' ' + sc + '.', 'What a finish from ' + p + ', set up by ' + a + '. ' + sc + '.', p + ' makes it ' + sc + ', with ' + a + ' to thank for the pass.'], i)
+        : p ? pickOf([p + ' finds the net! ' + sc + ' to ' + t + '.', 'Goal! ' + p + ' with a tidy finish. ' + sc + '.', 'There it is, ' + p + ' makes it ' + sc + '.'], i) : pickOf(['It’s in! ' + t + ' ' + sc + '.', 'A goal for ' + t + '. ' + sc + '.'], i);
+      else line = them > us ? r.opp + ' go in front. ' + sc + '.' : them === us ? r.opp + ' level it at ' + sc + '.' : r.opp + ' pull one back. ' + sc + '.';
+    });
+    return line;
+  }
+  var sayOn = false; try { sayOn = localStorage.getItem('apt-say') === '1'; } catch (e) {}
+  function sayLine(t) {
+    try { if (!sayOn || !t || !window.speechSynthesis) return; speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(t); u.lang = 'en-GB'; u.rate = 1.08; u.pitch = 1.05; speechSynthesis.speak(u); } catch (e) {}
   }
   var delIdx = -1, delT = null, showF = false;
   $('showF').addEventListener('change', function (e) { showF = e.target.checked; renderStats(); });

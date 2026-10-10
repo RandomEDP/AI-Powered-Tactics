@@ -81,6 +81,8 @@ console.log('A after wiping its copy and reloading:', await A.textContent('#hero
 await A.click('#mStats'); await wait(100); console.log('A stats rows:', (await A.$$eval('#season tr', (r) => r.slice(0, 3).map((x) => x.textContent))).join(' / '));
 await A.click('#results button[data-reel]'); await A.fill('#syncIn', '1:00'); await wait(900);
 console.log('reel:', await A.textContent('#reelCount'), '| sync saved:', (await db(A)).games[0].sync);
+{ const d0 = await db(A); console.log('stored for chemistry:', JSON.stringify(d0.games[0].lineups).slice(0, 90), '|', JSON.stringify(d0.game_events.filter((e) => e.kind !== 'highlight').map((e) => e.kind + ':' + (e.on_pitch || []).length))); }
+await A.click('#v-reel [data-back]'); await wait(200); await A.click('#v-stats .back'); await wait(200); await A.click('#mInsights'); await wait(300); console.log('insights:', (await A.textContent('#insBody')).replace(/\s+/g, ' ').slice(0, 420)); await A.click('#v-insights .back'); await wait(200); await A.click('#mStats');
 console.log('on-pitch goals in db:', JSON.stringify((await db(A)).game_players.map((p) => p.pid + ':' + p.scored_on + '/' + p.conceded)), '| stats header:', (await A.textContent('#v-stats thead')).replace(/\s+/g, ' '));
 console.log('errors:', JSON.stringify(errs));
 await b.close();

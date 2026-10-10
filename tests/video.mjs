@@ -53,6 +53,7 @@ console.log('plugin asked for:', JSON.stringify(cutArg.clips.map((c) => [c.path,
 console.log('files:', JSON.stringify(d.files), '\nclip rows:', JSON.stringify((d.clips || []).map((c) => ({ seq: c.seq, path: c.path.replace(/^[^/]+/, '<team>'), label: c.label, dur: c.dur, pids: c.pids }))));
 await A.click('#cutBody [data-cutdo="share"]'); await wait(200); await A.click('#cutBody [data-cutdo="finish"]'); await wait(400);
 console.log('plugin calls:', (await A.evaluate(() => window.__rc)).map((x) => x.split(' {')[0]).join(', '), '| view:', await view(A));
+console.log('commentary:', await A.$$eval('#hlList [data-clip]', (x) => x.map((y) => y.getAttribute('data-line'))), '| shown:', await A.textContent('#hlList .say'));
 console.log('by game:', await A.$$eval('#hlList .vplayer video', (v) => v.map((x) => x.getAttribute('src').replace(/clips\/[^/]+/, 'clips/<team>'))), await A.$$eval('#hlList [data-clip]', (x) => x.map((y) => y.textContent)));
 await shot(A, 'hl-by-game');
 await A.click('#hlToggle [data-by="player"]'); await wait(300);
