@@ -36,6 +36,11 @@ await A.click('#gamesTrack .fxc [data-fx="nudge"]'); await wait(500);
 console.log('nudge:', await A.textContent('#gamesTrack .fxc .msg'), '| button now disabled:', await A.isDisabled('#gamesTrack .fxc [data-fx="nudge"]'));
 console.log('notifications asked for:', JSON.stringify((await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).calls)).map((c) => [c.name, c.body.kind, c.body.title, c.body.body])));
 console.log('zoom locked:', await A.evaluate(() => document.querySelector('meta[name=viewport]').content.includes('user-scalable=no') && getComputedStyle(document.documentElement).touchAction));
+await A.click('#tabs [data-tab="home"]'); await wait(200); console.log('coming soon hidden by default:', !(await A.isVisible('#soonPill')));
+await A.click('#mOptions'); await wait(200); console.log('plans button before switching on:', await A.isVisible('#planOpen'));
+await A.check('#expTrack'); await wait(200); await A.click('#planOpen'); console.log('plans pop-up:', await A.isVisible('#planPop'), '|', (await A.textContent('#planPop .pro h3')).replace(/\s+/g, ' ')); await A.click('#planOk');
+console.log('settings buttons:', await A.isVisible('#soonOpen'), await A.isVisible('#planOpen'), '| sign out shown:', await A.isVisible('#optSignOut'), '|', await A.textContent('#optSignedAs'));
 await A.click('#tabs [data-tab="home"]'); await wait(200); await A.click('[data-go="soon"]'); await wait(500); console.log('coming soon:', await view(A), '|', (await A.$$eval('.soon-list b', (b) => b.map((x) => x.textContent))).join(' / '));
 if (out) { await A.screenshot({ path: `${out}/soon.png`, fullPage: true }); await A.click('#v-soon .back'); await wait(500); await A.screenshot({ path: `${out}/home.png`, fullPage: true }); }
+if (await A.isVisible('#v-soon .back')) await A.click('#v-soon .back'); await wait(300); await A.click('#mOptions'); await wait(200); await A.click('#optSignOut'); console.log('first tap:', await A.textContent('#optSignOut')); await A.click('#optSignOut'); await wait(500); console.log('signed out ->', await view(A));
 console.log('errors:', JSON.stringify(errs)); await b.close();

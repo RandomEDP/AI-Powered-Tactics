@@ -19,7 +19,7 @@ for (let i = 0; i < 5; i++) {
   await p.click('#introNext'); await p.waitForTimeout(600);
 }
 console.log('after Get started:', await p.evaluate(() => [...document.querySelectorAll('[id^="v-"]')].filter((v) => !v.hidden).map((v) => v.id).join()), '| seen saved:', await p.evaluate(() => JSON.parse(localStorage.getItem('apt-app')).introSeen));
-console.log('plans pop-up:', await p.isVisible('#planPop'), '|', (await p.textContent('#planPop h3 >> nth=1')).replace(/\s+/g, ' ')); await shot('plans', false); await p.click('#planOk'); console.log('closed:', !(await p.isVisible('#planPop')), '| remembered:', await p.evaluate(() => JSON.parse(localStorage.getItem('apt-app')).plansSeen));
+console.log('plans pop-up after the intro:', await p.isVisible('#planPop'), '| coming-soon pill:', await p.isVisible('#soonPill'));
 await shot('welcome', true);
 await p.reload(); await p.waitForTimeout(400); console.log('after reload:', await p.evaluate(() => [...document.querySelectorAll('[id^="v-"]')].filter((v) => !v.hidden).map((v) => v.id).join()));
 await p.click('#introOpen'); await p.waitForTimeout(300); console.log('how it works opens:', await p.isVisible('#v-intro')); await p.click('#introSkip');

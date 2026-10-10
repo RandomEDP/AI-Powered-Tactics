@@ -736,7 +736,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <button id="mInsights" type="button">Insights</button>
   </div>
   <p class="msg" id="lockMsg" role="status"></p>
-  <button class="soon-pill" type="button" data-go="soon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI reports and commentary</small></button>
+  <button class="soon-pill" id="soonPill" type="button" data-go="soon" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI reports and commentary</small></button>
   <p class="note" id="homeNote" hidden>No game on right now. When one starts, it appears here.</p>
   <div class="card" id="meCard" hidden></div>
   <section id="squadSec" hidden><h2>Squad</h2><p class="note" id="squadNote" hidden></p><div class="plist" id="squadList"></div></section>
@@ -962,15 +962,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 <div class="view" id="v-options" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Settings</h1></div>
   <section>
-    <h2>Plans</h2>
-    <p class="note">Everything is free during early access. A paid Gaffer tier is coming.</p>
-    <div class="actions"><button class="plain" id="planOpen" type="button">See what’s free and what’s coming</button></div>
-  </section>
-  <section>
     <h2>Experimental</h2>
     <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
-    <label class="check" for="expTrack"><input id="expTrack" type="checkbox"><span>Player tracking <small>(heat maps and distance for named players, worked out from a recording on this phone)</small></span></label>
-    <div class="actions"><button class="plain" id="expTrackOpen" type="button" hidden>Open player tracking</button></div>
+    <label class="check" for="expTrack"><input id="expTrack" type="checkbox"><span>Show experimental features <small>(player tracking from a recording, a look at what’s being worked on, and the plans)</small></span></label>
+    <div class="actions"><button class="plain" id="expTrackOpen" type="button" hidden>Open player tracking</button><button class="plain" id="soonOpen" type="button" hidden>What’s being worked on</button><button class="plain" id="planOpen" type="button" hidden>Plans</button></div>
   </section>
   <p class="note" id="optViewer" hidden>The team's own settings are for gaffers.</p>
   <div class="view own" id="optGaffer">
@@ -1015,6 +1010,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <p class="note">The team stays in the database. You can add it back with its code.</p>
   </section>
   </div>
+  <section id="optAccount" hidden>
+    <h2>Account</h2>
+    <div class="actions"><button class="plain" id="optSignOut" type="button">Sign out</button></div>
+    <p class="note" id="optSignedAs"></p>
+  </section>
 </div>
 
 </div>
@@ -1346,7 +1346,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   var goalMsg = '', goalT = null;
   // ---- "game started": a pop-up for everyone with the team open, and a notification for everyone else
-  var wantGame = null, pushOn = false;
+  var wantGame = null, pushOn = false, pushSaved = null;
   function gameStarted(g) {
     if (role === 'owner' || S.view === 'game') { refetch(); return; }
     $('kickPopText').textContent = 'Game started' + (g.opp ? ' v ' + g.opp : '') + '. Watch along.';
@@ -1363,10 +1363,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     notifyTeam('kickoff', teamShort() + ' v ' + m.opp, 'Game started. Watch along.');
   }
   function pushSetup() { // signed-in players and gaffers are asked once whether they want game-start notifications
-    var P = plugin('PushNotifications'); if (!P || pushOn || !sb || !me || (myPid == null && role !== 'owner')) return;
+    var P = plugin('PushNotifications'); if (!P || !sb || !me || (myPid == null && role !== 'owner')) return;
+    if (pushOn) { // already set up: if this phone's token never reached the database (allowed later in iOS Settings, or no signal at the time), try again
+      if (pushSaved !== me.id) { try { P.checkPermissions().then(function (r) { if (r && r.receive === 'granted') P.register(); else if (r && r.receive === 'prompt') P.requestPermissions().then(function (q) { if (q && q.receive === 'granted') P.register(); }, function () {}); }, function () {}); } catch (e) {} }
+      return;
+    }
     pushOn = true;
     try {
-      P.addListener('registration', function (t) { if (t && t.value) sb.rpc('register_push', { p_token: t.value }).then(function () {}, function () {}); });
+      P.addListener('registration', function (t) { if (t && t.value && me) { var uid = me.id; sb.rpc('register_push', { p_token: t.value }).then(function (r) { if (!r || !r.error) pushSaved = uid; }, function () {}); } });
       P.addListener('pushNotificationActionPerformed', function (a) {
         var code = a && a.notification && a.notification.data && a.notification.data.code; if (!code || !teamMeta(code)) return;
         var kind = a.notification.data.kind || 'kickoff';
@@ -1527,6 +1531,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
     if ((view === 'reel' || view === 'season' || view === 'cut') && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
     if (view === 'cut' && !CUT) view = 'highlights';
+    if (view === 'soon' && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome';
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
     if (!A.active && ['intro', 'welcome', 'join', 'create', 'account'].indexOf(view) < 0) view = 'welcome';
     if (view === 'create' && S.view !== 'create') resetCreate();
@@ -1604,7 +1609,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var calm = false; try { calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
     introTrack.scrollTo({ left: i * introTrack.clientWidth, behavior: calm ? 'auto' : 'smooth' });
   }
-  function introDone() { A.introSeen = true; saveApp(); go(A.active ? 'home' : 'welcome'); planShow(); }
+  function introDone() { A.introSeen = true; saveApp(); go(A.active ? 'home' : 'welcome'); }
   function planShow(again) { if (A.plansSeen && !again) return; $('planPop').hidden = false; try { $('planOk').focus(); } catch (e) {} } // what's free and what will be paid, shown once
   $('planOk').addEventListener('click', function () { $('planPop').hidden = true; A.plansSeen = true; saveApp(); });
   (function () {
@@ -1887,6 +1892,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function renderHome() {
     var r = recordLine(), m = S.match, own = role === 'owner';
     $('heroName').textContent = teamName(); renderCrest();
+    $('soonPill').hidden = !(A.exp && A.exp.track);
     $('homeRecord').textContent = r ? r.short : 'Season starts here';
     $('mResume').hidden = !m; $('mResumeLbl').textContent = own ? 'Resume game' : 'Watch the game';
     $('homeNote').hidden = own || !!m;
@@ -3105,7 +3111,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var c = $('clock'); c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
   }
   function wake() { try { if (navigator.wakeLock && S.match && S.match.running) navigator.wakeLock.request('screen').catch(function () {}); } catch (e) {} }
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) { wake(); tick(); } });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { wake(); tick(); pushSetup(); } });
   function tick() {
     var m = S.match; if (!m || !m.running) return;
     if (!m.et && elapsed(m) >= halfMs(m)) { m.et = true; if (role === 'owner') { save(); beep(4); } } // time is up; the clock carries on as added time
@@ -3389,7 +3395,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     } catch (err) { TR.msg = (err && err.message) || 'The tracking didn’t finish.'; }
     TR.stage = 'setup'; if (!S.match) stayAwake(false); renderTrack();
   });
-  $('expTrack').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.track = e.target.checked; saveApp(); renderOptions(); });
+  $('expTrack').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.track = e.target.checked; saveApp(); renderOptions(); if (A.exp.track) planShow(); });
+  $('soonOpen').addEventListener('click', function () { go('soon'); });
+  armed($('optSignOut'), 'Tap again to sign out', async function () { try { await sb.auth.signOut(); } catch (e) {} go('welcome'); });
   $('expTrackOpen').addEventListener('click', function () { go('track'); });
   $('planOpen').addEventListener('click', function () { planShow(true); });
   $('trackOpen').addEventListener('click', function () { go('track'); });
@@ -3857,7 +3865,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- options
   function renderOptions() {
-    var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = !ex.track;
+    var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = $('soonOpen').hidden = $('planOpen').hidden = !ex.track;
+    $('optAccount').hidden = !(sb && me); $('optSignedAs').textContent = me && me.email ? 'Signed in as ' + me.email + '. Your team and stats stay put; sign back in to pick up where you left off.' : '';
     renderTeamOpts();
     var html = '', busy = !!S.match;
     S.players.forEach(function (p) {
@@ -3934,7 +3943,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   if (S.match) lastBlock = curSeg(S.match);
   var first = !A.introSeen ? 'intro' : !A.active ? 'welcome' : S.view === 'reel' ? 'stats' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
   go(first);
-  if (A.introSeen) planShow();
   setSync();
   connect();
   if ('serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js'); } catch (e) {} }
