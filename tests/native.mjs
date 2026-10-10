@@ -11,7 +11,7 @@ await pg.addInitScript(() => {
     checkPermissions: async () => ({ display: 'prompt' }), requestPermissions: async () => { window.__log.push('ask permission'); return { display: 'granted' }; },
     schedule: async ({ notifications }) => { notifications.forEach((n) => pend.push(n)); window.__log.push('schedule ' + notifications.map((n) => n.title + ' @' + Math.round((n.schedule.at - Date.now()) / 1000) + 's: ' + n.body).join(' | ')); } };
   window.__watch = []; const WL = { push: async (o) => { window.__watch.push(JSON.parse(o.state)); return { sent: true }; }, addListener: (n, cb) => { window.__watchCb = cb; } };
-  window.Capacitor = { isNativePlatform: () => true, Plugins: { WatchLink: WL, LocalNotifications: LN, Haptics: { notification: async (o) => window.__log.push('haptic ' + o.type) }, KeepAwake: { keepAwake: async () => window.__log.push('awake'), allowSleep: async () => window.__log.push('sleep ok') } } };
+  window.Capacitor = { isNativePlatform: () => true, Plugins: { WatchLink: WL, LocalNotifications: LN, Haptics: { impact: async () => {}, notification: async (o) => window.__log.push('haptic ' + o.type) }, KeepAwake: { keepAwake: async () => window.__log.push('awake'), allowSleep: async () => window.__log.push('sleep ok') } } };
 });
 await pg.goto(BASE); await pg.waitForTimeout(300);
 await pg.click('#createBtn'); await pg.fill('#tName', 'Test United'); await pg.fill('#tPlayers', 'K\nA\nB\nC\nD\nE\nF\nG'); await pg.click('#tCreate'); await pg.click('#v-code [data-go="home"]');

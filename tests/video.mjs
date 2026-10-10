@@ -15,7 +15,7 @@ await ctx.addInitScript((base) => {
     share: async (o) => { window.__rc.push('share ' + o.path); }, cleanup: async () => { window.__rc.push('cleanup'); } };
   const none = async () => ({});
   window.Capacitor = { isNativePlatform: () => true, convertFileSrc: () => base + 'icons/icon-192.png',
-    Plugins: { ReelCutter: RC, GameCalendar: { addEvent: async (o) => { window.__rc.push('calendar ' + JSON.stringify(o)); return { saved: true }; } }, LocalNotifications: { getPending: async () => ({ notifications: [] }), cancel: none, checkPermissions: async () => ({ display: 'granted' }), requestPermissions: async () => ({ display: 'granted' }), schedule: none }, Haptics: { notification: none }, KeepAwake: { keepAwake: none, allowSleep: none } } };
+    Plugins: { ReelCutter: RC, GameCalendar: { addEvent: async (o) => { window.__rc.push('calendar ' + JSON.stringify(o)); return { saved: true }; } }, LocalNotifications: { getPending: async () => ({ notifications: [] }), cancel: none, checkPermissions: async () => ({ display: 'granted' }), requestPermissions: async () => ({ display: 'granted' }), schedule: none }, Haptics: { impact: none, notification: none }, KeepAwake: { keepAwake: none, allowSleep: none } } };
 }, BASE);
 await ctx.route('**/*', (r) => { const u = r.request().url(); if (u.includes('vendor/supabase.js')) return r.fulfill({ contentType: 'application/javascript', body: MOCK }); return u.startsWith(BASE) ? r.continue() : r.abort(); });
 const errs = [], wait = (ms) => new Promise((r) => setTimeout(r, ms));

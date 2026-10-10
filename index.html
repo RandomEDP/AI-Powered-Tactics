@@ -2,7 +2,7 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>AI Powered Tactics</title>
 <meta name="description" content="Fair or aggressive line-ups, sub rotations, live scores, stats and highlight reels for small-sided football teams.">
 <meta name="theme-color" content="#1f6b4a">
@@ -65,10 +65,34 @@ p { margin: 0; }
 .msg { font-weight: 600; } .msg.bad { color: var(--bib); }
 .plink { color: var(--muted); }
 button { font: inherit; color: inherit; cursor: pointer; }
-button:active:not(:disabled) { transform: scale(.975); }
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+button, a, label, input, select { -webkit-tap-highlight-color: transparent; }
+button { transition: transform .14s cubic-bezier(.2, .8, .2, 1), filter .14s, background-color .18s, color .18s, opacity .18s, box-shadow .18s; }
+button:active:not(:disabled) { transform: scale(.955); filter: brightness(.93); transition-duration: .05s; }
+.view:not([hidden]) { animation: viewIn .3s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes viewIn { from { opacity: 0; transform: translateY(10px); } }
+.menu button { animation: rise .36s cubic-bezier(.2, .8, .2, 1) both; }
+.menu button:nth-child(2) { animation-delay: .03s; } .menu button:nth-child(3) { animation-delay: .06s; } .menu button:nth-child(4) { animation-delay: .09s; } .menu button:nth-child(5) { animation-delay: .12s; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+.bump { animation: bump .5s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes bump { 30% { transform: scale(1.35); } }
+#kickPop:not([hidden]) { animation: fade .2s both; } #kickPop:not([hidden]) .kickbox { animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
+@keyframes fade { from { opacity: 0; } } @keyframes sheet { from { transform: translateY(40px); opacity: 0; } }
+.soon-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 12px; border: 0; border-radius: 999px; background: var(--surface); font-weight: 700; font-size: 15px; }
+.soon-pill svg { width: 20px; height: 20px; color: #ffc83d; flex: none; }
+.soon-pill small { font-weight: 500; color: var(--muted); font-size: 14px; }
+.soon-tag { align-self: flex-start; background: #ffc83d; color: #2a2100; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; border-radius: 999px; padding: 5px 12px; }
+.stage.soon-stage { flex: none; min-height: 260px; gap: 12px; }
+.soon-stage .mock { position: relative; animation: rise .5s cubic-bezier(.2, .8, .2, 1) both; } .soon-stage .mock + .mock { animation-delay: .12s; }
+.wave { display: flex; align-items: center; gap: 4px; height: 34px; }
+.wave i { flex: 1; max-width: 6px; border-radius: 3px; background: var(--on); animation: wave 1.1s ease-in-out infinite; }
+@keyframes wave { 0%, 100% { height: 22%; } 50% { height: 100%; } }
+.soon-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.soon-list li { background: var(--surface); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.soon-list b { font-size: 19px; letter-spacing: -.01em; } .soon-list span { color: var(--muted); font-size: 15px; }
 button:disabled { opacity: .4; cursor: default; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid var(--on); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { button:active:not(:disabled) { transform: none; } }
+@media (prefers-reduced-motion: reduce) { button:active:not(:disabled) { transform: none; } .view:not([hidden]), .menu button, .bump, #kickPop:not([hidden]), #kickPop:not([hidden]) .kickbox, .soon-stage .mock, .wave i { animation: none; } button { transition: none; } }
 body.ro .own { display: none !important; }
 body.ro:not(.sc) .scr { display: none !important; }
 
@@ -368,7 +392,7 @@ tr.past td { opacity: .45; }
 .dot.gk i { background: var(--gold); color: #131715; }
 .dot.me i { box-shadow: 0 0 0 3px var(--gold); }
 .dot span { font-size: 13px; font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none; }
-.dot:active { transform: translate(-50%, -50%); }
+.dot:active, .dot:active:not(:disabled) { transform: translate(-50%, -50%); filter: none; }
 .fxrow { grid-template-columns: 1fr auto; }
 .seg button.is[data-vote] { background: var(--on); color: var(--on-ink); }
 .seg button.is[data-vote="no"] { background: var(--muted); color: var(--bg); }
@@ -554,6 +578,22 @@ tr.past td { opacity: .45; }
 <div id="kickPop" role="alertdialog" aria-labelledby="kickPopText" hidden><div class="kickbox"><p id="kickPopText"></p>
   <div class="actions"><button class="plain primary" id="kickWatch" type="button">Watch along</button><button class="plain" id="kickLater" type="button">Not now</button></div></div></div>
 
+<div class="view" id="v-soon" hidden>
+  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Coming soon</h1></div>
+  <div class="stage soon-stage">
+    <svg class="lines" viewBox="0 0 320 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" opacity=".2"><rect x="30" y="20" width="260" height="260" rx="10"/><line x1="30" y1="150" x2="290" y2="150"/><circle cx="160" cy="150" r="42"/></g></svg>
+    <div class="mock"><b class="k">Insight</b><span>You score most in the five minutes after a change.</span></div>
+    <div class="mock"><b class="k">Commentary</b><div class="wave" aria-hidden="true"><i></i><i style="animation-delay:.1s"></i><i style="animation-delay:.2s"></i><i style="animation-delay:.3s"></i><i style="animation-delay:.4s"></i><i style="animation-delay:.5s"></i><i style="animation-delay:.6s"></i><i style="animation-delay:.7s"></i><i style="animation-delay:.8s"></i><i style="animation-delay:.9s"></i><i style="animation-delay:1s"></i><i style="animation-delay:.15s"></i><i style="animation-delay:.35s"></i><i style="animation-delay:.55s"></i><i style="animation-delay:.75s"></i><i style="animation-delay:.95s"></i></div><span>“He’s picked that up on the halfway line, and what a finish!”</span></div>
+  </div>
+  <span class="soon-tag">In the works</span>
+  <div class="itext"><h1>The AI part of AI Powered Tactics</h1><p>The app already knows every goal, assist, save and minute. Next, it starts telling you what they mean.</p></div>
+  <ul class="soon-list">
+    <li><b>AI powered insights</b><span>What your stats are really saying: who plays best together, when you score and concede, who’s in form, and the line-up to pick next.</span></li>
+    <li><b>AI powered commentary</b><span>A commentator’s voice over your footage, calling the goals by name. For the full game or just the highlights.</span></li>
+  </ul>
+  <p class="note">These aren’t in the app yet. The examples above are illustrations.</p>
+</div>
+
 <div class="view" id="v-home">
   <div class="hero"><img id="heroCrest" alt="" hidden><h1 id="heroName"></h1><p id="homeRecord"></p><p class="app-name">AI Powered Tactics</p></div>
   <div class="card" id="pendCard" hidden><h2 id="pendTitle"></h2><p class="note">Tap the link in the email we sent you, then sign in here to finish joining.</p>
@@ -567,6 +607,7 @@ tr.past td { opacity: .45; }
     <button id="mOptions" type="button">Options</button>
   </div>
   <p class="msg" id="lockMsg" role="status"></p>
+  <button class="soon-pill" type="button" data-go="soon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI insights and commentary</small></button>
   <p class="note" id="homeNote" hidden>No game on right now. When one starts, it appears here.</p>
   <div class="card" id="meCard" hidden></div>
   <section id="squadSec" hidden><h2>Squad</h2><div class="plist" id="squadList"></div></section>
@@ -892,7 +933,7 @@ tr.past td { opacity: .45; }
   var role = 'viewer', teamId = null, orgCode = null;
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'game', 'stats', 'reel', 'season'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'soon', 'game', 'stats', 'reel', 'season'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1153,10 +1194,15 @@ tr.past td { opacity: .45; }
     $('kickPopText').textContent = 'Game started' + (g.opp ? ' v ' + g.opp : '') + '. Watch along.';
     $('kickPop').hidden = false; refetch();
   }
+  async function notifyTeam(kind, title, body, extra) { // a push notification to the team's phones; quietly does nothing if it can't
+    if (!sb || !sb.functions || !A.active || !me || role !== 'owner') return null;
+    try { var res = await sb.functions.invoke('team-notify', { body: Object.assign({ code: A.active, kind: kind, title: title, body: body }, extra || {}) }); return res && res.data ? res.data : null; } catch (e) { return null; }
+  }
   async function announceGame(m) { // the gaffer's phone tells everyone once the game is in the database
     ping('kickoff', { opp: m.opp });
     if (!sb || !A.active || !me) return;
-    try { clearTimeout(wt); await syncAll(); ping('kickoff', { opp: m.opp }); if (sb.functions) await sb.functions.invoke('game-started', { body: { code: A.active, opp: m.opp } }); } catch (e) {}
+    try { clearTimeout(wt); await syncAll(); ping('kickoff', { opp: m.opp }); } catch (e) {}
+    notifyTeam('kickoff', teamShort() + ' v ' + m.opp, 'Game started. Watch along.');
   }
   function pushSetup() { // signed-in players and gaffers are asked once whether they want game-start notifications
     var P = plugin('PushNotifications'); if (!P || pushOn || !sb || !me || (myPid == null && role !== 'owner')) return;
@@ -1165,6 +1211,9 @@ tr.past td { opacity: .45; }
       P.addListener('registration', function (t) { if (t && t.value) sb.rpc('register_push', { p_token: t.value }).then(function () {}, function () {}); });
       P.addListener('pushNotificationActionPerformed', function (a) {
         var code = a && a.notification && a.notification.data && a.notification.data.code; if (!code || !teamMeta(code)) return;
+        var kind = a.notification.data.kind || 'kickoff';
+        if (kind === 'highlights') { openTeam(code, 'highlights'); return; }
+        if (kind !== 'kickoff') { openTeam(code, 'home'); return; }
         if (S.match && A.active === code) { go('game'); return; }
         wantGame = code; openTeam(code, 'home');
       });
@@ -1313,7 +1362,7 @@ tr.past td { opacity: .45; }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'poll', 'cut', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'poll', 'cut', 'soon', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1767,7 +1816,8 @@ tr.past td { opacity: .45; }
     if (s.none.length) html += '<p class="note">No answer yet: ' + names(s.none) + '</p>';
     if (own) {
       html += '<div class="actions"><button class="plain primary" type="button" data-fx="start">Start this game</button><button class="plain" type="button" data-fx="edit">Edit poll</button>' +
-        '<button class="plain" type="button" data-fx="answer" aria-expanded="' + fxAnswer + '">Answer for a player</button></div>';
+        '<button class="plain" type="button" data-fx="answer" aria-expanded="' + fxAnswer + '">Answer for a player</button>' +
+        (s.none.length ? '<button class="plain" type="button" data-fx="nudge"' + (Date.now() < nudgeWait ? ' disabled' : '') + '>Nudge the squad</button>' : '') + '</div>';
       if (fxAnswer) html += '<div class="plist">' + S.players.map(function (p) {
         var v = (f.votes || []).filter(function (x) { return x.pid === p.id; })[0], ch = v && v.choice;
         return '<div class="lrow fxrow"><span class="who">' + esc(nm(p.id)) + '</span><span class="seg">' + [['in', 'In'], ['gk', 'GK'], ['no', 'Out']].map(function (o) { return '<button type="button" data-for="' + p.id + '" data-vote="' + o[0] + '" class="' + (ch === o[0] ? 'is' : '') + '">' + o[1] + '</button>'; }).join('') + '</span></div>';
@@ -1797,6 +1847,24 @@ tr.past td { opacity: .45; }
     a.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsFor(f)); a.download = (teamShort() + ' vs ' + (f.opp || 'game')).replace(/[^\w ]+/g, '').trim().replace(/\s+/g, '-') + '.ics';
     document.body.appendChild(a); a.click(); a.remove();
   }
+  // A push notification to everyone who hasn't answered the poll, worded by how many spots are left.
+  var nudgeWait = 0;
+  function nudgeText(f) {
+    var s = fxSides(f), left = Math.max(0, f.max_outfield - s.ins.length) + (s.gk == null ? 1 : 0), opp = f.opp || 'the next', when = whenText(f.ko_at);
+    if (left === 1) return ['Quick, only one spot left', 'for the ' + opp + ' game, ' + when + '. Are you in?'];
+    if (left >= 4) return [teamName() + ' need you', left + ' spots left v ' + opp + ', ' + when + '. Are you in?'];
+    if (left > 1) return [left + ' spots left v ' + opp, when + '. Are you in?'];
+    return ['In or out v ' + opp + '?', when + '. Let the gaffer know either way.'];
+  }
+  async function nudge(f) {
+    var t = nudgeText(f); nudgeWait = Date.now() + 60000; setTimeout(function () { if (S.view === 'home') renderFixture(); }, 60500);
+    fxSay('Sending…');
+    var res = await notifyTeam('nudge', t[0], t[1], { fixture: f.id });
+    fxSay(!res ? 'Couldn’t send the nudge. Check your signal.' : res.reason === 'not_configured' ? 'Notifications aren’t switched on for the app yet.'
+      : res.sent ? 'Nudge sent to ' + res.sent + (res.sent === 1 ? ' phone' : ' phones') + ': “' + t[0] + '”'
+      : res.people ? 'Nobody who still needs to answer has notifications on.' : 'Nobody left to answer has claimed their player yet, so there’s nobody to nudge.');
+    if (!res) nudgeWait = 0;
+  }
   var VOTE_MSG = { gk_taken: 'Someone is already down as keeper.', full: 'The outfield spots are all taken.', closed: 'This poll has closed.', not_player: 'Choose your player first.', missing: 'This poll no longer exists.' };
   async function castVote(f, choice, pid) {
     try {
@@ -1816,6 +1884,7 @@ tr.past td { opacity: .45; }
     if (act === 'edit') { fxEdit = f; go('poll'); }
     else if (act === 'answer') { fxAnswer = !fxAnswer; renderFixture(); }
     else if (act === 'cal') addToCalendar(f);
+    else if (act === 'nudge' && role === 'owner') nudge(f);
     else if (act === 'start') startFromPoll(f);
     else if (vote && who !== null && role === 'owner') castVote(f, vote, +who);
     else if (vote && myPid != null) castVote(f, vote, null);
@@ -1880,7 +1949,9 @@ tr.past td { opacity: .45; }
       if (fxEdit) await q(sb.from('fixtures').update(row).eq('id', fxEdit.id));
       else await q(sb.from('fixtures').insert(Object.assign({ team_id: teamId }, row)));
       S.poll = { location: row.location, cost: row.cost, max: row.max_outfield, time: $('pTime').value || '19:00', dow: dt.getDay() }; // the defaults for the next poll
+      var isNew = !fxEdit;
       save(); ping('changed'); await pull(); go('home');
+      if (isNew) notifyTeam('poll', teamName() + ' v ' + row.opp, 'New game on ' + whenText(row.ko_at) + '. Are you in?');
     } catch (e) { $('pSave').disabled = false; $('pMsg').textContent = 'Couldn’t save the poll. Check your signal and try again.'; }
   });
   armed($('pCancel'), 'Tap again to cancel the game', async function () {
@@ -2082,6 +2153,7 @@ tr.past td { opacity: .45; }
         await q(sb.from('clips').insert(rows));
         ping('changed'); await pull();
         CUT.stage = 'done'; CUT.n = rows.length; CUT.reel = res.reel ? res.reel.path : null;
+        notifyTeam('highlights', teamShort() + ' ' + r.us + '–' + r.them + ' ' + r.opp, 'The highlights are ready to watch.');
       } catch (err) { CUT.msg = (err && err.message) || 'Something went wrong while cutting.'; }
       renderCut();
     } else if (act === 'retry') { CUT.stage = CUT.src ? 'sync' : 'pick'; CUT.msg = ''; renderCut(); }
@@ -2564,6 +2636,9 @@ tr.past td { opacity: .45; }
   function renderScore() {
     var m = S.match; if (!m) return;
     var t = tally(m), html = '';
+    [['usN', t.us], ['themN', t.them]].forEach(function (x) { // the number pops when the score changes
+      var el = $(x[0]); if (el.textContent !== '' && el.textContent !== String(x[1])) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+    });
     $('usN').textContent = t.us; $('themN').textContent = t.them; $('themLbl').textContent = m.opp;
     $('usLbl').textContent = teamShort(); $('goalUs').textContent = 'Goal for ' + teamShort();
     $('undo').disabled = !m.events.length; $('hlBtn').disabled = m.phase === 'pre' || m.phase === 'ft';
@@ -2643,6 +2718,13 @@ tr.past td { opacity: .45; }
     else if (ev.type === 'hl' && m.phase !== 'pre') { m.events.push(stamped(m, stripNull({ hl: true, p: myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null, watch: true, at: Date.now() }))); save(); if (S.view === 'game') renderScore(); }
   }
   if (Watch) { try { Watch.addListener('event', watchEvent); } catch (e) {} setInterval(watchPush, 5000); }
+  // a light tap under the finger for every button press, and no zooming by pinch or double tap
+  var tapAt = 0;
+  document.addEventListener('pointerdown', function (e) {
+    if (!Haptics || !e.target.closest || !e.target.closest('button:not(:disabled)') || Date.now() - tapAt < 60) return;
+    tapAt = Date.now(); try { Haptics.impact({ style: 'LIGHT' }).catch(function () {}); } catch (err) {}
+  }, true);
+  ['gesturestart', 'gesturechange', 'dblclick'].forEach(function (n) { document.addEventListener(n, function (e) { e.preventDefault(); }, { passive: false }); });
   function buzz(strong) { try { if (Haptics) Haptics.notification({ type: strong ? 'WARNING' : 'SUCCESS' }).catch(function () {}); } catch (e) {} }
   function stayAwake(on) { try { if (KeepAwake) (on ? KeepAwake.keepAwake() : KeepAwake.allowSleep()).catch(function () {}); } catch (e) {} }
   function upcomingAlerts(m) { // the changes and whistle still to come this half, as clock times

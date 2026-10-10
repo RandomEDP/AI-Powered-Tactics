@@ -124,6 +124,6 @@
   const storage = { from: (bucket) => ({ upload: async (path, blob) => { const d = load(); const team = d.teams.find((t) => t.id === path.split('/')[0]);
     if (!team || !isOrg(d, team.id)) return { data: null, error: { message: 'new row violates row-level security policy' } };
     d.files = d.files || []; d.files.push({ bucket, path, size: blob.size, type: blob.type }); store(d); return { data: { path }, error: null }; } }) };
-  const functions = { invoke: async (name, o) => { const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); return { data: { sent: 0 }, error: null }; } };
+  const functions = { invoke: async (name, o) => { const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); return { data: { sent: o.body.kind === 'nudge' ? 2 : 0, people: 2 }, error: null }; } };
   window.supabase = { createClient: () => ({ rpc, from, auth, channel, storage, functions, removeChannel() {} }) };
 })();

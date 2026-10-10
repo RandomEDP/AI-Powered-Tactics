@@ -22,7 +22,7 @@ An iOS app (and the same app on the web) backed by Supabase, usable offline at t
 | `config.js` | Supabase project URL and publishable key. Both are public by design; never put a secret or `service_role` key here |
 | `manifest.webmanifest`, `icons/` | Home-screen install |
 | `sw.js` | Offline support: caches the app shell; team data is kept on the phone and syncs when back online |
-| `supabase/functions/game-started/` | Edge function that sends the "Game started. Watch along." notification to the team's iPhones. It needs three secrets set in Supabase (Edge Functions → Secrets): `APNS_KEY_P8`, `APNS_KEY_ID` and `APPLE_TEAM_ID`. Until they are set it does nothing |
+| `supabase/functions/team-notify/` | Edge function that sends the team's notifications to their iPhones: game started, new poll, highlights ready, and the gaffer's poll nudge. (`game-started` is the older, kick-off-only version, kept for earlier builds.) It needs three secrets set in Supabase (Edge Functions → Secrets): `APNS_KEY_P8`, `APNS_KEY_ID` and `APPLE_TEAM_ID`. Until they are set it does nothing |
 | `supabase/migrations/` | Database schema, row level security and functions |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team |
 | `privacy.html` | Privacy policy (linked from the app and needed for the App Store listing) |
