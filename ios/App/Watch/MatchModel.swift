@@ -29,6 +29,7 @@ struct MatchState: Codable, Equatable {
     var base: Double = 0        // milliseconds on the half's clock when it was last started or stopped
     var t0: Double = 0          // when the clock was last started, in milliseconds since 1970
     var half: Int = 15
+    var periods: Int = 2       // 1 = one period with no half time
     var lockUntil: Double = 0
     var changes: [Change] = []
     var players: [Player] = []
@@ -45,6 +46,7 @@ struct MatchState: Codable, Equatable {
         base = (try? c.decode(Double.self, forKey: .base)) ?? 0
         t0 = (try? c.decode(Double.self, forKey: .t0)) ?? 0
         half = (try? c.decode(Int.self, forKey: .half)) ?? 15
+        periods = (try? c.decode(Int.self, forKey: .periods)) ?? 2
         lockUntil = (try? c.decode(Double.self, forKey: .lockUntil)) ?? 0
         changes = (try? c.decode([Change].self, forKey: .changes)) ?? []
         players = (try? c.decode([Player].self, forKey: .players)) ?? []

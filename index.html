@@ -395,6 +395,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 .gtrack .fxc { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; }
 .fxc.live { box-shadow: inset 0 0 0 2px var(--team); } .fxc.ask { box-shadow: inset 0 0 0 3px #ffc83d; }
 .gdots { justify-content: center; } .gdots:empty { display: none; }
+.fmtcard .toggle button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
+.fxtag.tour { background: var(--on); color: var(--on-ink); }
+.tgames { list-style: none; margin: 0; padding: 4px 12px; background: var(--bg); border-radius: var(--r-ctl); }
+.tgames li { display: flex; justify-content: space-between; gap: 12px; padding-block: 8px; border-bottom: 1px solid var(--line); font-size: 15px; } .tgames li:last-child { border-bottom: 0; }
+.toggle.scope { overflow-x: auto; scrollbar-width: none; } .toggle.scope::-webkit-scrollbar { display: none; } .toggle.scope button { flex: 1 0 auto; padding-inline: 14px; white-space: nowrap; }
+.toggle button:disabled { opacity: .5; }
 #insBody { display: flex; flex-direction: column; gap: 24px; }
 .inslist { list-style: none; margin: 0; padding: 4px 16px; background: var(--surface); border-radius: var(--r-card); }
 .inslist li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--line); }
@@ -681,18 +687,20 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 <div class="view" id="v-poll" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1 id="pollTitle">New poll</h1></div>
   <p class="note">The squad sees this on the team screen and says who's in. You can line up as many games as you like; they all appear under Games. Location, cost, time and squad size are remembered for your next poll.</p>
-  <label class="field" for="pOpp">Who are you playing?<input id="pOpp" type="text" maxlength="60" autocomplete="off" list="pOppList"></label><datalist id="pOppList"></datalist>
+  <div class="toggle" id="pKind" role="group" aria-label="What is it"><button type="button" data-kind="game">Game</button><button type="button" data-kind="tournament">Tournament</button></div>
+  <label class="field" for="pOpp"><span id="pOppLbl">Who are you playing?</span><input id="pOpp" type="text" maxlength="60" autocomplete="off" list="pOppList"></label><datalist id="pOppList"></datalist>
   <div class="two">
     <label class="field" for="pDate">Date<input id="pDate" type="date"></label>
-    <label class="field" for="pTime">Kick-off<input id="pTime" type="time"></label>
+    <label class="field" for="pTime"><span id="pTimeLbl">Kick-off</span><input id="pTime" type="time"></label>
   </div>
   <label class="field" for="pLoc">Location<input id="pLoc" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Powerleague, pitch 4"></label>
   <label class="field" for="pCost">Cost<input id="pCost" type="text" maxlength="40" autocomplete="off" placeholder="e.g. £5 each"></label>
+  <div class="card fmtcard" id="pFmt"></div>
   <div class="card squad"><h2>Squad size</h2>
     <div class="sqrow"><span>Keeper</span><b>1</b></div>
     <div class="sqrow"><label for="pMax">Outfield players</label><b id="pMaxN">7</b></div>
     <input id="pMax" type="range" min="4" max="7" step="1" value="7" aria-describedby="pMaxNote">
-    <div class="sqticks" aria-hidden="true"><span>4</span><span>5</span><span>6</span><span>7</span></div>
+    <div class="sqticks" id="pTicks" aria-hidden="true"></div>
     <p class="note" id="pMaxNote"></p></div>
   <p class="msg bad" id="pMsg"></p>
   <div class="actions"><button class="plain primary" id="pSave" type="button">Create poll</button><button class="plain" id="pCancel" type="button" hidden>Cancel this game</button></div>
@@ -714,10 +722,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <label class="field" for="oppPick" id="oppPickWrap" hidden>Played them before?<select id="oppPick"></select></label>
   <label class="field" for="opp" id="oppWrap">Who are you playing?<input id="opp" type="text" placeholder="Opponent's name" autocomplete="off" maxlength="40"></label>
   <p class="msg bad" id="oppErr" hidden>Enter the opponent's name before you carry on.</p>
-  <label class="check" for="friendly"><input id="friendly" type="checkbox"><span>Friendly <small>(kept out of the league record and stats)</small></span></label>
+  <p class="msg" id="tourLine" hidden></p>
+  <label class="check" for="friendly" id="friendlyWrap"><input id="friendly" type="checkbox"><span>Friendly <small>(kept out of the league record and stats)</small></span></label>
+  <div class="card fmtcard" id="gFmt"></div>
   <section>
     <h2>Line-up</h2>
-    <p class="note">Up to 8 can play. Set who starts, who starts on the bench and who's out. Tap GK for the keeper, who stays on all game.</p>
+    <p class="note" id="lineNote"></p>
     <div id="lineup"></div>
     <p class="msg" id="lineMsg"></p>
     <div class="actions">
@@ -815,7 +825,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 <div class="view" id="v-stats" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Stats</h1></div>
   <p class="msg" id="record"></p>
-  <label class="check" for="showF"><input id="showF" type="checkbox"><span>Include friendlies</span></label>
+  <div class="toggle scope" id="scopeRow" hidden></div>
+  <label class="check" for="showF" id="showFWrap"><input id="showF" type="checkbox"><span>Include friendlies</span></label>
+  <p class="note" id="scopeNote" hidden></p>
   <section>
     <h2>Players</h2>
     <div class="scroll"><table>
@@ -1034,7 +1046,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function fromRemote(d) {
     var t = d.team, st = t.settings || {}, s = blankTeam();
     s.name = t.name; s.short = t.short || ''; s.color = t.color; s.followersCanScore = !!t.followers_can_score;
-    ['half', 'sub', 'pitch', 'tactic', 'lastKeeper', 'me', 'nextId', 'poll'].forEach(function (k) { if (st[k] != null) s[k] = st[k]; });
+    ['half', 'sub', 'pitch', 'tactic', 'lastKeeper', 'me', 'nextId', 'poll', 'fmt'].forEach(function (k) { if (st[k] != null) s[k] = st[k]; });
     s.players = (d.players || []).map(function (p) { return stripNull({ id: p.pid, name: p.name, pos: p.position || null }); });
     var maxId = s.players.reduce(function (m, p) { return Math.max(m, p.id); }, 0);
     if (!(s.nextId > maxId)) s.nextId = maxId + 1;
@@ -1050,7 +1062,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         return stripNull(o);
       });
       return stripNull({ id: g.id, opp: g.opp, friendly: g.friendly, us: g.us, them: g.them, half: g.half, koAt: g.ko_at, htAt: g.ht_at, h2At: g.h2_at,
-        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null });
+        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: g.side === 7 ? 7 : null, tour: g.tournament_id || null, tourName: g.tournament || null });
     });
     s.match = d.live || null;
     return s;
@@ -1058,12 +1070,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function teamRow() {
     return { name: (S.name || '').trim() || 'Team', short: (S.short || '').trim().slice(0, 12), color: /^#[0-9a-f]{6}$/i.test(S.color || '') ? S.color : DEFAULT_COLOR,
       followers_can_score: !!S.followersCanScore,
-      settings: { half: S.half, sub: S.sub, pitch: S.pitch, tactic: nn(S.tactic), lastKeeper: nn(S.lastKeeper), me: nn(S.me), nextId: S.nextId, poll: nn(S.poll) } };
+      settings: { half: S.half, sub: S.sub, pitch: S.pitch, tactic: nn(S.tactic), lastKeeper: nn(S.lastKeeper), me: nn(S.me), nextId: S.nextId, poll: nn(S.poll), fmt: nn(S.fmt) } };
   }
   function gameParts(r, i, tid) {
     var row = { id: r.id, team_id: tid, seq: i, opp: (r.opp || '').slice(0, 60), friendly: !!r.friendly, us: r.us | 0, them: r.them | 0, half: nn(r.half),
       ko_at: nn(r.koAt), ht_at: nn(r.htAt), h2_at: nn(r.h2At), ft_at: nn(r.ftAt), finished_at: nn(r.at),
-      sync: typeof r.sync === 'number' ? r.sync : null, pre: nn(r.pre), post: nn(r.post), cap: r.cap == null ? null : !!r.cap, lineups: r.lu || null };
+      sync: typeof r.sync === 'number' ? r.sync : null, pre: nn(r.pre), post: nn(r.post), cap: r.cap == null ? null : !!r.cap, lineups: r.lu || null, periods: r.periods === 1 ? 1 : null, side: r.side === 7 ? 7 : null, tournament_id: r.tour || null, tournament: r.tourName ? String(r.tourName).slice(0, 60) : null };
     var players = Object.keys(r.per || {}).map(function (k) { var x = r.per[k]; return { game_id: r.id, pid: +k, mins: x.mins | 0, goals: x.g | 0, assists: x.a | 0, scored_on: x.gf == null ? null : x.gf | 0, conceded: x.ga == null ? null : x.ga | 0 }; });
     var events = (r.ev || []).map(function (e, j) {
       return { game_id: r.id, seq: j, kind: e.hl ? (e.k === 'save' ? 'save' : 'highlight') : e.us ? 'goal' : 'against',
@@ -1201,7 +1213,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         var ok = function (v) { return v == null || (typeof v === 'number' && m.squad.indexOf(v) >= 0); };
         if (m && m.phase !== 'ft' && typeof g.us === 'boolean' && ok(g.p) && ok(g.a)) {
           m.events.push(stripNull({ on: onPitch(m, curSeg(m)), us: g.us, p: g.us && g.p != null ? g.p : null, a: g.us && g.a != null ? g.a : null, by: 'team', at: typeof g.ts === 'number' ? g.ts : Date.now(),
-            min: typeof g.min === 'number' ? Math.max(0, Math.min(m.half * 2, Math.round(g.min))) : matchMin(m),
+            min: typeof g.min === 'number' ? Math.max(0, Math.min(m.half * (m.periods === 1 ? 1 : 2), Math.round(g.min))) : matchMin(m),
             x: typeof g.x === 'number' && g.x >= 1 ? Math.min(60, Math.round(g.x)) : null }));
         }
       });
@@ -1325,9 +1337,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- match maths (m = S.match). A game is a list of segments: { h: half 0|1, from, to (minutes into the half), gk, on: [ids], bench: [ids] }
   var halfMs = function (m) { return m.half * 60000; };
-  function mkSegs(sched, order, keeper, half, sub) {
+  function mkSegs(sched, order, keeper, half, sub, periods) {
     var ph = Math.ceil(half / sub), out = [];
-    for (var b = 0; b < ph * 2; b++) {
+    for (var b = 0; b < ph * (periods === 1 ? 1 : 2); b++) {
       var i = b % ph, be = (sched[b] || []).slice();
       out.push({ h: b < ph ? 0 : 1, from: i * sub, to: Math.min(half, (i + 1) * sub), gk: keeper, bench: be,
                  on: order.filter(function (id) { return be.indexOf(id) < 0; }) });
@@ -1374,7 +1386,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function matchMin(m) {
     if (m.phase === 'pre') return 0;
     if (m.phase === 'ht') return m.half;
-    if (m.phase === 'ft') return m.half * 2;
+    if (m.phase === 'ft') return m.half * (m.periods === 1 ? 1 : 2);
     return (m.phase === 'h2' ? m.half : 0) + Math.min(m.half, Math.floor(elapsed(m) / 60000) + 1);
   }
   function stamped(m, o) { // minute label for an event: 15 in normal time, 15 + 2 in added time
@@ -1495,8 +1507,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     });
   }
 
-  function recordLine(all) {
-    var rs = S.results.filter(function (r) { return all || !r.friendly; });
+  function recordLine(all, scope) { // the league record; tournament games have their own
+    var rs = S.results.filter(function (r) { return scope ? r.tour === scope : !r.tour && (all || !r.friendly); });
     var W = 0, D = 0, L = 0, gf = 0, ga = 0;
     rs.forEach(function (r) { gf += r.us; ga += r.them; if (r.us > r.them) W++; else if (r.us < r.them) L++; else D++; });
     return rs.length ? { short: 'Played ' + rs.length + ': W' + W + ' D' + D + ' L' + L, long: 'Played ' + rs.length + ': won ' + W + ', drew ' + D + ', lost ' + L + '. Scored ' + gf + ', conceded ' + ga + '.' } : null;
@@ -1845,7 +1857,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var o = { gk: null, ins: [], no: [], none: [] }, seen = {};
     (f.votes || []).forEach(function (v) { if (!P(v.pid)) return; seen[v.pid] = 1; if (v.choice === 'gk') o.gk = v.pid; else if (v.choice === 'in') o.ins.push(v.pid); else o.no.push(v.pid); });
     S.players.forEach(function (p) { if (!seen[p.id]) o.none.push(p.id); });
-    var bench = f.lineup && Array.isArray(f.lineup.bench) ? f.lineup.bench : null, spots = Math.max(1, S.pitch - 1);
+    var bench = f.lineup && Array.isArray(f.lineup.bench) ? f.lineup.bench : null, spots = Math.max(1, (f.side === 7 ? 7 : 5) - 1);
     o.bench = o.ins.filter(function (id, i) { return bench ? bench.indexOf(id) >= 0 : i >= spots; });
     o.start = o.ins.filter(function (id) { return o.bench.indexOf(id) < 0; });
     return o;
@@ -1874,11 +1886,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     var s = fxSides(f), spots = fxSpots(f, s), mine = myPid == null ? null : (f.votes || []).filter(function (v) { return v.pid === myPid; })[0];
     var full = s.ins.length >= f.max_outfield, names = function (ids) { return ids.map(function (id) { return esc(nm(id)); }).join(', '); };
-    var left = Math.max(0, f.max_outfield - s.ins.length) + (s.gk == null ? 1 : 0), ask = myPid != null && !mine;
+    var left = Math.max(0, f.max_outfield - s.ins.length) + (s.gk == null ? 1 : 0), ask = myPid != null && !mine, tour = f.kind === 'tournament';
+    var ff = fmtFix(Object.assign({ side: f.side || 5 }, f.fmt || fmtDefault(tour ? 'tournament' : 'game', f.side || 5)));
+    var played = tour ? S.results.filter(function (r) { return r.tour === f.id; }) : [];
     card.classList.add(ask ? 'ask' : 'live'); card.setAttribute('data-fxid', f.id);
-    html += (ask ? '<span class="fxtag">Are you in?</span>' : '') + '<h2>' + (f === fixtures[0] ? 'Next game: v ' : 'v ') + esc(f.opp || 'TBC') + '</h2>' +
+    html += (ask ? '<span class="fxtag">Are you in?</span>' : '') + (tour ? '<span class="fxtag tour">Tournament</span>' : '') + '<h2>' + (tour ? (f === fixtures[0] ? 'Next up: ' : '') : f === fixtures[0] ? 'Next game: v ' : 'v ') + esc(f.opp || 'TBC') + '</h2>' +
       '<p class="fxsub">' + esc(whenText(f.ko_at)) + ' · ' + (left ? left + (left === 1 ? ' space left' : ' spaces left') : 'full') + '</p>' +
-      '<p class="note">' + [f.location ? esc(f.location) : '', f.cost ? esc(f.cost) : ''].filter(Boolean).join(', ') + '</p>' +
+      '<p class="note">' + [f.location ? esc(f.location) : '', f.cost ? esc(f.cost) : '', fmtText(ff) + (tour ? ' games' : '')].filter(Boolean).join(', ') + '</p>' +
+      (played.length ? '<ul class="tgames">' + played.map(function (r) { return '<li><span>v ' + esc(r.opp) + '</span><b>' + r.us + '–' + r.them + '</b></li>'; }).join('') + '</ul>' : '') +
       '<p class="note"><b>' + s.ins.length + ' of ' + f.max_outfield + '</b> outfield' + (full ? ' (full)' : '') + ', keeper: <b>' + (s.gk != null ? esc(nm(s.gk)) : 'needed') + '</b></p>';
     if (myPid != null) {
       var c = mine && mine.choice, dis = function (k) { return (k === 'gk' && s.gk != null && s.gk !== myPid) || (k === 'in' && full && c !== 'in') ? ' disabled' : ''; };
@@ -1897,7 +1912,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (s.no.length) html += '<p class="note">Can’t make it: ' + names(s.no) + '</p>';
     if (s.none.length) html += '<p class="note">No answer yet: ' + names(s.none) + '</p>';
     if (own) {
-      html += '<div class="actions"><button class="plain primary" type="button" data-fx="start">Start this game</button><button class="plain" type="button" data-fx="edit">Edit poll</button>' +
+      html += '<div class="actions"><button class="plain primary" type="button" data-fx="start">' + (tour ? (played.length ? 'Start the next game' : 'Start the first game') : 'Start this game') + '</button>' + (tour && played.length ? '<button class="plain" type="button" data-fx="endtour">Finish tournament</button>' : '') + '<button class="plain" type="button" data-fx="edit">Edit poll</button>' +
         '<button class="plain" type="button" data-fx="answer" aria-expanded="' + (fxAnswer === f.id) + '">Answer for a player</button>' +
         (s.none.length ? '<button class="plain" type="button" data-fx="nudge"' + (Date.now() < nudgeWait ? ' disabled' : '') + '>Nudge the squad</button>' : '') + '</div>';
       if (fxAnswer === f.id) html += '<div class="plist">' + S.players.map(function (p) {
@@ -1914,14 +1929,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var z = function (ms) { return new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); };
     var t = function (v) { return String(v || '').replace(/\\/g, '\\\\').replace(/([,;])/g, '\\$1').replace(/\r?\n/g, '\\n'); };
     return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Gaffer//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
-      'UID:' + f.id + '@aipoweredtactics', 'DTSTAMP:' + z(Date.now()), 'DTSTART:' + z(f.ko_at), 'DTEND:' + z(f.ko_at + 3600000),
-      'SUMMARY:' + t(teamName() + ' vs ' + (f.opp || 'TBC'))].concat(f.location ? ['LOCATION:' + t(f.location)] : [], f.cost ? ['DESCRIPTION:' + t('Cost: ' + f.cost)] : [],
+      'UID:' + f.id + '@aipoweredtactics', 'DTSTAMP:' + z(Date.now()), 'DTSTART:' + z(f.ko_at), 'DTEND:' + z(f.ko_at + (f.kind === 'tournament' ? 3 : 1) * 3600000),
+      'SUMMARY:' + t(f.kind === 'tournament' ? teamName() + ': ' + f.opp : teamName() + ' vs ' + (f.opp || 'TBC'))].concat(f.location ? ['LOCATION:' + t(f.location)] : [], f.cost ? ['DESCRIPTION:' + t('Cost: ' + f.cost)] : [],
       ['END:VEVENT', 'END:VCALENDAR']).join('\r\n') + '\r\n';
   }
   async function addToCalendar(f) {
     var cal = plugin('GameCalendar');
     if (cal) {
-      try { var res = await cal.addEvent({ title: teamName() + ' vs ' + (f.opp || 'TBC'), start: f.ko_at, end: f.ko_at + 3600000, location: f.location || '', notes: f.cost ? 'Cost: ' + f.cost : '' }); if (res && res.saved) fxSay('Added to your calendar.'); }
+      try { var res = await cal.addEvent({ title: f.kind === 'tournament' ? teamName() + ': ' + f.opp : teamName() + ' vs ' + (f.opp || 'TBC'), start: f.ko_at, end: f.ko_at + (f.kind === 'tournament' ? 3 : 1) * 3600000, location: f.location || '', notes: f.cost ? 'Cost: ' + f.cost : '' }); if (res && res.saved) fxSay('Added to your calendar.'); }
       catch (e) { fxSay((e && e.message) || 'Couldn’t open your calendar.'); }
       return;
     }
@@ -1932,11 +1947,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // A push notification to everyone who hasn't answered the poll, worded by how many spots are left.
   var nudgeWait = 0;
   function nudgeText(f) {
-    var s = fxSides(f), left = Math.max(0, f.max_outfield - s.ins.length) + (s.gk == null ? 1 : 0), opp = f.opp || 'the next', when = whenText(f.ko_at);
-    if (left === 1) return ['Quick, only one spot left', 'for the ' + opp + ' game, ' + when + '. Are you in?'];
-    if (left >= 4) return [teamName() + ' need you', left + ' spots left v ' + opp + ', ' + when + '. Are you in?'];
-    if (left > 1) return [left + ' spots left v ' + opp, when + '. Are you in?'];
-    return ['In or out v ' + opp + '?', when + '. Let the gaffer know either way.'];
+    var s = fxSides(f), left = Math.max(0, f.max_outfield - s.ins.length) + (s.gk == null ? 1 : 0), tour = f.kind === 'tournament', opp = f.opp || 'the next', when = whenText(f.ko_at), v = tour ? 'for ' + opp : 'v ' + opp;
+    if (left === 1) return ['Quick, only one spot left', 'for ' + (tour ? opp : 'the ' + opp + ' game') + ', ' + when + '. Are you in?'];
+    if (left >= 4) return [teamName() + ' need you', left + ' spots left ' + v + ', ' + when + '. Are you in?'];
+    if (left > 1) return [left + ' spots left ' + v, when + '. Are you in?'];
+    return ['In or out ' + v + '?', when + '. Let the gaffer know either way.'];
   }
   async function nudge(f) {
     var t = nudgeText(f); nudgeWait = Date.now() + 60000; setTimeout(function () { if (S.view === 'home' || S.view === 'games') renderFixture(); }, 60500);
@@ -1970,6 +1985,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (act === 'cal') addToCalendar(f);
     else if (act === 'nudge' && role === 'owner') nudge(f);
     else if (act === 'start') startFromPoll(f);
+    else if (act === 'endtour' && role === 'owner' && sb) { sb.from('fixtures').update({ status: 'done' }).eq('id', f.id).then(function () { ping('changed'); pull(); }); }
     else if (vote && who !== null && role === 'owner') castVote(f, vote, +who);
     else if (vote && myPid != null) castVote(f, vote, null);
     else if (un !== null && role === 'owner') { var s = fxSides(f); f.lineup = f.lineup || {}; f.lineup.bench = s.bench.filter(function (id) { return id !== +un; }); renderFixture(); saveLineup(f); }
@@ -2041,9 +2057,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (S.match) { fxSay('Finish or scrap the game in progress first.'); return; }
     var s = fxSides(f);
     go('setup'); if (S.view !== 'setup' || !D) return;
-    $('opp').value = f.opp || ''; $('oppErr').hidden = true;
+    var tour = f.kind === 'tournament';
+    D.fmt = fmtFix(Object.assign({ side: f.side || 5 }, f.fmt || fmtDefault(tour ? 'tournament' : 'game', f.side || 5))); FM.g = D.fmt;
+    D.tour = tour ? { id: f.id, name: f.opp } : null;
+    $('opp').value = tour ? '' : f.opp || ''; $('oppErr').hidden = true;
     S.players.forEach(function (p) { D.sel[p.id] = p.id === s.gk || s.start.indexOf(p.id) >= 0 ? 'start' : s.bench.indexOf(p.id) >= 0 ? 'bench' : 'out'; });
-    D.keeper = s.gk; D.manualBench = true; D.fx = f.id; renderSetup();
+    D.keeper = s.gk; D.manualBench = true; if (!tour) D.fx = f.id; // a tournament's poll stays open for the next game
+    renderSetup();
   }
 
   // ---- the poll form (gaffers)
@@ -2054,15 +2074,39 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       when = new Date(); var t = (d0.time || '19:00').split(':'); when.setHours(+t[0] || 19, +t[1] || 0, 0, 0);
       var add = d0.dow != null ? ((d0.dow - when.getDay() + 7) % 7) : 0; if (add === 0 && when.getTime() < Date.now()) add = 7; when.setDate(when.getDate() + add);
     }
+    pKind = f ? (f.kind === 'tournament' ? 'tournament' : 'game') : 'game';
+    FM.p = f ? fmtFix(Object.assign({ side: f.side || 5 }, f.fmt || fmtDefault(pKind, f.side || 5))) : fmtDefault(pKind, defSide());
     $('pollTitle').textContent = f ? 'Edit poll' : 'New poll';
     $('pOpp').value = f ? f.opp : ''; $('pDate').value = when.getFullYear() + '-' + p2(when.getMonth() + 1) + '-' + p2(when.getDate()); $('pTime').value = p2(when.getHours()) + ':' + p2(when.getMinutes());
     $('pLoc').value = f ? f.location : (d0.location || ''); $('pCost').value = f ? f.cost : (d0.cost || '');
-    var mx = f ? f.max_outfield : (d0.max || 7); $('pMax').value = Math.max(4, Math.min(7, mx | 0 || 7)); pMaxShow();
+    pSquad(f ? f.max_outfield : (FM.p.side === 5 && d0.max ? d0.max : null)); pKindShow(); fmtShow('p');
     $('pOppList').innerHTML = S.results.map(function (r) { return r.opp; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
-    $('pCancel').hidden = !f; $('pMsg').textContent = ''; $('pSave').disabled = false; $('pSave').textContent = f ? 'Save poll' : 'Create poll';
+    $('pCancel').hidden = !f; $('pMsg').textContent = ''; $('pSave').disabled = false; 
   }
+  var pKind = 'game';
+  function pSquad(want) { // the slider runs over what the team size allows
+    var lim = SIDE[FM.p.side], el = $('pMax'), t = '';
+    el.min = lim.minOut; el.max = lim.maxOut; el.value = Math.max(lim.minOut, Math.min(lim.maxOut, want == null ? lim.maxOut : want | 0));
+    for (var i = lim.minOut; i <= lim.maxOut; i++) t += '<span>' + i + '</span>';
+    $('pTicks').innerHTML = t; pMaxShow();
+  }
+  function pKindShow() {
+    var tour = pKind === 'tournament';
+    Array.prototype.forEach.call($('pKind').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-kind') === pKind); b.disabled = !!fxEdit; });
+    $('pOppLbl').textContent = tour ? 'Tournament name' : 'Who are you playing?'; $('pTimeLbl').textContent = tour ? 'Starts' : 'Kick-off';
+    $('pOpp').placeholder = tour ? 'e.g. Summer 5s' : ''; $('pOpp').setAttribute('list', tour ? '' : 'pOppList');
+    $('pSave').textContent = fxEdit ? 'Save poll' : tour ? 'Create tournament poll' : 'Create poll';
+  }
+  $('pKind').addEventListener('click', function (e) {
+    var k = e.target.getAttribute('data-kind'); if (!k || k === pKind || fxEdit) return;
+    pKind = k; FM.p = fmtDefault(pKind, FM.p.side); pKindShow(); fmtShow('p'); pMaxShow();
+  });
+  fmtBind('p', function (what, side) {
+    if (what === 'side') { FM.p = fmtDefault(pKind, side); pSquad(null); }
+    fmtShow('p'); pMaxShow();
+  });
   function pMaxShow() {
-    var n = +$('pMax').value, subs = Math.max(0, n - Math.max(1, S.pitch - 1));
+    var n = +$('pMax').value, subs = Math.max(0, n - (FM.p.side - 1));
     $('pMaxN').textContent = n;
     $('pMaxNote').textContent = (n + 1) + ' in the squad: one keeper and ' + n + ' outfield, so ' + (subs ? subs + (subs === 1 ? ' sub.' : ' subs.') : 'no subs.');
   }
@@ -2070,17 +2114,19 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('pSave').addEventListener('click', async function () {
     if (role !== 'owner' || !sb || !teamId) return;
     var opp = $('pOpp').value.trim(), dt = new Date($('pDate').value + 'T' + ($('pTime').value || '19:00'));
-    if (!opp) { $('pMsg').textContent = 'Enter who you’re playing.'; $('pOpp').focus(); return; }
+    if (!opp) { $('pMsg').textContent = pKind === 'tournament' ? 'Give the tournament a name.' : 'Enter who you’re playing.'; $('pOpp').focus(); return; }
+    var PF = fmtFix(FM.p), lim = SIDE[PF.side];
     if (isNaN(dt.getTime())) { $('pMsg').textContent = 'Pick the date and kick-off time.'; return; }
-    var row = { opp: opp.slice(0, 60), ko_at: dt.getTime(), location: $('pLoc').value.trim().slice(0, 120), cost: $('pCost').value.trim().slice(0, 40), max_outfield: Math.max(4, Math.min(7, +$('pMax').value | 0 || 7)) };
+    var row = { opp: opp.slice(0, 60), ko_at: dt.getTime(), location: $('pLoc').value.trim().slice(0, 120), cost: $('pCost').value.trim().slice(0, 40), max_outfield: Math.max(lim.minOut, Math.min(lim.maxOut, +$('pMax').value | 0 || lim.maxOut)), side: PF.side, kind: pKind, fmt: { half: PF.half, sub: PF.sub, periods: PF.periods } };
     $('pSave').disabled = true;
     try {
       if (fxEdit) await q(sb.from('fixtures').update(row).eq('id', fxEdit.id));
       else await q(sb.from('fixtures').insert(Object.assign({ team_id: teamId }, row)));
-      S.poll = { location: row.location, cost: row.cost, max: row.max_outfield, time: $('pTime').value || '19:00', dow: dt.getDay() }; // the defaults for the next poll
+      fmtRemember(pKind, PF);
+      S.poll = { location: row.location, cost: row.cost, max: PF.side === 5 ? row.max_outfield : ((S.poll || {}).max || null), time: $('pTime').value || '19:00', dow: dt.getDay() }; // the defaults for the next poll
       var isNew = !fxEdit;
       save(); ping('changed'); await pull(); go(pollBack);
-      if (isNew) notifyTeam('poll', teamName() + ' v ' + row.opp, 'New game on ' + whenText(row.ko_at) + '. Are you in?');
+      if (isNew) notifyTeam('poll', row.kind === 'tournament' ? teamName() + ': ' + row.opp : teamName() + ' v ' + row.opp, (row.kind === 'tournament' ? 'New tournament on ' : 'New game on ') + whenText(row.ko_at) + '. Are you in?');
     } catch (e) { $('pSave').disabled = false; $('pMsg').textContent = 'Couldn’t save the poll. Check your signal and try again.'; }
   });
   armed($('pCancel'), 'Tap again to cancel the game', async function () {
@@ -2299,11 +2345,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- new game setup
   // player totals are always worked out from the saved games, never stored
-  function totals(all) {
+  function totals(all, scope) { // season totals include tournament games; a scope narrows it to one tournament
     var t = {};
     S.players.forEach(function (p) { t[p.id] = { mins: 0, g: 0, a: 0, apps: 0, gf: 0, ga: 0, tracked: 0 }; });
     S.results.forEach(function (r) {
-      if (!r.per || (!all && r.friendly)) return;
+      if (!r.per || (scope ? r.tour !== scope : !all && r.friendly)) return;
       Object.keys(r.per).forEach(function (k) {
         var x = t[k], d = r.per[k]; if (!x) return;
         x.mins += d.mins || 0; x.g += d.g || 0; x.a += d.a || 0; x.apps += 1;
@@ -2312,11 +2358,49 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     });
     return t;
   }
-  var D = null, MAX = 8;
+  // ---- game formats: 5-a-side or 7-a-side, how long, and whether there's a half time
+  var SIDE = { 5: { max: 8, minOut: 4, maxOut: 7 }, 7: { max: 10, minOut: 6, maxOut: 9 } };
+  function fmtFix(f) {
+    var side = +f.side === 7 ? 7 : 5, half = Math.max(1, Math.min(60, Math.round(+f.half) || 10)), sub = Math.max(1, Math.min(half, Math.round(+f.sub) || 5));
+    return { side: side, half: half, sub: sub, periods: +f.periods === 1 ? 1 : 2 };
+  }
+  function fmtDefault(kind, side) { // what was used last time for this kind of game, or a sensible start
+    var sv = (S.fmt || {})[(kind === 'tournament' ? 't' : 'g') + side];
+    return fmtFix(sv ? { side: side, half: sv.half, sub: sv.sub, periods: sv.periods } : kind === 'tournament' ? { side: side, half: 10, sub: 5, periods: 1 } : { side: side, half: S.half, sub: S.sub, periods: 2 });
+  }
+  function fmtRemember(kind, f) { S.fmt = S.fmt || {}; S.fmt[(kind === 'tournament' ? 't' : 'g') + f.side] = { half: f.half, sub: f.sub, periods: f.periods }; S.fmt.side = f.side; }
+  function fmtText(f) { return f.side + '-a-side, ' + (f.periods === 2 ? '2 × ' + f.half + ' min' : f.half + ' min, no half time'); }
+  var defSide = function () { return (S.fmt && S.fmt.side) === 7 || (!(S.fmt && S.fmt.side) && S.pitch >= 7) ? 7 : 5; };
+  var FM = {}; // the format being edited on the poll form ('p') and the new game screen ('g')
+  function fmtCard(x) {
+    return '<h2>Format</h2><div class="toggle" role="group" aria-label="Team size"><button type="button" data-side="5">5-a-side</button><button type="button" data-side="7">7-a-side</button></div>' +
+      '<div class="two"><label class="field" for="' + x + 'Half"><span id="' + x + 'HalfLbl">Minutes each half</span><input id="' + x + 'Half" type="number" inputmode="numeric" min="1" max="60"></label>' +
+      '<label class="field" for="' + x + 'Sub">Sub every (min)<input id="' + x + 'Sub" type="number" inputmode="numeric" min="1" max="60"></label></div>' +
+      '<label class="check" for="' + x + 'Two"><input id="' + x + 'Two" type="checkbox"><span>Half time <small>(untick for one period straight through)</small></span></label>' +
+      '<p class="note" id="' + x + 'FmtNote"></p>';
+  }
+  function fmtShow(x) {
+    var f = FM[x], card = $(x + 'Fmt'); if (!f) return;
+    Array.prototype.forEach.call(card.querySelectorAll('[data-side]'), function (b) { b.setAttribute('aria-pressed', +b.getAttribute('data-side') === f.side); });
+    if (document.activeElement !== $(x + 'Half')) $(x + 'Half').value = f.half;
+    if (document.activeElement !== $(x + 'Sub')) $(x + 'Sub').value = f.sub;
+    $(x + 'Two').checked = f.periods === 2; $(x + 'HalfLbl').textContent = f.periods === 2 ? 'Minutes each half' : 'Game length (min)';
+    $(x + 'FmtNote').textContent = fmtText(f) + ', ' + (f.side - 1) + ' outfield and a keeper on the pitch. Squad of ' + f.side + ' to ' + SIDE[f.side].max + '.';
+  }
+  function fmtBind(x, changed) {
+    var card = $(x + 'Fmt'); card.innerHTML = fmtCard(x);
+    card.addEventListener('click', function (e) { var sd = e.target.getAttribute('data-side'); if (sd === null || !FM[x] || +sd === FM[x].side) return; changed('side', +sd); });
+    [x + 'Half', x + 'Sub'].forEach(function (id) { $(id).addEventListener('input', function () { var f = FM[x]; if (!f) return; var h = +$(x + 'Half').value, sb2 = +$(x + 'Sub').value; if (h >= 1) f.half = Math.min(60, Math.round(h)); if (sb2 >= 1) f.sub = Math.round(sb2); f.sub = Math.max(1, Math.min(f.half, f.sub)); changed('len'); }); });
+    [x + 'Half', x + 'Sub'].forEach(function (id) { $(id).addEventListener('blur', function () { fmtShow(x); }); });
+    $(x + 'Two').addEventListener('change', function (e) { if (FM[x]) { FM[x].periods = e.target.checked ? 2 : 1; changed('len'); } });
+  }
+  var D = null;
+  var MAXP = function () { return SIDE[D && D.fmt ? D.fmt.side : 5].max; };
   function playing() { return S.players.filter(function (p) { return D.sel[p.id] !== 'out'; }).length; }
   function newDraft() {
-    D = { keeper: P(S.lastKeeper) ? S.lastKeeper : null, sel: {}, manualBench: false };
-    S.players.forEach(function (p, i) { D.sel[p.id] = i < MAX ? 'start' : 'out'; });
+    D = { keeper: P(S.lastKeeper) ? S.lastKeeper : null, sel: {}, manualBench: false, fmt: fmtDefault('game', defSide()), tour: null };
+    FM.g = D.fmt;
+    S.players.forEach(function (p, i) { D.sel[p.id] = i < MAXP() ? 'start' : 'out'; });
     if (D.keeper != null && D.sel[D.keeper] === 'out') D.keeper = null;
     autoPick(); $('opp').value = ''; $('friendly').checked = false; $('oppErr').hidden = true;
     var seen = {}, names = [];
@@ -2327,7 +2411,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('oppWrap').hidden = false;
   }
   function draftOutfield() { return S.players.filter(function (p) { return D.sel[p.id] !== 'out' && p.id !== D.keeper; }).map(function (p) { return p.id; }); }
-  function needBench() { return Math.max(0, draftOutfield().length - (S.pitch - (D.keeper != null ? 1 : 0))); }
+  function needBench() { return Math.max(0, draftOutfield().length - (D.fmt.side - (D.keeper != null ? 1 : 0))); }
   function byMins(ids) {
     var pos = {}; S.players.forEach(function (p, i) { pos[p.id] = i; });
     var T = totals(true);
@@ -2340,6 +2424,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function renderSetup() {
     if (!D) newDraft();
+    FM.g = D.fmt; fmtShow('g');
+    $('tourLine').hidden = !D.tour; $('tourLine').textContent = D.tour ? 'Tournament: ' + D.tour.name : ''; $('friendlyWrap').hidden = !!D.tour;
+    $('lineNote').textContent = 'Up to ' + MAXP() + ' can play. Set who starts, who starts on the bench and who’s out. Tap GK for the keeper, who stays on all game.';
     var html = '', T = totals(true);
     S.players.forEach(function (p) {
       var isK = D.keeper === p.id, v = isK ? 'start' : D.sel[p.id];
@@ -2351,7 +2438,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     });
     $('lineup').innerHTML = html;
     var c = draftOk(), msg, bad = false;
-    if (D.warn) { msg = MAX + ' players is the most for one game. Set someone to Out first.'; bad = c.have !== c.need; }
+    if (D.warn) { msg = MAXP() + ' players is the most for one ' + D.fmt.side + '-a-side game. Set someone to Out first.'; bad = c.have !== c.need; }
     else if (!c.total) { msg = 'Pick at least one player.'; bad = true; }
     else if (c.need === 0 && c.have === 0) msg = c.total + ' playing, so everyone is on the pitch all game.';
     else if (c.have === c.need) msg = c.total + ' playing: ' + (c.total - c.need) + ' on the pitch, ' + c.need + ' on the bench.';
@@ -2362,7 +2449,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('lineup').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
     var id = +b.getAttribute('data-id'), v = b.getAttribute('data-set');
-    if (D.sel[id] === 'out' && v !== 'out' && playing() >= MAX) { D.warn = true; renderSetup(); return; }
+    if (D.sel[id] === 'out' && v !== 'out' && playing() >= MAXP()) { D.warn = true; renderSetup(); return; }
     if (b.getAttribute('data-gk')) {
       D.keeper = D.keeper === id ? null : id; D.sel[id] = 'start'; autoPick();
     } else if (v) {
@@ -2421,7 +2508,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function plan() {
     var ids = draftOutfield(), benchIds = byMins(ids.filter(function (id) { return D.sel[id] === 'bench'; }));
     var order = benchIds.concat(byMins(ids.filter(function (id) { return D.sel[id] !== 'bench'; })));
-    return { ids: order, benchIds: benchIds, k: needBench(), B: Math.ceil(S.half / S.sub) * 2 };
+    return { ids: order, benchIds: benchIds, k: needBench(), B: Math.ceil(D.fmt.half / D.fmt.sub) * D.fmt.periods };
   }
   // ---- tactic slider: 0 = strongest team, 100 = complete fairness. sits = sub stretches a player spends on the bench.
   function tacticSits(ids, benchIds, k, B, T, squadPos, t) {
@@ -2473,7 +2560,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function renderMins() {
     if (!D || !D.sits) { go('home'); return; }
-    var pl = plan(), T = totals(true), full = S.half * 2, html = '', sum = 0, tv = tacticVal();
+    var pl = plan(), T = totals(true), full = D.fmt.half * D.fmt.periods, html = '', sum = 0, tv = tacticVal();
     if (document.activeElement !== $('tactic')) $('tactic').value = tv;
     $('tacticNow').textContent = tv >= 100 ? 'Complete fairness' : tv <= 0 ? 'Strongest team' : tv > 60 ? 'Leaning fair' : tv < 40 ? 'Leaning aggressive' : 'Balanced';
     $('tacticNow').style.color = tv >= 67 ? 'var(--fair)' : tv <= 33 ? 'var(--agg)' : 'var(--mid)';
@@ -2483,11 +2570,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       + (tv < 100 && !D.hasStats ? ' No goals or assists are recorded yet, so there is nothing to rank players on until you finish some games.' : '')
       + (D.manualBench && tv < 100 ? ' You picked the starting bench yourself, so it stays as you set it.' : '');
     var sched = buildSched(pl.ids, pl.benchIds, D.sits, pl.k, pl.B), real = null;
-    if (sched) real = gameMins({ squad: pl.ids, segs: mkSegs(sched, pl.ids, null, S.half, S.sub) });
+    if (sched) real = gameMins({ squad: pl.ids, segs: mkSegs(sched, pl.ids, null, D.fmt.half, D.fmt.sub, D.fmt.periods) });
     if (D.keeper != null) html += '<div class="mrow"><span class="who">' + esc(nm(D.keeper)) + '<small>In goal all game</small></span><span class="step"><b>' + full + ' <small>min</small></b></span></div>';
     pl.ids.forEach(function (id) {
       var isB = pl.benchIds.indexOf(id) >= 0, st = D.sits[id], lo = isB ? 1 : 0, hi = isB ? pl.B : pl.B - 1;
-      var mins = real ? real[id] : Math.max(0, full - st * S.sub);
+      var mins = real ? real[id] : Math.max(0, full - st * D.fmt.sub);
       sum += st;
       html += '<div class="mrow"><span class="who">' + esc(nm(id)) + '<small>' + T[id].mins + ' min so far' + (T[id].g || T[id].a ? ', ' + T[id].g + 'G ' + T[id].a + 'A' : '') + ', ' + (isB ? 'starts on the bench' : 'starts') + '</small></span>' +
         '<span class="step"><button type="button" data-id="' + id + '" data-d="1" aria-label="Less time for ' + esc(nm(id)) + '"' + (st >= hi || !pl.k ? ' disabled' : '') + '>&minus;</button>' +
@@ -2495,7 +2582,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         '<button type="button" data-id="' + id + '" data-d="-1" aria-label="More time for ' + esc(nm(id)) + '"' + (st <= lo || !pl.k ? ' disabled' : '') + '>+</button></span></div>';
     });
     $('minsList').innerHTML = html;
-    var diff = (sum - pl.B * pl.k) * S.sub, msg, bad = false;
+    var diff = (sum - pl.B * pl.k) * D.fmt.sub, msg, bad = false;
     if (!pl.k) msg = 'Everyone fits on the pitch, so everyone plays the whole game.';
     else if (diff > 0) { msg = diff + ' minutes still to hand out. Give someone more time.'; bad = true; }
     else if (diff < 0) { msg = (-diff) + ' minutes too many. Take time off someone.'; bad = true; }
@@ -2504,8 +2591,19 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('minsMsg').textContent = msg; $('minsMsg').className = 'msg' + (bad ? ' bad' : '');
     $('kick').disabled = bad;
   }
+  fmtBind('g', function (what, side) {
+    if (!D) return;
+    if (what === 'side') { // a different team size: carry over what was used last time for it, and re-pick who starts
+      var nf = fmtDefault(D.tour ? 'tournament' : 'game', side); D.fmt.side = nf.side; D.fmt.half = nf.half; D.fmt.sub = nf.sub; D.fmt.periods = nf.periods;
+      if (D.fx || D.tour) { var n = 0; S.players.forEach(function (p) { if (D.sel[p.id] !== 'out') { n++; if (n > MAXP()) D.sel[p.id] = 'out'; } }); } // from a poll: keep who said yes
+      else S.players.forEach(function (p, i) { D.sel[p.id] = i < MAXP() ? 'start' : 'out'; });
+      if (D.keeper != null && D.sel[D.keeper] === 'out') D.keeper = null;
+      D.manualBench = false; autoPick();
+    }
+    D.warn = false; renderSetup();
+  });
   $('startGame').addEventListener('click', function () {
-    var c = draftOk(); if (!c.total || c.have !== c.need || playing() > MAX) return;
+    var c = draftOk(); if (!c.total || c.have !== c.need || playing() > MAXP()) return;
     if (!$('opp').value.trim()) {
       $('oppErr').hidden = false; $('oppWrap').hidden = false; $('oppPick').value = '';
       try { $('opp').scrollIntoView({ block: 'center' }); $('opp').focus(); } catch (e) {}
@@ -2523,10 +2621,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
   $('kick').addEventListener('click', function () {
     var pl = plan(), sched = buildSched(pl.ids, pl.benchIds, D.sits, pl.k, pl.B); if (!sched) return;
-    S.match = { opp: $('opp').value.trim() || 'Opponents', friendly: $('friendly').checked, order: pl.ids, keeper: D.keeper, segs: mkSegs(sched, pl.ids, D.keeper, S.half, S.sub),
+    var F = fmtFix(D.fmt);
+    S.match = { opp: $('opp').value.trim() || 'Opponents', friendly: !D.tour && $('friendly').checked, order: pl.ids, keeper: D.keeper, segs: mkSegs(sched, pl.ids, D.keeper, F.half, F.sub, F.periods),
                 squad: pl.ids.concat(D.keeper != null ? [D.keeper] : []), gone: [],
-                half: S.half, sub: S.sub, pitch: S.pitch, events: [], phase: 'pre', running: false, base: 0, t0: 0 };
+                half: F.half, sub: F.sub, pitch: F.side, periods: F.periods, events: [], phase: 'pre', running: false, base: 0, t0: 0 };
     if (D.fx) S.match.fx = D.fx;
+    if (D.tour) { S.match.tour = D.tour.id; S.match.tourName = D.tour.name; }
+    fmtRemember(D.tour ? 'tournament' : 'game', F);
     D = null; lastBlock = -1; pick = null; save(); go('game');
   });
 
@@ -2536,11 +2637,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var m = S.match; if (!m) return;
     var i = curSeg(m), s = m.segs[i], e = elapsed(m), live = m.phase === 'h1' || m.phase === 'h2';
     var t = nextChange(m, i), sameHalf = t >= 0 && m.segs[t].h === s.h, target = (sameHalf ? m.segs[t].from : m.half) * 60000;
-    $('phase').textContent = { pre: 'Before kick-off', h1: 'First half', ht: 'Half time', h2: 'Second half', ft: 'Full time' }[m.phase];
+    var one = m.periods === 1;
+    $('phase').textContent = { pre: 'Before kick-off', h1: one ? 'In play' : 'First half', ht: 'Half time', h2: 'Second half', ft: 'Full time' }[m.phase];
     $('played').textContent = live ? fmt2(e) + ' played' : '';
     if (m.phase === 'ft') { $('count').textContent = '0:00'; $('countLabel').textContent = 'Game over'; }
     else {
-      var first = m.phase === 'pre' || m.phase === 'h1', added = live && !sameHalf && e >= halfMs(m);
+      var first = !one && (m.phase === 'pre' || m.phase === 'h1'), added = live && !sameHalf && e >= halfMs(m);
       $('count').textContent = added ? '+' + fmt2(e - halfMs(m)) : fmt(target - (live ? e : 0));
       $('countLabel').textContent = added ? 'Added time, until the ' + (first ? 'half-time' : 'final') + ' whistle'
         : sameHalf ? (live ? 'Until the next change' : 'Until the first change') : (first ? 'Until half time' : 'Until full time');
@@ -2548,7 +2650,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('go').textContent = m.phase === 'pre' ? 'Kick off' : m.phase === 'ht' ? 'Start 2nd half' : m.phase === 'ft' ? 'Full time' : m.running ? 'Pause' : 'Resume';
     $('go').disabled = m.phase === 'ft';
     $('endHalf').hidden = !live;
-    if (!$('endHalf').classList.contains('armed')) $('endHalf').textContent = m.phase === 'h2' ? 'Full time' : 'Half time';
+    if (!$('endHalf').classList.contains('armed')) $('endHalf').textContent = m.phase === 'h2' || one ? 'Full time' : 'Half time';
   }
   function renderGame() {
     var m = S.match; if (!m) return;
@@ -2647,7 +2749,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
   var ed = null;
   function edFirst(m) { var c = curSeg(m); return m.phase === 'pre' || m.phase === 'ht' ? c : c + 1; } // first stretch that hasn't started
-  var segName = function (s) { return s.from + ':00, ' + (s.h ? 'second' : 'first') + ' half'; };
+  var segName = function (s) { return s.from + ':00' + (S.match && S.match.periods === 1 ? '' : ', ' + (s.h ? 'second' : 'first') + ' half'); };
   function renderEdit() {
     var m = S.match, el = $('subEdit'); if (!m) return;
     var first = edFirst(m), open = [];
@@ -2836,7 +2938,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var sw = swapAt(m, i); if (!sw.on.length && !sw.off.length) continue;
       changes.push({ h: m.segs[i].h, from: m.segs[i].from, on: sw.on.map(nm), off: sw.off.map(nm) });
     }
-    return { live: true, team: teamShort(), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, lockUntil: lockUntil, changes: changes,
+    return { live: true, team: teamShort(), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
       players: on.concat(m.segs[cb].bench).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0 }; }) };
   }
   function watchPush() {
@@ -2874,7 +2976,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (at - now > 2000) out.push({ at: at, title: 'Change at ' + m.segs[t].from + ':00', body: 'Off: ' + names(sw.off) + '. On: ' + names(sw.on) + '.' });
     }
     var end = now + halfMs(m) - e;
-    if (end - now > 2000) out.push({ at: end, title: m.phase === 'h1' ? 'Half time' : 'Full time', body: 'Time is up. Tap ' + (m.phase === 'h1' ? 'Half time' : 'Full time') + ' on the whistle.' });
+    if (end - now > 2000) out.push({ at: end, title: m.phase === 'h1' && m.periods !== 1 ? 'Half time' : 'Full time', body: 'Time is up. Tap ' + (m.phase === 'h1' && m.periods !== 1 ? 'Half time' : 'Full time') + ' on the whistle.' });
     return out;
   }
   var alertKey = '', alertBusy = false;
@@ -2941,8 +3043,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   armed($('reset'), 'Sure?', function () { var m = S.match; if (!m) return; m.phase = 'pre'; m.running = false; m.base = 0; m.et = false; delete m.koAt; delete m.htAt; delete m.h2At; delete m.ftAt; lastBlock = -1; save(); renderGame(); });
   armed($('endHalf'), 'End it early?', function () {
     var m = S.match; if (!m || (m.phase !== 'h1' && m.phase !== 'h2')) return;
-    m[m.phase === 'h1' ? 'htAt' : 'ftAt'] = Date.now();
-    m.running = false; m.base = 0; m.et = false; m.phase = m.phase === 'h1' ? 'ht' : 'ft';
+    var last = m.phase === 'h2' || m.periods === 1; // a game with no half time ends at the first whistle
+    m[last ? 'ftAt' : 'htAt'] = Date.now();
+    m.running = false; m.base = 0; m.et = false; m.phase = last ? 'ft' : 'ht';
     lastBlock = curSeg(m); save(); renderGame();
   }, function () { var m = S.match; return !!m && elapsed(m) < halfMs(m); });
   armed($('finish'), 'Tap again to finish', function () {
@@ -2952,7 +3055,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     m.events.forEach(function (e) { if (e.hl || !e.on) return; e.on.forEach(function (id) { if (per[id]) per[id][e.us ? 'gf' : 'ga']++; }); });
     var ev = m.events.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; if (e.on) o.on = e.on; } return o; });
     var lu = m.segs.filter(function (s) { return s.to > s.from; }).map(function (s) { return { h: s.h, f: s.from, t: s.to, on: (s.gk != null ? [s.gk] : []).concat(s.on) }; });
-    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, ev: ev, lu: lu, at: Date.now() });
+    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.pitch === 7 ? 7 : null, tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now() });
     S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
     if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
     S.match = null; pick = null; outPick = null; ed = null; save(); go('stats');
@@ -2960,11 +3063,17 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- stats
   function renderStats() {
-    var r = recordLine(showF), html = '';
-    $('record').textContent = r ? r.long : S.results.length ? 'No league games yet. Tick Include friendlies to count the rest.' : 'No finished games yet. Stats appear here after you finish your first game.';
-    var T = totals(showF);
+    var tours = [], seenT = {}; S.results.forEach(function (x) { if (x.tour && !seenT[x.tour]) { seenT[x.tour] = 1; tours.push({ id: x.tour, name: x.tourName || 'Tournament' }); } });
+    if (statScope && !seenT[statScope]) statScope = null;
+    $('scopeRow').hidden = !tours.length;
+    $('scopeRow').innerHTML = '<button type="button" data-scope="" aria-pressed="' + !statScope + '">Season</button>' + tours.map(function (t) { return '<button type="button" data-scope="' + t.id + '" aria-pressed="' + (statScope === t.id) + '">' + esc(t.name) + '</button>'; }).join('');
+    $('showFWrap').hidden = !!statScope;
+    $('scopeNote').hidden = !tours.length; $('scopeNote').textContent = statScope ? 'Just this tournament’s games.' : 'Season totals count tournament games too. The league record and the results below leave them out; pick a tournament above to see its games.';
+    var r = recordLine(showF, statScope), html = '';
+    $('record').textContent = r ? r.long : statScope ? '' : S.results.length ? 'No league games yet. Tick Include friendlies to count the rest.' : 'No finished games yet. Stats appear here after you finish your first game.';
+    var T = totals(showF, statScope);
     S.players.slice().sort(function (a, b) { var x = T[a.id], y = T[b.id]; return (y.g - x.g) || (y.a - x.a) || (y.mins - x.mins); }).forEach(function (p) {
-      var x = T[p.id];
+      var x = T[p.id]; if (statScope && !x.apps) return;
       html += '<tr><td>' + esc(nm(p.id)) + '</td><td class="n">' + x.apps + '</td><td class="n">' + x.mins + '</td><td class="n">' + x.g + '</td><td class="n">' + x.a + '</td><td class="n">' + (x.tracked ? x.ga : '–') + '</td></tr>';
     });
     $('season').innerHTML = html;
@@ -2972,6 +3081,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     html = '';
     for (var i = S.results.length - 1; i >= 0; i--) {
       var x = S.results[i], w = x.us > x.them ? 'W' : x.us < x.them ? 'L' : 'D';
+      if (statScope ? x.tour !== statScope : !!x.tour) continue;
       html += '<li><b class="' + w + '">' + w + '</b><span>' + x.us + '–' + x.them + '</span><span>' + (x.opp ? 'v ' + esc(x.opp) : '') + (x.friendly ? '<span class="tagf">Friendly</span>' : '') + (function () { var q = ratingsOf(x); return q.motm != null && P(q.motm) ? '<br><small class="motm">★ ' + esc(nm(q.motm)) + ' ' + q.r[q.motm].toFixed(1) + '</small>' : ''; })() + '</span>' +
         '<span class="rowbtns">' + (x.koAt && x.ev && x.ev.length ? '<button class="del" type="button" data-reel="' + i + '">Highlights</button>' : '') +
         (role === 'owner' ? '<button class="del' + (delIdx === i ? ' armed' : '') + '" type="button" data-del="' + i + '">' + (delIdx === i ? 'Tap to confirm' : 'Remove') + '</button>' : '') + '</span></li>';
@@ -3009,7 +3119,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       (r.lu || []).forEach(function (s) { var on = s.on || []; for (var i = 0; i < on.length; i++) for (var j = i + 1; j < on.length; j++) { var x = pairs[pk(on[i], on[j])] = pairs[pk(on[i], on[j])] || { a: Math.min(on[i], on[j]), b: Math.max(on[i], on[j]), mins: 0, gf: 0, ga: 0 }; x.mins += s.t - s.f; } });
       (r.ev || []).forEach(function (e) {
         if (e.hl) return;
-        var h = r.half || half, bi = Math.max(0, Math.min(Math.ceil(h * 2 / 5) - 1, Math.floor(((e.min || 1) - 1) / 5)));
+        var h = r.half || half, bi = Math.max(0, Math.min(Math.ceil(h * (r.periods === 1 ? 1 : 2) / 5) - 1, Math.floor(((e.min || 1) - 1) / 5)));
         buckets[bi] = buckets[bi] || { f: 0, a: 0 }; buckets[bi][e.us ? 'f' : 'a']++;
         if (e.us) { goalsFor++; [e.p, e.a].forEach(function (id) { if (id != null) inv[id] = (inv[id] || 0) + 1; }); }
         if (e.us && e.p != null && e.a != null && P(e.p) && P(e.a)) { var l = links[e.a + '>' + e.p] = links[e.a + '>' + e.p] || { a: e.a, p: e.p, n: 0 }; l.n++; }
@@ -3080,7 +3190,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function sayLine(t) {
     try { if (!sayOn || !t || !window.speechSynthesis) return; speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(t); u.lang = 'en-GB'; u.rate = 1.08; u.pitch = 1.05; speechSynthesis.speak(u); } catch (e) {}
   }
-  var delIdx = -1, delT = null, showF = false;
+  var delIdx = -1, delT = null, showF = false, statScope = null;
+  $('scopeRow').addEventListener('click', function (e) { var v = e.target.getAttribute('data-scope'); if (v === null) return; statScope = v || null; renderStats(); });
   $('showF').addEventListener('change', function (e) { showF = e.target.checked; renderStats(); });
   $('results').addEventListener('click', function (e) {
     var rl = e.target.getAttribute('data-reel'); if (rl !== null) { reelIdx = +rl; go('reel'); return; }

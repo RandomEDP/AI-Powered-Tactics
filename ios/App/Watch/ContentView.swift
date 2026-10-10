@@ -131,7 +131,7 @@ struct Glance: View {
     private var phaseName: String {
         switch state.phase {
         case "pre": return "Before kick-off"
-        case "h1": return state.running ? "First half" : "First half, paused"
+        case "h1": return state.periods == 1 ? (state.running ? "In play" : "Paused") : (state.running ? "First half" : "First half, paused")
         case "ht": return "Half time"
         case "h2": return state.running ? "Second half" : "Second half, paused"
         default: return "Full time"
@@ -145,7 +145,7 @@ struct Glance: View {
     private var nextLine: String? {
         guard let next = state.changes.first else { return nil }
         if next.h != state.halfIndex || state.phase == "pre" || state.phase == "ht" {
-            return state.phase == "pre" ? nil : "Change at half time"
+            return state.phase == "pre" || state.periods == 1 ? nil : "Change at half time"
         }
         let left = next.from * 60 - state.seconds(at: now)
         return left > 0 ? "Change in \(clock(left))" : "Change now"
@@ -192,7 +192,7 @@ struct Changes: View {
             }
             ForEach(state.changes.prefix(3)) { change in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(change.from):00, \(change.h == 0 ? "first" : "second") half")
+                    Text(state.periods == 1 ? "\(change.from):00" : "\(change.from):00, \(change.h == 0 ? "first" : "second") half")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     if !change.on.isEmpty {
