@@ -966,6 +966,7 @@ tr.past td { opacity: .45; }
   function save() {
     if (role !== 'owner' || !A.active) return;
     S.ts = Date.now(); saveLocal(); dirty = true;
+    watchPush();
     clearTimeout(wt); wt = setTimeout(syncAll, 600);
   }
   async function q(p) { var res = await p; if (res && res.error) throw res.error; return res; }
@@ -1139,6 +1140,7 @@ tr.past td { opacity: .45; }
     lockUntil = Date.now() + LOCK_MS; pick = null;
     lockNote = g.mine ? (role === 'owner' ? '' : 'Goal sent.') : 'Goal for ' + (g.us ? teamShort() : m.opp) + ' logged on another phone.';
     clearTimeout(lockT2); lockT2 = setTimeout(function () { lockUntil = 0; lockNote = ''; if (S.view === 'game') renderScore(); }, LOCK_MS + 50);
+    watchPush();
     if (S.view === 'game') renderScore();
   }
   function connect() {
@@ -2573,6 +2575,34 @@ tr.past td { opacity: .45; }
     try { return (C.Plugins && C.Plugins[name]) || (C.registerPlugin ? C.registerPlugin(name) : null); } catch (e) { return null; }
   }
   var Haptics = plugin('Haptics'), Notes = plugin('LocalNotifications'), KeepAwake = plugin('KeepAwake');
+  // ---- Apple Watch: the phone sends the game to the watch app, and the watch sends goals and highlights back
+  var Watch = plugin('WatchLink'), watchLast = '', watchT = null, watchSeen = {};
+  function watchState() {
+    var m = S.match; if (!m || role !== 'owner') return { live: false };
+    var t = tally(m), cb = curSeg(m), on = onPitch(m, cb), changes = [], first = m.phase === 'pre' || m.phase === 'ht' ? cb : cb + 1;
+    for (var i = Math.max(1, first); i < m.segs.length && changes.length < 4; i++) {
+      var sw = swapAt(m, i); if (!sw.on.length && !sw.off.length) continue;
+      changes.push({ h: m.segs[i].h, from: m.segs[i].from, on: sw.on.map(nm), off: sw.off.map(nm) });
+    }
+    return { live: true, team: teamShort(), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, lockUntil: lockUntil, changes: changes,
+      players: on.concat(m.segs[cb].bench).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0 }; }) };
+  }
+  function watchPush() {
+    if (!Watch) return;
+    clearTimeout(watchT); watchT = setTimeout(function () {
+      var json = JSON.stringify(watchState()); if (json === watchLast) return;
+      watchLast = json; try { Watch.push({ state: json }).catch(function () {}); } catch (e) {}
+    }, 150);
+  }
+  function watchEvent(d) {
+    var ev, m = S.match; try { ev = JSON.parse(d.event); } catch (e) { return; }
+    if (!ev || !m || role !== 'owner' || m.phase === 'ft' || (ev.id && watchSeen[ev.id])) return;
+    if (ev.id) watchSeen[ev.id] = 1;
+    var ok = function (v) { return typeof v === 'number' && m.squad.indexOf(v) >= 0 ? v : null; };
+    if (ev.type === 'goal') { pick = null; addGoal(stamped(m, stripNull({ us: !!ev.us, p: ev.us ? ok(ev.p) : null, a: ev.us ? ok(ev.a) : null }))); }
+    else if (ev.type === 'hl' && m.phase !== 'pre') { m.events.push(stamped(m, stripNull({ hl: true, p: myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null, watch: true, at: Date.now() }))); save(); if (S.view === 'game') renderScore(); }
+  }
+  if (Watch) { try { Watch.addListener('event', watchEvent); } catch (e) {} setInterval(watchPush, 5000); }
   function buzz(strong) { try { if (Haptics) Haptics.notification({ type: strong ? 'WARNING' : 'SUCCESS' }).catch(function () {}); } catch (e) {} }
   function stayAwake(on) { try { if (KeepAwake) (on ? KeepAwake.keepAwake() : KeepAwake.allowSleep()).catch(function () {}); } catch (e) {} }
   function upcomingAlerts(m) { // the changes and whistle still to come this half, as clock times

@@ -28,7 +28,8 @@ An iOS app (and the same app on the web) backed by Supabase, usable offline at t
 | `tests/` | Browser tests against an in-memory stand-in for Supabase, the iOS alerts and account deletion |
 | `vendor/` | Bundled Supabase library and fonts, so the app works with no signal |
 | `ios/`, `capacitor.config.json`, `package.json` | The iOS app (see below) |
-| `plugins/reel-cutter/` | Native iOS plugin that cuts the highlight clips on the phone (AVFoundation): video picker, watermark, captions, outro card, share sheet |
+| `ios/App/Watch/` | Apple Watch companion app (SwiftUI): clock, score, next changes, and logging goals and highlights. It has no sign-in; the iPhone app sends it the game in progress |
+| `plugins/reel-cutter/` | Native iOS plugin that cuts the highlight clips on the phone (AVFoundation): video picker, watermark, captions, outro card, share sheet. Also holds the calendar and Apple Watch link plugins |
 
 ## iOS app
 
