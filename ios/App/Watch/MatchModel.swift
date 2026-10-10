@@ -67,8 +67,22 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
     private var unlock: DispatchWorkItem?
     private var clearNote: DispatchWorkItem?
 
+    /// Set only in the simulator, to take the App Store screenshots: which part of the screen to show.
+    @Published var demoPage: Int?
+
     override init() {
         super.init()
+        #if targetEnvironment(simulator)
+        if let page = ProcessInfo.processInfo.environment["TACTICS_DEMO"] {
+            let now = Date().timeIntervalSince1970 * 1000
+            let json = "{\"live\":true,\"team\":\"SOP FC\",\"opp\":\"Borussia Teeth\",\"us\":2,\"them\":1,\"phase\":\"h1\",\"running\":true,\"base\":0,\"t0\":\(now - 464000),\"half\":15,\"lockUntil\":0,"
+                + "\"changes\":[{\"h\":0,\"from\":10,\"on\":[\"Tobi\",\"Dev\"],\"off\":[\"Kofi\",\"Ezra\"]},{\"h\":1,\"from\":0,\"on\":[\"Kofi\",\"Ezra\"],\"off\":[\"Luca\",\"Ash\"]}],"
+                + "\"players\":[{\"id\":8,\"name\":\"Ezra\",\"on\":true},{\"id\":4,\"name\":\"Kofi\",\"on\":true},{\"id\":5,\"name\":\"Luca\",\"on\":true},{\"id\":6,\"name\":\"Ash\",\"on\":true},{\"id\":2,\"name\":\"Tobi\",\"on\":false},{\"id\":3,\"name\":\"Dev\",\"on\":false}]}"
+            state = try? JSONDecoder().decode(MatchState.self, from: Data(json.utf8))
+            demoPage = Int(page) ?? 0
+            return
+        }
+        #endif
         guard WCSession.isSupported() else { return }
         WCSession.default.delegate = self
         WCSession.default.activate()

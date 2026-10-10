@@ -59,6 +59,7 @@ struct MatchView: View {
     @State private var confirmThem = false
 
     var body: some View {
+        ScrollViewReader { reader in
         ScrollView {
             VStack(spacing: 14) {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -67,6 +68,7 @@ struct MatchView: View {
                 .frame(minHeight: WKInterfaceDevice.current().screenBounds.height * 0.78)
 
                 Changes(state: state)
+                    .id("changes")
 
                 VStack(spacing: 8) {
                     Button {
@@ -105,8 +107,15 @@ struct MatchView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .id("buttons")
             }
             .padding(.horizontal, 4)
+        }
+        .onAppear {
+            if model.demoPage == 1 { reader.scrollTo("changes", anchor: .top) }
+            if model.demoPage == 2 { reader.scrollTo("buttons", anchor: .top) }
+            if model.demoPage == 3 { path = [.scorer] }
+        }
         }
         .confirmationDialog("Goal for \(state.opp)?", isPresented: $confirmThem, titleVisibility: .visible) {
             Button("Log the goal") { model.goal(us: false, scorer: nil, assist: nil) }
