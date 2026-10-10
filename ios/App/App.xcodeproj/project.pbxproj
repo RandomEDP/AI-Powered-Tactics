@@ -18,6 +18,7 @@
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		AA57C0DE000000000000000B /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000002 /* WatchApp.swift */; };
 		AA57C0DE000000000000000C /* MatchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000003 /* MatchModel.swift */; };
+		AA57C0DE00000000000000F2 /* MatchLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA57C0DE00000000000000F1 /* MatchLogic.swift */; };
 		AA57C0DE000000000000000D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000004 /* ContentView.swift */; };
 		AA57C0DE000000000000000E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000005 /* Assets.xcassets */; };
 		AA57C0DE000000000000000F /* Watch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000001 /* Watch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -62,6 +63,7 @@
 		AA57C0DE0000000000000001 /* Watch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Watch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA57C0DE0000000000000002 /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
 		AA57C0DE0000000000000003 /* MatchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchModel.swift; sourceTree = "<group>"; };
+		AA57C0DE00000000000000F1 /* MatchLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchLogic.swift; sourceTree = "<group>"; };
 		AA57C0DE0000000000000004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA57C0DE0000000000000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA57C0DE0000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -126,6 +128,7 @@
 			children = (
 				AA57C0DE0000000000000002 /* WatchApp.swift */,
 				AA57C0DE0000000000000003 /* MatchModel.swift */,
+				AA57C0DE00000000000000F1 /* MatchLogic.swift */,
 				AA57C0DE0000000000000004 /* ContentView.swift */,
 				AA57C0DE0000000000000005 /* Assets.xcassets */,
 				AA57C0DE0000000000000006 /* Info.plist */,
@@ -257,6 +260,7 @@
 			files = (
 				AA57C0DE000000000000000B /* WatchApp.swift in Sources */,
 				AA57C0DE000000000000000C /* MatchModel.swift in Sources */,
+				AA57C0DE00000000000000F2 /* MatchLogic.swift in Sources */,
 				AA57C0DE000000000000000D /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

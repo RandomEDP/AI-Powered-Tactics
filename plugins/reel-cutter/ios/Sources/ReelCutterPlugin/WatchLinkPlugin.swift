@@ -19,7 +19,8 @@ public class WatchLinkPlugin: CAPPlugin, CAPBridgedPlugin, WCSessionDelegate {
 
     override public func load() {
         // The last game sent is kept, so a watch that asks while the app is only just waking up still gets an answer.
-        if let state = UserDefaults.standard.string(forKey: saved) { latest = ["state": state, "sent": Date().timeIntervalSince1970 * 1000] }
+        // It keeps the time it was really sent, so the watch can tell it is old news if it has heard anything since.
+        if let state = UserDefaults.standard.string(forKey: saved) { latest = ["state": state, "sent": UserDefaults.standard.double(forKey: saved + ".sent")] }
         guard WCSession.isSupported() else { return }
         WCSession.default.delegate = self
         WCSession.default.activate()
@@ -31,8 +32,10 @@ public class WatchLinkPlugin: CAPPlugin, CAPBridgedPlugin, WCSessionDelegate {
             return
         }
         // "sent" lets the watch ignore anything older than what it already has, and makes every update count as new
-        latest = ["state": state, "sent": Date().timeIntervalSince1970 * 1000]
+        let sent = Date().timeIntervalSince1970 * 1000
+        latest = ["state": state, "sent": sent]
         UserDefaults.standard.set(state, forKey: saved)
+        UserDefaults.standard.set(sent, forKey: saved + ".sent")
         call.resolve(["sent": deliver()])
     }
 

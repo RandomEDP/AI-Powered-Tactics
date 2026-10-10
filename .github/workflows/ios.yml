@@ -41,6 +41,13 @@ jobs:
       - name: Copy the web app into the iOS project
         run: npm run build:web && npx cap sync ios
 
+      # The watch's decisions (clock, changes coming due, what to believe from the phone) are plain Swift with no
+      # watch frameworks, so whole games are played through them here on every build.
+      - name: Test the watch logic
+        run: |
+          swiftc ios/App/Watch/MatchLogic.swift tests/watch/main.swift -o "$RUNNER_TEMP/watchtests"
+          "$RUNNER_TEMP/watchtests"
+
       - name: Check it builds (simulator, unsigned)
         run: |
           set -o pipefail
