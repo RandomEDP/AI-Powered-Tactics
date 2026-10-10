@@ -24,7 +24,7 @@ await A.click('#goalUs'); await A.click('#picker button[data-p="2"]'); await A.c
 await A.click('#v-stats .back'); await wait(200);
 console.log('gaffer home card:', (await A.textContent('#meCard')).trim().slice(0, 60));
 await A.click('#meCard [data-me="pick"]'); await wait(400); console.log('gaffer picker view:', await view(A));
-await A.click('#joinList [data-pid="8"]'); await A.fill('#jLast', 'Davison-Pearce'); await A.click('#joinList [data-do="claim"]'); await wait(600);
+await A.click('#joinList [data-pid="8"]'); await A.fill('#jLast', 'Davison-Pearce'); await A.click('#joinList [data-pos="fwd"]'); await A.click('#joinList [data-do="claim"]'); await wait(600);
 console.log('gaffer claimed:', await view(A), '|', (await A.textContent('#meCard')).replace(/\s+/g, ' ').slice(0, 90), '| squad row:', (await A.textContent('#squadList .prow:nth-child(8)')).replace(/\s+/g, ' '));
 await shot(A, 'home-gaffer');
 
@@ -38,7 +38,7 @@ await D.click('#joinList [data-pid="2"]'); await wait(100);
 console.log('expanded stats:', (await D.textContent('#joinList .statgrid')).replace(/\s+/g, ' '));
 await shot(D, 'join');
 await D.fill('#jLast', 'Smith'); await D.fill('#jEmail', 'jake@example.com'); await D.fill('#jPass', 'short'); await D.click('#joinList [data-do="up"]'); console.log('short password:', await D.textContent('#jMsg'));
-await D.fill('#jPass', 'longenough1'); await D.click('#joinList [data-do="up"]'); await wait(600);
+await D.fill('#jPass', 'longenough1'); await D.click('#joinList [data-do="up"]'); console.log('no position:', await D.textContent('#jMsg')); await D.click('#joinList [data-pos="def"]'); await D.click('#joinList [data-do="up"]'); await wait(600);
 console.log('after sign-up:', await view(D), '| pending card:', await D.isVisible('#pendCard'), await D.textContent('#pendTitle'));
 await D.click('#pendCard [data-go="account"]'); await D.fill('#aEmail', 'jake@example.com'); await D.fill('#aPass', 'longenough1'); await D.click('#aSignIn'); await wait(800);
 console.log('after confirming and signing in:', await view(D), '|', (await D.textContent('#meCard')).replace(/\s+/g, ' ').slice(0, 80));

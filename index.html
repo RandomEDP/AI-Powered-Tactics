@@ -267,7 +267,8 @@ tr.past td { opacity: .45; }
 .lrow, .mrow, .orow { display: grid; gap: 8px; align-items: center; padding-block: 9px; border-bottom: 1px solid var(--line); }
 .lrow { grid-template-columns: 1fr 44px auto; }
 .mrow { grid-template-columns: 1fr auto; }
-.orow { grid-template-columns: 1fr 36px; border-bottom: 0; padding-block: 4px; }
+.orow { grid-template-columns: 1fr 118px 36px; border-bottom: 0; padding-block: 4px; }
+.orow select { font: inherit; font-size: 15px; font-weight: 500; color: var(--ink); background: var(--surface); border: 0; border-radius: var(--r-ctl); padding: 13px 8px; min-width: 0; width: 100%; }
 .lrow .who, .mrow .who { min-width: 0; overflow-wrap: anywhere; font-weight: 650; }
 .lrow .who small, .mrow .who small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
 .gk { height: 38px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 750; font-size: 14px; padding: 0; }
@@ -342,6 +343,26 @@ tr.past td { opacity: .45; }
 .hcard li span:first-child { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
 .hcard li.wide { grid-template-columns: 1fr; }
 .novid { background: var(--bg); border-radius: var(--r-ctl); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; font-size: 15px; color: var(--muted); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.posrow { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.posrow button, .vote button { min-height: 46px; border: 0; border-radius: var(--r-ctl); background: var(--fill); color: var(--ink); font-weight: 650; font-size: 15px; }
+.jbody .posrow button, .card .posrow button, .card .vote button { background: var(--bg); }
+.posrow button[aria-pressed="true"], .vote button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
+.vote { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.vote button.no[aria-pressed="true"] { background: var(--bib); color: #fff; }
+.fxwhen { font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: .01em; }
+.pitchmap { position: relative; aspect-ratio: 4 / 5; background: var(--pitch); color: var(--pitch-ink); border-radius: var(--r-card); overflow: hidden; touch-action: none; }
+.pitchmap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dot { position: absolute; transform: translate(-50%, -50%); border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--pitch-ink); cursor: default; }
+.pitchmap.edit .dot { cursor: grab; touch-action: none; }
+.dot i { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--pitch-ink); color: var(--pitch-deep); font-style: normal; font-weight: 800; font-size: 15px; display: grid; place-items: center; pointer-events: none; }
+.dot.gk i { background: var(--gold); color: #131715; }
+.dot.me i { box-shadow: 0 0 0 3px var(--gold); }
+.dot span { font-size: 13px; font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none; }
+.dot:active { transform: translate(-50%, -50%); }
+.fxrow { grid-template-columns: 1fr auto; }
+.seg button.is[data-vote] { background: var(--on); color: var(--on-ink); }
+.seg button.is[data-vote="no"] { background: var(--muted); color: var(--bg); }
 .msg:empty, #subEdit:empty, #quickSwap:empty, #picker:empty, #outPicker:empty, #swapBody:empty { display: none; }
 .stage { max-height: 380px; }
 </style>
@@ -519,6 +540,7 @@ tr.past td { opacity: .45; }
   <div class="hero"><img id="heroCrest" alt="" hidden><h1 id="heroName"></h1><p id="homeRecord"></p><p class="app-name">AI Powered Tactics</p></div>
   <div class="card" id="pendCard" hidden><h2 id="pendTitle"></h2><p class="note">Tap the link in the email we sent you, then sign in here to finish joining.</p>
     <div class="actions"><button class="plain primary" type="button" data-go="account">Sign in</button></div></div>
+  <div class="card" id="fxCard" hidden></div>
   <div class="menu" id="homeMenu">
     <button class="primary" id="mResume" type="button" hidden><span id="mResumeLbl">Resume game</span><small id="mResumeSub"></small></button>
     <button id="mNew" type="button">New game</button>
@@ -532,6 +554,21 @@ tr.past td { opacity: .45; }
   <section id="squadSec" hidden><h2>Squad</h2><div class="plist" id="squadList"></div></section>
   <div class="menu"><button id="mSwitch" type="button">Switch team</button></div>
   <p class="note" id="sync"></p>
+</div>
+
+<div class="view" id="v-poll" hidden>
+  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1 id="pollTitle">New poll</h1></div>
+  <p class="note">The squad sees this on the team screen and says who's in. Location, cost, time and squad size are remembered for your next poll.</p>
+  <label class="field" for="pOpp">Who are you playing?<input id="pOpp" type="text" maxlength="60" autocomplete="off" list="pOppList"></label><datalist id="pOppList"></datalist>
+  <div class="two">
+    <label class="field" for="pDate">Date<input id="pDate" type="date"></label>
+    <label class="field" for="pTime">Kick-off<input id="pTime" type="time"></label>
+  </div>
+  <label class="field" for="pLoc">Location<input id="pLoc" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Powerleague, pitch 4"></label>
+  <label class="field" for="pCost">Cost<input id="pCost" type="text" maxlength="40" autocomplete="off" placeholder="e.g. £5 each"></label>
+  <label class="field" for="pMax">Squad size<select id="pMax"><option value="7">A keeper and up to 7 outfield (with subs)</option><option value="4">A keeper and 4 outfield (no subs)</option></select></label>
+  <p class="msg bad" id="pMsg"></p>
+  <div class="actions"><button class="plain primary" id="pSave" type="button">Create poll</button><button class="plain" id="pCancel" type="button" hidden>Cancel this game</button></div>
 </div>
 
 <div class="view" id="v-highlights" hidden>
@@ -779,7 +816,7 @@ tr.past td { opacity: .45; }
   // ---- teams on this device. The team itself lives in the database; this device remembers which ones it follows
   // and keeps a copy of each so the app opens instantly and works with no signal.
   var AKEY = 'apt-app', TKEY = 'apt-team-', DEFAULT_COLOR = '#1f6b4a';
-  function blankTeam() { return { name: '', short: '', color: DEFAULT_COLOR, players: [], nextId: 1, half: 15, sub: 5, pitch: 5, lastKeeper: null, results: [], match: null, followersCanScore: false }; }
+  function blankTeam() { return { name: '', short: '', color: DEFAULT_COLOR, players: [], nextId: 1, half: 15, sub: 5, pitch: 5, lastKeeper: null, results: [], match: null, followersCanScore: false, poll: null }; }
   var A = { teams: [], active: null, view: 'welcome' };
   try { var a0 = JSON.parse(localStorage.getItem(AKEY)); if (a0 && Array.isArray(a0.teams)) A = Object.assign(A, a0); } catch (e) {}
   function saveApp() { try { localStorage.setItem(AKEY, JSON.stringify(A)); } catch (e) {} }
@@ -830,6 +867,7 @@ tr.past td { opacity: .45; }
 
   // role in the open team: owner = gaffer (runs games); scorer = follower who may log goals; viewer = follower
   var role = 'viewer', teamId = null, orgCode = null;
+  var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'game', 'stats', 'reel', 'season'];
   function setRole(r) {
@@ -863,8 +901,8 @@ tr.past td { opacity: .45; }
   function fromRemote(d) {
     var t = d.team, st = t.settings || {}, s = blankTeam();
     s.name = t.name; s.short = t.short || ''; s.color = t.color; s.followersCanScore = !!t.followers_can_score;
-    ['half', 'sub', 'pitch', 'tactic', 'lastKeeper', 'me', 'nextId'].forEach(function (k) { if (st[k] != null) s[k] = st[k]; });
-    s.players = (d.players || []).map(function (p) { return { id: p.pid, name: p.name }; });
+    ['half', 'sub', 'pitch', 'tactic', 'lastKeeper', 'me', 'nextId', 'poll'].forEach(function (k) { if (st[k] != null) s[k] = st[k]; });
+    s.players = (d.players || []).map(function (p) { return stripNull({ id: p.pid, name: p.name, pos: p.position || null }); });
     var maxId = s.players.reduce(function (m, p) { return Math.max(m, p.id); }, 0);
     if (!(s.nextId > maxId)) s.nextId = maxId + 1;
     s.results = (d.games || []).map(function (g) {
@@ -886,7 +924,7 @@ tr.past td { opacity: .45; }
   function teamRow() {
     return { name: (S.name || '').trim() || 'Team', short: (S.short || '').trim().slice(0, 12), color: /^#[0-9a-f]{6}$/i.test(S.color || '') ? S.color : DEFAULT_COLOR,
       followers_can_score: !!S.followersCanScore,
-      settings: { half: S.half, sub: S.sub, pitch: S.pitch, tactic: nn(S.tactic), lastKeeper: nn(S.lastKeeper), me: nn(S.me), nextId: S.nextId } };
+      settings: { half: S.half, sub: S.sub, pitch: S.pitch, tactic: nn(S.tactic), lastKeeper: nn(S.lastKeeper), me: nn(S.me), nextId: S.nextId, poll: nn(S.poll) } };
   }
   function gameParts(r, i, tid) {
     var row = { id: r.id, team_id: tid, seq: i, opp: (r.opp || '').slice(0, 60), friendly: !!r.friendly, us: r.us | 0, them: r.them | 0, half: nn(r.half),
@@ -902,7 +940,7 @@ tr.past td { opacity: .45; }
   function snapshot() { // what the database should hold, as comparable strings
     (S.results || []).forEach(function (r) { if (!r.id) r.id = uuid(); });
     var snap = { team: JSON.stringify(teamRow()), crest: crest || null, players: {}, live: S.match ? JSON.stringify(S.match) : null, games: {} };
-    S.players.forEach(function (p) { snap.players[p.id] = (p.name || '').slice(0, 40); });
+    S.players.forEach(function (p) { snap.players[p.id] = (p.name || '').slice(0, 40) + '\u0001' + (p.pos || ''); });
     S.results.forEach(function (r, i) { snap.games[r.id] = JSON.stringify(gameParts(r, i, '')); });
     return snap;
   }
@@ -925,7 +963,13 @@ tr.past td { opacity: .45; }
       if (snap.team !== prev.team) await q(sb.from('teams').update(JSON.parse(snap.team)).eq('id', tid));
       if (snap.crest !== prev.crest) await q(sb.from('teams').update({ crest: snap.crest }).eq('id', tid));
       var up = [], gone = [];
-      Object.keys(snap.players).forEach(function (pid) { if (prev.players[pid] !== snap.players[pid]) up.push({ team_id: tid, pid: +pid, name: snap.players[pid] }); });
+      var upPos = []; // a position is only sent when the gaffer has one set, so a player's own choice is never blanked
+      Object.keys(snap.players).forEach(function (pid) {
+        if (prev.players[pid] === snap.players[pid]) return;
+        var v = snap.players[pid].split('\u0001');
+        if (v[1]) upPos.push({ team_id: tid, pid: +pid, name: v[0], position: v[1] }); else up.push({ team_id: tid, pid: +pid, name: v[0] });
+      });
+      if (upPos.length) await q(sb.from('players').upsert(upPos));
       Object.keys(prev.players).forEach(function (pid) { if (!(pid in snap.players)) gone.push(+pid); });
       if (up.length) await q(sb.from('players').upsert(up));
       if (gone.length) await q(sb.from('players').delete().eq('team_id', tid).in('pid', gone));
@@ -971,8 +1015,9 @@ tr.past td { opacity: .45; }
       if (!d) { forgetTeam(code); closeTeam(); S = blankTeam(); S.view = 'welcome'; go('welcome'); setSync('gone'); return; }
       teamId = d.team.id; orgCode = d.team.organiser_code || null;
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
-      myPid = d.my_pid != null ? d.my_pid : null;
-      try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid })); } catch (e) {}
+      myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || [];
+      if (S.view === 'home') renderFixture();
+      try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips })); } catch (e) {}
       var org = !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
       if (org && (dirty || syncing)) return; // our own edits are on their way up; theirs will arrive after
@@ -1000,7 +1045,7 @@ tr.past td { opacity: .45; }
     S.view = view; saveLocal(); applyTheme();
     upgrade(S.match); lastBlock = S.match ? curSeg(S.match) : -1; pick = null; outPick = null;
     if (S.view === 'game' && !S.match) go('home');
-    else if (['intro', 'join', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0) { /* keep what is being built */ }
+    else if (['intro', 'join', 'poll', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0) { /* keep what is being built */ }
     else if (!(S.view === 'options' && document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName))) render();
   }
   async function pullGoals() { // gaffers: fold in goals that followers logged, then clear them
@@ -1045,7 +1090,7 @@ tr.past td { opacity: .45; }
     S = Object.assign(blankTeam(), cache || { name: meta ? meta.name : '' });
     S.view = view || 'home';
     try { crest = localStorage.getItem(TKEY + code + ':crest'); } catch (e) { crest = null; }
-    try { var rc = JSON.parse(localStorage.getItem(TKEY + code + ':roster')) || {}; roster = rc.roster || {}; myPid = me && rc.myPid != null ? rc.myPid : null; } catch (e) { roster = {}; myPid = null; }
+    try { var rc = JSON.parse(localStorage.getItem(TKEY + code + ':roster')) || {}; roster = rc.roster || {}; myPid = me && rc.myPid != null ? rc.myPid : null; fixtures = rc.fixtures || []; clips = rc.clips || []; } catch (e) { roster = {}; myPid = null; fixtures = []; clips = []; }
     applyTheme(); renderCrest(); upgrade(S.match); lastBlock = S.match ? curSeg(S.match) : -1; pick = null; outPick = null;
     var org = !!(meta && meta.org && me);
     role = org ? 'owner' : 'viewer'; document.body.className = org ? '' : 'ro';
@@ -1199,7 +1244,7 @@ tr.past td { opacity: .45; }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'poll', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1225,6 +1270,7 @@ tr.past td { opacity: .45; }
     if (S.view === 'welcome') renderWelcome();
     else if (S.view === 'join') renderJoin();
     else if (S.view === 'highlights') renderHighlights();
+    else if (S.view === 'poll') renderPoll();
     else if (S.view === 'account') renderAccount();
     else if (S.view === 'create') renderCreate();
     else if (S.view === 'code') renderCode();
@@ -1362,7 +1408,8 @@ tr.past td { opacity: .45; }
       if (open) {
         html += '<div class="jbody">' + statGrid(statsOf(J.team.results, p.pid)) +
           '<p class="note">These become your stats. Add your details to make them yours.</p>' +
-          '<label class="field" for="jLast">Last name<input id="jLast" type="text" maxlength="40" autocomplete="family-name"></label>';
+          '<label class="field" for="jLast">Last name<input id="jLast" type="text" maxlength="40" autocomplete="family-name"></label>' +
+          '<div class="field"><span>Where do you play?</span>' + posButtons(J.pos || p.position || null, 'data-pos') + '</div>';
         if (me) html += '<div class="actions"><button class="plain primary" type="button" data-do="claim">Join as ' + esc(p.name) + '</button></div>';
         else html += '<div class="toggle"><button type="button" data-mode="up" aria-pressed="' + (J.mode === 'up') + '">New account</button><button type="button" data-mode="in" aria-pressed="' + (J.mode === 'in') + '">I have an account</button></div>' +
           '<label class="field" for="jEmail">Email<input id="jEmail" type="email" autocomplete="email" inputmode="email"></label>' +
@@ -1376,12 +1423,15 @@ tr.past td { opacity: .45; }
   function jSay(t, bad) { var el = $('jMsg'); if (el) { el.textContent = t || ''; el.className = 'msg' + (bad ? ' bad' : ''); } }
   $('joinList').addEventListener('click', async function (e) {
     var b = e.target.closest('button'); if (!b || !J) return;
-    var pid = b.getAttribute('data-pid'), mode = b.getAttribute('data-mode'), act = b.getAttribute('data-do');
-    if (pid !== null) { J.open = J.open === +pid ? null : +pid; renderJoin(); if (J.open != null) { var f = $('jLast'); if (f) f.focus(); } return; }
+    var pid = b.getAttribute('data-pid'), mode = b.getAttribute('data-mode'), act = b.getAttribute('data-do'), ps = b.getAttribute('data-pos');
+    if (ps) { J.pos = ps; Array.prototype.forEach.call(b.parentNode.children, function (x) { x.setAttribute('aria-pressed', x === b); }); return; }
+    if (pid !== null) { J.open = J.open === +pid ? null : +pid; J.pos = null; renderJoin(); if (J.open != null) { var f = $('jLast'); if (f) f.focus(); } return; }
     if (mode) { var keep = { l: $('jLast').value, e: $('jEmail').value, p: $('jPass').value }; J.mode = mode; renderJoin(); $('jLast').value = keep.l; $('jEmail').value = keep.e; $('jPass').value = keep.p; return; }
     if (!act) return;
     var p = J.d.players.filter(function (x) { return x.pid === J.open; })[0]; if (!p) return;
-    var pend = { code: J.code, pid: p.pid, name: p.name, last: $('jLast').value.trim(), team: J.d.team.name };
+    var pos = J.pos || p.position || null;
+    if (!pos) { jSay('Pick where you play.', true); return; }
+    var pend = { code: J.code, pid: p.pid, name: p.name, last: $('jLast').value.trim(), pos: pos, team: J.d.team.name };
     if (act === 'claim') { A.pending = pend; saveApp(); jSay('Joining…'); finishPending(); return; }
     var email = $('jEmail').value.trim(), pw = $('jPass').value;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { jSay('Enter your email address.', true); return; }
@@ -1404,7 +1454,7 @@ tr.past td { opacity: .45; }
     var p = A.pending; if (!p || !me || !sb || pendBusy) return;
     pendBusy = true;
     try {
-      var res = await q(sb.rpc('claim_player', { p_code: p.code, p_pid: p.pid, p_last_name: p.last || null }));
+      var res = await q(sb.rpc('claim_player', { p_code: p.code, p_pid: p.pid, p_last_name: p.last || null, p_position: p.pos || 'mix' }));
       A.pending = null; A.notice = res.data === 'ok' ? null : (res.data === 'taken' ? 'Someone else has already claimed ' + p.name + '. Pick your player again.' : 'That player is no longer on the team.');
       saveApp(); myTeams = null; rememberTeam(p.code, p.team, null); openTeam(p.code, 'home');
     } catch (e) { jSay('Couldn’t join the team. Check your signal and try again.', true); if (!A.active) go('welcome'); }
@@ -1561,22 +1611,186 @@ tr.past td { opacity: .45; }
     $('pendCard').hidden = !pend; if (pend) $('pendTitle').textContent = 'Confirm your email to join as ' + pend.name;
     if (myPid != null && P(myPid)) {
       var st = statsOf(S.results, myPid), last = (roster[myPid] || {}).last;
-      html = '<h2>Your stats</h2><p class="note">' + esc(nm(myPid)) + (last ? ' ' + esc(last) : '') + (st.saves ? ', ' + st.saves + (st.saves === 1 ? ' save' : ' saves') + ' in goal' : '') + '</p>' + statGrid(st) +
+      html = '<h2>Your stats</h2><p class="note">' + esc(nm(myPid)) + (last ? ' ' + esc(last) : '') + (posOf(myPid) ? ', ' + posName(posOf(myPid)).toLowerCase() : '') + (st.saves ? ', ' + st.saves + (st.saves === 1 ? ' save' : ' saves') + ' in goal' : '') + '</p>' + statGrid(st) +
+        '<div class="field"><span>' + (posOf(myPid) ? 'Your position' : 'Where do you play? Pick one so the gaffer can place you.') + '</span>' + posButtons(posOf(myPid), 'data-mypos') + '</div>' +
         '<div class="actions"><button class="link" type="button" data-me="release">This isn’t me</button></div>';
     } else if (sb && !pend) {
       html = '<h2>Which player are you?</h2><p class="note">' + (A.notice ? esc(A.notice) : 'Pick your name in the squad to see your own stats here.') + '</p>' +
         '<div class="actions"><button class="plain primary" type="button" data-me="pick">Choose your player</button></div>';
     }
     card.hidden = !html; card.innerHTML = html;
+    renderFixture();
     // squad, with the gaffer marked
     var T = totals(true);
     $('squadSec').hidden = !S.players.length;
     $('squadList').innerHTML = S.players.slice().sort(function (a, b) { return (!!(roster[b.id] || {}).gaffer) - (!!(roster[a.id] || {}).gaffer); }).map(function (p) {
       var x = roster[p.id] || {}, s = T[p.id];
       return '<div class="prow"><span>' + esc(nm(p.id)) + (x.gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (p.id === myPid ? '<span class="badge you">You</span>' : '') + '</span>' +
-        '<small>' + s.g + ' G, ' + s.a + ' A</small></div>';
+        '<small>' + (p.pos ? posName(p.pos) + ', ' : '') + s.g + ' G, ' + s.a + ' A</small></div>';
     }).join('');
   }
+  // ---- positions
+  var POS = [['fwd', 'Up front'], ['mix', 'Mixed'], ['def', 'Defender'], ['gk', 'Goalkeeper']];
+  var posName = function (k) { var x = POS.filter(function (p) { return p[0] === k; })[0]; return x ? x[1] : ''; };
+  var posOf = function (pid) { var p = P(pid); return (p && p.pos) || null; };
+  function posButtons(cur, attr) {
+    return '<div class="posrow">' + POS.map(function (p) { return '<button type="button" ' + attr + '="' + p[0] + '" aria-pressed="' + (cur === p[0]) + '">' + p[1] + '</button>'; }).join('') + '</div>';
+  }
+
+  // ---- polls: the next game, who's in, and where they line up
+  var fixtures = [], fxAnswer = false, fxMsg = '', fxMsgT = null, fxEdit = null;
+  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var p2 = function (n) { return ('0' + n).slice(-2); };
+  function whenText(ms) { var d = new Date(ms); return DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] + ', ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+  var nextFx = function () { return fixtures[0] || null; };
+  function fxSides(f) { // who answered what, in the order they answered
+    var o = { gk: null, ins: [], no: [], none: [] }, seen = {};
+    (f.votes || []).forEach(function (v) { if (!P(v.pid)) return; seen[v.pid] = 1; if (v.choice === 'gk') o.gk = v.pid; else if (v.choice === 'in') o.ins.push(v.pid); else o.no.push(v.pid); });
+    S.players.forEach(function (p) { if (!seen[p.id]) o.none.push(p.id); });
+    var bench = f.lineup && Array.isArray(f.lineup.bench) ? f.lineup.bench : null, spots = Math.max(1, S.pitch - 1);
+    o.bench = o.ins.filter(function (id, i) { return bench ? bench.indexOf(id) >= 0 : i >= spots; });
+    o.start = o.ins.filter(function (id) { return o.bench.indexOf(id) < 0; });
+    return o;
+  }
+  function fxSpots(f, sides) { // where each starter stands: the gaffer's placing if there is one, else by base position
+    var pos = (f.lineup && f.lineup.pos) || {}, out = {}, rows = { fwd: [], mix: [], def: [] }, Y = { fwd: 20, mix: 43, def: 66 };
+    sides.start.forEach(function (id) { var k = posOf(id); rows[k === 'fwd' || k === 'def' ? k : 'mix'].push(id); });
+    Object.keys(rows).forEach(function (k) { rows[k].forEach(function (id, i) { out[id] = [Math.round((i + 1) / (rows[k].length + 1) * 100), Y[k]]; }); });
+    if (sides.gk != null) out[sides.gk] = [50, 85];
+    Object.keys(out).forEach(function (id) { var g = pos[id]; if (g && g.length === 2) out[id] = [Math.max(6, Math.min(94, g[0])), Math.max(6, Math.min(94, g[1]))]; });
+    return out;
+  }
+  function fxSay(t) { fxMsg = t || ''; clearTimeout(fxMsgT); if (t) fxMsgT = setTimeout(function () { fxMsg = ''; renderFixture(); }, 5000); renderFixture(); }
+  function renderFixture() {
+    var card = $('fxCard'), f = nextFx(), own = role === 'owner', html = '';
+    if (!sb) { card.hidden = true; return; }
+    if (!f) {
+      card.hidden = !own;
+      card.innerHTML = '<h2>Next game</h2><p class="note">No game lined up. Create a poll so the squad can say who’s in.</p><div class="actions"><button class="plain primary" type="button" data-fx="new">Create a poll</button></div>';
+      return;
+    }
+    var s = fxSides(f), spots = fxSpots(f, s), mine = myPid == null ? null : (f.votes || []).filter(function (v) { return v.pid === myPid; })[0];
+    var full = s.ins.length >= f.max_outfield, names = function (ids) { return ids.map(function (id) { return esc(nm(id)); }).join(', '); };
+    html += '<h2>Next game: v ' + esc(f.opp || 'TBC') + '</h2><p class="fxwhen">' + esc(whenText(f.ko_at)) + '</p>' +
+      '<p class="note">' + [f.location ? esc(f.location) : '', f.cost ? esc(f.cost) : ''].filter(Boolean).join(', ') + '</p>' +
+      '<p class="note"><b>' + s.ins.length + ' of ' + f.max_outfield + '</b> outfield' + (full ? ' (full)' : '') + ', keeper: <b>' + (s.gk != null ? esc(nm(s.gk)) : 'needed') + '</b></p>';
+    if (myPid != null) {
+      var c = mine && mine.choice, dis = function (k) { return (k === 'gk' && s.gk != null && s.gk !== myPid) || (k === 'in' && full && c !== 'in') ? ' disabled' : ''; };
+      html += '<div class="vote"><button type="button" data-vote="in" aria-pressed="' + (c === 'in') + '"' + dis('in') + '>I’m in</button>' +
+        '<button type="button" data-vote="gk" aria-pressed="' + (c === 'gk') + '"' + dis('gk') + '>In goal</button>' +
+        '<button type="button" class="no" data-vote="no" aria-pressed="' + (c === 'no') + '">I’m out</button></div>';
+    } else html += '<p class="note">Choose your player below to answer.</p>';
+    if (fxMsg) html += '<p class="msg">' + esc(fxMsg) + '</p>';
+    if (s.gk != null || s.start.length) {
+      html += '<div class="pitchmap' + (own ? ' edit' : '') + '" id="pitchMap" data-fx="' + f.id + '"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width=".6" opacity=".28" vector-effect="non-scaling-stroke">' +
+        '<rect x="3" y="3" width="94" height="94" rx="2"/><line x1="3" y1="50" x2="97" y2="50"/><ellipse cx="50" cy="50" rx="14" ry="10.5"/><rect x="30" y="85" width="40" height="12"/><rect x="30" y="3" width="40" height="12"/></g></svg>' +
+        Object.keys(spots).map(function (id) { id = +id; return '<button type="button" class="dot' + (id === s.gk ? ' gk' : '') + (id === myPid ? ' me' : '') + '" data-dot="' + id + '" style="left:' + spots[id][0] + '%;top:' + spots[id][1] + '%"' + (own ? '' : ' tabindex="-1"') + '><i>' + esc(nm(id).slice(0, 2)) + '</i><span>' + esc(nm(id)) + '</span></button>'; }).join('') + '</div>';
+      if (own) html += '<p class="note">Drag a player to move them. Tap one to send them to the bench.</p>';
+    }
+    if (s.bench.length) html += '<div class="swap-rows"><div class="tag off">Bench</div><div class="chips">' + s.bench.map(function (id) { return own ? '<button type="button" class="chip off tapchip" data-unbench="' + id + '">' + esc(nm(id)) + '</button>' : '<span class="chip off">' + esc(nm(id)) + '</span>'; }).join('') + '</div></div>';
+    if (s.no.length) html += '<p class="note">Can’t make it: ' + names(s.no) + '</p>';
+    if (s.none.length) html += '<p class="note">No answer yet: ' + names(s.none) + '</p>';
+    if (own) {
+      html += '<div class="actions"><button class="plain primary" type="button" data-fx="start">Start this game</button><button class="plain" type="button" data-fx="edit">Edit poll</button>' +
+        '<button class="plain" type="button" data-fx="answer" aria-expanded="' + fxAnswer + '">Answer for a player</button></div>';
+      if (fxAnswer) html += '<div class="plist">' + S.players.map(function (p) {
+        var v = (f.votes || []).filter(function (x) { return x.pid === p.id; })[0], ch = v && v.choice;
+        return '<div class="lrow fxrow"><span class="who">' + esc(nm(p.id)) + '</span><span class="seg">' + [['in', 'In'], ['gk', 'GK'], ['no', 'Out']].map(function (o) { return '<button type="button" data-for="' + p.id + '" data-vote="' + o[0] + '" class="' + (ch === o[0] ? 'is' : '') + '">' + o[1] + '</button>'; }).join('') + '</span></div>';
+      }).join('') + '</div>';
+    }
+    if (fixtures.length > 1) html += '<p class="note">' + (fixtures.length - 1) + ' more ' + (fixtures.length === 2 ? 'game' : 'games') + ' lined up after this one.</p>';
+    card.hidden = false; card.innerHTML = html;
+  }
+  var VOTE_MSG = { gk_taken: 'Someone is already down as keeper.', full: 'The outfield spots are all taken.', closed: 'This poll has closed.', not_player: 'Choose your player first.', missing: 'This poll no longer exists.' };
+  async function castVote(f, choice, pid) {
+    try {
+      var res = await q(sb.rpc('vote_fixture', { p_fixture: f.id, p_choice: choice, p_pid: pid == null ? null : pid }));
+      if (res.data !== 'ok') fxSay(VOTE_MSG[res.data] || 'That didn’t save. Try again.');
+      ping('changed'); pull();
+    } catch (e) { fxSay('Couldn’t save your answer. Check your signal and try again.'); }
+  }
+  async function saveLineup(f) {
+    try { await q(sb.from('fixtures').update({ lineup: f.lineup }).eq('id', f.id)); ping('changed'); } catch (e) { fxSay('Couldn’t save the line-up. Check your signal.'); }
+  }
+  $('fxCard').addEventListener('click', function (e) {
+    var b = e.target.closest('button'), f = nextFx(); if (!b) return;
+    var act = b.getAttribute('data-fx'), vote = b.getAttribute('data-vote'), who = b.getAttribute('data-for'), un = b.getAttribute('data-unbench');
+    if (act === 'new') { fxEdit = null; go('poll'); return; }
+    if (!f) return;
+    if (act === 'edit') { fxEdit = f; go('poll'); }
+    else if (act === 'answer') { fxAnswer = !fxAnswer; renderFixture(); }
+    else if (act === 'start') startFromPoll(f);
+    else if (vote && who !== null && role === 'owner') castVote(f, vote, +who);
+    else if (vote && myPid != null) castVote(f, vote, null);
+    else if (un !== null && role === 'owner') { var s = fxSides(f); f.lineup = f.lineup || {}; f.lineup.bench = s.bench.filter(function (id) { return id !== +un; }); renderFixture(); saveLineup(f); }
+  });
+  // gaffers drag players round the pitch; a tap without a drag sends that player to the bench
+  var dragging = null;
+  $('fxCard').addEventListener('pointerdown', function (e) {
+    var dot = e.target.closest('[data-dot]'), map = $('pitchMap'); if (!dot || !map || role !== 'owner') return;
+    dragging = { id: +dot.getAttribute('data-dot'), el: dot, x0: e.clientX, y0: e.clientY, moved: false, box: map.getBoundingClientRect() };
+    try { dot.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  $('fxCard').addEventListener('pointermove', function (e) {
+    var d = dragging; if (!d) return;
+    if (!d.moved && Math.abs(e.clientX - d.x0) + Math.abs(e.clientY - d.y0) < 8) return;
+    d.moved = true;
+    d.x = Math.max(6, Math.min(94, (e.clientX - d.box.left) / d.box.width * 100)); d.y = Math.max(6, Math.min(94, (e.clientY - d.box.top) / d.box.height * 100));
+    d.el.style.left = d.x + '%'; d.el.style.top = d.y + '%';
+  });
+  function dragEnd() {
+    var d = dragging, f = nextFx(); dragging = null; if (!d || !f) return;
+    f.lineup = f.lineup || {};
+    if (d.moved) { f.lineup.pos = f.lineup.pos || {}; f.lineup.pos[d.id] = [Math.round(d.x), Math.round(d.y)]; }
+    else { var s = fxSides(f); if (d.id === s.gk) return; f.lineup.bench = s.bench.concat([d.id]); }
+    renderFixture(); saveLineup(f);
+  }
+  $('fxCard').addEventListener('pointerup', dragEnd);
+  $('fxCard').addEventListener('pointercancel', function () { dragging = null; renderFixture(); });
+  function startFromPoll(f) { // carry the poll straight into the new game screen
+    if (S.match) { fxSay('Finish or scrap the game in progress first.'); return; }
+    var s = fxSides(f);
+    go('setup'); if (S.view !== 'setup' || !D) return;
+    $('opp').value = f.opp || ''; $('oppErr').hidden = true;
+    S.players.forEach(function (p) { D.sel[p.id] = p.id === s.gk || s.start.indexOf(p.id) >= 0 ? 'start' : s.bench.indexOf(p.id) >= 0 ? 'bench' : 'out'; });
+    D.keeper = s.gk; D.manualBench = true; D.fx = f.id; renderSetup();
+  }
+
+  // ---- the poll form (gaffers)
+  function renderPoll() {
+    var f = fxEdit, d0 = S.poll || {}, when;
+    if (f) when = new Date(f.ko_at);
+    else { // next week on the usual day and time, if there is one
+      when = new Date(); var t = (d0.time || '19:00').split(':'); when.setHours(+t[0] || 19, +t[1] || 0, 0, 0);
+      var add = d0.dow != null ? ((d0.dow - when.getDay() + 7) % 7) : 0; if (add === 0 && when.getTime() < Date.now()) add = 7; when.setDate(when.getDate() + add);
+    }
+    $('pollTitle').textContent = f ? 'Edit poll' : 'New poll';
+    $('pOpp').value = f ? f.opp : ''; $('pDate').value = when.getFullYear() + '-' + p2(when.getMonth() + 1) + '-' + p2(when.getDate()); $('pTime').value = p2(when.getHours()) + ':' + p2(when.getMinutes());
+    $('pLoc').value = f ? f.location : (d0.location || ''); $('pCost').value = f ? f.cost : (d0.cost || '');
+    var mx = f ? f.max_outfield : (d0.max || 7); $('pMax').value = mx === 4 ? '4' : '7';
+    $('pOppList').innerHTML = S.results.map(function (r) { return r.opp; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+    $('pCancel').hidden = !f; $('pMsg').textContent = ''; $('pSave').disabled = false; $('pSave').textContent = f ? 'Save poll' : 'Create poll';
+  }
+  $('pSave').addEventListener('click', async function () {
+    if (role !== 'owner' || !sb || !teamId) return;
+    var opp = $('pOpp').value.trim(), dt = new Date($('pDate').value + 'T' + ($('pTime').value || '19:00'));
+    if (!opp) { $('pMsg').textContent = 'Enter who you’re playing.'; $('pOpp').focus(); return; }
+    if (isNaN(dt.getTime())) { $('pMsg').textContent = 'Pick the date and kick-off time.'; return; }
+    var row = { opp: opp.slice(0, 60), ko_at: dt.getTime(), location: $('pLoc').value.trim().slice(0, 120), cost: $('pCost').value.trim().slice(0, 40), max_outfield: +$('pMax').value === 4 ? 4 : 7 };
+    $('pSave').disabled = true;
+    try {
+      if (fxEdit) await q(sb.from('fixtures').update(row).eq('id', fxEdit.id));
+      else await q(sb.from('fixtures').insert(Object.assign({ team_id: teamId }, row)));
+      S.poll = { location: row.location, cost: row.cost, max: row.max_outfield, time: $('pTime').value || '19:00', dow: dt.getDay() }; // the defaults for the next poll
+      save(); ping('changed'); await pull(); go('home');
+    } catch (e) { $('pSave').disabled = false; $('pMsg').textContent = 'Couldn’t save the poll. Check your signal and try again.'; }
+  });
+  armed($('pCancel'), 'Tap again to cancel the game', async function () {
+    if (!fxEdit || !sb) return;
+    try { await q(sb.from('fixtures').update({ status: 'cancelled' }).eq('id', fxEdit.id)); ping('changed'); await pull(); go('home'); } catch (e) { $('pMsg').textContent = 'Couldn’t cancel the poll. Check your signal.'; }
+  });
+
   var lockT = null;
   $('homeMenu').addEventListener('click', function (e) { // gaffer-only buttons stay visible for everyone, and explain themselves
     var b = e.target.closest('button.locked'); if (!b) return;
@@ -1585,6 +1799,8 @@ tr.past td { opacity: .45; }
     clearTimeout(lockT); lockT = setTimeout(function () { $('lockMsg').textContent = ''; }, 4000);
   }, true);
   $('meCard').addEventListener('click', async function (e) {
+    var mp = e.target.getAttribute('data-mypos');
+    if (mp && sb) { var me0 = P(myPid); if (me0) me0.pos = mp; renderHome(); try { await q(sb.rpc('set_my_position', { p_code: A.active, p_position: mp })); ping('changed'); pull(); } catch (err) {} return; }
     var a = e.target.getAttribute('data-me'); if (!a) return;
     if (a === 'pick') { A.notice = null; saveApp(); openJoin(A.active, function (t, bad) { if (bad) { $('lockMsg').textContent = t; } }); }
     else if (a === 'release' && sb) { try { await q(sb.rpc('release_player', { p_code: A.active })); myPid = null; pull(); } catch (err) {} }
@@ -1876,6 +2092,7 @@ tr.past td { opacity: .45; }
     S.match = { opp: $('opp').value.trim() || 'Opponents', friendly: $('friendly').checked, order: pl.ids, keeper: D.keeper, segs: mkSegs(sched, pl.ids, D.keeper, S.half, S.sub),
                 squad: pl.ids.concat(D.keeper != null ? [D.keeper] : []), gone: [],
                 half: S.half, sub: S.sub, pitch: S.pitch, events: [], phase: 'pre', running: false, base: 0, t0: 0 };
+    if (D.fx) S.match.fx = D.fx;
     D = null; lastBlock = -1; pick = null; save(); go('game');
   });
 
@@ -2257,6 +2474,7 @@ tr.past td { opacity: .45; }
     var ev = m.events.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; } return o; });
     S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, ev: ev, at: Date.now() });
     S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
+    if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
     S.match = null; pick = null; outPick = null; ed = null; save(); go('stats');
   });
 
@@ -2550,13 +2768,15 @@ tr.past td { opacity: .45; }
     var html = '', busy = !!S.match;
     S.players.forEach(function (p) {
       html += '<div class="orow"><input id="name-' + p.id + '" data-id="' + p.id + '" value="' + esc(p.name) + '" aria-label="Player name" autocomplete="off" maxlength="24">' +
+        '<select data-posfor="' + p.id + '" aria-label="Position for ' + esc(p.name) + '"><option value="">Position</option>' + POS.map(function (o) { return '<option value="' + o[0] + '"' + (p.pos === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
         '<button class="x" type="button" data-rm="' + p.id + '" aria-label="Remove ' + esc(p.name) + '"' + (busy || S.players.length <= 1 ? ' disabled' : '') + '>&times;</button></div>';
     });
     $('squad').innerHTML = html;
     $('squadNote').textContent = busy ? 'You can rename players now. Removing players is locked while a game is in progress.' : 'Removing a player also removes their stats.';
     $('setHalf').value = S.half; $('setSub').value = S.sub; $('setPitch').value = S.pitch;
   }
-  $('squad').addEventListener('input', function (e) { var p = P(+e.target.getAttribute('data-id')); if (p) { p.name = e.target.value; save(); } });
+  $('squad').addEventListener('input', function (e) { if (!e.target.hasAttribute('data-id')) return; var p = P(+e.target.getAttribute('data-id')); if (p) { p.name = e.target.value; save(); } });
+  $('squad').addEventListener('change', function (e) { var id = e.target.getAttribute('data-posfor'); if (id === null || !e.target.value) return; var p = P(+id); if (p) { p.pos = e.target.value; save(); } });
   $('squad').addEventListener('click', function (e) {
     var id = e.target.getAttribute('data-rm'); if (id === null || S.match || S.players.length <= 1) return;
     S.players = S.players.filter(function (p) { return p.id !== +id; });
@@ -2612,7 +2832,7 @@ tr.past td { opacity: .45; }
   // boot
   upgrade(S.match);
   if (S.match) lastBlock = curSeg(S.match);
-  var first = !A.introSeen ? 'intro' : !A.active ? 'welcome' : S.view === 'reel' ? 'stats' : ['intro', 'join', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
+  var first = !A.introSeen ? 'intro' : !A.active ? 'welcome' : S.view === 'reel' ? 'stats' : ['intro', 'join', 'poll', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
   go(first);
   setSync();
   connect();
