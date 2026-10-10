@@ -32,7 +32,7 @@ console.log('second card after "I\'m in":', (await A.textContent('#gamesTrack .f
 if (out) { fs.mkdirSync(out, { recursive: true }); await A.screenshot({ path: `${out}/games.png` }); }
 const votes = await A.evaluate(() => { const d = JSON.parse(localStorage.getItem('__mockdb')); return d.fixture_votes.map((v) => d.fixtures.find((f) => f.id === v.fixture_id).opp + ':' + v.choice); });
 console.log('votes in db:', JSON.stringify(votes));
-await A.click('#tabs [data-tab="home"]'); await wait(300); console.log('home card:', (await A.textContent('#fxCard h2')), '|', await A.textContent('#fxCard [data-fx="all"]'));
+await A.click('#tabs [data-tab="home"]'); await wait(300); console.log('home card:', (await A.textContent('#fxCard')).replace(/\s+/g, ' '));
 if (out) await A.screenshot({ path: `${out}/home-tabs.png` });
 await A.click('#fxCard [data-fx="all"]'); await wait(200); console.log('see all ->', await view(A));
 await A.click('#mOptions'); await wait(200); console.log('settings tab ->', await view(A), '| bar still shown:', await A.isVisible('#tabs'));

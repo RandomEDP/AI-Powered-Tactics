@@ -32,10 +32,10 @@ await wait(5000); console.log('still locked after 6.5s:', await A.isDisabled('#g
 // polls: a new one notifies the team, and the gaffer can nudge whoever hasn't answered
 await A.click('#v-game .back'); await wait(300);
 await A.click('#fxCard [data-fx="new"]'); await A.fill('#pOpp', 'Athletico Pathetico'); await A.fill('#pDate', '2026-10-13'); await A.fill('#pTime', '19:30'); await A.click('#pSave'); await wait(800);
-await A.click('#fxCard [data-fx="nudge"]'); await wait(500);
-console.log('nudge:', await A.textContent('#fxCard .msg'), '| button now disabled:', await A.isDisabled('#fxCard [data-fx="nudge"]'));
+await A.click('#gamesTrack .fxc [data-fx="nudge"]'); await wait(500);
+console.log('nudge:', await A.textContent('#gamesTrack .fxc .msg'), '| button now disabled:', await A.isDisabled('#gamesTrack .fxc [data-fx="nudge"]'));
 console.log('notifications asked for:', JSON.stringify((await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).calls)).map((c) => [c.name, c.body.kind, c.body.title, c.body.body])));
 console.log('zoom locked:', await A.evaluate(() => document.querySelector('meta[name=viewport]').content.includes('user-scalable=no') && getComputedStyle(document.documentElement).touchAction));
-await A.click('[data-go="soon"]'); await wait(500); console.log('coming soon:', await view(A), '|', (await A.$$eval('.soon-list b', (b) => b.map((x) => x.textContent))).join(' / '));
+await A.click('#tabs [data-tab="home"]'); await wait(200); await A.click('[data-go="soon"]'); await wait(500); console.log('coming soon:', await view(A), '|', (await A.$$eval('.soon-list b', (b) => b.map((x) => x.textContent))).join(' / '));
 if (out) { await A.screenshot({ path: `${out}/soon.png`, fullPage: true }); await A.click('#v-soon .back'); await wait(500); await A.screenshot({ path: `${out}/home.png`, fullPage: true }); }
 console.log('errors:', JSON.stringify(errs)); await b.close();

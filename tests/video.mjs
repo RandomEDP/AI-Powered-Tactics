@@ -62,8 +62,8 @@ await shot(A, 'hl-by-player');
 // a poll, and its calendar entry
 await A.click('.view:not([hidden]) [data-go="home"], .view:not([hidden]) .back'); await wait(300);
 await A.click('#fxCard [data-fx="new"]'); await A.fill('#pOpp', 'Athletico Pathetico'); await A.fill('#pDate', '2026-10-13'); await A.fill('#pTime', '19:30'); await A.fill('#pLoc', 'Powerleague Romford, pitch 4'); await A.fill('#pCost', '£5 each'); await A.click('#pSave'); await wait(700);
-console.log('poll card:', (await A.textContent('#fxCard')).replace(/\s+/g, ' ').slice(0, 120), '| class:', await A.getAttribute('#fxCard', 'class'));
-await A.click('#fxCard [data-fx="cal"]'); await wait(300);
-console.log((await A.evaluate(() => window.__rc)).find((x) => x.startsWith('calendar')), '|', await A.textContent('#fxCard .msg'));
+console.log('poll card:', (await A.textContent('#gamesTrack .fxc')).replace(/\s+/g, ' ').slice(0, 120), '| class:', await A.getAttribute('#gamesTrack .fxc', 'class'));
+await A.click('#gamesTrack .fxc [data-fx="cal"]'); await wait(300);
+console.log((await A.evaluate(() => window.__rc)).find((x) => x.startsWith('calendar')), '|', await A.textContent('#gamesTrack .fxc .msg'));
 await shot(A, 'home-poll');
 console.log('errors:', JSON.stringify(errs)); await b.close();

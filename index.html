@@ -75,6 +75,8 @@ button:active:not(:disabled) { transform: scale(.955); filter: brightness(.93); 
 .menu button:nth-child(2) { animation-delay: .03s; } .menu button:nth-child(3) { animation-delay: .06s; } .menu button:nth-child(4) { animation-delay: .09s; } .menu button:nth-child(5) { animation-delay: .12s; } .menu button:nth-child(6) { animation-delay: .15s; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px) scale(.98); } }
 .bump { animation: bump .5s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.busy { display: flex; align-items: center; gap: 12px; } .busy::before { content: ''; flex: none; width: 22px; height: 22px; border-radius: 50%; border: 3px solid color-mix(in srgb, currentColor 22%, transparent); border-top-color: currentColor; animation: spin .8s linear infinite; }
 @keyframes bump { 30% { transform: scale(1.35); } }
 #kickPop:not([hidden]) { animation: fade .2s both; } #kickPop:not([hidden]) .kickbox { animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
 @keyframes fade { from { opacity: 0; } } @keyframes sheet { from { transform: translateY(40px); opacity: 0; } }
@@ -1939,6 +1941,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var ff = fmtFix(Object.assign({ side: f.side || 5 }, f.fmt || fmtDefault(tour ? 'tournament' : 'game', f.side || 5)));
     var played = tour ? S.results.filter(function (r) { return r.tour === f.id; }) : [];
     card.classList.add(ask ? 'ask' : 'live'); card.setAttribute('data-fxid', f.id);
+    if (home) { // the team screen only points at the game; answering and the line-up live on the Games screen
+      var ch = mine && mine.choice, more = fixtures.length - 1;
+      card.innerHTML = (ask ? '<span class="fxtag">Are you in?</span>' : '') + (tour ? '<span class="fxtag tour">Tournament</span>' : '') + '<h2>' + (tour ? 'Next up: ' : 'Next game: v ') + esc(f.opp || 'TBC') + '</h2>' +
+        '<p class="fxsub">' + esc(whenText(f.ko_at)) + ' · ' + (left ? left + (left === 1 ? ' space left' : ' spaces left') : 'full') + '</p>' +
+        '<p class="note">' + (myPid == null ? 'Choose your player below, then say if you’re in.' : ch === 'in' ? 'You’re in.' : ch === 'gk' ? 'You’re in goal.' : ch === 'no' ? 'You’re out.' : 'You haven’t answered yet.') +
+        (own && s.none.length ? ' ' + s.none.length + ' still to answer.' : '') + (more > 0 ? ' ' + more + ' more ' + (more === 1 ? 'game' : 'games') + ' lined up.' : '') + '</p>' +
+        '<div class="actions"><button class="plain primary" type="button" data-fx="all">' + (ask ? 'Say if you’re in' : 'Open the game') + ' &rsaquo;</button></div>';
+      card.hidden = false; return;
+    }
     html += (ask ? '<span class="fxtag">Are you in?</span>' : '') + (tour ? '<span class="fxtag tour">Tournament</span>' : '') + '<h2>' + (tour ? (f === fixtures[0] ? 'Next up: ' : '') : f === fixtures[0] ? 'Next game: v ' : 'v ') + esc(f.opp || 'TBC') + '</h2>' +
       '<p class="fxsub">' + esc(whenText(f.ko_at)) + ' · ' + (left ? left + (left === 1 ? ' space left' : ' spaces left') : 'full') + '</p>' +
       '<p class="note">' + [f.location ? esc(f.location) : '', f.cost ? esc(f.cost) : '', fmtText(ff) + (tour ? ' games' : '')].filter(Boolean).join(', ') + '</p>' +
@@ -1952,7 +1963,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     } else html += '<p class="note">Choose your player below to answer.</p>';
     if (fxMsg) html += '<p class="msg">' + esc(fxMsg) + '</p>';
     if (s.gk != null || s.start.length) {
-      html += '<div class="pitchmap' + (own ? ' edit' : '') + '"' + (home ? ' id="pitchMap"' : '') + ' data-fx="' + f.id + '"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width=".6" opacity=".28" vector-effect="non-scaling-stroke">' +
+      html += '<div class="pitchmap' + (own ? ' edit' : '') + '" data-fx="' + f.id + '"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width=".6" opacity=".28" vector-effect="non-scaling-stroke">' +
         '<rect x="3" y="3" width="94" height="94" rx="2"/><line x1="3" y1="50" x2="97" y2="50"/><ellipse cx="50" cy="50" rx="14" ry="10.5"/><rect x="30" y="85" width="40" height="12"/><rect x="30" y="3" width="40" height="12"/></g></svg>' +
         Object.keys(spots).map(function (id) { id = +id; return '<button type="button" class="dot' + (id === s.gk ? ' gk' : '') + (id === myPid ? ' me' : '') + '" data-dot="' + id + '" style="left:' + spots[id][0] + '%;top:' + spots[id][1] + '%"' + (own ? '' : ' tabindex="-1"') + '><i>' + esc(tag(id)) + '</i><span>' + esc(nm(id)) + '</span></button>'; }).join('') + '</div>';
       if (own) html += '<p class="note">Drag a player to move them. Tap one to send them to the bench.</p>';
@@ -1970,7 +1981,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       }).join('') + '</div>';
     }
     html += '<div class="actions"><button class="plain" type="button" data-fx="cal">Add to calendar</button></div>';
-    if (home && fixtures.length > 1) html += '<div class="actions"><button class="plain" type="button" data-fx="all">' + (fixtures.length - 1) + ' more ' + (fixtures.length === 2 ? 'game' : 'games') + ' lined up: see all</button></div>';
     card.hidden = false; card.innerHTML = html;
   }
   // The game as a calendar entry: "Team vs Opponent", with the kick-off time and the location.
@@ -2174,13 +2184,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       fmtRemember(pKind, PF);
       S.poll = { location: row.location, cost: row.cost, max: PF.side === 5 ? row.max_outfield : ((S.poll || {}).max || null), time: $('pTime').value || '19:00', dow: dt.getDay() }; // the defaults for the next poll
       var isNew = !fxEdit;
-      save(); ping('changed'); await pull(); go(pollBack);
+      save(); ping('changed'); await pull(); go('games');
       if (isNew) notifyTeam('poll', row.kind === 'tournament' ? teamName() + ': ' + row.opp : teamName() + ' v ' + row.opp, (row.kind === 'tournament' ? 'New tournament on ' : 'New game on ') + whenText(row.ko_at) + '. Are you in?');
     } catch (e) { $('pSave').disabled = false; $('pMsg').textContent = 'Couldn’t save the poll. Check your signal and try again.'; }
   });
   armed($('pCancel'), 'Tap again to cancel the game', async function () {
     if (!fxEdit || !sb) return;
-    try { await q(sb.from('fixtures').update({ status: 'cancelled' }).eq('id', fxEdit.id)); ping('changed'); await pull(); go(pollBack); } catch (e) { $('pMsg').textContent = 'Couldn’t cancel the poll. Check your signal.'; }
+    try { await q(sb.from('fixtures').update({ status: 'cancelled' }).eq('id', fxEdit.id)); ping('changed'); await pull(); go('games'); } catch (e) { $('pMsg').textContent = 'Couldn’t cancel the poll. Check your signal.'; }
   });
 
   var lockT = null;
@@ -2295,8 +2305,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var CUT = null, rcBound = false;
   function RCp() { var rc = plugin('ReelCutter'); if (rc && !rcBound) { rcBound = true; try { rc.addListener('progress', cutProgress); } catch (e) {} } return rc; }
   function cutProgress(d) {
-    if (!CUT || !d) return;
+    if (!d) return;
     var pct = Math.round((d.p || 0) * 100);
+    if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
+    if (!CUT) return;
     CUT.prog = d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';
     var el = $('cutProg'); if (el) el.textContent = CUT.prog;
   }
@@ -2315,18 +2327,18 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var html = '<p class="msg">' + esc(teamShort() + ' ' + r.us + '–' + r.them + ' ' + r.opp) + '</p>';
     if (CUT.stage === 'pick') html += '<p class="note">Pick the GoPro or phone footage of this game from your photos. One continuous video of the whole game is recommended. If the recording was stopped at half time, pick the first half now and add the second half on the next screen.</p>' +
       '<p class="note">The cutting happens on this phone, and only the finished clips are uploaded.</p>' +
-      (CUT.prog ? '<p class="msg" id="cutProg">' + esc(CUT.prog) + '</p>' : '<div class="actions"><button class="plain primary" type="button" data-cutdo="pick">Choose the video</button></div><p class="msg" id="cutProg"></p>');
+      (CUT.prog ? '<p class="msg busy" id="cutProg">' + esc(CUT.prog) + '</p>' : '<div class="actions"><button class="plain primary" type="button" data-cutdo="pick">Choose the video</button></div><p class="msg busy" id="cutProg"></p>');
     else if (CUT.stage === 'sync') {
       var n = cutList(r, CUT.sync || 0, CUT.src2 ? CUT.sync2 || 0 : null).length;
       html += '<section><h2>Where is kick-off in the video?</h2><p class="note">' + (CUT.auto ? 'Worked out from when the recording started. Change it if the clips come out early or late.' : 'Play the video, find the moment of kick-off, and enter the time shown.') + '</p>' +
         '<label class="field" for="cutSync">Kick-off at<input id="cutSync" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + (CUT.sync != null ? mmss(CUT.sync) : '') + '"></label>';
       if (CUT.src2) html += '<label class="field" for="cutSync2">Second half kicks off at, in the second video<input id="cutSync2" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + (CUT.sync2 != null ? mmss(CUT.sync2) : '') + '"></label>' +
         '<div class="actions"><button class="plain" type="button" data-cutdo="drop2">Remove the second video</button></div>';
-      else if (r.h2At) html += (CUT.prog ? '<p class="msg" id="cutProg">' + esc(CUT.prog) + '</p>' : '<div class="novid"><span>Recording stopped at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="pick2">Add a second-half video</button></div><p class="msg" id="cutProg"></p>');
+      else if (r.h2At) html += (CUT.prog ? '<p class="msg busy" id="cutProg">' + esc(CUT.prog) + '</p>' : '<div class="novid"><span>Recording stopped at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="pick2">Add a second-half video</button></div><p class="msg busy" id="cutProg"></p>');
       html += '<p class="note">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut, each with the app’s watermark, plus one joined reel with an outro card to share.</p>' +
         '<div class="actions"><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
     }
-    else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p><p class="msg" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>';
+    else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p><p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>';
     else if (CUT.stage === 'done') html += '<p class="msg">' + CUT.n + (CUT.n === 1 ? ' clip is' : ' clips are') + ' now in Highlights for the whole team.</p>' +
       '<div class="actions">' + (CUT.reel ? '<button class="plain primary" type="button" data-cutdo="share">Share the full reel</button>' : '') + '<button class="plain" type="button" data-cutdo="finish">Done</button></div>' +
       '<p class="note">The full reel, with the outro card, is on this phone until you tap Done. Share it or save it to Photos first.</p>';
@@ -3276,10 +3288,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var mv = plugin('MatchVision'), html = '', nums = trNums(), on = trStore('trackOn') || {}, runs = trStore('tracking') || [];
     html += '<p class="note">Experimental. It follows the players you name through a recording and gives each a heat map and the distance covered. It doesn’t track the ball or the score.</p>';
     if (!mv) html += '<div class="hcard"><h3>Needs the iPhone app</h3><p class="note">The tracking runs on the phone’s own chip, so it isn’t available on the website.</p></div>';
-    else if (TR.stage === 'work') html += '<div class="hcard"><h3>Working…</h3><p class="msg" id="trProg">' + esc(TR.prog || 'Starting…') + '</p><p class="note">Keep the app open and the phone on charge. A whole game can take a long time, possibly longer than the game itself.</p><div class="actions"><button class="plain" type="button" data-tr="stop">Stop</button></div></div>';
+    else if (TR.stage === 'work') html += '<div class="hcard"><h3>Working…</h3><p class="msg busy" id="trProg">' + esc(TR.prog || 'Starting…') + '</p><p class="note">Keep the app open and the phone on charge. A whole game can take a long time, possibly longer than the game itself.</p><div class="actions"><button class="plain" type="button" data-tr="stop">Stop</button></div></div>';
     else {
       html += '<section><h2>1. The recording</h2><p class="note">Filmed in landscape from a fixed spot behind a goal, as high as you can, with the whole pitch in view. Original quality reads numbers best.</p>' +
-        '<div class="actions"><button class="plain' + (TR.src ? '' : ' primary') + '" type="button" data-tr="pick">' + (TR.src ? 'Choose a different video' : 'Choose the video') + '</button></div>' + (TR.src ? '<p class="msg">Video chosen, ' + Math.floor(TR.src.duration / 60) + ':' + p2(Math.round(TR.src.duration % 60)) + ' long.</p>' : '') + '</section>';
+        (TR.picking ? '<p class="msg busy" id="trPick">' + esc(TR.pickProg || 'Opening your photos…') + '</p>' : '<div class="actions"><button class="plain' + (TR.src ? '' : ' primary') + '" type="button" data-tr="pick">' + (TR.src ? 'Choose a different video' : 'Choose the video') + '</button></div>') + (TR.src && !TR.picking ? '<p class="msg">Video chosen, ' + Math.floor(TR.src.duration / 60) + ':' + p2(Math.round(TR.src.duration % 60)) + ' long.</p>' : '') + '</section>';
       html += '<section><h2>2. Which part</h2><p class="note">Leave both empty for the whole video, or give a stretch to try it on first.</p><div class="three">' +
         '<label class="field" for="trFrom">From<input id="trFrom" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + esc(TR.from || '') + '"></label>' +
         '<label class="field" for="trTo">To<input id="trTo" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + esc(TR.to || '') + '"></label>' +
@@ -3289,7 +3301,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         return '<div class="trow"><input type="checkbox" id="trOn' + p.id + '" data-tron="' + p.id + '"' + (on[p.id] ? ' checked' : '') + ' aria-label="' + esc(nm(p.id)) + ' is on"><label for="trOn' + p.id + '"><b>' + esc(nm(p.id)) + '</b></label><input type="text" inputmode="numeric" maxlength="2" placeholder="No." data-trnum="' + p.id + '" value="' + (nums[p.id] == null ? '' : nums[p.id]) + '"' + (p.num != null ? ' readonly' : '') + ' aria-label="' + esc(nm(p.id)) + ' shirt number"></div>';
       }).join('') + '</div></section>';
       if (TR.msg) html += '<p class="msg bad">' + esc(TR.msg) + '</p>';
-      html += '<div class="actions"><button class="plain primary" type="button" data-tr="go"' + (TR.src ? '' : ' disabled') + '>Track these players</button></div>';
+      html += '<div class="actions"><button class="plain primary" type="button" data-tr="go"' + (TR.src && !TR.picking ? '' : ' disabled') + '>Track these players</button></div>';
     }
     if (TR.res) html += '<section><h2>Result</h2>' + trResult(TR.res) + '</section>';
     if (runs.length) html += '<section><h2>Earlier runs on this phone</h2><div class="tbrow">' + runs.map(function (r, i) { return '<button type="button" data-trrun="' + i + '">' + esc(r.label) + '</button>'; }).join('') + '</div></section>';
@@ -3324,9 +3336,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (act === 'stop') { try { await mv.cancel(); } catch (err) {} return; }
     var kept = trKeep();
     if (act === 'pick') {
-      var rc = RCp(); if (!rc) return;
+      var rc = RCp(); if (!rc || TR.picking) return;
+      TR.picking = true; TR.pickProg = ''; TR.msg = ''; renderTrack();
       try { var src = await rc.pickVideo({ slot: 3 }); if (src && !src.cancelled) { TR.src = src; TR.msg = ''; } } catch (err) { TR.msg = (err && err.message) || 'Couldn’t read that video.'; }
-      renderTrack(); return;
+      TR.picking = false; renderTrack(); return;
     }
     if (act !== 'go' || !TR.src) return;
     var ticked = S.players.some(function (p) { return kept.on[p.id]; }), players = S.players.filter(function (p) { return ticked ? kept.on[p.id] : kept.nums[p.id] != null; }), missing = players.filter(function (p) { return kept.nums[p.id] == null; }), seen = {}, dupe = false;
