@@ -48,6 +48,14 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build | tail -n 60
 
+      - name: Note the signing certificates the account already has
+        if: github.event_name == 'workflow_dispatch' && inputs.testflight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: node scripts/asc-certs.mjs list > "$RUNNER_TEMP/certs-before.txt"
+
       - name: Sign and upload to TestFlight
         if: github.event_name == 'workflow_dispatch' && inputs.testflight
         env:
@@ -75,3 +83,15 @@ jobs:
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" "${AUTH[@]}"
           echo "Uploaded build ${{ github.run_number }} (version $VERSION). It appears in TestFlight once Apple finishes processing, usually 5 to 15 minutes."
+
+      # Each signed build makes Xcode create a development certificate on this throwaway Mac. Apple caps how many an
+      # account can hold, so the one this build made is revoked again. Nothing that existed before the build is touched.
+      - name: Revoke the certificate this build created
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.testflight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          [ -s "$RUNNER_TEMP/certs-before.txt" ] || { echo "No list from before the build, so nothing is revoked."; exit 0; }
+          node scripts/asc-certs.mjs revoke-new "$RUNNER_TEMP/certs-before.txt"
