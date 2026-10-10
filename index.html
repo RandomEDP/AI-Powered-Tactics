@@ -380,6 +380,21 @@ tr.past td { opacity: .45; }
 #kickPop[hidden] { display: none; }
 .kickbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); }
 .kickbox p { font-size: 20px; font-weight: 750; }
+#tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); box-shadow: 0 -1px 0 var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+#tabs[hidden] { display: none; }
+#tabs .tabrow { max-width: 552px; margin-inline: auto; display: grid; grid-template-columns: 1fr 1fr 1fr; }
+#tabs button { position: relative; border: 0; background: none; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 650; color: var(--muted); }
+#tabs button svg { width: 24px; height: 24px; }
+#tabs button[aria-current="page"] { color: var(--on); }
+#tabs button.locked { opacity: .45; }
+#tabBadge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ffc83d; color: #2a2100; font-size: 12px; font-weight: 800; line-height: 18px; }
+#tabMsg { text-align: center; padding: 8px 16px 0; font-size: 14px; }
+body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
+.gtrack { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; align-items: flex-start; }
+.gtrack::-webkit-scrollbar { display: none; } .gtrack[hidden] { display: none; }
+.gtrack .fxc { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; }
+.fxc.live { box-shadow: inset 0 0 0 2px var(--team); } .fxc.ask { box-shadow: inset 0 0 0 3px #ffc83d; }
+.gdots { justify-content: center; } .gdots:empty { display: none; }
 #insBody { display: flex; flex-direction: column; gap: 24px; }
 .inslist { list-style: none; margin: 0; padding: 4px 16px; background: var(--surface); border-radius: var(--r-card); }
 .inslist li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--line); }
@@ -602,6 +617,24 @@ tr.past td { opacity: .45; }
 <div id="kickPop" role="alertdialog" aria-labelledby="kickPopText" hidden><div class="kickbox"><p id="kickPopText"></p>
   <div class="actions"><button class="plain primary" id="kickWatch" type="button">Watch along</button><button class="plain" id="kickLater" type="button">Not now</button></div></div></div>
 
+<div class="view" id="v-games" hidden>
+  <div class="bar"><h1>Games</h1></div>
+  <p class="note" id="gamesCount"></p>
+  <p class="note" id="gamesEmpty" hidden></p>
+  <div class="actions"><button class="plain own" id="gamesNew" type="button">Schedule a game</button></div>
+  <div class="gtrack" id="gamesTrack" hidden></div>
+  <div class="dots gdots" id="gamesDots"></div>
+</div>
+
+<nav id="tabs" aria-label="Main" hidden>
+  <p class="msg" id="tabMsg" role="status"></p>
+  <div class="tabrow">
+    <button type="button" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Home</span></button>
+    <button type="button" data-tab="games"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Games</span><b id="tabBadge" hidden></b></button>
+    <button type="button" id="mOptions" data-tab="options"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Settings</span></button>
+  </div>
+</nav>
+
 <div class="view" id="v-insights" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Insights</h1></div>
   <div id="insBody"></div>
@@ -635,7 +668,6 @@ tr.past td { opacity: .45; }
     <button id="mStats" type="button">Stats</button>
     <button id="mHighlights" type="button">Highlights</button>
     <button id="mInsights" type="button">Insights</button>
-    <button id="mOptions" type="button">Options</button>
   </div>
   <p class="msg" id="lockMsg" role="status"></p>
   <button class="soon-pill" type="button" data-go="soon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI reports and commentary</small></button>
@@ -648,7 +680,7 @@ tr.past td { opacity: .45; }
 
 <div class="view" id="v-poll" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1 id="pollTitle">New poll</h1></div>
-  <p class="note">The squad sees this on the team screen and says who's in. Location, cost, time and squad size are remembered for your next poll.</p>
+  <p class="note">The squad sees this on the team screen and says who's in. You can line up as many games as you like; they all appear under Games. Location, cost, time and squad size are remembered for your next poll.</p>
   <label class="field" for="pOpp">Who are you playing?<input id="pOpp" type="text" maxlength="60" autocomplete="off" list="pOppList"></label><datalist id="pOppList"></datalist>
   <div class="two">
     <label class="field" for="pDate">Date<input id="pDate" type="date"></label>
@@ -856,7 +888,7 @@ tr.past td { opacity: .45; }
 </div>
 
 <div class="view" id="v-options" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Options</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Settings</h1></div>
   <section>
     <h2>Team</h2>
     <div class="codeline"><span>Team code</span><b id="optCode"></b><button class="plain" id="optCopy" type="button">Copy</button></div>
@@ -970,7 +1002,7 @@ tr.past td { opacity: .45; }
   var role = 'viewer', teamId = null, orgCode = null;
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1119,7 +1151,8 @@ tr.past td { opacity: .45; }
       teamId = d.team.id; orgCode = d.team.organiser_code || null;
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
       myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || [];
-      if (S.view === 'home') renderFixture();
+      if (S.view === 'home' || S.view === 'games') renderFixture();
+      renderTabs();
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips })); } catch (e) {}
       var org = !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
@@ -1401,7 +1434,7 @@ tr.past td { opacity: .45; }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1424,6 +1457,7 @@ tr.past td { opacity: .45; }
     try { window.scrollTo(0, 0); } catch (e) {}
   }
   function render() {
+    renderTabs();
     if (S.view === 'intro') return;
     if (S.view === 'welcome') renderWelcome();
     else if (S.view === 'join') renderJoin();
@@ -1434,6 +1468,7 @@ tr.past td { opacity: .45; }
     else if (S.view === 'create') renderCreate();
     else if (S.view === 'code') renderCode();
     else if (S.view === 'home') renderHome();
+    else if (S.view === 'games') renderGames();
     else if (S.view === 'setup') renderSetup();
     else if (S.view === 'mins') renderMins();
     else if (S.view === 'game') renderGame();
@@ -1765,7 +1800,6 @@ tr.past td { opacity: .45; }
     $('mResume').hidden = !m; $('mResumeLbl').textContent = own ? 'Resume game' : 'Watch the game';
     $('homeNote').hidden = own || !!m;
     $('mNew').className = (m ? '' : 'primary') + (own ? '' : ' locked'); $('mNew').setAttribute('aria-disabled', !own);
-    $('mOptions').className = own ? '' : 'locked'; $('mOptions').setAttribute('aria-disabled', !own);
     if (m) { var t = tally(m); $('mResumeSub').textContent = 'v ' + m.opp + ', ' + t.us + '–' + t.them; }
     // you
     var pend = A.pending && A.pending.code === A.active && !me ? A.pending : null, card = $('meCard'), html = '';
@@ -1802,7 +1836,7 @@ tr.past td { opacity: .45; }
   }
 
   // ---- polls: the next game, who's in, and where they line up
-  var fixtures = [], fxAnswer = false, fxMsg = '', fxMsgT = null, fxEdit = null;
+  var fixtures = [], fxAnswer = null, fxMsg = '', fxMsgT = null, fxEdit = null;
   var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var p2 = function (n) { return ('0' + n).slice(-2); };
   function whenText(ms) { var d = new Date(ms); return DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] + ', ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
@@ -1825,10 +1859,14 @@ tr.past td { opacity: .45; }
     return out;
   }
   function fxSay(t) { fxMsg = t || ''; clearTimeout(fxMsgT); if (t) fxMsgT = setTimeout(function () { fxMsg = ''; renderFixture(); }, 5000); renderFixture(); }
-  function renderFixture() {
-    var card = $('fxCard'), f = nextFx(), own = role === 'owner', html = '';
+  function renderFixture() { // the next game on the team screen, and every game on the Games screen
+    fxFill($('fxCard'), nextFx(), true);
+    if (S.view === 'games') renderGames();
+  }
+  function fxFill(card, f, home) {
+    var own = role === 'owner', html = '';
     if (!sb) { card.hidden = true; return; }
-    card.classList.remove('live', 'ask');
+    card.classList.remove('live', 'ask'); card.removeAttribute('data-fxid');
     if (!f) {
       card.hidden = !own;
       card.innerHTML = '<h2>Next game</h2><p class="note">No game lined up. Create a poll so the squad can say who’s in.</p><div class="actions"><button class="plain primary" type="button" data-fx="new">Create a poll</button></div>';
@@ -1837,8 +1875,8 @@ tr.past td { opacity: .45; }
     var s = fxSides(f), spots = fxSpots(f, s), mine = myPid == null ? null : (f.votes || []).filter(function (v) { return v.pid === myPid; })[0];
     var full = s.ins.length >= f.max_outfield, names = function (ids) { return ids.map(function (id) { return esc(nm(id)); }).join(', '); };
     var left = Math.max(0, f.max_outfield - s.ins.length) + (s.gk == null ? 1 : 0), ask = myPid != null && !mine;
-    card.classList.add(ask ? 'ask' : 'live');
-    html += (ask ? '<span class="fxtag">Are you in?</span>' : '') + '<h2>Next game: v ' + esc(f.opp || 'TBC') + '</h2>' +
+    card.classList.add(ask ? 'ask' : 'live'); card.setAttribute('data-fxid', f.id);
+    html += (ask ? '<span class="fxtag">Are you in?</span>' : '') + '<h2>' + (f === fixtures[0] ? 'Next game: v ' : 'v ') + esc(f.opp || 'TBC') + '</h2>' +
       '<p class="fxsub">' + esc(whenText(f.ko_at)) + ' · ' + (left ? left + (left === 1 ? ' space left' : ' spaces left') : 'full') + '</p>' +
       '<p class="note">' + [f.location ? esc(f.location) : '', f.cost ? esc(f.cost) : ''].filter(Boolean).join(', ') + '</p>' +
       '<p class="note"><b>' + s.ins.length + ' of ' + f.max_outfield + '</b> outfield' + (full ? ' (full)' : '') + ', keeper: <b>' + (s.gk != null ? esc(nm(s.gk)) : 'needed') + '</b></p>';
@@ -1850,7 +1888,7 @@ tr.past td { opacity: .45; }
     } else html += '<p class="note">Choose your player below to answer.</p>';
     if (fxMsg) html += '<p class="msg">' + esc(fxMsg) + '</p>';
     if (s.gk != null || s.start.length) {
-      html += '<div class="pitchmap' + (own ? ' edit' : '') + '" id="pitchMap" data-fx="' + f.id + '"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width=".6" opacity=".28" vector-effect="non-scaling-stroke">' +
+      html += '<div class="pitchmap' + (own ? ' edit' : '') + '"' + (home ? ' id="pitchMap"' : '') + ' data-fx="' + f.id + '"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width=".6" opacity=".28" vector-effect="non-scaling-stroke">' +
         '<rect x="3" y="3" width="94" height="94" rx="2"/><line x1="3" y1="50" x2="97" y2="50"/><ellipse cx="50" cy="50" rx="14" ry="10.5"/><rect x="30" y="85" width="40" height="12"/><rect x="30" y="3" width="40" height="12"/></g></svg>' +
         Object.keys(spots).map(function (id) { id = +id; return '<button type="button" class="dot' + (id === s.gk ? ' gk' : '') + (id === myPid ? ' me' : '') + '" data-dot="' + id + '" style="left:' + spots[id][0] + '%;top:' + spots[id][1] + '%"' + (own ? '' : ' tabindex="-1"') + '><i>' + esc(nm(id).slice(0, 2)) + '</i><span>' + esc(nm(id)) + '</span></button>'; }).join('') + '</div>';
       if (own) html += '<p class="note">Drag a player to move them. Tap one to send them to the bench.</p>';
@@ -1860,15 +1898,15 @@ tr.past td { opacity: .45; }
     if (s.none.length) html += '<p class="note">No answer yet: ' + names(s.none) + '</p>';
     if (own) {
       html += '<div class="actions"><button class="plain primary" type="button" data-fx="start">Start this game</button><button class="plain" type="button" data-fx="edit">Edit poll</button>' +
-        '<button class="plain" type="button" data-fx="answer" aria-expanded="' + fxAnswer + '">Answer for a player</button>' +
+        '<button class="plain" type="button" data-fx="answer" aria-expanded="' + (fxAnswer === f.id) + '">Answer for a player</button>' +
         (s.none.length ? '<button class="plain" type="button" data-fx="nudge"' + (Date.now() < nudgeWait ? ' disabled' : '') + '>Nudge the squad</button>' : '') + '</div>';
-      if (fxAnswer) html += '<div class="plist">' + S.players.map(function (p) {
+      if (fxAnswer === f.id) html += '<div class="plist">' + S.players.map(function (p) {
         var v = (f.votes || []).filter(function (x) { return x.pid === p.id; })[0], ch = v && v.choice;
         return '<div class="lrow fxrow"><span class="who">' + esc(nm(p.id)) + '</span><span class="seg">' + [['in', 'In'], ['gk', 'GK'], ['no', 'Out']].map(function (o) { return '<button type="button" data-for="' + p.id + '" data-vote="' + o[0] + '" class="' + (ch === o[0] ? 'is' : '') + '">' + o[1] + '</button>'; }).join('') + '</span></div>';
       }).join('') + '</div>';
     }
     html += '<div class="actions"><button class="plain" type="button" data-fx="cal">Add to calendar</button></div>';
-    if (fixtures.length > 1) html += '<p class="note">' + (fixtures.length - 1) + ' more ' + (fixtures.length === 2 ? 'game' : 'games') + ' lined up after this one.</p>';
+    if (home && fixtures.length > 1) html += '<div class="actions"><button class="plain" type="button" data-fx="all">' + (fixtures.length - 1) + ' more ' + (fixtures.length === 2 ? 'game' : 'games') + ' lined up: see all</button></div>';
     card.hidden = false; card.innerHTML = html;
   }
   // The game as a calendar entry: "Team vs Opponent", with the kick-off time and the location.
@@ -1901,7 +1939,7 @@ tr.past td { opacity: .45; }
     return ['In or out v ' + opp + '?', when + '. Let the gaffer know either way.'];
   }
   async function nudge(f) {
-    var t = nudgeText(f); nudgeWait = Date.now() + 60000; setTimeout(function () { if (S.view === 'home') renderFixture(); }, 60500);
+    var t = nudgeText(f); nudgeWait = Date.now() + 60000; setTimeout(function () { if (S.view === 'home' || S.view === 'games') renderFixture(); }, 60500);
     fxSay('Sending…');
     var res = await notifyTeam('nudge', t[0], t[1], { fixture: f.id });
     fxSay(!res ? 'Couldn’t send the nudge. Check your signal.' : res.reason === 'not_configured' ? 'Notifications aren’t switched on for the app yet.'
@@ -1920,44 +1958,85 @@ tr.past td { opacity: .45; }
   async function saveLineup(f) {
     try { await q(sb.from('fixtures').update({ lineup: f.lineup }).eq('id', f.id)); ping('changed'); } catch (e) { fxSay('Couldn’t save the line-up. Check your signal.'); }
   }
-  $('fxCard').addEventListener('click', function (e) {
-    var b = e.target.closest('button'), f = nextFx(); if (!b) return;
+  function fxOf(el) { var c = el.closest('[data-fxid]'), id = c && c.getAttribute('data-fxid'); return id ? fixtures.filter(function (f) { return f.id === id; })[0] || null : null; }
+  function fxClick(e) {
+    var b = e.target.closest('button'), f = fxOf(e.target); if (!b) return;
     var act = b.getAttribute('data-fx'), vote = b.getAttribute('data-vote'), who = b.getAttribute('data-for'), un = b.getAttribute('data-unbench');
-    if (act === 'new') { fxEdit = null; go('poll'); return; }
+    if (act === 'new') { fxEdit = null; pollBack = S.view === 'games' ? 'games' : 'home'; go('poll'); return; }
+    if (act === 'all') { go('games'); return; }
     if (!f) return;
-    if (act === 'edit') { fxEdit = f; go('poll'); }
-    else if (act === 'answer') { fxAnswer = !fxAnswer; renderFixture(); }
+    if (act === 'edit') { fxEdit = f; pollBack = S.view === 'games' ? 'games' : 'home'; go('poll'); }
+    else if (act === 'answer') { fxAnswer = fxAnswer === f.id ? null : f.id; renderFixture(); }
     else if (act === 'cal') addToCalendar(f);
     else if (act === 'nudge' && role === 'owner') nudge(f);
     else if (act === 'start') startFromPoll(f);
     else if (vote && who !== null && role === 'owner') castVote(f, vote, +who);
     else if (vote && myPid != null) castVote(f, vote, null);
     else if (un !== null && role === 'owner') { var s = fxSides(f); f.lineup = f.lineup || {}; f.lineup.bench = s.bench.filter(function (id) { return id !== +un; }); renderFixture(); saveLineup(f); }
-  });
+  }
   // gaffers drag players round the pitch; a tap without a drag sends that player to the bench
-  var dragging = null;
-  $('fxCard').addEventListener('pointerdown', function (e) {
-    var dot = e.target.closest('[data-dot]'), map = $('pitchMap'); if (!dot || !map || role !== 'owner') return;
-    dragging = { id: +dot.getAttribute('data-dot'), el: dot, x0: e.clientX, y0: e.clientY, moved: false, box: map.getBoundingClientRect() };
+  var dragging = null, pollBack = 'home';
+  function fxDown(e) {
+    var dot = e.target.closest('[data-dot]'), map = dot && dot.closest('.pitchmap'), f = dot && fxOf(dot); if (!dot || !map || !f || role !== 'owner') return;
+    dragging = { f: f, id: +dot.getAttribute('data-dot'), el: dot, x0: e.clientX, y0: e.clientY, moved: false, box: map.getBoundingClientRect() };
     try { dot.setPointerCapture(e.pointerId); } catch (err) {}
     e.preventDefault();
-  });
-  $('fxCard').addEventListener('pointermove', function (e) {
+  }
+  function fxMove(e) {
     var d = dragging; if (!d) return;
     if (!d.moved && Math.abs(e.clientX - d.x0) + Math.abs(e.clientY - d.y0) < 8) return;
     d.moved = true;
     d.x = Math.max(6, Math.min(94, (e.clientX - d.box.left) / d.box.width * 100)); d.y = Math.max(6, Math.min(94, (e.clientY - d.box.top) / d.box.height * 100));
     d.el.style.left = d.x + '%'; d.el.style.top = d.y + '%';
-  });
+  }
   function dragEnd() {
-    var d = dragging, f = nextFx(); dragging = null; if (!d || !f) return;
+    var d = dragging, f = d && d.f; dragging = null; if (!d || !f) return;
     f.lineup = f.lineup || {};
     if (d.moved) { f.lineup.pos = f.lineup.pos || {}; f.lineup.pos[d.id] = [Math.round(d.x), Math.round(d.y)]; }
     else { var s = fxSides(f); if (d.id === s.gk) return; f.lineup.bench = s.bench.concat([d.id]); }
     renderFixture(); saveLineup(f);
   }
-  $('fxCard').addEventListener('pointerup', dragEnd);
-  $('fxCard').addEventListener('pointercancel', function () { dragging = null; renderFixture(); });
+  ['fxCard', 'gamesTrack'].forEach(function (id) {
+    $(id).addEventListener('click', fxClick);
+    $(id).addEventListener('pointerdown', fxDown);
+    $(id).addEventListener('pointermove', fxMove);
+    $(id).addEventListener('pointerup', dragEnd);
+    $(id).addEventListener('pointercancel', function () { dragging = null; renderFixture(); });
+  });
+  // ---- the Games screen: every game that's lined up, one card each, swiped side to side
+  function renderGames() {
+    var track = $('gamesTrack'), own = role === 'owner', keep = track.scrollLeft, ids = fixtures.map(function (f) { return f.id; }).join();
+    $('gamesNew').hidden = !own || !sb;
+    $('gamesEmpty').hidden = !!fixtures.length;
+    $('gamesEmpty').textContent = !sb ? 'Games you line up appear here once the team is connected.' : own ? 'No games lined up. Schedule one and the squad can say who’s in.' : 'No games lined up yet. They appear here when your gaffer schedules one.';
+    if (track.getAttribute('data-ids') !== ids) { track.innerHTML = fixtures.map(function () { return '<div class="card fxc"></div>'; }).join(''); track.setAttribute('data-ids', ids); }
+    Array.prototype.forEach.call(track.children, function (c, i) { fxFill(c, fixtures[i], false); });
+    track.hidden = !fixtures.length; track.scrollLeft = keep;
+    $('gamesDots').innerHTML = fixtures.length > 1 ? fixtures.map(function (f, i) { return '<button type="button" data-gd="' + i + '" aria-label="Game ' + (i + 1) + ' of ' + fixtures.length + '"></button>'; }).join('') : '';
+    gamesDot();
+  }
+  function gamesDot() {
+    var track = $('gamesTrack'), w = track.clientWidth || 1, cur = Math.round(track.scrollLeft / w);
+    Array.prototype.forEach.call($('gamesDots').children, function (d, i) { d.setAttribute('aria-current', i === cur); });
+    $('gamesCount').textContent = fixtures.length > 1 ? 'Game ' + (Math.min(fixtures.length, cur + 1)) + ' of ' + fixtures.length + '. Swipe for the others.' : '';
+  }
+  $('gamesTrack').addEventListener('scroll', gamesDot, { passive: true });
+  $('gamesDots').addEventListener('click', function (e) { var i = e.target.getAttribute('data-gd'); if (i !== null) { var t = $('gamesTrack'); t.scrollTo({ left: +i * t.clientWidth, behavior: 'smooth' }); } });
+  $('gamesNew').addEventListener('click', function () { if (role !== 'owner') return; fxEdit = null; pollBack = 'games'; go('poll'); });
+  // ---- the bar along the bottom: Home, Games, Settings
+  function renderTabs() {
+    var show = !!A.active && ['home', 'games', 'options'].indexOf(S.view) >= 0, own = role === 'owner';
+    $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
+    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === S.view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    var opt = $('mOptions'); opt.className = own ? '' : 'locked'; opt.setAttribute('aria-disabled', !own);
+    var todo = myPid == null ? 0 : fixtures.filter(function (f) { return !(f.votes || []).some(function (v) { return v.pid === myPid; }); }).length;
+    $('tabBadge').hidden = !todo; $('tabBadge').textContent = todo;
+  }
+  $('tabs').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.classList.contains('locked')) { $('tabMsg').textContent = 'Only the gaffer can change the settings.'; $('lockMsg').textContent = $('tabMsg').textContent; clearTimeout(lockT); lockT = setTimeout(function () { $('tabMsg').textContent = ''; $('lockMsg').textContent = ''; }, 4000); return; }
+    go(b.getAttribute('data-tab'));
+  });
   function startFromPoll(f) { // carry the poll straight into the new game screen
     if (S.match) { fxSay('Finish or scrap the game in progress first.'); return; }
     var s = fxSides(f);
@@ -2000,20 +2079,20 @@ tr.past td { opacity: .45; }
       else await q(sb.from('fixtures').insert(Object.assign({ team_id: teamId }, row)));
       S.poll = { location: row.location, cost: row.cost, max: row.max_outfield, time: $('pTime').value || '19:00', dow: dt.getDay() }; // the defaults for the next poll
       var isNew = !fxEdit;
-      save(); ping('changed'); await pull(); go('home');
+      save(); ping('changed'); await pull(); go(pollBack);
       if (isNew) notifyTeam('poll', teamName() + ' v ' + row.opp, 'New game on ' + whenText(row.ko_at) + '. Are you in?');
     } catch (e) { $('pSave').disabled = false; $('pMsg').textContent = 'Couldn’t save the poll. Check your signal and try again.'; }
   });
   armed($('pCancel'), 'Tap again to cancel the game', async function () {
     if (!fxEdit || !sb) return;
-    try { await q(sb.from('fixtures').update({ status: 'cancelled' }).eq('id', fxEdit.id)); ping('changed'); await pull(); go('home'); } catch (e) { $('pMsg').textContent = 'Couldn’t cancel the poll. Check your signal.'; }
+    try { await q(sb.from('fixtures').update({ status: 'cancelled' }).eq('id', fxEdit.id)); ping('changed'); await pull(); go(pollBack); } catch (e) { $('pMsg').textContent = 'Couldn’t cancel the poll. Check your signal.'; }
   });
 
   var lockT = null;
   $('homeMenu').addEventListener('click', function (e) { // gaffer-only buttons stay visible for everyone, and explain themselves
     var b = e.target.closest('button.locked'); if (!b) return;
     e.stopImmediatePropagation(); e.preventDefault();
-    $('lockMsg').textContent = b.id === 'mNew' ? 'Only the gaffer can start games.' : 'Only the gaffer can change the options.';
+    $('lockMsg').textContent = 'Only the gaffer can start games.';
     clearTimeout(lockT); lockT = setTimeout(function () { $('lockMsg').textContent = ''; }, 4000);
   }, true);
   $('meCard').addEventListener('click', async function (e) {
@@ -2026,7 +2105,6 @@ tr.past td { opacity: .45; }
   $('mResume').addEventListener('click', function () { go('game'); });
   armed($('mNew'), 'Scrap the game in progress?', function () { S.match = null; go('setup'); }, function () { return !!S.match; });
   $('mStats').addEventListener('click', function () { go('stats'); });
-  $('mOptions').addEventListener('click', function () { go('options'); });
   $('mHighlights').addEventListener('click', function () { go('highlights'); });
   $('mInsights').addEventListener('click', function () { go('insights'); });
 
