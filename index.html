@@ -2421,7 +2421,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (CUT.src2) html += '<label class="field" for="cutSync2">Second half kicks off at, in the second video<input id="cutSync2" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + (CUT.sync2 != null ? mmss(CUT.sync2) : '') + '"></label>' +
         '<div class="actions"><button class="plain" type="button" data-cutdo="drop2">Remove the second video</button></div>';
       else if (r.h2At) html += (CUT.prog ? '<p class="msg busy" id="cutProg">' + esc(CUT.prog) + '</p>' : '<div class="novid"><span>Recording stopped at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="pick2">Add a second-half video</button></div><p class="msg busy" id="cutProg"></p>');
-      if (A.exp && A.exp.track) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(experimental: a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel)</small></span></label>';
+      if (A.exp && A.exp.track) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(experimental: a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel)</small></span></label>' +
+        '<div class="two"><label class="field" for="cutVoiceName">Voice<select id="cutVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
+        '<label class="field" for="cutVoiceStyle">Delivery<select id="cutVoiceStyle"><option value="hype"' + (voicePick().style === 'hype' ? ' selected' : '') + '>Live commentator</option><option value="plain"' + (voicePick().style === 'plain' ? ' selected' : '') + '>Read it straight</option></select></label></div>' +
+        '<div class="actions"><button class="plain" type="button" data-cutdo="hear">Hear this voice</button></div>' + (CUT.heard ? '<p class="msg" role="status">' + esc(CUT.heard) + '</p>' : '');
       html += '<p class="note">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut, each with the app’s watermark, plus one joined reel with an outro card to share.</p>' +
         '<div class="actions"><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
     }
@@ -2437,7 +2440,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (a) { var x = parseClock(a.value); if (x !== null) CUT.sync = x; }
     if (b) { var y = parseClock(b.value); if (y !== null) CUT.sync2 = y; }
     if ($('cutVoice')) CUT.voice = $('cutVoice').checked;
+    if ($('cutVoiceName')) { try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('cutVoiceName').value, style: $('cutVoiceStyle').value })); } catch (e) {} }
   }
+  var VOICES = [['Fenrir', 'Fenrir (excitable)'], ['Puck', 'Puck (upbeat)'], ['Sadachbia', 'Sadachbia (lively)'], ['Algenib', 'Algenib (gravelly)'], ['Orus', 'Orus (firm)'], ['Charon', 'Charon (measured)'], ['Kore', 'Kore (firm, female)'], ['Leda', 'Leda (youthful, female)']];
+  function voicePick() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return { voice: v && v.voice ? v.voice : 'Fenrir', style: v && v.style === 'plain' ? 'plain' : 'hype' }; }
   $('cutBody').addEventListener('click', async function (e) {
     var act = e.target.getAttribute('data-cutdo'), rc = RCp(), r = CUT && S.results[CUT.idx]; if (!act || !CUT || !r) return;
     if (!rc) { CUT.msg = 'Cutting from a video needs the iPhone app.'; renderCut(); return; }
@@ -2455,6 +2461,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
           CUT.auto = guess != null; CUT.sync = CUT.auto ? guess : (typeof r.sync === 'number' ? r.sync : null);
         }
       } catch (err) { CUT.prog = ''; CUT.msg = (err && err.message) || 'Couldn’t read that video.'; }
+      renderCut();
+    } else if (act === 'hear') { // a sample line in the chosen voice, played straight away
+      cutKeep(); CUT.heard = 'Fetching the voice…'; renderCut();
+      try {
+        var hv = voicePick(), hr = await sb.functions.invoke('reel-voice', { body: { code: A.active, voice: hv.voice, style: hv.style, lines: ['What a finish from ' + (S.players.length ? nm(S.players[0].id) : 'the number nine') + '! ' + teamName() + ' lead 2 1!'] } }), hd = hr && hr.data;
+        if (hd && hd.audio && hd.audio[0]) { new Audio('data:audio/mpeg;base64,' + hd.audio[0]).play().catch(function () {}); CUT.heard = hd.engine === 'gemini' || hv.style === 'plain' ? 'Playing.' : 'Playing, read straight: the live-commentator delivery isn’t available to this key yet (' + (hd.note || 'no reason given') + ').'; }
+        else CUT.heard = 'Couldn’t fetch the voice: ' + ((hd && hd.error) || 'the voice service didn’t answer.');
+      } catch (he) { CUT.heard = 'Couldn’t reach the voice service.'; }
       renderCut();
     } else if (act === 'drop2') { cutKeep(); CUT.src2 = null; CUT.sync2 = null; renderCut(); }
     else if (act === 'go') {
@@ -2480,7 +2494,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
             return teamShort() !== teamName() ? w.split(teamShort()).join(teamName()) : w;
           });
           try {
-            var vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words } }), vd = vr && vr.data;
+            var vp2 = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words, voice: vp2.voice, style: vp2.style } }), vd = vr && vr.data;
             if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) { said = vd.audio; CUT.voiced = true; }
             else CUT.voiced = (vd && vd.error) || (vr && vr.error && vr.error.message) || 'the voice service didn’t answer.';
           } catch (ve) { CUT.voiced = 'the voice service couldn’t be reached.'; }

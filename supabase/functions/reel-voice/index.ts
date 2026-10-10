@@ -1,5 +1,7 @@
-// Turns commentary lines into speech for a highlight reel, using Google Cloud Text-to-Speech (Chirp 3 HD voices).
-// Called by a gaffer's app with { code, lines: [text, ...], voice? }; answers { audio: [base64 MP3 or null, ...] } in the same order.
+// Turns commentary lines into speech for a highlight reel, using Google Cloud Text-to-Speech.
+// Called by a gaffer's app with { code, lines: [text, ...], voice?, style? }; answers { audio: [base64 MP3 or null, ...], engine } in the same order.
+// style "hype" asks Gemini-TTS to perform the line like a live commentator; if that isn't available to the key, or style is "plain",
+// the same voice from the Chirp 3 HD set reads it straight.
 // Each team has a monthly allowance of characters, kept in public.voice_usage, so the bill can't run away.
 // Needs this secret (Edge Functions > Secrets):
 //   GOOGLE_TTS_KEY   an API key for a Google Cloud project with the Cloud Text-to-Speech API switched on
@@ -8,7 +10,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
-const VOICES = ["en-GB-Chirp3-HD-Charon", "en-GB-Chirp3-HD-Fenrir", "en-GB-Chirp3-HD-Puck", "en-GB-Chirp3-HD-Orus", "en-GB-Chirp3-HD-Kore", "en-GB-Chirp3-HD-Leda"];
+const VOICES = ["Fenrir", "Puck", "Sadachbia", "Algenib", "Orus", "Charon", "Kore", "Leda"];
+const HYPE = "You are an excitable British football commentator calling the action live on television. Loud, fast and full of energy, voice rising to a shout on the goal. Say exactly this:";
 const MONTHLY = 40000; // characters per team per month: roughly forty reels
 const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
 
@@ -38,17 +41,31 @@ Deno.serve(async (req: Request) => {
     await db.from("voice_usage").upsert({ team_id: team.id, month, chars: (used?.chars || 0) + chars });
 
     const voice = VOICES.includes(input.voice) ? input.voice : VOICES[0];
-    let problem = "";
-    const audio = await Promise.all(lines.map(async (text) => {
-      if (!text) return null;
-      const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(key)}`, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: { text }, voice: { languageCode: "en-GB", name: voice }, audioConfig: { audioEncoding: "MP3" } }) });
+    const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(key)}`;
+    let problem = "", hypeProblem = "";
+    const speak = async (body: unknown, note: (m: string) => void) => {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const out = await res.json().catch(() => ({}));
-      if (!res.ok || !out.audioContent) { problem = String(out?.error?.message || `the voice service answered ${res.status}`).slice(0, 200); return null; }
+      if (!res.ok || !out.audioContent) { note(String(out?.error?.message || `the voice service answered ${res.status}`).slice(0, 200)); return null; }
       return out.audioContent as string;
-    }));
-    if (!audio.some(Boolean)) return json({ error: problem || "The voice service gave nothing back." });
-    return json({ audio, chars, voice });
+    };
+    const straight = (text: string) => speak({ input: { text }, voice: { languageCode: "en-GB", name: `en-GB-Chirp3-HD-${voice}` }, audioConfig: { audioEncoding: "MP3" } }, (m) => { problem = m; });
+    const performed = (text: string) => speak({ input: { text, prompt: HYPE }, voice: { languageCode: "en-GB", name: voice, model_name: "gemini-2.5-flash-tts" }, audioConfig: { audioEncoding: "MP3" } }, (m) => { hypeProblem = m; });
+    let engine = "chirp";
+    let audio: (string | null)[] = [];
+    if (input.style !== "plain") {
+      // try the first line as a performance; only carry on that way if it works
+      const firstAt = lines.findIndex(Boolean);
+      const first = await performed(lines[firstAt]);
+      if (first) {
+        engine = "gemini";
+        audio = await Promise.all(lines.map((text, i) => !text ? null : i === firstAt ? first : performed(text)));
+        audio = await Promise.all(audio.map((a, i) => a || !lines[i] ? a : straight(lines[i]))); // any that failed are read straight
+      }
+    }
+    if (engine === "chirp") audio = await Promise.all(lines.map((text) => text ? straight(text) : null));
+    if (!audio.some(Boolean)) return json({ error: problem || hypeProblem || "The voice service gave nothing back." });
+    return json({ audio, chars, voice, engine, note: engine === "chirp" && hypeProblem ? hypeProblem : undefined });
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) });
   }
