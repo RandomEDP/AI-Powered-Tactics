@@ -43,9 +43,9 @@ console.log('after sign-up:', await view(D), '| pending card:', await D.isVisibl
 await D.click('#pendCard [data-go="account"]'); await D.fill('#aEmail', 'jake@example.com'); await D.fill('#aPass', 'longenough1'); await D.click('#aSignIn'); await wait(800);
 console.log('after confirming and signing in:', await view(D), '|', (await D.textContent('#meCard')).replace(/\s+/g, ' ').slice(0, 80));
 console.log('squad:', (await D.$$eval('#squadList .prow', (r) => r.map((x) => x.textContent.replace(/\s+/g, ' ')))).join(' / '));
-console.log('new game class:', await D.getAttribute('#mNew', 'class'), '| options class:', await D.getAttribute('#mOptions', 'class'));
+console.log('new game class:', await D.getAttribute('#mNew', 'class'), '| settings tab class:', await D.getAttribute('#mOptions', 'class'));
 await D.click('#mNew', { force: true }); console.log('tap New game:', await D.textContent('#lockMsg'), '| still on:', await view(D));
-await D.click('#mOptions', { force: true }); console.log('tap Options:', await D.textContent('#lockMsg'), '| still on:', await view(D));
+await D.click('#mOptions'); await wait(200); console.log('Settings for a player:', await view(D), '| team settings hidden:', !(await D.isVisible('#optGaffer')), '| experimental shown:', await D.isVisible('#expTrack'), '|', await D.textContent('#optViewer')); await D.click('#v-options .back'); await wait(200);
 await shot(D, 'home-player');
 await D.click('#mHighlights'); await wait(200); console.log('highlights by game:', (await D.textContent('#hlList')).replace(/\s+/g, ' ').slice(0, 170));
 await shot(D, 'highlights-game');

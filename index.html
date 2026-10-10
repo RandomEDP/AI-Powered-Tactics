@@ -414,6 +414,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 .tgames li { display: flex; justify-content: space-between; gap: 12px; padding-block: 8px; border-bottom: 1px solid var(--line); font-size: 15px; } .tgames li:last-child { border-bottom: 0; }
 .toggle.scope { overflow-x: auto; scrollbar-width: none; } .toggle.scope::-webkit-scrollbar { display: none; } .toggle.scope button { flex: 1 0 auto; padding-inline: 14px; white-space: nowrap; }
 .toggle button:disabled { opacity: .5; }
+.trow { display: grid; grid-template-columns: 28px 1fr 74px; gap: 10px; align-items: center; padding-block: 8px; border-bottom: 1px solid var(--line); }
+.trow:last-child { border-bottom: 0; } .trow input[type=checkbox] { width: 24px; height: 24px; }
+.trow input[type=text] { font: inherit; text-align: center; border: 0; border-radius: var(--r-ctl); background: var(--bg); color: var(--ink); padding: 10px 6px; width: 100%; }
+.heatwrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.heatcard { background: var(--surface); border-radius: var(--r-card); padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.heatcard b { font-size: 16px; } .heatcard small { color: var(--muted); font-size: 13px; }
+.heatcard svg { width: 100%; border-radius: 10px; display: block; }
 #insBody { display: flex; flex-direction: column; gap: 24px; }
 .inslist { list-style: none; margin: 0; padding: 4px 16px; background: var(--surface); border-radius: var(--r-card); }
 .inslist li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--line); }
@@ -661,8 +668,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   </div>
 </nav>
 
+<div class="view" id="v-track" hidden>
+  <div class="bar"><button class="back" type="button" data-go="options">&lsaquo; Settings</button><h1>Player tracking</h1></div>
+  <div class="view" id="trackBody"></div>
+</div>
+
 <div class="view" id="v-insights" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Insights</h1></div>
+  <div class="actions"><button class="plain" id="trackOpen" type="button" hidden>Player tracking (experimental)</button></div>
   <div id="insBody"></div>
 </div>
 
@@ -922,6 +935,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 <div class="view" id="v-options" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Settings</h1></div>
   <section>
+    <h2>Experimental</h2>
+    <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
+    <label class="check" for="expTrack"><input id="expTrack" type="checkbox"><span>Player tracking <small>(heat maps and distance for named players, worked out from a recording on this phone)</small></span></label>
+    <div class="actions"><button class="plain" id="expTrackOpen" type="button" hidden>Open player tracking</button></div>
+  </section>
+  <p class="note" id="optViewer" hidden>The team's own settings are for gaffers.</p>
+  <div class="view own" id="optGaffer">
+  <section>
     <h2>Team</h2>
     <div class="codeline"><span>Team code</span><b id="optCode"></b><button class="plain" id="optCopy" type="button">Copy</button></div>
     <p class="note">Share this code so others can follow the team.</p>
@@ -961,6 +982,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <div class="actions"><button class="plain" id="leave" type="button">Remove team from this device</button></div>
     <p class="note">The team stays in the database. You can add it back with its code.</p>
   </section>
+  </div>
 </div>
 
 </div>
@@ -1034,7 +1056,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var role = 'viewer', teamId = null, orgCode = null;
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'board', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1466,7 +1488,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'board', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1502,6 +1524,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'home') renderHome();
     else if (S.view === 'games') renderGames();
     else if (S.view === 'board') renderBoard();
+    else if (S.view === 'track') renderTrack();
     else if (S.view === 'setup') renderSetup();
     else if (S.view === 'mins') renderMins();
     else if (S.view === 'game') renderGame();
@@ -2065,7 +2088,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var show = !!A.active && ['home', 'games', 'board', 'options'].indexOf(S.view) >= 0, own = role === 'owner';
     $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
     Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === S.view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-    var opt = $('mOptions'); opt.className = own ? '' : 'locked'; opt.setAttribute('aria-disabled', !own);
+    $('optViewer').hidden = own;
     var todo = myPid == null ? 0 : fixtures.filter(function (f) { return !(f.votes || []).some(function (v) { return v.pid === myPid; }); }).length;
     $('tabBadge').hidden = !todo; $('tabBadge').textContent = todo;
   }
@@ -3154,6 +3177,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   var insGame = null;
   function renderInsights() {
+    $('trackOpen').hidden = !(A.exp && A.exp.track);
     var d = insightData(), html = '', heads = [], rng = function (i) { return (i * 5) + '’ to ' + (i * 5 + 5) + '’'; };
     if (!d.games.length) { $('insBody').innerHTML = '<div class="hcard"><h3>No games yet</h3><p class="note">Ratings, a man of the match, player chemistry and scoring patterns appear here after your first finished game. They are worked out from the goals, assists, saves and minutes you log.</p></div>'; return; }
     // headlines
@@ -3212,6 +3236,91 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     try { if (!sayOn || !t || !window.speechSynthesis) return; speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(t); u.lang = 'en-GB'; u.rate = 1.08; u.pitch = 1.05; speechSynthesis.speak(u); } catch (e) {}
   }
 
+
+  // ================= experimental: player tracking from a recording (iPhone app only; results stay on this phone)
+  var TR = { stage: 'setup', src: null, msg: '', prog: '', res: null }, trBound = false;
+  function trStore(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(TKEY + A.active + ':' + k)); localStorage.setItem(TKEY + A.active + ':' + k, JSON.stringify(v)); } catch (e) {} return null; }
+  function heatSvg(grid, cols, rows) { // a small pitch with the busy areas glowing; the camera's end is at the bottom
+    var mx = Math.max.apply(null, grid.concat([1])), o = '<svg viewBox="0 0 ' + cols * 10 + ' ' + rows * 10 + '" role="img" aria-label="Heat map"><defs><filter id="hb" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter></defs><rect width="100%" height="100%" fill="#1d5c3f"/><g filter="url(#hb)">';
+    for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) { var v = grid[r * cols + c] / mx; if (v > 0.02) o += '<rect x="' + c * 10 + '" y="' + (rows - 1 - r) * 10 + '" width="10" height="10" fill="' + (v > .6 ? '#fff3b0' : v > .3 ? '#ffb347' : '#ff5a36') + '" opacity="' + Math.min(1, .25 + v).toFixed(2) + '"/>'; }
+    return o + '</g><g fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1"><rect x="2" y="2" width="' + (cols * 10 - 4) + '" height="' + (rows * 10 - 4) + '"/><line x1="2" y1="' + rows * 5 + '" x2="' + (cols * 10 - 2) + '" y2="' + rows * 5 + '"/></g></svg>';
+  }
+  function trResult(res) {
+    var mmss2 = function (sec) { sec = Math.round(sec); return Math.floor(sec / 60) + ':' + p2(sec % 60); }, html = '';
+    html += '<p class="msg">' + mmss2(res.duration) + ' analysed. Pitch worked out as about ' + Math.round(res.pitch.width) + ' m wide; camera about ' + (Math.round(res.cameraHeight * 10) / 10) + ' m up.</p><div class="heatwrap">';
+    res.players.forEach(function (x) {
+      html += '<div class="heatcard"><b>' + esc(P(x.pid) ? nm(x.pid) : 'Player') + ' <small>#' + x.number + '</small></b>' + heatSvg(x.heat, res.columns, res.rows) +
+        '<small>Followed for ' + mmss2(x.seconds) + ' of ' + mmss2(res.duration) + (x.readSeconds ? '' : ', number never read') + '</small><small>' + Math.round(x.metres) + ' m covered while followed</small></div>';
+    });
+    html += '<div class="heatcard"><b>Whole team</b>' + heatSvg(res.team.heat, res.columns, res.rows) + '<small>Everyone in your colour, named or not</small></div></div>';
+    html += '<p class="note">' + (res.numbersRead ? 'Shirt numbers were read ' + res.numbersRead + ' times. ' : 'No shirt numbers could be read, so nobody could be named. ') + (res.unknownSeconds > 1 ? mmss2(res.unknownSeconds) + ' of player time couldn’t be given to anyone and is left out. ' : '') + 'Distances only count the time a player was followed, so they run low. The far end of the pitch is the least accurate.</p>';
+    return html;
+  }
+  function renderTrack() {
+    if (!(A.exp && A.exp.track)) { go('options'); return; }
+    var mv = plugin('MatchVision'), html = '', nums = trStore('nums') || {}, on = trStore('trackOn') || {}, runs = trStore('tracking') || [];
+    html += '<p class="note">Experimental. It follows the players you name through a recording and gives each a heat map and the distance covered. It doesn’t track the ball or the score.</p>';
+    if (!mv) html += '<div class="hcard"><h3>Needs the iPhone app</h3><p class="note">The tracking runs on the phone’s own chip, so it isn’t available on the website.</p></div>';
+    else if (TR.stage === 'work') html += '<div class="hcard"><h3>Working…</h3><p class="msg" id="trProg">' + esc(TR.prog || 'Starting…') + '</p><p class="note">Keep the app open and the phone on charge. A five-minute stretch can take several minutes.</p><div class="actions"><button class="plain" type="button" data-tr="stop">Stop</button></div></div>';
+    else {
+      html += '<section><h2>1. The recording</h2><p class="note">Filmed in landscape from a fixed spot behind a goal, as high as you can, with the whole pitch in view. Original quality reads numbers best.</p>' +
+        '<div class="actions"><button class="plain' + (TR.src ? '' : ' primary') + '" type="button" data-tr="pick">' + (TR.src ? 'Choose a different video' : 'Choose the video') + '</button></div>' + (TR.src ? '<p class="msg">Video chosen, ' + Math.floor(TR.src.duration / 60) + ':' + p2(Math.round(TR.src.duration % 60)) + ' long.</p>' : '') + '</section>';
+      html += '<section><h2>2. Which part</h2><p class="note">Analyse one stretch at a time, between changes, so the same players are on throughout. Leave both empty for the whole video.</p><div class="three">' +
+        '<label class="field" for="trFrom">From<input id="trFrom" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + esc(TR.from || '') + '"></label>' +
+        '<label class="field" for="trTo">To<input id="trTo" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + esc(TR.to || '') + '"></label>' +
+        '<label class="field" for="trLen">Pitch length (m)<input id="trLen" type="number" inputmode="numeric" min="10" max="80" value="' + (trStore('pitchLen') || 30) + '"></label></div></section>';
+      html += '<section><h2>3. Who’s on, and their numbers</h2><p class="note">Tick everyone on the pitch in your kit for this stretch, the keeper too if he wears the same shirt.</p><div class="inslist" style="padding-block:4px">' + S.players.map(function (p) {
+        return '<div class="trow"><input type="checkbox" id="trOn' + p.id + '" data-tron="' + p.id + '"' + (on[p.id] ? ' checked' : '') + ' aria-label="' + esc(nm(p.id)) + ' is on"><label for="trOn' + p.id + '"><b>' + esc(nm(p.id)) + '</b></label><input type="text" inputmode="numeric" maxlength="2" placeholder="No." data-trnum="' + p.id + '" value="' + (nums[p.id] == null ? '' : nums[p.id]) + '" aria-label="' + esc(nm(p.id)) + ' shirt number"></div>';
+      }).join('') + '</div></section>';
+      if (TR.msg) html += '<p class="msg bad">' + esc(TR.msg) + '</p>';
+      html += '<div class="actions"><button class="plain primary" type="button" data-tr="go"' + (TR.src ? '' : ' disabled') + '>Track these players</button></div>';
+    }
+    if (TR.res) html += '<section><h2>Result</h2>' + trResult(TR.res) + '</section>';
+    if (runs.length) html += '<section><h2>Earlier runs on this phone</h2><div class="tbrow">' + runs.map(function (r, i) { return '<button type="button" data-trrun="' + i + '">' + esc(r.label) + '</button>'; }).join('') + '</div></section>';
+    $('trackBody').innerHTML = html;
+  }
+  function trKeep() { // remember what's been typed before the screen is redrawn
+    var nums = trStore('nums') || {}, on = {};
+    Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-trnum]'), function (el) { var v = el.value.replace(/\D/g, ''); if (v === '') delete nums[el.getAttribute('data-trnum')]; else nums[el.getAttribute('data-trnum')] = +v; });
+    Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-tron]'), function (el) { if (el.checked) on[el.getAttribute('data-tron')] = 1; });
+    if ($('trFrom')) { TR.from = $('trFrom').value; TR.to = $('trTo').value; var L = +$('trLen').value; if (L >= 10 && L <= 80) trStore('pitchLen', Math.round(L)); trStore('nums', nums); trStore('trackOn', on); }
+    return { nums: nums, on: on };
+  }
+  $('trackBody').addEventListener('click', async function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    var act = t.getAttribute('data-tr'), run = t.getAttribute('data-trrun'), mv = plugin('MatchVision');
+    if (run !== null) { var runs = trStore('tracking') || []; if (runs[+run]) { trKeep(); TR.res = runs[+run].res; renderTrack(); } return; }
+    if (!act || !mv) return;
+    if (act === 'stop') { try { await mv.cancel(); } catch (err) {} return; }
+    var kept = trKeep();
+    if (act === 'pick') {
+      var rc = RCp(); if (!rc) return;
+      try { var src = await rc.pickVideo({ slot: 3 }); if (src && !src.cancelled) { TR.src = src; TR.msg = ''; } } catch (err) { TR.msg = (err && err.message) || 'Couldn’t read that video.'; }
+      renderTrack(); return;
+    }
+    if (act !== 'go' || !TR.src) return;
+    var players = S.players.filter(function (p) { return kept.on[p.id]; }), missing = players.filter(function (p) { return kept.nums[p.id] == null; }), seen = {}, dupe = false;
+    players.forEach(function (p) { var n = kept.nums[p.id]; if (n != null) { if (seen[n]) dupe = true; seen[n] = 1; } });
+    var from = TR.from ? parseClock(TR.from) : 0, to = TR.to ? parseClock(TR.to) : null;
+    if (!players.length) TR.msg = 'Tick who is on the pitch.';
+    else if (missing.length) TR.msg = 'Give ' + missing.map(function (p) { return nm(p.id); }).join(', ') + ' a shirt number.';
+    else if (dupe) TR.msg = 'Two players have the same number.';
+    else if (from === null || (TR.to && to === null) || (to !== null && to <= from)) TR.msg = 'Check the From and To times.';
+    else TR.msg = '';
+    if (TR.msg) { renderTrack(); return; }
+    if (!trBound) { trBound = true; try { mv.addListener('progress', function (d) { TR.prog = d.stage === 'look' ? 'Watching the video, ' + Math.round((d.p || 0) * 100) + '%' : 'Working out who is who…'; var el = $('trProg'); if (el) el.textContent = TR.prog; }); } catch (err) {} }
+    TR.stage = 'work'; TR.prog = ''; TR.res = null; renderTrack(); stayAwake(true);
+    try {
+      var res = await mv.analyse({ path: TR.src.path, color: S.color, length: trStore('pitchLen') || 30, from: from || 0, to: to == null ? undefined : to, players: players.map(function (p) { return { pid: p.id, number: kept.nums[p.id] }; }) });
+      TR.res = res; var runs2 = trStore('tracking') || [], d = new Date();
+      runs2.unshift({ label: d.getDate() + ' ' + MON[d.getMonth()] + ', ' + p2(d.getHours()) + ':' + p2(d.getMinutes()), res: res }); trStore('tracking', runs2.slice(0, 6));
+    } catch (err) { TR.msg = (err && err.message) || 'The tracking didn’t finish.'; }
+    TR.stage = 'setup'; if (!S.match) stayAwake(false); renderTrack();
+  });
+  $('expTrack').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.track = e.target.checked; saveApp(); renderOptions(); });
+  $('expTrackOpen').addEventListener('click', function () { go('track'); });
+  $('trackOpen').addEventListener('click', function () { go('track'); });
+  // ================= end of player tracking
   // ================= tactics board: a sandbox. Everything in this block stands alone and is kept on this phone only.
   var TB = null, tbMode = 'move', tbSel = null, tbDrag = null, tbPen = null, tbAnim = 0, tbSnap = null, tbOut = '', tbSet = -1, tbFor = null;
   var TBW = 100, TBH = 140;
@@ -3675,6 +3784,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- options
   function renderOptions() {
+    var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = !ex.track;
     renderTeamOpts();
     var html = '', busy = !!S.match;
     S.players.forEach(function (p) {
