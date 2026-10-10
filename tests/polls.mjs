@@ -27,7 +27,7 @@ await A.fill('#pOpp', 'Athletico Pathetico'); await A.fill('#pDate', '2026-10-13
 await shot(A, 'poll-form'); await A.click('#pSave'); await wait(700);
 console.log('created:', await view(A), '|', (await fx(A)).slice(0, 150));
 // gaffer answers for himself, then for others, to test the caps
-await A.click('#gamesTrack .fxc [data-vote="in"]'); await wait(500);
+await A.click('#gamesTrack .fxc [data-vote="in"]'); await wait(500); await A.click('#askNo', { timeout: 2000 }).catch(() => {});
 await A.click('#gamesTrack .fxc [data-fx="answer"]');
 for (const pid of [2, 3, 4, 5, 6, 7]) { await A.click(`#gamesTrack .fxc [data-for="${pid}"][data-vote="in"]`); await wait(350); }
 console.log('7 outfield in:', (await fx(A)).match(/\d+ of \d+ outfield[^,]*/)[0]);

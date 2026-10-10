@@ -2,7 +2,7 @@
 // Implements just what the app uses, with the same access rules as the real policies and functions.
 (function () {
   const KEY = '__mockdb';
-  const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips'];
+  const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips', 'messages', 'reports'];
   const load = () => { const d = JSON.parse(localStorage.getItem(KEY) || '{}'); TABLES.forEach((t) => { d[t] = d[t] || []; }); return d; };
   const store = (d) => localStorage.setItem(KEY, JSON.stringify(d));
   const code = (n) => { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < n; i++) s += a[Math.floor(Math.random() * a.length)]; return s; };
@@ -71,6 +71,18 @@
       const t = d.teams.find((x) => x.code === a.p_code); if (!t || !t.followers_can_score) return ok(false);
       d.goal_queue.push({ id: crypto.randomUUID(), team_id: t.id, payload: a.p_payload }); store(d); return ok(true);
     }
+    if (name === 'chat_list' || name === 'chat_send') {
+      const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase());
+      const who = t && uid() && d.players.find((p) => p.team_id === t.id && p.user_id === uid());
+      if (!t || !uid() || !(who || isOrg(d, t.id))) return ok(null);
+      if (name === 'chat_list') return ok(d.messages.filter((m) => m.team_id === t.id).sort((x, y) => x.at - y.at).slice(-80).map((m) => ({ id: m.id, pid: m.pid, name: m.name, body: m.body, play: m.play, play_name: m.play_name, at: m.at, mine: m.user_id === uid(), can_delete: m.user_id === uid() || isOrg(d, t.id) })));
+      const body = String(a.p_body || '').trim().slice(0, 1000); if (!body && !a.p_play) return ok(null);
+      const m = { id: crypto.randomUUID(), team_id: t.id, user_id: uid(), pid: who ? who.pid : null, name: who ? who.name : 'Gaffer', body, play: a.p_play || null, play_name: a.p_play_name || null, at: Date.now() };
+      d.messages.push(m); store(d); return ok(m.id);
+    }
+    if (name === 'chat_delete') { const m = d.messages.find((x) => x.id === a.p_id); if (!m || (m.user_id !== uid() && !isOrg(d, m.team_id))) return ok(false); d.messages = d.messages.filter((x) => x.id !== a.p_id); store(d); return ok(true); }
+    if (name === 'chat_report') { d.reports.push({ message_id: a.p_id, user_id: uid() }); store(d); return ok(true); }
+    if (name === 'unregister_push' || name === 'register_push') return ok(true);
     return fail('unknown rpc ' + name);
   }
   function from(table) {

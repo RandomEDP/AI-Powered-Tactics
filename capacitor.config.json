@@ -18,7 +18,11 @@
       "presentationOptions": []
     },
     "PushNotifications": {
-      "presentationOptions": []
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
     }
   }
 }

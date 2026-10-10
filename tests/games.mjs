@@ -26,7 +26,7 @@ for (const [opp, date] of [['Athletico Pathetico', '2026-10-13'], ['Borussia Tee
 console.log('after three polls:', await view(A), '| cards:', await A.$$eval('#gamesTrack .fxc h2', (h) => h.map((x) => x.textContent)), '|', await A.textContent('#gamesCount'), '| badge:', await A.textContent('#tabBadge'));
 // answer the second game from its own card
 await A.click('#gamesDots [data-gd="1"]'); await wait(700);
-await A.click('#gamesTrack .fxc:nth-child(2) [data-vote="in"]'); await wait(600);
+await A.click('#gamesTrack .fxc:nth-child(2) [data-vote="in"]'); await wait(600); await A.click('#askNo', { timeout: 2000 }).catch(() => {});
 console.log('dot label on the map:', await A.textContent('#gamesTrack .fxc:nth-child(2) .dot i'));
 console.log('second card after "I\'m in":', (await A.textContent('#gamesTrack .fxc:nth-child(2)')).match(/\d of \d outfield/)[0], '| first card:', (await A.textContent('#gamesTrack .fxc:nth-child(1)')).match(/\d of \d outfield/)[0], '| still showing', await A.textContent('#gamesCount'), '| badge:', await A.textContent('#tabBadge'));
 if (out) { fs.mkdirSync(out, { recursive: true }); await A.screenshot({ path: `${out}/games.png` }); }

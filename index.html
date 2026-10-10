@@ -381,6 +381,22 @@ tr.past td { opacity: .45; }
 .fxwhen { font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: .01em; }
 #kickPop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 #kickPop[hidden] { display: none; }
+#askPop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#askPop[hidden] { display: none; } #askPop .kickbox { animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
+.chatlist { display: flex; flex-direction: column; gap: 10px; min-height: 40vh; }
+.cmsg { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; max-width: 86%; } .cmsg.mine { align-self: flex-end; align-items: flex-end; }
+.cmsg > small { color: var(--muted); font-size: 12px; padding-inline: 6px; }
+.cmsg .bubble { border: 0; text-align: left; font: inherit; color: var(--ink); background: var(--surface); border-radius: 18px; padding: 10px 14px; font-size: 16px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cmsg.mine .bubble { background: var(--on); color: var(--on-ink); }
+.cplay { background: var(--surface); border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 8px; width: 210px; } .cplay svg { width: 100%; border-radius: 12px; display: block; } .cplay b { font-size: 14px; }
+.cacts { display: flex; gap: 6px; flex-wrap: wrap; } .cacts button { border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 650; padding: 7px 12px; }
+.chatform { position: sticky; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; background: var(--bg); padding-block: 8px; margin-top: 4px; }
+.chatform input { flex: 1; min-width: 0; font: inherit; font-size: 16px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); padding: 12px 16px; }
+.chatform button { border: 0; border-radius: 999px; background: var(--on); color: var(--on-ink); font: inherit; font-weight: 750; padding: 0 18px; }
+#chatBadge { position: absolute; top: 6px; left: 50%; margin-left: 6px; min-width: 18px; height: 18px; border-radius: 9px; background: #ffc83d; color: #2a2100; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 5px; } #chatBadge[hidden] { display: none; }
+.tbrec { display: flex; align-items: center; gap: 12px; background: #d9432f; color: #fff; border-radius: 16px; padding: 10px 14px; font-weight: 750; } .tbrec span { flex: 1; font-variant-numeric: tabular-nums; } .tbrec button { border: 0; border-radius: 999px; background: #fff; color: #7a1d12; font: inherit; font-weight: 800; padding: 8px 16px; }
+.tbplay { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-block: 8px; border-bottom: 1px solid var(--line); } .tbplay b { flex: 1; min-width: 90px; } .tbplay small { color: var(--muted); }
+.tbplay button { border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 650; padding: 8px 12px; }
 #planPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #planPop[hidden] { display: none; }
 .planbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
@@ -394,7 +410,7 @@ tr.past td { opacity: .45; }
 .kickbox p { font-size: 20px; font-weight: 750; }
 #tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); box-shadow: 0 -1px 0 var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
 #tabs[hidden] { display: none; }
-#tabs .tabrow { max-width: 552px; margin-inline: auto; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; }
+#tabs .tabrow { max-width: 552px; margin-inline: auto; display: grid; grid-template-columns: repeat(5, 1fr); }
 #boardBody { display: flex; flex-direction: column; gap: 14px; }
 .tbsvg { width: 100%; display: block; border-radius: var(--r-card); touch-action: none; user-select: none; -webkit-user-select: none; }
 .tbrow { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -667,6 +683,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <li>Supports the developer</li></ul></div>
   <p>Early access: everything is unlocked for now.</p>
   <div class="actions"><button class="plain primary" id="planOk" type="button">Got it</button></div></div></div>
+<div id="askPop" role="alertdialog" aria-labelledby="askText" hidden><div class="kickbox"><p id="askText"></p>
+  <div class="actions"><button class="plain primary" id="askYes" type="button">Yes</button><button class="plain" id="askNo" type="button">Not now</button></div></div></div>
 <div id="kickPop" role="alertdialog" aria-labelledby="kickPopText" hidden><div class="kickbox"><p id="kickPopText"></p>
   <div class="actions"><button class="plain primary" id="kickWatch" type="button">Watch along</button><button class="plain" id="kickLater" type="button">Not now</button></div></div></div>
 
@@ -679,9 +697,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="dots gdots" id="gamesDots"></div>
 </div>
 
+<div class="view" id="v-chat" hidden>
+  <div class="bar"><h1>Squad chat</h1></div>
+  <div id="chatBody"></div>
+  <form class="chatform" id="chatForm" hidden><input id="chatText" type="text" maxlength="1000" placeholder="Message the squad" autocomplete="off" enterkeyhint="send" aria-label="Message"><button type="submit">Send</button></form>
+</div>
+
 <div class="view" id="v-board" hidden>
   <div class="bar"><h1>Tactics board</h1></div>
-  <p class="note">A sandbox for line-ups, shapes and set pieces. Nothing here changes your real games, and it stays on this phone.</p>
+  <p class="note">A sandbox for line-ups, shapes and set pieces. Nothing here changes your real games. Record a play and you can send it to the squad chat.</p>
   <div id="boardBody"></div>
 </div>
 
@@ -690,6 +714,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="tabrow">
     <button type="button" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Home</span></button>
     <button type="button" data-tab="games"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Games</span><b id="tabBadge" hidden></b></button>
+    <button type="button" data-tab="chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Chat</span><b id="chatBadge" hidden></b></button>
     <button type="button" data-tab="board"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="9" r="1.6" fill="currentColor"/><path d="M14 8l3 3M17 8l-3 3M9 13.5c0 2.5 2 3.5 5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Tactics</span></button>
     <button type="button" id="mOptions" data-tab="options"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Settings</span></button>
   </div>
@@ -1088,7 +1113,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var role = 'viewer', teamId = null, orgCode = null;
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1264,7 +1289,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (org) pullGoals();
       if (flipScore) { S.followersCanScore = true; save(); } // teams made before everyone could log goals: switched on once, and Options can switch it off
       if (wantGame === code) { wantGame = null; if (S.match) go('game'); }
-      pushSetup();
+      pushSetup(); if (CH.code !== code) chatPull();
     } catch (e) { setSync(navigator.onLine === false ? 'offline' : 'err'); }
   }
   function adopt(r) {
@@ -1309,6 +1334,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     chan = sb.channel('team:' + code, { config: { broadcast: { self: false } } })
       .on('broadcast', { event: 'changed' }, function (m) { if (!m.payload || m.payload.by !== SESSION) refetch(); })
       .on('broadcast', { event: 'kickoff' }, function (m) { gameStarted(m.payload || {}); })
+      .on('broadcast', { event: 'chat' }, function () { chatPull(); })
       .on('broadcast', { event: 'goal' }, function (m) { lockScore(m.payload || {}); if (role === 'owner') pullGoals(); })
       .subscribe();
     clearInterval(pollT); // a slow safety net in case a broadcast is missed
@@ -1346,7 +1372,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   var goalMsg = '', goalT = null;
   // ---- "game started": a pop-up for everyone with the team open, and a notification for everyone else
-  var wantGame = null, pushOn = false, pushSaved = null;
+  var wantGame = null, pushOn = false, pushSaved = null, pushToken = null;
   function gameStarted(g) {
     if (role === 'owner' || S.view === 'game') { refetch(); return; }
     $('kickPopText').textContent = 'Game started' + (g.opp ? ' v ' + g.opp : '') + '. Watch along.';
@@ -1370,12 +1396,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     pushOn = true;
     try {
-      P.addListener('registration', function (t) { if (t && t.value && me) { var uid = me.id; sb.rpc('register_push', { p_token: t.value }).then(function (r) { if (!r || !r.error) pushSaved = uid; }, function () {}); } });
+      P.addListener('registration', function (t) { if (t && t.value && me) { pushToken = t.value; var uid = me.id; sb.rpc('register_push', { p_token: t.value }).then(function (r) { if (!r || !r.error) pushSaved = uid; }, function () {}); } });
+      P.addListener('pushNotificationReceived', function (n) { var d = n && n.data; if (!d || d.code !== A.active) return; if (d.kind === 'chat') chatPull(); else refetch(); }); // arrived with the app open
       P.addListener('pushNotificationActionPerformed', function (a) {
         var code = a && a.notification && a.notification.data && a.notification.data.code; if (!code || !teamMeta(code)) return;
         var kind = a.notification.data.kind || 'kickoff';
-        if (kind === 'highlights') { openTeam(code, 'highlights'); return; }
-        if (kind !== 'kickoff') { openTeam(code, 'home'); return; }
+        if (kind !== 'kickoff') { var to = kind === 'highlights' ? 'highlights' : kind === 'chat' ? 'chat' : kind === 'poll' || kind === 'nudge' ? 'games' : 'home'; if (A.active === code) { go(to); refetch(); } else openTeam(code, to); return; }
         if (S.match && A.active === code) { go('game'); return; }
         wantGame = code; openTeam(code, 'home');
       });
@@ -1525,7 +1551,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1562,6 +1588,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'home') renderHome();
     else if (S.view === 'games') renderGames();
     else if (S.view === 'board') renderBoard();
+    else if (S.view === 'chat') { renderChat(); chatPull(); }
     else if (S.view === 'track') renderTrack();
     else if (S.view === 'setup') renderSetup();
     else if (S.view === 'mins') renderMins();
@@ -1787,7 +1814,19 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('aSignIn').addEventListener('click', function () { authDo('in'); });
   $('aSignUp').addEventListener('click', function () { authDo('up'); });
   $('aPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') authDo('in'); });
-  $('aSignOut').addEventListener('click', async function () { await sb.auth.signOut(); aSay(''); go('welcome'); });
+  // Signing out leaves nothing of the account on this phone: no teams, no claimed player, no notifications. Signing back in brings the teams back.
+  async function signOutAll() {
+    try { if (dirty && role === 'owner') { clearTimeout(wt); await syncAll(); } } catch (e) {}
+    try { if (pushToken) await sb.rpc('unregister_push', { p_token: pushToken }); } catch (e) {}
+    pushSaved = null;
+    try { await sb.auth.signOut(); } catch (e) {}
+    me = null; closeTeam();
+    A.teams.slice().forEach(function (t) { forgetTeam(t.code); });
+    A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; crest = null; J = null;
+    CH = { code: null, list: [], unread: 0 }; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
+    saveApp(); applyTheme(); go('welcome');
+  }
+  $('aSignOut').addEventListener('click', async function () { await signOutAll(); aSay(''); });
   armed($('aDelete'), 'Tap again to delete it for good', async function () {
     if (!sb || !me) return;
     aSay('Deleting your account\u2026');
@@ -1920,7 +1959,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('squadList').innerHTML = S.players.slice().sort(function (a, b) { return (!!(roster[b.id] || {}).gaffer) - (!!(roster[a.id] || {}).gaffer); }).map(function (p) {
       var x = roster[p.id] || {}, s = T[p.id];
       return '<div class="prow"><span>' + esc(nm(p.id)) + (x.gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (p.id === myPid ? '<span class="badge you">You</span>' : '') +
-        (sb ? (x.claimed ? '<span class="badge claimed">Claimed</span>' : '<span class="badge">Not claimed</span>') : '') + '</span>' +
+        (sb && p.id !== myPid ? (x.claimed ? '<span class="badge claimed">Claimed</span>' : '<span class="badge">Not claimed</span>') : '') + '</span>' +
         '<small>' + (p.pos ? posName(p.pos) + ', ' : '') + s.g + ' G, ' + s.a + ' A</small></div>';
     }).join('');
   }
@@ -2057,10 +2096,19 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (!res) nudgeWait = 0;
   }
   var VOTE_MSG = { gk_taken: 'Someone is already down as keeper.', full: 'The outfield spots are all taken.', closed: 'This poll has closed.', not_player: 'Choose your player first.', missing: 'This poll no longer exists.' };
+  var askFn = null;
+  function ask(text, yes, fn) { $('askText').textContent = text; $('askYes').textContent = yes; askFn = fn; $('askPop').hidden = false; }
+  $('askYes').addEventListener('click', function () { $('askPop').hidden = true; var fn = askFn; askFn = null; if (fn) fn(); });
+  $('askNo').addEventListener('click', function () { $('askPop').hidden = true; askFn = null; });
   async function castVote(f, choice, pid) {
     try {
       var res = await q(sb.rpc('vote_fixture', { p_fixture: f.id, p_choice: choice, p_pid: pid == null ? null : pid }));
       if (res.data !== 'ok') fxSay(VOTE_MSG[res.data] || 'That didn’t save. Try again.');
+      else if (pid == null && choice !== 'no') { // offer the calendar once per game
+        var asked = {}; try { asked = JSON.parse(localStorage.getItem(TKEY + A.active + ':calAsked')) || {}; } catch (e) {}
+        if (!asked[f.id]) { asked[f.id] = 1; try { localStorage.setItem(TKEY + A.active + ':calAsked', JSON.stringify(asked)); } catch (e) {}
+          ask('You’re in for ' + (f.kind === 'tournament' ? f.opp : 'v ' + (f.opp || 'TBC')) + ', ' + whenText(f.ko_at) + '. Add it to your calendar?', 'Add to calendar', function () { addToCalendar(f); }); }
+      }
       ping('changed'); pull();
     } catch (e) { fxSay('Couldn’t save your answer. Check your signal and try again.'); }
   }
@@ -2135,12 +2183,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('gamesNew').addEventListener('click', function () { if (role !== 'owner') return; fxEdit = null; pollBack = 'games'; go('poll'); });
   // ---- the bar along the bottom: Home, Games, Settings
   function renderTabs() {
-    var show = !!A.active && ['home', 'games', 'board', 'options'].indexOf(S.view) >= 0, own = role === 'owner';
+    var show = !!A.active && ['home', 'games', 'chat', 'board', 'options'].indexOf(S.view) >= 0, own = role === 'owner';
     $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
     Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === S.view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
     $('optViewer').hidden = own;
     var todo = myPid == null ? 0 : fixtures.filter(function (f) { return !(f.votes || []).some(function (v) { return v.pid === myPid; }); }).length;
     $('tabBadge').hidden = !todo; $('tabBadge').textContent = todo;
+    $('chatBadge').hidden = !CH.unread || S.view === 'chat'; $('chatBadge').textContent = CH.unread > 9 ? '9+' : CH.unread;
   }
   $('tabs').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
@@ -3397,13 +3446,81 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
   $('expTrack').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.track = e.target.checked; saveApp(); renderOptions(); if (A.exp.track) planShow(); });
   $('soonOpen').addEventListener('click', function () { go('soon'); });
-  armed($('optSignOut'), 'Tap again to sign out', async function () { try { await sb.auth.signOut(); } catch (e) {} go('welcome'); });
+  armed($('optSignOut'), 'Tap again to sign out', function () { signOutAll(); });
   $('expTrackOpen').addEventListener('click', function () { go('track'); });
   $('planOpen').addEventListener('click', function () { planShow(true); });
   $('trackOpen').addEventListener('click', function () { go('track'); });
   // ================= end of player tracking
+  // ================= squad chat: one conversation per team, for its signed-in players and gaffers
+  var CH = { code: null, list: [], unread: 0 }, chOpen = null, chAnim = 0, chBusy = false;
+  function chStore(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(TKEY + A.active + ':chat' + k)); localStorage.setItem(TKEY + A.active + ':chat' + k, JSON.stringify(v)); } catch (e) {} return null; }
+  async function chatPull() {
+    var code = A.active; if (!sb || !me || !code) { if (S.view === 'chat') renderChat(); return; }
+    try {
+      var res = await q(sb.rpc('chat_list', { p_code: code })); if (A.active !== code) return;
+      var muted = chStore('Muted') || {};
+      CH.code = code; CH.out = res.data === null; CH.err = false; CH.list = (res.data || []).filter(function (m) { return m && !(m.pid != null && muted[m.pid] && !m.mine); });
+      var last = CH.list.length ? CH.list[CH.list.length - 1].at : 0, seen = chStore('Seen') || 0;
+      if (S.view === 'chat' && !document.hidden) { if (last > seen) chStore('Seen', last); CH.unread = 0; }
+      else CH.unread = CH.list.filter(function (m) { return m.at > seen && !m.mine; }).length;
+    } catch (e) { CH.err = true; }
+    renderTabs(); if (S.view === 'chat' && !chAnim) { renderChat(); chatDown(); }
+  }
+  function chatDown() { try { window.scrollTo(0, document.documentElement.scrollHeight); } catch (e) {} }
+  async function chatSend(body, play, playName) {
+    if (!sb || !me || !A.active || chBusy) return false;
+    chBusy = true;
+    try {
+      var res = await q(sb.rpc('chat_send', { p_code: A.active, p_body: body || '', p_play: play || null, p_play_name: playName || null }));
+      chBusy = false; if (!res.data) return false;
+      ping('chat');
+      if (sb.functions) { try { sb.functions.invoke('team-notify', { body: { code: A.active, kind: 'chat', message: res.data } }).then(function () {}, function () {}); } catch (e) {} }
+      await chatPull(); return true;
+    } catch (e) { chBusy = false; return false; }
+  }
+  function chatWhen(ms) { var d = new Date(ms), now = new Date(), t = p2(d.getHours()) + ':' + p2(d.getMinutes()); return d.toDateString() === now.toDateString() ? t : d.getDate() + ' ' + MON[d.getMonth()] + ', ' + t; }
+  function renderChat() {
+    var html = '', form = $('chatForm'), muted = chStore('Muted') || {}, mk = Object.keys(muted);
+    form.hidden = true;
+    if (!sb) html = '<p class="note">The chat needs the team to be connected.</p>';
+    else if (!me) html = '<div class="hcard"><h3>For the squad</h3><p class="note">Sign in to read and send messages.</p><div class="actions"><button class="plain primary" type="button" data-go="account">Sign in</button></div></div>';
+    else if (CH.out) html = '<div class="hcard"><h3>For the squad</h3><p class="note">Claim your player on the team screen and you’re in the chat.</p><div class="actions"><button class="plain primary" type="button" data-go="home">Go to the team screen</button></div></div>';
+    else {
+      form.hidden = false;
+      if (CH.err) html += '<p class="msg bad">Couldn’t load the chat. Check your signal.</p>';
+      if (mk.length) html += '<div class="cacts">' + mk.map(function (k) { return '<button type="button" data-chunmute="' + esc(k) + '">Unmute ' + esc(muted[k]) + '</button>'; }).join('') + '</div>';
+      if (!CH.list.length && !CH.err) html += '<p class="note">Nothing yet. Say something, or record a play on the Tactics tab and send it here. Be decent: anyone can report a message, and the gaffer can remove it.</p>';
+      html += '<div class="chatlist">' + CH.list.map(function (m) {
+        var o = '<div class="cmsg' + (m.mine ? ' mine' : '') + '"><small>' + esc(m.mine ? 'You' : m.name || 'Player') + ' · ' + chatWhen(m.at) + '</small>';
+        var play = m.play ? tbClean(m.play) : null;
+        if (play) o += '<div class="cplay"><b>' + esc(m.play_name || 'A play') + '</b><svg viewBox="0 0 100 140" data-chsvg="' + m.id + '" role="img" aria-label="Recorded play">' + tbSvg(false, tbFrame(play, tbTracks(play), 0)) + '</svg><div class="cacts"><button type="button" data-chplay="' + m.id + '">▶ Play, ' + Math.max(1, Math.round(play.dur / 1000)) + ' s</button></div></div>';
+        if (m.body) o += '<button type="button" class="bubble" data-chmsg="' + m.id + '">' + esc(m.body) + '</button>';
+        else if (play) o += '<div class="cacts"><button type="button" data-chmsg="' + m.id + '">…</button></div>';
+        if (chOpen === m.id) o += '<div class="cacts">' + (m.can_delete ? '<button type="button" data-chdel="' + m.id + '">Delete</button>' : '') + (m.mine ? '' : '<button type="button" data-chrep="' + m.id + '">Report</button>' + (m.pid != null ? '<button type="button" data-chmute="' + m.pid + '" data-n="' + esc(m.name || 'Player') + '">Mute ' + esc(m.name || 'Player') + '</button>' : '')) + '</div>';
+        return o + '</div>';
+      }).join('') + '</div>';
+      if (CH.note) html += '<p class="msg" role="status">' + esc(CH.note) + '</p>';
+    }
+    $('chatBody').innerHTML = html;
+  }
+  $('chatForm').addEventListener('submit', async function (e) {
+    e.preventDefault(); var el = $('chatText'), v = el.value.trim(); if (!v) return;
+    el.value = ''; CH.note = ''; var ok = await chatSend(v);
+    if (!ok) { el.value = v; CH.note = 'That didn’t send. Check your signal and try again.'; renderChat(); }
+  });
+  $('chatBody').addEventListener('click', async function (e) {
+    var t = e.target.closest('button'); if (!t) return; var g = function (a) { return t.getAttribute(a); }, v;
+    if ((v = g('data-chmsg')) !== null) { chOpen = chOpen === v ? null : v; renderChat(); }
+    else if ((v = g('data-chplay')) !== null) { var m = CH.list.filter(function (x) { return x.id === v; })[0], play = m && tbClean(m.play), el = $('chatBody').querySelector('[data-chsvg="' + v + '"]'); if (!play || !el || chAnim) return; chAnim = 1; tbRun(el, play, function () { chAnim = 0; }); }
+    else if ((v = g('data-chdel')) !== null) { try { await q(sb.rpc('chat_delete', { p_id: v })); ping('chat'); } catch (err) {} chOpen = null; chatPull(); }
+    else if ((v = g('data-chrep')) !== null) { try { await q(sb.rpc('chat_report', { p_id: v })); CH.note = 'Reported. Thanks, it will be looked at.'; } catch (err) { CH.note = 'Couldn’t send the report. Try again.'; } chOpen = null; renderChat(); }
+    else if ((v = g('data-chmute')) !== null) { var mu = chStore('Muted') || {}; mu[v] = g('data-n') || 'Player'; chStore('Muted', mu); chOpen = null; chatPull(); }
+    else if ((v = g('data-chunmute')) !== null) { var mu2 = chStore('Muted') || {}; delete mu2[v]; chStore('Muted', mu2); chatPull(); }
+  });
+  // ================= end of squad chat
   // ================= tactics board: a sandbox. Everything in this block stands alone and is kept on this phone only.
-  var TB = null, tbMode = 'move', tbSel = null, tbDrag = null, tbPen = null, tbAnim = 0, tbSnap = null, tbOut = '', tbSet = -1, tbFor = null;
+  var TB = null, tbMode = 'move', tbSel = null, tbDrag = null, tbPen = null, tbAnim = 0, tbSnap = null, tbOut = '', tbSet = -1, tbFor = null, tbRec = null, tbDone = null, tbPenAt = 0;
+  var TB_MAX = 30000, TB_HOLD = 1500, TB_FADE = 900; // a recording's longest length, and how long a drawn line stays before it fades
   var TBW = 100, TBH = 140;
   var FORMS = {
     5: { '2-2': [[30, 105], [70, 105], [30, 60], [70, 60]], '1-2-1': [[50, 110], [25, 82], [75, 82], [50, 52]], '2-1-1': [[30, 108], [70, 108], [50, 80], [50, 50]], '1-1-2': [[50, 110], [50, 82], [30, 52], [70, 52]], '3-1': [[22, 105], [50, 110], [78, 105], [50, 55]] },
@@ -3427,6 +3544,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     try { TB = JSON.parse(localStorage.getItem(tbKey())); } catch (e) {}
     if (!TB || !Array.isArray(TB.pieces) || !FORMS[TB.side]) { TB = { side: defSide(), form: null, pieces: [], ball: { x: 50, y: 70 }, lines: [], saves: [], chem: false, them: false }; tbShape(Object.keys(FORMS[TB.side])[0]); }
     TB.pieces.forEach(function (c) { if (c.pid != null && !P(c.pid)) c.pid = null; });
+    if (!Array.isArray(TB.plays)) TB.plays = [];
+    tbRec = null; tbDone = null;
   }
   function tbUs() { return TB.pieces.filter(function (c) { return c.t === 'us'; }); }
   function tbShape(name, pts) { // put our players in a shape, keeping whoever was already named
@@ -3451,33 +3570,113 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     for (var i = 1; i < pts.length - 1; i++) { var mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2; dd += ' Q' + pts[i][0].toFixed(1) + ' ' + pts[i][1].toFixed(1) + ' ' + mx.toFixed(1) + ' ' + my.toFixed(1); }
     var e = pts[pts.length - 1]; return dd + ' L' + e[0].toFixed(1) + ' ' + e[1].toFixed(1);
   }
-  function tbSvg(solo) { // the whole board as SVG; solo = a standalone picture for sharing
+  function tbSvg(solo, st) { // the whole board as SVG; solo = a standalone picture for sharing; st = a frame of a recorded play instead of the live board
+    var live = !st; st = st || TB;
     var cs = getComputedStyle(document.documentElement), col = function (v, f) { return (cs.getPropertyValue(v) || '').trim() || f; };
     var pitch = col('--pitch', '#1f6b4a'), ink = col('--pitch-ink', '#f7f5ec'), gold = '#ffc83d', o = '';
     o += '<rect width="100" height="140" rx="5" fill="' + pitch + '"/>';
     o += '<g fill="none" stroke="' + ink + '" stroke-opacity=".3" stroke-width=".7"><rect x="4" y="4" width="92" height="132" rx="2"/><line x1="4" y1="70" x2="96" y2="70"/><circle cx="50" cy="70" r="12"/><path d="M30 4v14a20 20 0 0 0 40 0V4"/><path d="M30 136v-14a20 20 0 0 1 40 0v14"/><rect x="40" y="1.5" width="20" height="2.5"/><rect x="40" y="136" width="20" height="2.5"/></g>';
     o += '<defs><marker id="tbA" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="' + ink + '"/></marker><marker id="tbB" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="' + gold + '"/></marker></defs>';
-    if (TB.chem) { var ch = tbChem(), us = tbUs().filter(function (c) { return c.pid != null; });
+    if (live && TB.chem) { var ch = tbChem(), us = tbUs().filter(function (c) { return c.pid != null; });
       for (var i = 0; i < us.length; i++) for (var j = i + 1; j < us.length; j++) { var v = ch(us[i].pid, us[j].pid); if (v > 0) o += '<line x1="' + us[i].x + '" y1="' + us[i].y + '" x2="' + us[j].x + '" y2="' + us[j].y + '" stroke="#7dffb0" stroke-opacity="' + Math.min(.9, .25 + v * .15) + '" stroke-width="' + Math.min(3.2, .8 + v * .5) + '" stroke-linecap="round"/>'; } }
-    TB.lines.forEach(function (l) { o += '<path d="' + tbPath(l.pts) + '" fill="none" stroke="' + (l.k === 'pass' ? gold : ink) + '" stroke-width="1.1" stroke-linecap="round"' + (l.k === 'run' ? ' stroke-dasharray="2.4 2.2"' : '') + ' marker-end="url(#' + (l.k === 'pass' ? 'tbB' : 'tbA') + ')"/>'; });
-    o += '<path id="tbPenPath" fill="none" stroke="' + (tbMode === 'pass' ? gold : ink) + '" stroke-width="1.1" stroke-linecap="round" d=""/>';
-    TB.pieces.forEach(function (c) {
+    (st.lines || []).forEach(function (l) { o += '<path d="' + tbPath(l.pts) + '" fill="none" stroke="' + (l.k === 'pass' ? gold : ink) + '" stroke-width="1.1" stroke-linecap="round"' + (l.k === 'run' ? ' stroke-dasharray="2.4 2.2"' : '') + ' marker-end="url(#' + (l.k === 'pass' ? 'tbB' : 'tbA') + ')"/>'; });
+    o += '<g' + (live ? ' id="tbFx"' : '') + '>' + tbFxSvg(st.fx || [], ink, gold) + '</g>';
+    if (live) o += '<path id="tbPenPath" fill="none" stroke="' + (tbMode === 'pass' ? gold : ink) + '" stroke-width="1.1" stroke-linecap="round" d=""/>';
+    st.pieces.forEach(function (c) {
       var us = c.t === 'us', name = us ? tbName(c) : '', label = name ? tag(c.pid) : us ? (c.gk ? 'GK' : '') : '';
       o += '<g data-pc="' + c.id + '" transform="translate(' + c.x.toFixed(1) + ' ' + c.y.toFixed(1) + ')">' +
-        '<circle r="9" fill="transparent"/><circle r="5.4" fill="' + (us ? (c.gk ? gold : ink) : '#d9432f') + '" stroke="' + (tbSel === c.id ? gold : us ? pitch : '#7a1d12') + '" stroke-width="' + (tbSel === c.id ? 1.6 : .8) + '"/>' +
+        '<circle r="9" fill="transparent"/><circle r="5.4" fill="' + (us ? (c.gk ? gold : ink) : '#d9432f') + '" stroke="' + (live && tbSel === c.id ? gold : us ? pitch : '#7a1d12') + '" stroke-width="' + (live && tbSel === c.id ? 1.6 : .8) + '"/>' +
         (label ? '<text y="1.7" text-anchor="middle" font-family="system-ui,sans-serif" font-size="4.4" font-weight="800" fill="#12251b">' + esc(label) + '</text>' : '') +
         (name ? '<text y="10.6" text-anchor="middle" font-family="system-ui,sans-serif" font-size="3.6" font-weight="700" fill="' + ink + '">' + esc(name) + '</text>' : '') + '</g>';
     });
-    o += '<g data-pc="ball" transform="translate(' + TB.ball.x.toFixed(1) + ' ' + TB.ball.y.toFixed(1) + ')"><circle r="7" fill="transparent"/><circle r="2.3" fill="#fff" stroke="#111" stroke-width=".7"/></g>';
+    o += '<g data-pc="ball" transform="translate(' + st.ball.x.toFixed(1) + ' ' + st.ball.y.toFixed(1) + ')"><circle r="7" fill="transparent"/><circle r="2.3" fill="#fff" stroke="#111" stroke-width=".7"/></g>';
     return solo ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140" width="1000" height="1400">' + o + '</svg>' : o;
+  }
+  function tbFxSvg(fx, ink, gold) { // lines drawn during a recording: they show for a moment, then fade
+    return fx.map(function (l) { return l.op > 0.01 && l.pts.length > 1 ? '<path d="' + tbPath(l.pts) + '" fill="none" stroke="' + (l.k === 'pass' ? gold : ink) + '" stroke-opacity="' + l.op.toFixed(2) + '" stroke-width="1.1" stroke-linecap="round"' + (l.k === 'run' ? ' stroke-dasharray="2.4 2.2"' : '') + '/>' : ''; }).join('');
+  }
+  var tbOp = function (since) { return since < TB_HOLD ? 1 : Math.max(0, 1 - (since - TB_HOLD) / TB_FADE); };
+  // ---- recorded plays: { v, side, dur, start: { pieces, ball }, ev: [{ t, m: piece id, x, y } | { t, t0, l: 'run' | 'pass', pts }] }
+  function tbClean(play) { // a play from the chat is someone else's data: keep only what a play should hold
+    try {
+      var num = function (v, lo, hi) { v = +v; return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : lo; }, xy = function (q) { return [num(q[0], 0, 100), num(q[1], 0, 140)]; };
+      if (!play || !play.start || !Array.isArray(play.start.pieces) || !Array.isArray(play.ev)) return null;
+      var pieces = play.start.pieces.slice(0, 16).map(function (c, i) { return { id: String(c.id || 'p' + i).slice(0, 4), t: c.t === 'them' ? 'them' : 'us', gk: !!c.gk, x: num(c.x, 0, 100), y: num(c.y, 0, 140), pid: c.pid == null || !P(+c.pid) ? null : +c.pid }; });
+      var ids = {}; pieces.forEach(function (c) { ids[c.id] = 1; }); ids.ball = 1;
+      var ev = play.ev.slice(0, 1500).map(function (e) {
+        if (e && e.l && Array.isArray(e.pts)) return { t: num(e.t, 0, TB_MAX), t0: num(e.t0, 0, TB_MAX), l: e.l === 'pass' ? 'pass' : 'run', pts: e.pts.slice(0, 12).map(xy) };
+        if (e && ids[e.m]) return { t: num(e.t, 0, TB_MAX), m: String(e.m), x: num(e.x, 0, 100), y: num(e.y, 0, 140) };
+        return null;
+      }).filter(Boolean);
+      return { v: 1, side: play.side === 7 ? 7 : 5, dur: num(play.dur, 500, TB_MAX), start: { pieces: pieces, ball: { x: num((play.start.ball || {}).x, 0, 100), y: num((play.start.ball || {}).y, 0, 140) } }, ev: ev };
+    } catch (e) { return null; }
+  }
+  function tbTracks(play) { var tr = {}; play.ev.forEach(function (e) { if (e.m) (tr[e.m] = tr[e.m] || []).push(e); }); Object.keys(tr).forEach(function (k) { tr[k].sort(function (a, b) { return a.t - b.t; }); }); return tr; }
+  function tbFrame(play, tr, t) { // the board as it stood t milliseconds into a play
+    var where = function (id, x, y) {
+      var list = tr[id], at = null, i; if (!list) return [x, y];
+      for (i = 0; i < list.length && list[i].t <= t; i++) at = i;
+      if (at === null) return [x, y];
+      var a = list[at], b = list[at + 1];
+      if (b && b.t - a.t < 250) { var f = (t - a.t) / ((b.t - a.t) || 1); return [a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f]; }
+      return [a.x, a.y];
+    };
+    var ball = where('ball', play.start.ball.x, play.start.ball.y);
+    return { pieces: play.start.pieces.map(function (c) { var q = where(c.id, c.x, c.y); return { id: c.id, t: c.t, gk: c.gk, pid: c.pid, x: q[0], y: q[1] }; }), ball: { x: ball[0], y: ball[1] }, lines: [],
+      fx: play.ev.filter(function (e) { return e.l && e.t0 <= t; }).map(function (e) {
+        if (t < e.t) { var n = Math.max(2, Math.ceil(e.pts.length * (t - e.t0) / ((e.t - e.t0) || 1))); return { k: e.l, pts: e.pts.slice(0, n), op: 1 }; }
+        return { k: e.l, pts: e.pts, op: tbOp(t - e.t) };
+      }) };
+  }
+  function tbRun(el, play, done) { // play a recording back inside any board picture
+    var tr = tbTracks(play), t0 = performance.now(), end = play.dur + 500;
+    (function step(now) {
+      var t = now - t0; if (!el.isConnected) { done && done(); return; }
+      el.innerHTML = tbSvg(false, tbFrame(play, tr, Math.min(t, play.dur)));
+      if (t < end) requestAnimationFrame(step); else { el.innerHTML = tbSvg(false, tbFrame(play, tr, 0)); done && done(); }
+    })(t0);
+  }
+  function tbRecStart() {
+    tbSel = null; tbDone = null; tbSnap = null; tbSet = -1; tbOut = '';
+    tbRec = { t0: performance.now(), ev: [], fx: [], last: {}, lines: TB.lines, start: JSON.stringify({ pieces: TB.pieces, ball: TB.ball }) };
+    TB.lines = [];
+    (function loop(now) {
+      if (!tbRec) return;
+      var t = now - tbRec.t0, el = $('tbRecT'), fx = $('tbFx');
+      if (el) el.textContent = '0:' + p2(Math.floor(t / 1000)) + ' of 0:' + p2(TB_MAX / 1000);
+      if (fx) { var cs = getComputedStyle(document.documentElement); fx.innerHTML = tbFxSvg(tbRec.fx.map(function (l) { return { k: l.k, pts: l.pts, op: tbOp(t - l.at) }; }), (cs.getPropertyValue('--pitch-ink') || '').trim() || '#f7f5ec', '#ffc83d'); }
+      if (t >= TB_MAX) { tbRecStop(); return; }
+      tbRec.raf = requestAnimationFrame(loop);
+    })(tbRec.t0);
+  }
+  function tbRecStop() {
+    var r = tbRec; if (!r) return; tbRec = null; cancelAnimationFrame(r.raf); tbPen = null; tbDrag = null;
+    var start = JSON.parse(r.start), dur = Math.min(TB_MAX, Math.round(performance.now() - r.t0));
+    TB.pieces = start.pieces; TB.ball = start.ball; TB.lines = r.lines; // the board goes back to where the play began
+    tbDone = r.ev.length ? { v: 1, side: TB.side, dur: dur, start: JSON.parse(r.start), ev: r.ev } : null;
+    if (!tbDone) tbOut = 'Nothing was recorded. Press record, then drag the players and the ball and draw the runs and passes.';
+    tbStore(); renderBoard();
+  }
+  function tbRecMove(id, x, y, force) { // note where a dragged piece is, a few times a second
+    if (!tbRec) return; var t = Math.round(performance.now() - tbRec.t0);
+    if (!force && tbRec.last[id] != null && t - tbRec.last[id] < 45) return;
+    tbRec.last[id] = t; tbRec.ev.push({ t: t, m: id, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
   }
   function tbPaint() { var el = $('tbSvg'); if (el) el.innerHTML = tbSvg(false); }
   function renderBoard() {
     tbLoad();
     var b = function (attr, val, text, on) { return '<button type="button" ' + attr + '="' + val + '"' + (on == null ? '' : ' aria-pressed="' + !!on + '"') + '>' + text + '</button>'; }, html = '';
+    if (tbRec) {
+      html += '<div class="tbrec" role="status"><b>● Recording</b><span id="tbRecT">0:00</span><button type="button" data-tb="stop">Stop</button></div>';
+      html += '<div class="tbrow tools">' + b('data-tbmode', 'move', 'Move', tbMode === 'move') + b('data-tbmode', 'run', 'Draw a run', tbMode === 'run') + b('data-tbmode', 'pass', 'Draw a pass', tbMode === 'pass') + '</div>';
+      html += '<svg class="tbsvg" id="tbSvg" viewBox="0 0 100 140" role="img" aria-label="Tactics board">' + tbSvg(false) + '</svg>';
+      html += '<p class="note">Do the play: drag the players and the ball, and draw the runs and passes as they happen. Lines fade after a moment. Up to ' + TB_MAX / 1000 + ' seconds.</p>';
+      $('boardBody').innerHTML = html; return;
+    }
     html += '<div class="toggle" role="group" aria-label="Team size">' + b('data-tbside', 5, '5-a-side', TB.side === 5) + b('data-tbside', 7, '7-a-side', TB.side === 7) + '</div>';
     html += '<div class="tbrow">' + Object.keys(FORMS[TB.side]).map(function (k) { return b('data-tbform', k, k, TB.form === k); }).join('') + '</div>';
-    html += '<div class="tbrow tools">' + b('data-tbmode', 'move', 'Move', tbMode === 'move') + b('data-tbmode', 'run', 'Draw a run', tbMode === 'run') + b('data-tbmode', 'pass', 'Draw a pass', tbMode === 'pass') + b('data-tb', 'undo', 'Undo') + b('data-tb', 'wipe', 'Clear') + '</div>';
+    html += '<div class="tbrow tools">' + b('data-tbmode', 'move', 'Move', tbMode === 'move') + b('data-tbmode', 'run', 'Draw a run', tbMode === 'run') + b('data-tbmode', 'pass', 'Draw a pass', tbMode === 'pass') + b('data-tb', 'undo', 'Undo') + b('data-tb', 'wipe', 'Clear') + b('data-tb', 'rec', '● Record a play') + '</div>';
+    if (tbDone) html += '<div class="hcard"><h3>Play recorded, ' + Math.max(1, Math.round(tbDone.dur / 1000)) + ' seconds</h3><div class="tbsave"><input id="tbPlayName" type="text" maxlength="30" placeholder="Name this play" autocomplete="off"><button class="plain primary" type="button" data-tb="keep">Save</button></div><div class="tbrow">' + b('data-tb', 'watch', '▶ Watch it back') + b('data-tb', 'bin', 'Discard') + '</div></div>';
     html += '<svg class="tbsvg" id="tbSvg" viewBox="0 0 100 140" role="img" aria-label="Tactics board">' + tbSvg(false) + '</svg>';
     var sel = tbSel && TB.pieces.filter(function (c) { return c.id === tbSel; })[0];
     if (sel && sel.t === 'us') { var used = {}; tbUs().forEach(function (c) { if (c.pid != null) used[c.pid] = c.id; });
@@ -3486,6 +3685,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     html += '<div class="tbrow">' + b('data-tb', 'best', 'Pick my best side') + b('data-tb', 'shuffle', 'Shuffle') + b('data-tb', 'them', TB.them ? 'Hide opposition' : 'Show opposition', TB.them) + b('data-tb', 'chem', 'Chemistry lines', TB.chem) + '</div>';
     html += '<div class="tbsec"><h2>Set pieces</h2><div class="tbrow">' + SETS.map(function (sp, i) { return b('data-tbset', i, esc(sp.n), tbSet === i); }).join('') + '</div>' +
       (tbSet >= 0 ? '<p class="note">' + esc(SETS[tbSet].d) + '</p>' : '') + '<div class="tbrow">' + b('data-tb', 'play', '▶ Play the arrows') + (tbSnap ? b('data-tb', 'reset', 'Back to the start') : '') + '</div></div>';
+    html += '<div class="tbsec"><h2>Recorded plays</h2>' + (TB.plays.length ? TB.plays.map(function (pl, i) { return '<div class="tbplay"><b>' + esc(pl.n) + '</b><small>' + Math.max(1, Math.round(pl.dur / 1000)) + ' s</small><button type="button" data-tbrun="' + i + '">▶ Play</button><button type="button" data-tbsend="' + i + '">Send to chat</button><button type="button" data-tbdrop="' + i + '" aria-label="Delete ' + esc(pl.n) + '">✕</button></div>'; }).join('') : '<p class="note">Press “Record a play”, act it out on the board, and it’s kept here to replay or send to the squad chat.</p>') + '</div>';
     html += '<div class="tbsec"><h2>Keep it</h2><div class="tbsave"><input id="tbName" type="text" maxlength="30" placeholder="Name this board" autocomplete="off"><button class="plain" type="button" data-tb="save">Save</button></div>' +
       (TB.saves.length ? '<div class="tbrow">' + TB.saves.map(function (sv, i) { return '<span class="tbsaved"><button type="button" data-tbload="' + i + '">' + esc(sv.n) + '</button><button type="button" data-tbdel="' + i + '" aria-label="Delete ' + esc(sv.n) + '">✕</button></span>'; }).join('') + '</div>' : '') +
       '<div class="tbrow">' + b('data-tb', 'share', 'Share as a picture') + '</div></div>';
@@ -3535,8 +3735,20 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if ((v = g('data-tbset')) !== null) { var sp = SETS[+v]; tbSet = +v; tbSnap = null; tbShape(null, sp.us.concat(TB.side === 7 ? [[30, 96], [70, 96]] : [])); tbThem(TB.them); TB.ball = { x: sp.ball[0], y: sp.ball[1] }; TB.lines = sp.lines.map(function (l) { return { k: l[0], pts: l.slice(1) }; }); }
     else if ((v = g('data-tbload')) !== null) { var sv = TB.saves[+v]; if (sv) { var d = JSON.parse(sv.d); TB.side = d.side; TB.form = d.form; TB.pieces = d.pieces; TB.ball = d.ball; TB.lines = d.lines; TB.them = d.them; tbSet = -1; tbSnap = null; tbOut = ''; } }
     else if ((v = g('data-tbdel')) !== null) { TB.saves.splice(+v, 1); }
+    else if ((v = g('data-tbdrop')) !== null) { TB.plays.splice(+v, 1); }
+    else if ((v = g('data-tbrun')) !== null) { var pl = TB.plays[+v], pp = pl && tbClean(JSON.parse(pl.d)); if (pp) { tbAnim = 1; tbRun($('tbSvg'), pp, function () { tbAnim = 0; renderBoard(); }); } return; }
+    else if ((v = g('data-tbsend')) !== null) {
+      var ps = TB.plays[+v]; if (!ps) return;
+      if (!sb || !me) { tbOut = 'Sign in to send plays to the squad chat.'; }
+      else { t.disabled = true; chatSend('', JSON.parse(ps.d), ps.n).then(function (ok) { if (ok) go('chat'); else { tbOut = 'Couldn’t send that to the chat. You need to be signed in and have claimed your player.'; renderBoard(); } }); return; }
+    }
     else if ((v = g('data-tb')) !== null) {
-      if (v === 'undo') TB.lines.pop();
+      if (v === 'rec') { tbRecStart(); renderBoard(); return; }
+      else if (v === 'stop') { tbRecStop(); return; }
+      else if (v === 'watch' && tbDone) { tbAnim = 1; tbRun($('tbSvg'), tbDone, function () { tbAnim = 0; renderBoard(); }); return; }
+      else if (v === 'bin') tbDone = null;
+      else if (v === 'keep' && tbDone) { var pn = ($('tbPlayName').value || '').trim() || 'Play ' + (TB.plays.length + 1); TB.plays.push({ n: pn.slice(0, 30), dur: tbDone.dur, d: JSON.stringify(tbDone) }); if (TB.plays.length > 12) TB.plays.shift(); tbDone = null; }
+      else if (v === 'undo') TB.lines.pop();
       else if (v === 'wipe') { TB.lines = []; tbSet = -1; tbSnap = null; }
       else if (v === 'them') tbThem(!TB.them);
       else if (v === 'chem') { TB.chem = !TB.chem; if (TB.chem && !tbUs().some(function (c) { return c.pid != null; })) tbOut = 'Put names on the board first: the lines join players who score together.'; }
@@ -3557,7 +3769,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var svg = e.target.closest && e.target.closest('#tbSvg'); if (!svg || tbAnim) return;
     e.preventDefault(); try { svg.setPointerCapture(e.pointerId); } catch (err) {}
     var q = tbXY(e);
-    if (tbMode !== 'move') { tbPen = [q]; return; }
+    if (tbMode !== 'move') { tbPen = [q]; tbPenAt = tbRec ? Math.round(performance.now() - tbRec.t0) : 0; return; }
     var gEl = e.target.closest('[data-pc]'); if (!gEl) { if (tbSel) { tbSel = null; renderBoard(); } return; }
     var id = gEl.getAttribute('data-pc'), c = id === 'ball' ? TB.ball : TB.pieces.filter(function (x) { return x.id === id; })[0]; if (!c) return;
     tbDrag = { id: id, c: c, el: gEl, x0: q[0], y0: q[1], moved: false };
@@ -3566,11 +3778,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (tbPen) { var q = tbXY(e), last = tbPen[tbPen.length - 1]; if (Math.hypot(q[0] - last[0], q[1] - last[1]) > 2.5) { tbPen.push(q); var el = $('tbPenPath'); if (el) { el.setAttribute('d', tbPath(tbPen)); if (tbMode === 'run') el.setAttribute('stroke-dasharray', '2.4 2.2'); } } return; }
     var d = tbDrag; if (!d) return; var q2 = tbXY(e);
     if (!d.moved && Math.hypot(q2[0] - d.x0, q2[1] - d.y0) < 2) return;
-    d.moved = true; d.c.x = q2[0]; d.c.y = q2[1]; d.el.setAttribute('transform', 'translate(' + q2[0].toFixed(1) + ' ' + q2[1].toFixed(1) + ')');
+    if (!d.moved && tbRec) tbRecMove(d.id, d.c.x, d.c.y, true);
+    d.moved = true; d.c.x = q2[0]; d.c.y = q2[1]; tbRecMove(d.id, q2[0], q2[1]); d.el.setAttribute('transform', 'translate(' + q2[0].toFixed(1) + ' ' + q2[1].toFixed(1) + ')');
   });
   function tbUp() {
-    if (tbPen) { var pts = tbPen; tbPen = null; if (pts.length >= 2) { var step = Math.max(1, Math.floor(pts.length / 8)), thin = pts.filter(function (q, i) { return i % step === 0 || i === pts.length - 1; }); TB.lines.push({ k: tbMode, pts: thin }); if (TB.lines.length > 24) TB.lines.shift(); tbStore(); } renderBoard(); return; }
+    if (tbPen) { var pts = tbPen; tbPen = null; if (pts.length >= 2) { var step = Math.max(1, Math.floor(pts.length / 8)), thin = pts.filter(function (q, i) { return i % step === 0 || i === pts.length - 1; });
+      if (tbRec) { var tn = Math.round(performance.now() - tbRec.t0), rp = thin.map(function (q) { return [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10]; }); tbRec.ev.push({ t: tn, t0: Math.min(tbPenAt, tn), l: tbMode, pts: rp }); tbRec.fx.push({ k: tbMode, pts: rp, at: tn }); }
+      else { TB.lines.push({ k: tbMode, pts: thin }); if (TB.lines.length > 24) TB.lines.shift(); tbStore(); } } renderBoard(); return; }
     var d = tbDrag; tbDrag = null; if (!d) return;
+    if (tbRec) { if (d.moved) tbRecMove(d.id, d.c.x, d.c.y, true); return; }
     if (d.moved) { TB.form = null; tbSnap = null; } else if (d.id !== 'ball' && d.c.t === 'us') tbSel = tbSel === d.id ? null : d.id;
     tbStore(); renderBoard();
   }
