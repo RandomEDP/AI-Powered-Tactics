@@ -41,9 +41,11 @@ await A.click('[data-tbrun="0"]'); await wait(700); const mid = await A.$eval('#
 await A.click('[data-tbsend="0"]'); await wait(700); console.log('send ->', await view(A), '| play cards:', await A.$$eval('.cplay', (x) => x.length), '|', await A.textContent('.cplay b'));
 if (out) await A.screenshot({ path: `${out}/chat.png` });
 // Ali signs up, claims, reads, reports, mutes
-await D.click('#joinList [data-pid="9"]'); await D.fill('#jLast', 'Khan'); await D.click('#joinList [data-pos="mix"]'); await D.fill('#jEmail', 'ali@example.com'); await D.fill('#jPass', 'longenough1'); await D.click('#joinList [data-do="up"]'); await wait(500);
+await D.click('#joinList [data-pid="9"]'); await D.fill('#jLast', 'Khan'); console.log('claim form asks for a shirt number:', await D.isVisible('#jNum')); await D.fill('#jNum', '56'); await D.click('#joinList [data-pos="mix"]'); await D.fill('#jEmail', 'ali@example.com'); await D.fill('#jPass', 'longenough1'); await D.click('#joinList [data-do="up"]'); await wait(500);
 await D.click('#pendCard [data-go="account"]'); await D.fill('#aEmail', 'ali@example.com'); await D.fill('#aPass', 'longenough1'); await D.click('#aSignIn'); await wait(900);
 await carry(A, D); await D.reload(); await wait(900);
+console.log('Ali’s number after claiming: in the database', await D.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).players.find((p) => p.name === 'Ali').shirt_number), '| on his card', await D.inputValue('#myNum'));
+await D.fill('#myNum', '7'); await D.press('#myNum', 'Tab'); await wait(500); console.log('changed on his card:', await D.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).players.find((p) => p.name === 'Ali').shirt_number));
 console.log('Ali unread badge:', await D.textContent('#chatBadge').catch(() => ''), 'visible', await D.isVisible('#chatBadge'));
 await D.click('#tabs [data-tab="chat"]'); await wait(500); console.log('Ali sees:', (await D.$$eval('.cmsg > small', (m) => m.map((x) => x.textContent.split(' · ')[0]))).join(), '| badge gone:', !(await D.isVisible('#chatBadge')));
 await D.click('[data-chplay]'); await wait(500); console.log('Ali plays it:', (await D.$eval('.cplay svg [data-pc="u3"]', (g) => g.getAttribute('transform'))));

@@ -1804,6 +1804,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         html += '<div class="jbody">' + statGrid(statsOf(J.team.results, p.pid)) +
           '<p class="note">These become your stats. Add your details to make them yours.</p>' +
           '<label class="field" for="jLast">Last name<input id="jLast" type="text" maxlength="40" autocomplete="family-name"></label>' +
+          '<label class="field" for="jNum">Shirt number, if you have one<input id="jNum" type="text" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="Optional" value="' + (p.number != null ? p.number : '') + '"></label>' +
           '<div class="field"><span>Where do you play?</span>' + posButtons(J.pos || p.position || null, 'data-pos') + '</div>';
         if (me) html += '<div class="actions"><button class="plain primary" type="button" data-do="claim">Join as ' + esc(p.name) + '</button></div>';
         else html += '<div class="toggle"><button type="button" data-mode="up" aria-pressed="' + (J.mode === 'up') + '">New account</button><button type="button" data-mode="in" aria-pressed="' + (J.mode === 'in') + '">I have an account</button></div>' +
@@ -1821,12 +1822,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var pid = b.getAttribute('data-pid'), mode = b.getAttribute('data-mode'), act = b.getAttribute('data-do'), ps = b.getAttribute('data-pos');
     if (ps) { J.pos = ps; Array.prototype.forEach.call(b.parentNode.children, function (x) { x.setAttribute('aria-pressed', x === b); }); return; }
     if (pid !== null) { J.open = J.open === +pid ? null : +pid; J.pos = null; renderJoin(); if (J.open != null) { var f = $('jLast'); if (f) f.focus(); } return; }
-    if (mode) { var keep = { l: $('jLast').value, e: $('jEmail').value, p: $('jPass').value }; J.mode = mode; renderJoin(); $('jLast').value = keep.l; $('jEmail').value = keep.e; $('jPass').value = keep.p; return; }
+    if (mode) { var keep = { l: $('jLast').value, n: $('jNum').value, e: $('jEmail').value, p: $('jPass').value }; J.mode = mode; renderJoin(); $('jLast').value = keep.l; $('jNum').value = keep.n; $('jEmail').value = keep.e; $('jPass').value = keep.p; return; }
     if (!act) return;
     var p = J.d.players.filter(function (x) { return x.pid === J.open; })[0]; if (!p) return;
     var pos = J.pos || p.position || null;
     if (!pos) { jSay('Pick where you play.', true); return; }
-    var pend = { code: J.code, pid: p.pid, name: p.name, last: $('jLast').value.trim(), pos: pos, team: J.d.team.name };
+    var jn = ($('jNum').value || '').replace(/\D/g, '');
+    var pend = { code: J.code, pid: p.pid, name: p.name, last: $('jLast').value.trim(), pos: pos, team: J.d.team.name, num: jn === '' ? null : +jn };
     if (act === 'claim') { A.pending = pend; saveApp(); jSay('Joining…'); finishPending(); return; }
     var email = $('jEmail').value.trim(), pw = $('jPass').value;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { jSay('Enter your email address.', true); return; }
@@ -1850,6 +1852,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     pendBusy = true;
     try {
       var res = await q(sb.rpc('claim_player', { p_code: p.code, p_pid: p.pid, p_last_name: p.last || null, p_position: p.pos || 'mix' }));
+      if (res.data === 'ok' && p.num != null) { try { await q(sb.rpc('set_my_number', { p_code: p.code, p_number: p.num })); } catch (e2) {} }
       A.pending = null; A.notice = res.data === 'ok' ? null : (res.data === 'taken' ? 'Someone else has already claimed ' + p.name + '. Pick your player again.' : 'That player is no longer on the team.');
       saveApp(); myTeams = null; rememberTeam(p.code, p.team, null); openTeam(p.code, 'home');
       if (res.data === 'ok' && sb.functions) { try { sb.functions.invoke('team-notify', { body: { code: p.code, kind: 'claimed' } }).then(function () {}, function () {}); } catch (e) {} } // lets the gaffers know
@@ -2021,6 +2024,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var st = statsOf(S.results, myPid), last = (roster[myPid] || {}).last;
       html = '<h2>Your stats</h2><p class="note">' + esc(nm(myPid)) + (last ? ' ' + esc(last) : '') + (posOf(myPid) ? ', ' + posName(posOf(myPid)).toLowerCase() : '') + (st.saves ? ', ' + st.saves + (st.saves === 1 ? ' save' : ' saves') + ' in goal' : '') + '</p>' + statGrid(st) +
         '<div class="field"><span>' + (posOf(myPid) ? 'Your position' : 'Where do you play? Pick one so the gaffer can place you.') + '</span>' + posButtons(posOf(myPid), 'data-mypos') + '</div>' +
+        '<label class="field" for="myNum">Your shirt number<input id="myNum" type="text" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="None" value="' + (P(myPid).num != null ? P(myPid).num : '') + '"></label>' +
         '<div class="actions"><button class="link" type="button" data-me="release">This isn’t me</button></div>';
     } else if (sb && !pend) {
       html = '<h2>Which player are you?</h2><p class="note">' + (A.notice ? esc(A.notice) : 'Pick your name in the squad to see your own stats here.') + '</p>' +
@@ -2365,6 +2369,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('lockMsg').textContent = 'Only the gaffer can start games.';
     clearTimeout(lockT); lockT = setTimeout(function () { $('lockMsg').textContent = ''; }, 4000);
   }, true);
+  $('meCard').addEventListener('change', async function (e) { // your own shirt number: kept on the team, and shown on line-ups in place of initials
+    if (e.target.id !== 'myNum' || myPid == null || !P(myPid)) return;
+    var v = e.target.value.replace(/\D/g, '').slice(0, 2), n = v === '' ? null : +v, mine = P(myPid);
+    if (n == null) delete mine.num; else mine.num = n;
+    if (role === 'owner') { save(); return; } // a gaffer's copy is the one that's saved
+    saveLocal(); try { await q(sb.rpc('set_my_number', { p_code: A.active, p_number: n })); ping('changed'); pull(); } catch (err) {}
+  });
   $('meCard').addEventListener('click', async function (e) {
     var mp = e.target.getAttribute('data-mypos');
     if (mp && sb) { var me0 = P(myPid); if (me0) me0.pos = mp; renderHome(); try { await q(sb.rpc('set_my_position', { p_code: A.active, p_position: mp })); ping('changed'); pull(); } catch (err) {} return; }
@@ -3555,7 +3566,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function trSlim(res) { var o = {}; Object.keys(res).forEach(function (k) { if (k !== 'ask') o[k] = res[k]; }); return o; } // the pictures are too big to keep
   function trKeep() { // remember what's been typed before the screen is redrawn
     var nums = trStore('nums') || {}, on = {};
-    Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-trnum]'), function (el) { var v = el.value.replace(/\D/g, ''); if (v === '') delete nums[el.getAttribute('data-trnum')]; else nums[el.getAttribute('data-trnum')] = +v; });
+    var wrote = false;
+    Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-trnum]'), function (el) { var v = el.value.replace(/\D/g, ''), id = el.getAttribute('data-trnum'), pl = P(+id);
+      if (v === '') delete nums[id]; else { nums[id] = +v; if (role === 'owner' && pl && pl.num == null) { pl.num = +v; wrote = true; } } }); // a gaffer's numbers are saved to the team, not just this screen
+    if (wrote) save();
     Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-tron]'), function (el) { if (el.checked) on[el.getAttribute('data-tron')] = 1; });
     if ($('trFrom')) { TR.from = $('trFrom').value; TR.to = $('trTo').value; var L = +$('trLen').value; if (L >= 10 && L <= 80) trStore('pitchLen', Math.round(L)); var Wd = +$('trWid').value; if (Wd >= 6 && Wd <= 60) trStore('pitchWid', Math.round(Wd)); trStore('nums', nums); trStore('trackOn', on); }
     return { nums: trNums(), on: on };
