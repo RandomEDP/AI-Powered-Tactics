@@ -81,5 +81,6 @@ console.log('A after wiping its copy and reloading:', await A.textContent('#hero
 await A.click('#mStats'); await wait(100); console.log('A stats rows:', (await A.$$eval('#season tr', (r) => r.slice(0, 3).map((x) => x.textContent))).join(' / '));
 await A.click('#results button[data-reel]'); await A.fill('#syncIn', '1:00'); await wait(900);
 console.log('reel:', await A.textContent('#reelCount'), '| sync saved:', (await db(A)).games[0].sync);
+console.log('on-pitch goals in db:', JSON.stringify((await db(A)).game_players.map((p) => p.pid + ':' + p.scored_on + '/' + p.conceded)), '| stats header:', (await A.textContent('#v-stats thead')).replace(/\s+/g, ' '));
 console.log('errors:', JSON.stringify(errs));
 await b.close();

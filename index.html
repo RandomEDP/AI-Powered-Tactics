@@ -590,6 +590,7 @@ tr.past td { opacity: .45; }
   <div class="itext"><h1>AI is coming to Gaffer</h1><p>The app already knows every goal, assist, save and minute. Next, it starts telling you what they mean.</p></div>
   <ul class="soon-list">
     <li><b>AI powered insights</b><span>What your stats are really saying: who plays best together, when you score and concede, who’s in form, and the line-up to pick next.</span></li>
+    <li><b>AI match ratings and man of the match</b><span>A rating for every player after each game, and a man of the match, worked out from the video and the stats.</span></li>
     <li><b>AI powered commentary</b><span>A commentator’s voice over your footage, calling the goals by name. For the full game or just the highlights.</span></li>
   </ul>
   <p class="note">These aren’t in the app yet. The examples above are illustrations.</p>
@@ -752,9 +753,10 @@ tr.past td { opacity: .45; }
   <section>
     <h2>Players</h2>
     <div class="scroll"><table>
-      <thead><tr><th>Player</th><th class="n">Games</th><th class="n">Mins</th><th class="n">Goals</th><th class="n">Assists</th></tr></thead>
+      <thead><tr><th>Player</th><th class="n">Games</th><th class="n">Mins</th><th class="n">Goals</th><th class="n">Assists</th><th class="n" title="Goals the team conceded while this player was on the pitch">Conc.</th></tr></thead>
       <tbody id="season"></tbody>
     </table></div>
+    <p class="note" id="concNote" hidden>Conc. is goals the team let in while that player was on the pitch. It counts from games played after this was added; a dash means none yet.</p>
   </section>
   <section><h2>Results</h2><ul class="res" id="results"></ul><p class="note" id="resNote"></p></section>
   <section><h2>Season reels</h2><p class="note">A highlights video for each player, cut from every recorded game.</p><div class="actions"><button class="plain" type="button" data-go="season">Make player reels</button></div></section>
@@ -971,7 +973,7 @@ tr.past td { opacity: .45; }
     var maxId = s.players.reduce(function (m, p) { return Math.max(m, p.id); }, 0);
     if (!(s.nextId > maxId)) s.nextId = maxId + 1;
     s.results = (d.games || []).map(function (g) {
-      var per = {}; (g.players || []).forEach(function (p) { per[p.pid] = { mins: p.mins, g: p.goals, a: p.assists }; });
+      var per = {}; (g.players || []).forEach(function (p) { per[p.pid] = stripNull({ mins: p.mins, g: p.goals, a: p.assists, gf: p.scored_on, ga: p.conceded }); });
       var ev = (g.events || []).map(function (e) {
         var o = { min: e.min, x: e.x, at: e.at };
         if (e.kind === 'goal') { o.us = true; o.p = e.pid; o.a = e.assist; }
@@ -995,7 +997,7 @@ tr.past td { opacity: .45; }
     var row = { id: r.id, team_id: tid, seq: i, opp: (r.opp || '').slice(0, 60), friendly: !!r.friendly, us: r.us | 0, them: r.them | 0, half: nn(r.half),
       ko_at: nn(r.koAt), ht_at: nn(r.htAt), h2_at: nn(r.h2At), ft_at: nn(r.ftAt), finished_at: nn(r.at),
       sync: typeof r.sync === 'number' ? r.sync : null, pre: nn(r.pre), post: nn(r.post), cap: r.cap == null ? null : !!r.cap };
-    var players = Object.keys(r.per || {}).map(function (k) { var x = r.per[k]; return { game_id: r.id, pid: +k, mins: x.mins | 0, goals: x.g | 0, assists: x.a | 0 }; });
+    var players = Object.keys(r.per || {}).map(function (k) { var x = r.per[k]; return { game_id: r.id, pid: +k, mins: x.mins | 0, goals: x.g | 0, assists: x.a | 0, scored_on: x.gf == null ? null : x.gf | 0, conceded: x.ga == null ? null : x.ga | 0 }; });
     var events = (r.ev || []).map(function (e, j) {
       return { game_id: r.id, seq: j, kind: e.hl ? (e.k === 'save' ? 'save' : 'highlight') : e.us ? 'goal' : 'against',
         pid: nn(e.p), assist: nn(e.a), min: nn(e.min), x: nn(e.x), at: nn(e.at), watch: !!e.w, by_team: !!e.by };
@@ -1130,7 +1132,7 @@ tr.past td { opacity: .45; }
         if (m && m.events.some(function (e) { return !e.hl && typeof e.at === 'number' && Math.abs(e.at - when) < LOCK_MS; })) return;
         var ok = function (v) { return v == null || (typeof v === 'number' && m.squad.indexOf(v) >= 0); };
         if (m && m.phase !== 'ft' && typeof g.us === 'boolean' && ok(g.p) && ok(g.a)) {
-          m.events.push(stripNull({ us: g.us, p: g.us && g.p != null ? g.p : null, a: g.us && g.a != null ? g.a : null, by: 'team', at: typeof g.ts === 'number' ? g.ts : Date.now(),
+          m.events.push(stripNull({ on: onPitch(m, curSeg(m)), us: g.us, p: g.us && g.p != null ? g.p : null, a: g.us && g.a != null ? g.a : null, by: 'team', at: typeof g.ts === 'number' ? g.ts : Date.now(),
             min: typeof g.min === 'number' ? Math.max(0, Math.min(m.half * 2, Math.round(g.min))) : matchMin(m),
             x: typeof g.x === 'number' && g.x >= 1 ? Math.min(60, Math.round(g.x)) : null }));
         }
@@ -1310,6 +1312,7 @@ tr.past td { opacity: .45; }
   function stamped(m, o) { // minute label for an event: 15 in normal time, 15 + 2 in added time
     var live = m.phase === 'h1' || m.phase === 'h2', over = live ? elapsed(m) - halfMs(m) : -1;
     o.min = matchMin(m);
+    if (typeof o.us === 'boolean') o.on = onPitch(m, curSeg(m)); // who was on the pitch, for goals scored and conceded while playing
     if (over >= 0) o.x = Math.floor(over / 60000) + 1;
     return o;
   }
@@ -2170,12 +2173,13 @@ tr.past td { opacity: .45; }
   // player totals are always worked out from the saved games, never stored
   function totals(all) {
     var t = {};
-    S.players.forEach(function (p) { t[p.id] = { mins: 0, g: 0, a: 0, apps: 0 }; });
+    S.players.forEach(function (p) { t[p.id] = { mins: 0, g: 0, a: 0, apps: 0, gf: 0, ga: 0, tracked: 0 }; });
     S.results.forEach(function (r) {
       if (!r.per || (!all && r.friendly)) return;
       Object.keys(r.per).forEach(function (k) {
         var x = t[k], d = r.per[k]; if (!x) return;
         x.mins += d.mins || 0; x.g += d.g || 0; x.a += d.a || 0; x.apps += 1;
+        if (d.ga != null) { x.ga += d.ga; x.gf += d.gf || 0; x.tracked += 1; } // only games played since on-pitch goals were tracked
       });
     });
     return t;
@@ -2816,7 +2820,8 @@ tr.past td { opacity: .45; }
   armed($('finish'), 'Tap again to finish', function () {
     var m = S.match; if (!m) return;
     var gm = gameMins(m), t = tally(m), per = {};
-    Object.keys(gm).forEach(function (k) { if (P(+k)) per[k] = { mins: gm[k], g: t.g[k] || 0, a: t.a[k] || 0 }; });
+    Object.keys(gm).forEach(function (k) { if (P(+k)) per[k] = { mins: gm[k], g: t.g[k] || 0, a: t.a[k] || 0, gf: 0, ga: 0 }; });
+    m.events.forEach(function (e) { if (e.hl || !e.on) return; e.on.forEach(function (id) { if (per[id]) per[id][e.us ? 'gf' : 'ga']++; }); });
     var ev = m.events.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; } return o; });
     S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, ev: ev, at: Date.now() });
     S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
@@ -2831,9 +2836,10 @@ tr.past td { opacity: .45; }
     var T = totals(showF);
     S.players.slice().sort(function (a, b) { var x = T[a.id], y = T[b.id]; return (y.g - x.g) || (y.a - x.a) || (y.mins - x.mins); }).forEach(function (p) {
       var x = T[p.id];
-      html += '<tr><td>' + esc(nm(p.id)) + '</td><td class="n">' + x.apps + '</td><td class="n">' + x.mins + '</td><td class="n">' + x.g + '</td><td class="n">' + x.a + '</td></tr>';
+      html += '<tr><td>' + esc(nm(p.id)) + '</td><td class="n">' + x.apps + '</td><td class="n">' + x.mins + '</td><td class="n">' + x.g + '</td><td class="n">' + x.a + '</td><td class="n">' + (x.tracked ? x.ga : '–') + '</td></tr>';
     });
     $('season').innerHTML = html;
+    $('concNote').hidden = !S.results.length;
     html = '';
     for (var i = S.results.length - 1; i >= 0; i--) {
       var x = S.results[i], w = x.us > x.them ? 'W' : x.us < x.them ? 'L' : 'D';
