@@ -1,10 +1,8 @@
 // Offline support: keep the app shell on the phone so it opens with no signal at the pitch.
 // Team data is stored by the app itself and syncs with Supabase when there's a connection.
-const CACHE = 'apt-v2';
+const CACHE = 'apt-v3';
 const SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
-  'vendor/supabase.js', 'vendor/fonts.css',
-  'vendor/fonts/Barlow-400.woff2', 'vendor/fonts/Barlow-500.woff2', 'vendor/fonts/Barlow-600.woff2',
-  'vendor/fonts/BarlowCondensed-500.woff2', 'vendor/fonts/BarlowCondensed-600.woff2', 'vendor/fonts/BarlowCondensed-700.woff2'];
+  'vendor/supabase.js', 'vendor/fonts.css', 'vendor/fonts/BricolageGrotesque.woff2', 'privacy.html'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

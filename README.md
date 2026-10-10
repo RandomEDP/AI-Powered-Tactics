@@ -72,4 +72,5 @@ Never put the `.p8` key, or any secret, in the code or in chat. GitHub secrets a
 ```
 python3 -m http.server 8766        # from the repo root
 cd tests && npm i playwright && node flow.mjs && node native.mjs && node delete.mjs
+node shots.mjs shots light   # screenshots of every screen, for checking the design
 ```
