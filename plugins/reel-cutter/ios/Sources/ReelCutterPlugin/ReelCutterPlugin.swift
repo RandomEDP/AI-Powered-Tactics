@@ -26,10 +26,12 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     ]
 
     private var pickCall: CAPPluginCall?
+    private var pickSlot = 1
     private var copyObservation: NSKeyValueObservation?
     private let queue = DispatchQueue(label: "reelcutter.work", qos: .userInitiated)
 
     private struct Segment {
+        let asset: AVAsset
         let start: Double
         let dur: Double
         let caption: String
@@ -54,6 +56,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
 
     @objc public func pickVideo(_ call: CAPPluginCall) {
         pickCall = call
+        pickSlot = call.getInt("slot") ?? 1 // 1 = the game (or its first half), 2 = a separate second-half video
         DispatchQueue.main.async {
             var config = PHPickerConfiguration()
             config.filter = .videos
@@ -74,6 +77,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         picker.dismiss(animated: true)
         guard let call = pickCall else { return }
         pickCall = nil
+        let slot = pickSlot
         guard let provider = results.first?.itemProvider,
               provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) else {
             call.resolve(["cancelled": true])
@@ -91,7 +95,11 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 // The file we are handed is deleted when this block returns, so move it somewhere of our own.
                 let dir = try self.ensureWorkDir()
                 let ext = url.pathExtension.isEmpty ? "mov" : url.pathExtension
-                let dest = dir.appendingPathComponent("source." + ext)
+                for old in (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+                where old.lastPathComponent.hasPrefix("source\(slot).") {
+                    try? FileManager.default.removeItem(at: old)
+                }
+                let dest = dir.appendingPathComponent("source\(slot)." + ext)
                 try? FileManager.default.removeItem(at: dest)
                 do {
                     try FileManager.default.moveItem(at: url, to: dest)
@@ -131,20 +139,27 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         queue.async {
             do {
                 let dir = try self.ensureWorkDir()
-                let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+                // Each clip can name its own video, for games filmed as one file per half.
+                var assets: [String: AVURLAsset] = [:]
+                func asset(_ file: String) -> AVURLAsset {
+                    if let known = assets[file] { return known }
+                    let made = AVURLAsset(url: URL(fileURLWithPath: file))
+                    assets[file] = made
+                    return made
+                }
                 var segments: [Segment] = []
                 var files: [String] = []
                 for (index, raw) in rawClips.enumerated() {
                     let start = (raw["start"] as? NSNumber)?.doubleValue ?? 0
                     let dur = (raw["dur"] as? NSNumber)?.doubleValue ?? 20
-                    segments.append(Segment(start: start, dur: dur, caption: raw["caption"] as? String ?? ""))
+                    segments.append(Segment(asset: asset(raw["path"] as? String ?? path), start: start, dur: dur, caption: raw["caption"] as? String ?? ""))
                     files.append(raw["file"] as? String ?? String(format: "clip_%02d.mp4", index + 1))
                 }
 
                 var made: [[String: Any]] = []
                 for (index, segment) in segments.enumerated() {
                     let out = dir.appendingPathComponent(files[index])
-                    try self.export(asset: asset, segments: [segment], watermark: watermark, outro: nil, to: out) { fraction in
+                    try self.export(segments: [segment], watermark: watermark, outro: nil, to: out) { fraction in
                         self.notifyListeners("progress", data: ["stage": "cut", "i": index, "n": segments.count, "p": fraction])
                     }
                     made.append(["file": files[index], "path": out.path, "size": self.fileSize(out)])
@@ -153,7 +168,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 var result: [String: Any] = ["clips": made]
                 if let reelFile = reelFile {
                     let out = dir.appendingPathComponent(reelFile)
-                    try self.export(asset: asset, segments: segments, watermark: watermark, outro: outro, to: out) { fraction in
+                    try self.export(segments: segments, watermark: watermark, outro: outro, to: out) { fraction in
                         self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction])
                     }
                     result["reel"] = ["path": out.path, "size": self.fileSize(out)]
@@ -172,36 +187,41 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
 
     /// Joins the given stretches of the source video into one file, drawing the watermark over all of it,
     /// each stretch's caption while it plays, and (for a reel) an outro card at the end.
-    private func export(asset: AVAsset, segments: [Segment], watermark: String, outro: [String: Any]?, to out: URL,
+    private func export(segments: [Segment], watermark: String, outro: [String: Any]?, to out: URL,
                         progress: @escaping (Double) -> Void) throws {
-        guard let sourceVideo = asset.tracks(withMediaType: .video).first else {
+        guard let firstAsset = segments.first?.asset, let firstVideo = firstAsset.tracks(withMediaType: .video).first else {
             throw CutError(message: "That file has no video in it")
         }
-        let sourceAudio = asset.tracks(withMediaType: .audio).first
-        let total = CMTimeGetSeconds(asset.duration)
-        guard total.isFinite, total > 1 else { throw CutError(message: "That video is too short to cut") }
 
         let composition = AVMutableComposition()
         guard let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
             throw CutError(message: "Couldn't set up the video")
         }
-        let audio = sourceAudio == nil ? nil : composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
-        video.preferredTransform = sourceVideo.preferredTransform
+        let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        video.preferredTransform = firstVideo.preferredTransform
 
         let scale: CMTimeScale = 600
         var cursor = CMTime.zero
         var spans: [(at: Double, dur: Double, caption: String)] = []
         for segment in segments {
+            guard let sourceVideo = segment.asset.tracks(withMediaType: .video).first else {
+                throw CutError(message: "That file has no video in it")
+            }
+            let total = CMTimeGetSeconds(segment.asset.duration)
+            guard total.isFinite, total > 1 else { throw CutError(message: "That video is too short to cut") }
             let start = max(0, min(segment.start, total - 1))
             let dur = max(1, min(segment.dur, total - start))
             let range = CMTimeRange(start: CMTime(seconds: start, preferredTimescale: scale), duration: CMTime(seconds: dur, preferredTimescale: scale))
             try video.insertTimeRange(range, of: sourceVideo, at: cursor)
-            if let audio = audio, let sourceAudio = sourceAudio {
+            if let audio = audio, let sourceAudio = segment.asset.tracks(withMediaType: .audio).first {
                 try? audio.insertTimeRange(range, of: sourceAudio, at: cursor)
             }
             spans.append((at: CMTimeGetSeconds(cursor), dur: dur, caption: segment.caption))
             cursor = CMTimeAdd(cursor, range.duration)
         }
+        if let audio = audio, audio.segments.isEmpty { composition.removeTrack(audio) }
+        let sourceVideo = firstVideo
+        let total = CMTimeGetSeconds(firstAsset.duration)
 
         // The outro card is drawn over a few silent seconds of footage, which it covers completely.
         var outroAt: Double?

@@ -11,8 +11,8 @@ An iOS app (and the same app on the web) backed by Supabase, usable offline at t
 - **Gaffers.** Each team also has a private 10-character organiser code. A signed-in person who enters it becomes a co-organiser.
 - **Minutes planning.** A slider from *Aggressive* (most effective players by goals and assists per minute play most, everyone gets at least 5 minutes) to *Fairness* (equal minutes, any extra to whoever has played least this season).
 - **Match day.** Countdown to each change, tap-to-swap upcoming subs, player injured or leaving with a suggested replacement, added time, goals, assists, keeper saves and highlights.
-- **Followers can log goals** if the organiser switches that on in Options.
-- **Highlights.** Every event is timestamped. In the iPhone app a gaffer picks the match recording from their photos and the phone cuts a clip per moment, each with the app's watermark and a caption, plus one joined reel that ends on an outro card. The clips are uploaded for the whole team to watch by game or by player (oldest first); the full recording and the joined reel stay on the phone. On a computer, the same screen writes an ffmpeg script instead. Watch-shortcut times can be imported.
+- **Followers can log goals** if the organiser switches that on in Options. When anyone logs a goal the score locks on every phone for 10 seconds, so the same goal isn't counted twice.
+- **Highlights.** Every event is timestamped. In the iPhone app a gaffer picks the GoPro or phone footage from their photos (one continuous video is best; one per half also works) and the phone cuts a clip per moment, each with the app's watermark and a caption, plus one joined reel that ends on an outro card. The clips are uploaded for the whole team to watch by game or by player (oldest first); the full recording and the joined reel stay on the phone. On a computer, the same screen writes an ffmpeg script instead. Watch-shortcut times can be imported.
 
 ## Files
 

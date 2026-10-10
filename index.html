@@ -351,6 +351,11 @@ tr.past td { opacity: .45; }
 .vote { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
 .vote button.no[aria-pressed="true"] { background: var(--bib); color: #fff; }
 .fxwhen { font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: .01em; }
+#fxCard.live { box-shadow: inset 0 0 0 2px var(--team); }
+#fxCard.ask { box-shadow: inset 0 0 0 3px #ffc83d; }
+.fxtag { align-self: flex-start; background: #ffc83d; color: #2a2100; font-size: 13px; font-weight: 750; border-radius: 999px; padding: 4px 10px; }
+.fxsub { color: var(--muted); font-size: 15px; margin-top: -6px; }
+#goalMsg.toast { background: var(--fill); color: var(--ink); border-radius: var(--r-ctl); padding: 10px 14px; font-weight: 650; }
 .pitchmap { position: relative; aspect-ratio: 4 / 5; background: var(--pitch); color: var(--pitch-ink); border-radius: var(--r-card); overflow: hidden; touch-action: none; }
 .pitchmap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .dot { position: absolute; transform: translate(-50%, -50%); border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--pitch-ink); cursor: default; }
@@ -459,10 +464,10 @@ tr.past td { opacity: .45; }
         <p>Film the whole game and the app works out which bits to keep. No scrubbing through footage afterwards.</p>
       </div>
       <ol class="howto">
-        <li><div><b>Film it</b><span>Mount a GoPro on the cage and leave it rolling from warm-up to the final whistle.</span></div></li>
+        <li><div><b>Film it</b><span>Mount a GoPro or prop up a phone and leave it rolling. One continuous video of the whole game works best; one per half is fine too.</span></div></li>
         <li><div><b>Tap as it happens</b><span>Every goal, assist and keeper save is timestamped the moment you log it. Mark anything else worth keeping with one tap, or from your Apple Watch.</span></div></li>
         <li><div><b>Line it up once</b><span>After the game, tell the app when kick-off appears in the video. That one number places every clip.</span></div></li>
-        <li><div><b>Run the script</b><span>The app writes a script for your computer. It cuts each moment, adds the scorer and the score, and joins the clips into one video.</span></div></li>
+        <li><div><b>Cut it on your phone</b><span>Pick the video in the iPhone app. It cuts each moment, adds the scorer and the score, and joins the clips into one reel to share.</span></div></li>
       </ol>
       <div class="card">
         <h2>What you get</h2>
@@ -661,7 +666,7 @@ tr.past td { opacity: .45; }
       <button class="plain own" id="undo" type="button">Undo last</button>
     </div>
     <div id="picker"></div>
-    <p class="note" id="goalMsg" hidden></p>
+    <p class="note" id="goalMsg" role="status" hidden></p>
     <ul class="events" id="events"></ul>
   </section>
 
@@ -712,9 +717,9 @@ tr.past td { opacity: .45; }
   <p class="note" id="reelCount"></p>
   <section>
     <h2>Line it up with the video</h2>
-    <p class="note">Play the GoPro footage, find the moment of kick-off, and enter the time shown on the video. If the GoPro split the game into several files, count from the start of the first one.</p>
+    <p class="note">Play the GoPro or phone footage, find the moment of kick-off, and enter the time shown on the video. The script needs one continuous recording of the whole game. If the camera split it into several files, count from the start of the first one.</p>
     <div class="three">
-      <label class="field" for="syncIn">Kick-off at<input id="syncIn" type="text" inputmode="numeric" placeholder="m:ss" autocomplete="off"></label>
+      <label class="field" for="syncIn">Kick-off at<input id="syncIn" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off"></label>
       <label class="field" for="preIn">Seconds before<input id="preIn" type="number" inputmode="numeric" min="0" max="120"></label>
       <label class="field" for="postIn">Seconds after<input id="postIn" type="number" inputmode="numeric" min="0" max="120"></label>
     </div>
@@ -732,7 +737,7 @@ tr.past td { opacity: .45; }
   <section>
     <h2>Make the reel</h2>
     <ol class="steps">
-      <li>Copy the GoPro files into a folder named <code id="reelFolder"></code>. Using that exact name lets the season reels find this game later.</li>
+      <li>Copy the GoPro or phone footage into a folder named <code id="reelFolder"></code>. Using that exact name lets the season reels find this game later.</li>
       <li>Copy the script below and save it in that folder as <code>highlights.sh</code>.</li>
       <li>In a terminal in that folder, run <code>bash highlights.sh GX01*.MP4 GX02*.MP4</code> with your files in order. It needs ffmpeg installed.</li>
     </ol>
@@ -1063,8 +1068,11 @@ tr.past td { opacity: .45; }
     var tid = teamId; if (!sb || !tid || role !== 'owner') return;
     try {
       var res = await q(sb.from('goal_queue').select('id,payload').eq('team_id', tid)), rows = res.data || [], m = S.match, ids = [];
+      rows.sort(function (a, b) { return ((a.payload || {}).ts || 0) - ((b.payload || {}).ts || 0); });
       rows.forEach(function (row) {
         var g = row.payload || {}; ids.push(row.id);
+        var when = typeof g.ts === 'number' ? g.ts : Date.now(); // a goal within the lock window of another one is the same goal logged twice
+        if (m && m.events.some(function (e) { return !e.hl && typeof e.at === 'number' && Math.abs(e.at - when) < LOCK_MS; })) return;
         var ok = function (v) { return v == null || (typeof v === 'number' && m.squad.indexOf(v) >= 0); };
         if (m && m.phase !== 'ft' && typeof g.us === 'boolean' && ok(g.p) && ok(g.a)) {
           m.events.push(stripNull({ us: g.us, p: g.us && g.p != null ? g.p : null, a: g.us && g.a != null ? g.a : null, by: 'team', at: typeof g.ts === 'number' ? g.ts : Date.now(),
@@ -1088,7 +1096,7 @@ tr.past td { opacity: .45; }
     chanCode = code;
     chan = sb.channel('team:' + code, { config: { broadcast: { self: false } } })
       .on('broadcast', { event: 'changed' }, function (m) { if (!m.payload || m.payload.by !== SESSION) refetch(); })
-      .on('broadcast', { event: 'goal' }, function () { if (role === 'owner') pullGoals(); })
+      .on('broadcast', { event: 'goal' }, function (m) { lockScore(m.payload || {}); if (role === 'owner') pullGoals(); })
       .subscribe();
     clearInterval(pollT); // a slow safety net in case a broadcast is missed
     pollT = setInterval(function () { if (document.hidden) return; if (role !== 'owner' && S.match) refetch(); else if (role === 'owner' && S.match) pullGoals(); }, 20000);
@@ -1112,17 +1120,27 @@ tr.past td { opacity: .45; }
   }
   async function addGoal(ev) {
     var m = S.match; if (!m) return;
-    if (role === 'owner') { ev.at = Date.now(); m.events.push(ev); save(); renderScore(); return; }
+    if (Date.now() < lockUntil) return;
+    if (role === 'owner') { ev.at = Date.now(); m.events.push(ev); save(); lockScore({ us: !!ev.us, mine: true }); ping('goal', { us: !!ev.us }); return; }
     if (!sb || !A.active) return;
     var say = function (t) { goalMsg = t; clearTimeout(goalT); goalT = setTimeout(function () { goalMsg = ''; renderScore(); }, 8000); renderScore(); };
     ev.ts = Date.now(); say('Sending the goal…');
     try {
       var res = await q(sb.rpc('queue_goal', { p_code: A.active, p_payload: ev }));
-      if (res.data) { ping('goal'); say('Goal sent. It shows up once an gaffer’s phone picks it up.'); }
+      if (res.data) { ping('goal', { us: !!ev.us }); lockScore({ us: !!ev.us, mine: true }); say('Goal sent. It shows up once a gaffer’s phone picks it up.'); }
       else { say('Goal logging is switched off for this team.'); setRole('viewer'); setSync('watch'); }
     } catch (e) { say('Couldn’t send the goal. Check your signal and try again.'); }
   }
   var goalMsg = '', goalT = null;
+  // Once anyone logs a goal the score is locked on every phone for a few seconds, so the same goal isn't logged twice.
+  var LOCK_MS = 10000, lockUntil = 0, lockT2 = null, lockNote = '';
+  function lockScore(g) {
+    var m = S.match; if (!m) return;
+    lockUntil = Date.now() + LOCK_MS; pick = null;
+    lockNote = g.mine ? (role === 'owner' ? '' : 'Goal sent.') : 'Goal for ' + (g.us ? teamShort() : m.opp) + ' logged on another phone.';
+    clearTimeout(lockT2); lockT2 = setTimeout(function () { lockUntil = 0; lockNote = ''; if (S.view === 'game') renderScore(); }, LOCK_MS + 50);
+    if (S.view === 'game') renderScore();
+  }
   function connect() {
     if (!sb) { role = 'owner'; document.body.className = ''; setSync('local'); render(); return; }
     sb.auth.getSession().then(function (r) { me = r.data && r.data.session ? r.data.session.user : null; afterAuth(); });
@@ -1677,6 +1695,7 @@ tr.past td { opacity: .45; }
   function renderFixture() {
     var card = $('fxCard'), f = nextFx(), own = role === 'owner', html = '';
     if (!sb) { card.hidden = true; return; }
+    card.classList.remove('live', 'ask');
     if (!f) {
       card.hidden = !own;
       card.innerHTML = '<h2>Next game</h2><p class="note">No game lined up. Create a poll so the squad can say who’s in.</p><div class="actions"><button class="plain primary" type="button" data-fx="new">Create a poll</button></div>';
@@ -1684,7 +1703,10 @@ tr.past td { opacity: .45; }
     }
     var s = fxSides(f), spots = fxSpots(f, s), mine = myPid == null ? null : (f.votes || []).filter(function (v) { return v.pid === myPid; })[0];
     var full = s.ins.length >= f.max_outfield, names = function (ids) { return ids.map(function (id) { return esc(nm(id)); }).join(', '); };
-    html += '<h2>Next game: v ' + esc(f.opp || 'TBC') + '</h2><p class="fxwhen">' + esc(whenText(f.ko_at)) + '</p>' +
+    var left = Math.max(0, f.max_outfield - s.ins.length) + (s.gk == null ? 1 : 0), ask = myPid != null && !mine;
+    card.classList.add(ask ? 'ask' : 'live');
+    html += (ask ? '<span class="fxtag">Are you in?</span>' : '') + '<h2>Next game: v ' + esc(f.opp || 'TBC') + '</h2>' +
+      '<p class="fxsub">' + esc(whenText(f.ko_at)) + ' · ' + (left ? left + (left === 1 ? ' space left' : ' spaces left') : 'full') + '</p>' +
       '<p class="note">' + [f.location ? esc(f.location) : '', f.cost ? esc(f.cost) : ''].filter(Boolean).join(', ') + '</p>' +
       '<p class="note"><b>' + s.ins.length + ' of ' + f.max_outfield + '</b> outfield' + (full ? ' (full)' : '') + ', keeper: <b>' + (s.gk != null ? esc(nm(s.gk)) : 'needed') + '</b></p>';
     if (myPid != null) {
@@ -1711,8 +1733,29 @@ tr.past td { opacity: .45; }
         return '<div class="lrow fxrow"><span class="who">' + esc(nm(p.id)) + '</span><span class="seg">' + [['in', 'In'], ['gk', 'GK'], ['no', 'Out']].map(function (o) { return '<button type="button" data-for="' + p.id + '" data-vote="' + o[0] + '" class="' + (ch === o[0] ? 'is' : '') + '">' + o[1] + '</button>'; }).join('') + '</span></div>';
       }).join('') + '</div>';
     }
+    html += '<div class="actions"><button class="plain" type="button" data-fx="cal">Add to calendar</button></div>';
     if (fixtures.length > 1) html += '<p class="note">' + (fixtures.length - 1) + ' more ' + (fixtures.length === 2 ? 'game' : 'games') + ' lined up after this one.</p>';
     card.hidden = false; card.innerHTML = html;
+  }
+  // The game as a calendar entry: "Team vs Opponent", with the kick-off time and the location.
+  function icsFor(f) {
+    var z = function (ms) { return new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); };
+    var t = function (v) { return String(v || '').replace(/\\/g, '\\\\').replace(/([,;])/g, '\\$1').replace(/\r?\n/g, '\\n'); };
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//AI Powered Tactics//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
+      'UID:' + f.id + '@aipoweredtactics', 'DTSTAMP:' + z(Date.now()), 'DTSTART:' + z(f.ko_at), 'DTEND:' + z(f.ko_at + 3600000),
+      'SUMMARY:' + t(teamName() + ' vs ' + (f.opp || 'TBC'))].concat(f.location ? ['LOCATION:' + t(f.location)] : [], f.cost ? ['DESCRIPTION:' + t('Cost: ' + f.cost)] : [],
+      ['END:VEVENT', 'END:VCALENDAR']).join('\r\n') + '\r\n';
+  }
+  async function addToCalendar(f) {
+    var cal = plugin('GameCalendar');
+    if (cal) {
+      try { var res = await cal.addEvent({ title: teamName() + ' vs ' + (f.opp || 'TBC'), start: f.ko_at, end: f.ko_at + 3600000, location: f.location || '', notes: f.cost ? 'Cost: ' + f.cost : '' }); if (res && res.saved) fxSay('Added to your calendar.'); }
+      catch (e) { fxSay((e && e.message) || 'Couldn’t open your calendar.'); }
+      return;
+    }
+    var a = document.createElement('a');
+    a.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsFor(f)); a.download = (teamShort() + ' vs ' + (f.opp || 'game')).replace(/[^\w ]+/g, '').trim().replace(/\s+/g, '-') + '.ics';
+    document.body.appendChild(a); a.click(); a.remove();
   }
   var VOTE_MSG = { gk_taken: 'Someone is already down as keeper.', full: 'The outfield spots are all taken.', closed: 'This poll has closed.', not_player: 'Choose your player first.', missing: 'This poll no longer exists.' };
   async function castVote(f, choice, pid) {
@@ -1732,6 +1775,7 @@ tr.past td { opacity: .45; }
     if (!f) return;
     if (act === 'edit') { fxEdit = f; go('poll'); }
     else if (act === 'answer') { fxAnswer = !fxAnswer; renderFixture(); }
+    else if (act === 'cal') addToCalendar(f);
     else if (act === 'start') startFromPoll(f);
     else if (vote && who !== null && role === 'owner') castVote(f, vote, +who);
     else if (vote && myPid != null) castVote(f, vote, null);
@@ -1914,17 +1958,30 @@ tr.past td { opacity: .45; }
     CUT.prog = d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';
     var el = $('cutProg'); if (el) el.textContent = CUT.prog;
   }
-  function cutList(r, sync) { return reelClips(r, sync, r.pre != null ? r.pre : 15, r.post != null ? r.post : 6); }
+  function cutList(r, sync, sync2) { // with a second video, everything from the second-half kick-off onwards comes from it
+    var pre = r.pre != null ? r.pre : 15, post = r.post != null ? r.post : 6, one = reelClips(r, sync, pre, post);
+    if (sync2 == null || !r.h2At || !r.koAt) return one;
+    one = reelClips(r, sync, pre, post, function (e) { return e.at < r.h2At; });
+    return one.concat(reelClips(r, sync2 - (r.h2At - r.koAt) / 1000, pre, post, function (e) { return e.at >= r.h2At; }).map(function (c) { c.second = true; return c; }));
+  }
+  function cutGuess(src, at) { // where a moment falls in a video, going by when the recording started
+    var g = src && typeof src.created === 'number' && at ? (at - src.created) / 1000 : null;
+    return g != null && g >= 0 && g < src.duration ? Math.round(g) : null;
+  }
   function renderCut() {
     var r = CUT && S.results[CUT.idx]; if (!r) { go('highlights'); return; }
     var html = '<p class="msg">' + esc(teamShort() + ' ' + r.us + '–' + r.them + ' ' + r.opp) + '</p>';
-    if (CUT.stage === 'pick') html += '<p class="note">Pick the recording of this game from your photos. The cutting happens on this phone, and only the finished clips are uploaded.</p>' +
+    if (CUT.stage === 'pick') html += '<p class="note">Pick the GoPro or phone footage of this game from your photos. One continuous video of the whole game is recommended. If the recording was stopped at half time, pick the first half now and add the second half on the next screen.</p>' +
+      '<p class="note">The cutting happens on this phone, and only the finished clips are uploaded.</p>' +
       (CUT.prog ? '<p class="msg" id="cutProg">' + esc(CUT.prog) + '</p>' : '<div class="actions"><button class="plain primary" type="button" data-cutdo="pick">Choose the video</button></div><p class="msg" id="cutProg"></p>');
     else if (CUT.stage === 'sync') {
-      var n = cutList(r, CUT.sync || 0).length;
+      var n = cutList(r, CUT.sync || 0, CUT.src2 ? CUT.sync2 || 0 : null).length;
       html += '<section><h2>Where is kick-off in the video?</h2><p class="note">' + (CUT.auto ? 'Worked out from when the recording started. Change it if the clips come out early or late.' : 'Play the video, find the moment of kick-off, and enter the time shown.') + '</p>' +
-        '<label class="field" for="cutSync">Kick-off at<input id="cutSync" type="text" inputmode="numeric" placeholder="m:ss" autocomplete="off" value="' + (CUT.sync != null ? hms(CUT.sync) : '') + '"></label>' +
-        '<p class="note">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut, each with the app’s watermark, plus one joined reel with an outro card to share.</p>' +
+        '<label class="field" for="cutSync">Kick-off at<input id="cutSync" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + (CUT.sync != null ? mmss(CUT.sync) : '') + '"></label>';
+      if (CUT.src2) html += '<label class="field" for="cutSync2">Second half kicks off at, in the second video<input id="cutSync2" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + (CUT.sync2 != null ? mmss(CUT.sync2) : '') + '"></label>' +
+        '<div class="actions"><button class="plain" type="button" data-cutdo="drop2">Remove the second video</button></div>';
+      else if (r.h2At) html += (CUT.prog ? '<p class="msg" id="cutProg">' + esc(CUT.prog) + '</p>' : '<div class="novid"><span>Recording stopped at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="pick2">Add a second-half video</button></div><p class="msg" id="cutProg"></p>');
+      html += '<p class="note">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut, each with the app’s watermark, plus one joined reel with an outro card to share.</p>' +
         '<div class="actions"><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
     }
     else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p><p class="msg" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>';
@@ -1934,38 +1991,49 @@ tr.past td { opacity: .45; }
     if (CUT.msg) html += '<p class="msg bad">' + esc(CUT.msg) + '</p>' + (CUT.stage === 'work' ? '<div class="actions"><button class="plain" type="button" data-cutdo="retry">Back</button></div>' : '');
     $('cutBody').innerHTML = html;
   }
+  function cutKeep() { // remember what's typed before the screen is redrawn
+    var a = $('cutSync'), b = $('cutSync2');
+    if (a) { var x = parseClock(a.value); if (x !== null) CUT.sync = x; }
+    if (b) { var y = parseClock(b.value); if (y !== null) CUT.sync2 = y; }
+  }
   $('cutBody').addEventListener('click', async function (e) {
     var act = e.target.getAttribute('data-cutdo'), rc = RCp(), r = CUT && S.results[CUT.idx]; if (!act || !CUT || !r) return;
     if (!rc) { CUT.msg = 'Cutting from a video needs the iPhone app.'; renderCut(); return; }
-    if (act === 'pick') {
+    if (act === 'pick' || act === 'pick2') {
+      var second = act === 'pick2'; cutKeep();
       CUT.msg = ''; CUT.prog = 'Opening your photos…'; renderCut();
       try {
-        var src = await rc.pickVideo();
+        var src = await rc.pickVideo({ slot: second ? 2 : 1 });
         CUT.prog = '';
         if (!src || src.cancelled) { renderCut(); return; }
-        CUT.src = src; CUT.stage = 'sync';
-        var guess = typeof src.created === 'number' && r.koAt ? (r.koAt - src.created) / 1000 : null;
-        CUT.auto = guess != null && guess >= 0 && guess < src.duration;
-        CUT.sync = CUT.auto ? Math.round(guess) : (typeof r.sync === 'number' ? r.sync : null);
+        if (second) { CUT.src2 = src; CUT.sync2 = cutGuess(src, r.h2At); }
+        else {
+          CUT.src = src; CUT.stage = 'sync';
+          var guess = cutGuess(src, r.koAt);
+          CUT.auto = guess != null; CUT.sync = CUT.auto ? guess : (typeof r.sync === 'number' ? r.sync : null);
+        }
       } catch (err) { CUT.prog = ''; CUT.msg = (err && err.message) || 'Couldn’t read that video.'; }
       renderCut();
-    } else if (act === 'go') {
-      var sync = parseClock($('cutSync').value);
-      if (sync === null) { CUT.msg = 'Enter where kick-off is in the video, like 2:30.'; renderCut(); return; }
-      var list = cutList(r, sync);
+    } else if (act === 'drop2') { cutKeep(); CUT.src2 = null; CUT.sync2 = null; renderCut(); }
+    else if (act === 'go') {
+      var sync = parseClock($('cutSync').value), sync2 = CUT.src2 ? parseClock($('cutSync2').value) : null;
+      if (sync === null) { CUT.msg = 'Enter where kick-off is in the video, like 02:30.'; renderCut(); return; }
+      if (CUT.src2 && sync2 === null) { cutKeep(); CUT.msg = 'Enter where the second half kicks off in the second video, like 00:45.'; renderCut(); return; }
+      var list = cutList(r, sync, sync2);
       if (!list.length) { CUT.msg = 'No timed moments were logged in this game.'; renderCut(); return; }
-      CUT.sync = sync; CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; renderCut();
+      CUT.sync = sync; CUT.sync2 = sync2; CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; renderCut();
       try {
         r.sync = sync; save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
         if (dirty || !r.id) throw new Error('Couldn’t save the game to the database. Check your signal and try again.');
         var ink = getComputedStyle(document.documentElement).getPropertyValue('--team-ink').trim() || '#ffffff';
         var res = await rc.cut({ path: CUT.src.path, watermark: 'AI Powered Tactics', reelFile: 'reel.mp4',
-          clips: list.map(function (c, i) { return { start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4' }; }),
+          clips: list.map(function (c, i) { return { path: c.second ? CUT.src2.path : CUT.src.path, start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4' }; }),
           outro: { title: teamName() + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: 'Made with AI Powered Tactics', color: S.color, ink: ink } });
         var rows = [];
         for (var i = 0; i < res.clips.length; i++) {
           CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; var el = $('cutProg'); if (el) el.textContent = CUT.prog;
           var blob = await (await fetch(window.Capacitor.convertFileSrc(res.clips[i].path))).blob();
+          blob = blob.slice(0, blob.size, 'video/mp4'); // the phone hands the file over untyped, and storage only accepts video
           var path = teamId + '/' + folderOf(r) + '/' + res.clips[i].file;
           await q(sb.storage.from('clips').upload(path, blob, { contentType: 'video/mp4', upsert: true }));
           rows.push({ team_id: teamId, game_id: r.id, seq: i, path: path, label: list[i].labels.join(' / ').slice(0, 200), at: list[i].at || null, dur: list[i].end - list[i].start, pids: list[i].pids });
@@ -2460,8 +2528,10 @@ tr.past td { opacity: .45; }
     $('usLbl').textContent = teamShort(); $('goalUs').textContent = 'Goal for ' + teamShort();
     $('undo').disabled = !m.events.length; $('hlBtn').disabled = m.phase === 'pre' || m.phase === 'ft';
     $('svBtn').disabled = $('hlBtn').disabled || m.segs[curSeg(m)].gk == null;
-    $('goalMsg').hidden = !goalMsg; $('goalMsg').textContent = goalMsg;
-    $('goalUs').disabled = $('goalThem').disabled = m.phase === 'ft' && role !== 'owner';
+    var locked = Date.now() < lockUntil; if (locked) pick = null;
+    $('goalMsg').hidden = !goalMsg && !locked; $('goalMsg').classList.toggle('toast', locked);
+    $('goalMsg').textContent = locked ? (lockNote ? lockNote + ' ' : '') + 'Score locked for 10 seconds so it isn’t counted twice.' : goalMsg;
+    $('goalUs').disabled = $('goalThem').disabled = locked || (m.phase === 'ft' && role !== 'owner');
     if (pick && pick.step === 'scorer') html = '<div class="picker"><strong>Who scored?</strong><div class="chips">' + pickBtns(m, null) +
       '<button class="pick alt" type="button" data-p="x">Own goal or not sure</button><button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div>';
     else if (pick) html = '<div class="picker"><strong>Who set up ' + esc(nm(pick.p)) + '?</strong><div class="chips">' + pickBtns(m, pick.p) +
@@ -2633,14 +2703,14 @@ tr.past td { opacity: .45; }
     var named = items.filter(function (x) { return !x.plain; });
     return (named.length ? named : items.slice(0, 1)).map(function (x) { return x.text; });
   }
-  function reelClips(r, sync, pre, post) {
+  function reelClips(r, sync, pre, post, keep) {
     var us = 0, them = 0, raw = [];
     (r.ev || []).slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).forEach(function (e) {
       var label;
       if (e.hl) label = e.k === 'save' ? 'Save: ' + nm(e.p) : e.p != null ? 'Highlight: ' + nm(e.p) : 'Highlight';
       else if (e.us) { us++; label = (e.p != null ? nm(e.p) : 'Goal') + (e.a != null ? ' (' + nm(e.a) + ')' : '') + '  ' + teamShort() + ' ' + us + '-' + them + ' ' + r.opp; }
       else { them++; label = 'Goal for ' + r.opp + '  ' + teamShort() + ' ' + us + '-' + them + ' ' + r.opp; }
-      if (typeof e.at !== 'number' || typeof r.koAt !== 'number') return;
+      if (typeof e.at !== 'number' || typeof r.koAt !== 'number' || (keep && !keep(e))) return;
       var t = (e.at - r.koAt) / 1000 + sync;
       raw.push({ t: t, start: Math.max(0, t - pre), end: Math.max(0, t - pre) + pre + post, label: (e.min != null ? ml(e) + ' ' : '') + label, goal: !e.hl, plain: !!e.hl && e.k !== 'save', at: e.at, pids: [e.p, e.us ? e.a : null].filter(function (x) { return x != null; }) });
     });
@@ -2694,6 +2764,13 @@ tr.past td { opacity: .45; }
     var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
     return (h ? h + ':' + ('0' + m).slice(-2) : m) + ':' + ('0' + s).slice(-2);
   }
+  function mmss(sec) { sec = Math.max(0, Math.round(sec)); return sec >= 6000 ? hms(sec) : p2(Math.floor(sec / 60)) + ':' + p2(sec % 60); }
+  // time fields take digits only and place the colon themselves: 0210 becomes 02:10
+  document.addEventListener('input', function (e) {
+    var el = e.target; if (!el.classList || !el.classList.contains('clock')) return;
+    var d = el.value.replace(/\D/g, '').slice(0, 4);
+    el.value = d.length > 2 ? d.slice(0, 2) + ':' + d.slice(2) : d;
+  }, true);
   function parseClock(v) {
     v = String(v).trim(); if (!v) return null;
     var parts = v.split(':'), t = 0;
@@ -2857,7 +2934,7 @@ tr.past td { opacity: .45; }
     $('reelTitle').textContent = teamShort() + ' ' + r.us + '–' + r.them + ' ' + r.opp;
     $('impWho').innerHTML = '<option value="">Nobody in particular</option>' + S.players.map(function (p) { return '<option value="' + p.id + '"' + (S.me === p.id ? ' selected' : '') + '>' + esc(nm(p.id)) + '</option>'; }).join('');
     $('reelFolder').textContent = folderOf(r);
-    $('syncIn').value = typeof r.sync === 'number' ? hms(r.sync) : '';
+    $('syncIn').value = typeof r.sync === 'number' ? mmss(r.sync) : '';
     $('preIn').value = r.pre != null ? r.pre : 15; $('postIn').value = r.post != null ? r.post : 6;
     $('capIn').checked = r.cap !== false; $('impMsg').textContent = '';
     reelOut();

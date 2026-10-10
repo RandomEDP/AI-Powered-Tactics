@@ -12,7 +12,7 @@ await ctx.route('**/*', (r) => {
   return r.abort();
 });
 const errs = [];
-const open = async (label) => { const p = await ctx.newPage(); p.on('pageerror', (e) => errs.push(label + ': ' + e)); await p.goto(BASE); await p.waitForTimeout(300); return p; };
+const open = async (label) => { const p = await ctx.newPage();  p.on('pageerror', (e) => errs.push(label + ': ' + e)); await p.goto(BASE); await p.waitForTimeout(300); return p; };
 const db = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')));
 const vis = (p, s) => p.isVisible(s);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -44,13 +44,17 @@ console.log('B game score:', await B.textContent('#usN'), '-', await B.textConte
 // --- A scores again; B updates live via broadcast
 await A.click('#goalThem'); await wait(1200);
 console.log('B after A logs goal against:', await B.textContent('#usN'), '-', await B.textContent('#themN'));
+console.log('B lock notice:', await B.textContent('#goalMsg'), '| A buttons locked:', await A.isDisabled('#goalUs'), await A.isDisabled('#goalThem'));
 
 // --- A lets followers log goals; B logs one; A folds it in
 await A.click('#v-game .back'); await A.click('#mOptions'); await A.check('#oScore'); await wait(1200);
 console.log('A organiser code shown:', await A.textContent('#orgCode'));
 await B.waitForTimeout(500); await B.reload(); await wait(500);
 console.log('B role after setting:', await B.evaluate(() => document.body.className), '| goal btn visible:', await vis(B, '#goalUs'));
+await wait(9000); console.log('unlocked after 10s:', !(await B.isDisabled('#goalUs')));
 await B.click('#goalUs'); await B.click('#picker button[data-p]'); await B.click('#picker button[data-p="x"]'); await wait(1500);
+// a second follower goal inside the 10 seconds is the same goal logged twice, and is dropped
+await B.reload(); await wait(500); await B.click('#goalUs'); await B.click('#picker button[data-p]'); await B.click('#picker button[data-p="x"]'); await wait(1500); // a reloaded phone has lost the lock, like a second follower tapping at the same moment
 console.log('B message:', await B.textContent('#goalMsg'));
 await A.click('#v-options .back'); await A.click('#mResume'); await wait(300);
 console.log('A score after follower goal:', await A.textContent('#usN'), '-', await A.textContent('#themN'), '| tag:', (await A.textContent('#events')).includes('teammate'), '| queue empty:', (await db(A)).goal_queue.length === 0);

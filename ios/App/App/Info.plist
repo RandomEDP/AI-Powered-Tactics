@@ -55,6 +55,10 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Add your team's games to your calendar.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Add your team's games to your calendar.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo of your team crest.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
