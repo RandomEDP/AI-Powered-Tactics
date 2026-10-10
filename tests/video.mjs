@@ -5,7 +5,7 @@ const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'ut
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
-await ctx.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true, plansSeen: true })); });
+await ctx.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true, plansSeen: true, exp: { track: true } })); });
 await ctx.addInitScript((base) => {
   window.__rc = [];
   const RC = { addListener: (n, cb) => { RC.cb = cb; return { remove() {} }; },
@@ -45,7 +45,10 @@ await A.fill('#cutSync', ''); await A.type('#cutSync', '0210'); console.log('typ
 await A.click('#cutBody [data-cutdo="pick2"]'); await wait(400);
 console.log('second video: kick-off kept', await A.inputValue('#cutSync'), '| second half at', await A.inputValue('#cutSync2'));
 await A.fill('#cutSync2', ''); await A.type('#cutSync2', '0005'); await shot(A, 'cut-two');
+console.log('commentary switch:', await A.isVisible('#cutVoice')); await A.check('#cutVoice');
 await A.click('#cutBody [data-cutdo="go"]'); await wait(2500);
+{ const c = JSON.parse((await A.evaluate(() => window.__rc)).filter((x) => x.startsWith('cut ')).pop().slice(4)); const v = (await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).calls)).filter((x) => x.name === 'reel-voice').pop();
+  console.log('lines sent for speech:', JSON.stringify(v.body.lines)); console.log('cut with voice: intro', !!c.introVoice, '| sign-off', !!c.outroVoice, '| clips', c.clips.map((x) => (x.voice ? 'voice@' + x.voiceAt.toFixed(1) : 'none')).join(' ')); }
 console.log('done screen:', (await A.textContent('#cutBody')).replace(/\s+/g, ' '));
 await shot(A, 'cut-done');
 const d = await db(A); const cutArg = JSON.parse((await A.evaluate(() => window.__rc)).find((x) => x.startsWith('cut ')).slice(4));

@@ -35,6 +35,8 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         let start: Double
         let dur: Double
         let caption: String
+        var voice: AVURLAsset? = nil   // a spoken line to lay over this stretch
+        var voiceAt: Double = 0        // seconds into the stretch at which it should start
     }
 
     private struct CutError: LocalizedError {
@@ -147,12 +149,24 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                     assets[file] = made
                     return made
                 }
+                // Spoken commentary arrives as base64 MP3 and is written to a file so it can be mixed in.
+                var voiceCount = 0
+                func voice(_ raw: Any?) -> AVURLAsset? {
+                    guard let text = raw as? String, let data = Data(base64Encoded: text), data.count > 200 else { return nil }
+                    voiceCount += 1
+                    let url = dir.appendingPathComponent(String(format: "voice_%02d.mp3", voiceCount))
+                    do { try data.write(to: url) } catch { return nil }
+                    return AVURLAsset(url: url)
+                }
+                let intro = voice(call.options["introVoice"])
+                let signOff = voice(call.options["outroVoice"])
                 var segments: [Segment] = []
                 var files: [String] = []
                 for (index, raw) in rawClips.enumerated() {
                     let start = (raw["start"] as? NSNumber)?.doubleValue ?? 0
                     let dur = (raw["dur"] as? NSNumber)?.doubleValue ?? 20
-                    segments.append(Segment(asset: asset(raw["path"] as? String ?? path), start: start, dur: dur, caption: raw["caption"] as? String ?? ""))
+                    segments.append(Segment(asset: asset(raw["path"] as? String ?? path), start: start, dur: dur, caption: raw["caption"] as? String ?? "",
+                                            voice: voice(raw["voice"]), voiceAt: (raw["voiceAt"] as? NSNumber)?.doubleValue ?? 0))
                     files.append(raw["file"] as? String ?? String(format: "clip_%02d.mp4", index + 1))
                 }
 
@@ -168,7 +182,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 var result: [String: Any] = ["clips": made]
                 if let reelFile = reelFile {
                     let out = dir.appendingPathComponent(reelFile)
-                    try self.export(segments: segments, watermark: watermark, outro: outro, to: out) { fraction in
+                    try self.export(segments: segments, watermark: watermark, outro: outro, to: out, intro: intro, signOff: signOff) { fraction in
                         self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction])
                     }
                     result["reel"] = ["path": out.path, "size": self.fileSize(out)]
@@ -187,7 +201,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
 
     /// Joins the given stretches of the source video into one file, drawing the watermark over all of it,
     /// each stretch's caption while it plays, and (for a reel) an outro card at the end.
-    private func export(segments: [Segment], watermark: String, outro: [String: Any]?, to out: URL,
+    private func export(segments: [Segment], watermark: String, outro: [String: Any]?, to out: URL, intro: AVURLAsset? = nil, signOff: AVURLAsset? = nil,
                         progress: @escaping (Double) -> Void) throws {
         guard let firstAsset = segments.first?.asset, let firstVideo = firstAsset.tracks(withMediaType: .video).first else {
             throw CutError(message: "That file has no video in it")
@@ -198,7 +212,28 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             throw CutError(message: "Couldn't set up the video")
         }
         let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        let speech = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
         video.preferredTransform = firstVideo.preferredTransform
+
+        // Spoken lines go on their own track, one after another, and the footage's own sound is turned down under each.
+        var spoken: [(from: Double, to: Double)] = []
+        var speechEnd = 0.0
+        func length(_ line: AVURLAsset?) -> Double {
+            guard let line = line, line.tracks(withMediaType: .audio).first != nil else { return 0 }
+            let seconds = CMTimeGetSeconds(line.duration)
+            return seconds.isFinite && seconds > 0.2 ? seconds : 0
+        }
+        func say(_ line: AVURLAsset?, at wanted: Double, before limit: Double) {
+            let seconds = length(line)
+            guard seconds > 0, let line = line, let speech = speech, let source = line.tracks(withMediaType: .audio).first else { return }
+            let at = max(speechEnd, min(wanted, limit - seconds))
+            do { try speech.insertTimeRange(CMTimeRange(start: .zero, duration: line.duration), of: source, at: CMTime(seconds: at, preferredTimescale: 600)) } catch { return }
+            spoken.append((from: at, to: at + seconds))
+            speechEnd = at + seconds + 0.15
+        }
+        if let first = segments.first, length(intro) > 0, first.voice == nil || 0.4 + length(intro) + 0.4 <= first.voiceAt {
+            say(intro, at: 0.4, before: .greatestFiniteMagnitude)
+        }
 
         let scale: CMTimeScale = 600
         var cursor = CMTime.zero
@@ -217,6 +252,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 try? audio.insertTimeRange(range, of: sourceAudio, at: cursor)
             }
             spans.append((at: CMTimeGetSeconds(cursor), dur: dur, caption: segment.caption))
+            say(segment.voice, at: CMTimeGetSeconds(cursor) + segment.voiceAt, before: CMTimeGetSeconds(cursor) + dur)
             cursor = CMTimeAdd(cursor, range.duration)
         }
         if let audio = audio, audio.segments.isEmpty { composition.removeTrack(audio) }
@@ -226,13 +262,15 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         // The outro card is drawn over a few silent seconds of footage, which it covers completely.
         var outroAt: Double?
         if outro != nil, let first = segments.first {
-            let dur = min(3.5, total - 0.1)
+            let dur = min(max(3.5, min(7, length(signOff) + 0.9)), total - 0.1) // long enough for the sign-off to be said
             let start = max(0, min(first.start, total - dur))
             let range = CMTimeRange(start: CMTime(seconds: start, preferredTimescale: scale), duration: CMTime(seconds: dur, preferredTimescale: scale))
             try video.insertTimeRange(range, of: sourceVideo, at: cursor)
             outroAt = CMTimeGetSeconds(cursor)
+            say(signOff, at: CMTimeGetSeconds(cursor) + 0.3, before: CMTimeGetSeconds(cursor) + dur)
             cursor = CMTimeAdd(cursor, range.duration)
         }
+        if let speech = speech, speech.segments.isEmpty { composition.removeTrack(speech) }
 
         let videoComposition = AVMutableVideoComposition(propertiesOf: composition)
         // Phones record HDR by default; these three settings make the result ordinary video that plays anywhere.
@@ -292,6 +330,23 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             throw CutError(message: "This phone can't export that video")
         }
         session.videoComposition = videoComposition
+        if !spoken.isEmpty, let audio = audio, !audio.segments.isEmpty {
+            // lines close together share one dip, so the crowd noise doesn't pump up and down between them
+            var dips: [(from: Double, to: Double)] = []
+            for line in spoken {
+                if let last = dips.last, line.from - last.to < 1.0 { dips[dips.count - 1].to = line.to } else { dips.append(line) }
+            }
+            let quiet: Float = 0.22
+            let levels = AVMutableAudioMixInputParameters(track: audio)
+            for dip in dips {
+                let down = max(0, dip.from - 0.25)
+                levels.setVolumeRamp(fromStartVolume: 1, toEndVolume: quiet, timeRange: CMTimeRange(start: CMTime(seconds: down, preferredTimescale: 600), duration: CMTime(seconds: max(0.05, dip.from - down), preferredTimescale: 600)))
+                levels.setVolumeRamp(fromStartVolume: quiet, toEndVolume: 1, timeRange: CMTimeRange(start: CMTime(seconds: dip.to, preferredTimescale: 600), duration: CMTime(seconds: 0.35, preferredTimescale: 600)))
+            }
+            let mix = AVMutableAudioMix()
+            mix.inputParameters = [levels]
+            session.audioMix = mix
+        }
         session.outputURL = out
         session.outputFileType = .mp4
         session.shouldOptimizeForNetworkUse = true
