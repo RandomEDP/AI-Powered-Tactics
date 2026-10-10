@@ -3110,7 +3110,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   var Haptics = plugin('Haptics'), Notes = plugin('LocalNotifications'), KeepAwake = plugin('KeepAwake');
   // ---- Apple Watch: the phone sends the game to the watch app, and the watch sends goals and highlights back
-  var Watch = plugin('WatchLink'), watchLast = '', watchT = null, watchSeen = {};
+  var Watch = plugin('WatchLink'), watchLast = '', watchT = null, watchSeen = {}, watchSentAt = 0, watchQueue = [];
   function watchState() {
     var m = S.match; if (!m || role !== 'owner') return { live: false };
     var t = tally(m), cb = curSeg(m), on = onPitch(m, cb), changes = [], first = m.phase === 'pre' || m.phase === 'ht' ? cb : cb + 1;
@@ -3124,17 +3124,25 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function watchPush() {
     if (!Watch) return;
     clearTimeout(watchT); watchT = setTimeout(function () {
-      var json = JSON.stringify(watchState()); if (json === watchLast) return;
-      watchLast = json; try { Watch.push({ state: json }).catch(function () {}); } catch (e) {}
+      watchDrain();
+      var json = JSON.stringify(watchState()); if (json === watchLast && Date.now() - watchSentAt < 30000) return; // unchanged, but said again now and then in case one was missed
+      watchLast = json; watchSentAt = Date.now(); try { Watch.push({ state: json }).catch(function () {}); } catch (e) {}
     }, 150);
   }
   function watchEvent(d) {
     var ev, m = S.match; try { ev = JSON.parse(d.event); } catch (e) { return; }
-    if (!ev || !m || role !== 'owner' || m.phase === 'ft' || (ev.id && watchSeen[ev.id])) return;
+    if (!ev || (ev.id && watchSeen[ev.id])) return;
+    // The watch can wake this app before it has finished signing in and loading the game: keep the event for a few minutes and try again.
+    if (!m || role !== 'owner') { if (!d.again) watchQueue.push({ event: d.event, again: true, t: Date.now() }); return; }
+    if (m.phase === 'ft') return;
     if (ev.id) watchSeen[ev.id] = 1;
     var ok = function (v) { return typeof v === 'number' && m.squad.indexOf(v) >= 0 ? v : null; };
     if (ev.type === 'goal') { pick = null; addGoal(stamped(m, stripNull({ us: !!ev.us, p: ev.us ? ok(ev.p) : null, a: ev.us ? ok(ev.a) : null }))); }
     else if (ev.type === 'hl' && m.phase !== 'pre') { m.events.push(stamped(m, stripNull({ hl: true, p: myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null, watch: true, at: Date.now() }))); save(); if (S.view === 'game') renderScore(); }
+  }
+  function watchDrain() {
+    if (!watchQueue.length || !S.match || role !== 'owner') { watchQueue = watchQueue.filter(function (x) { return Date.now() - x.t < 600000; }); return; }
+    var q2 = watchQueue; watchQueue = []; q2.forEach(function (x) { if (Date.now() - x.t < 600000) watchEvent(x); });
   }
   if (Watch) { try { Watch.addListener('event', watchEvent); } catch (e) {} setInterval(watchPush, 5000); }
   // a light tap under the finger for every button press, and no zooming by pinch or double tap

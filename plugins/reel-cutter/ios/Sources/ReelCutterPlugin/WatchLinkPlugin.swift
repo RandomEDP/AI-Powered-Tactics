@@ -15,8 +15,11 @@ public class WatchLinkPlugin: CAPPlugin, CAPBridgedPlugin, WCSessionDelegate {
     ]
 
     private var latest: [String: Any]?
+    private let saved = "watchlink.latest"
 
     override public func load() {
+        // The last game sent is kept, so a watch that asks while the app is only just waking up still gets an answer.
+        if let state = UserDefaults.standard.string(forKey: saved) { latest = ["state": state, "sent": Date().timeIntervalSince1970 * 1000] }
         guard WCSession.isSupported() else { return }
         WCSession.default.delegate = self
         WCSession.default.activate()
@@ -27,7 +30,9 @@ public class WatchLinkPlugin: CAPPlugin, CAPBridgedPlugin, WCSessionDelegate {
             call.reject("No game to send")
             return
         }
-        latest = ["state": state]
+        // "sent" lets the watch ignore anything older than what it already has, and makes every update count as new
+        latest = ["state": state, "sent": Date().timeIntervalSince1970 * 1000]
+        UserDefaults.standard.set(state, forKey: saved)
         call.resolve(["sent": deliver()])
     }
 
@@ -67,6 +72,14 @@ public class WatchLinkPlugin: CAPPlugin, CAPBridgedPlugin, WCSessionDelegate {
     }
 
     public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        received(message)
+    }
+
+    /// The watch asks for an answer so it knows the phone really got its goal; the answer carries the current game too.
+    public func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+        var answer: [String: Any] = latest ?? [:]
+        answer["ok"] = true
+        replyHandler(answer)
         received(message)
     }
 

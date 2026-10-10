@@ -68,6 +68,8 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
 
     private var unlock: DispatchWorkItem?
     private var clearNote: DispatchWorkItem?
+    private var newest = 0.0                                          // when the phone sent the game now showing
+    private var hold: (us: Int, them: Int, until: Date)?              // a goal logged here that the phone hasn't counted yet
 
     /// Set only in the simulator, to take the App Store screenshots: which part of the screen to show.
     @Published var demoPage: Int?
@@ -94,19 +96,37 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
 
     private func take(_ payload: [String: Any]) {
         guard let json = payload["state"] as? String, let data = json.data(using: .utf8),
-              let decoded = try? JSONDecoder().decode(MatchState.self, from: data) else { return }
+              var decoded = try? JSONDecoder().decode(MatchState.self, from: data) else { return }
+        let sent = (payload["sent"] as? NSNumber)?.doubleValue ?? 0
         DispatchQueue.main.async {
+            if sent > 0 && sent < self.newest { return } // an older update that arrived late
+            if sent > 0 { self.newest = sent }
+            // A goal logged on this watch shows straight away. Until the phone has counted it, don't let an older score undo it.
+            if let hold = self.hold {
+                if !decoded.live || Date() > hold.until || decoded.us + decoded.them >= hold.us + hold.them { self.hold = nil } else {
+                    decoded.us = max(decoded.us, hold.us)
+                    decoded.them = max(decoded.them, hold.them)
+                }
+            }
             self.state = decoded
             let left = decoded.lockUntil / 1000 - Date().timeIntervalSince1970
             if left > 0 { self.lock(for: min(left, 8)) }
         }
     }
 
-    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+    /// Ask the phone for the game as it stands now. Called when the watch app opens or comes back to the front.
+    func refresh() {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
         take(session.receivedApplicationContext)
         if session.isReachable {
-            session.sendMessage(["event": "{\"type\":\"hello\"}"], replyHandler: nil, errorHandler: nil)
+            session.sendMessage(["event": "{\"type\":\"hello\"}"], replyHandler: { [weak self] answer in self?.take(answer) }, errorHandler: nil)
         }
+    }
+
+    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        refresh()
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
@@ -118,9 +138,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
-        if session.isReachable {
-            session.sendMessage(["event": "{\"type\":\"hello\"}"], replyHandler: nil, errorHandler: nil)
-        }
+        refresh()
     }
 
     // MARK: - To the phone
@@ -149,10 +167,14 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
         let payload: [String: Any] = ["event": json]
         let session = WCSession.default
         if session.isReachable {
-            session.sendMessage(payload, replyHandler: nil) { _ in
+            say("Sending…")
+            session.sendMessage(payload, replyHandler: { [weak self] answer in
+                DispatchQueue.main.async { self?.say("Sent") }
+                self?.take(answer)
+            }, errorHandler: { [weak self] _ in
                 session.transferUserInfo(payload) // queued, and delivered when the phone app is next running
-            }
-            say("Sent")
+                DispatchQueue.main.async { self?.say("Saved. It sends when your iPhone is in reach.") }
+            })
         } else {
             session.transferUserInfo(payload)
             say("Saved. It sends when your iPhone is in reach.")
@@ -166,6 +188,11 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
         if let scorer = scorer { event["p"] = scorer }
         if let assist = assist { event["a"] = assist }
         send(event)
+        if var shown = state { // show it now; the phone's count catches up
+            if us { shown.us += 1 } else { shown.them += 1 }
+            hold = (us: shown.us, them: shown.them, until: Date().addingTimeInterval(90))
+            state = shown
+        }
         lock(for: 8)
     }
 
