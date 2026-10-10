@@ -18,7 +18,9 @@
       const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok(null);
       const org = isOrg(d, t.id);
       return ok({ team: Object.assign({}, t, { organiser_code: org ? t.organiser_code : null }), is_organiser: org,
-        players: d.players.filter((p) => p.team_id === t.id).sort((x, y) => x.pid - y.pid).map((p) => ({ pid: p.pid, name: p.name })),
+        my_pid: (d.players.find((p) => p.team_id === t.id && uid() && p.user_id === uid()) || {}).pid ?? null,
+        players: d.players.filter((p) => p.team_id === t.id).sort((x, y) => x.pid - y.pid).map((p) => ({ pid: p.pid, name: p.name, claimed: !!p.user_id, me: !!p.user_id && p.user_id === uid(),
+          gaffer: !!p.user_id && d.team_members.some((mm) => mm.team_id === t.id && mm.user_id === p.user_id), last_name: org || p.user_id === uid() ? p.last_name || null : null })),
         games: d.games.filter((g) => g.team_id === t.id).sort((x, y) => x.seq - y.seq).map((g) => Object.assign({}, g, {
           players: d.game_players.filter((p) => p.game_id === g.id).map((p) => ({ pid: p.pid, mins: p.mins, goals: p.goals, assists: p.assists })),
           events: d.game_events.filter((e) => e.game_id === g.id).sort((x, y) => x.seq - y.seq) })),
@@ -37,6 +39,16 @@
       if (!isOrg(d, t.id)) d.team_members.push({ team_id: t.id, user_id: uid() }); store(d); return ok(t.code);
     }
     if (name === 'new_organiser_code') { const t = d.teams.find((x) => x.id === a.p_team); if (!t || !isOrg(d, t.id)) return fail('no', '42501'); t.organiser_code = code(10); store(d); return ok(t.organiser_code); }
+    if (name === 'claim_player') {
+      if (!uid()) return fail('Sign in first', '42501');
+      const t = d.teams.find((x) => x.code === a.p_code); if (!t) return ok('missing');
+      const p = d.players.find((x) => x.team_id === t.id && x.pid === a.p_pid); if (!p) return ok('missing');
+      if (p.user_id && p.user_id !== uid()) return ok('taken');
+      d.players.forEach((x) => { if (x.team_id === t.id && x.user_id === uid()) x.user_id = null; });
+      p.user_id = uid(); p.last_name = a.p_last_name || null; store(d); return ok('ok');
+    }
+    if (name === 'release_player') { const t = d.teams.find((x) => x.code === a.p_code); d.players.forEach((x) => { if (t && x.team_id === t.id && x.user_id === uid()) x.user_id = null; }); store(d); return ok(true); }
+    if (name === 'my_teams') return ok(!uid() ? [] : d.teams.filter((t) => isOrg(d, t.id) || d.players.some((p) => p.team_id === t.id && p.user_id === uid())).map((t) => ({ code: t.code, name: t.name, org: isOrg(d, t.id) })));
     if (name === 'queue_goal') {
       const t = d.teams.find((x) => x.code === a.p_code); if (!t || !t.followers_can_score) return ok(false);
       d.goal_queue.push({ id: crypto.randomUUID(), team_id: t.id, payload: a.p_payload }); store(d); return ok(true);

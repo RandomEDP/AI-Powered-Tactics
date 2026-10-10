@@ -36,7 +36,7 @@ await wait(900); console.log('live in db during game:', !!(await db(A)).live_mat
 // --- follower B (new device): follows by code and sees the live game
 const B = await open('B');
 await B.evaluate(() => { Object.keys(localStorage).filter((k) => k.startsWith('apt-')).forEach((k) => localStorage.removeItem(k)); }); await B.reload(); await wait(300);
-await B.fill('#joinCode', code.toLowerCase()); await B.click('#joinBtn'); await wait(400);
+await B.fill('#joinCode', code.toLowerCase()); await B.click('#joinBtn'); await wait(400); await B.click('#jFollow'); await wait(400);
 console.log('B joined:', await B.textContent('#heroName'), '| watch btn:', await B.textContent('#mResumeLbl'), '| new game hidden:', !(await vis(B, '#mNew')), '| options hidden:', !(await vis(B, '#mOptions')));
 await B.click('#mResume'); await wait(200);
 console.log('B game score:', await B.textContent('#usN'), '-', await B.textContent('#themN'), '| clock controls hidden:', !(await vis(B, '#go')), '| goal button hidden:', !(await vis(B, '#goalUs')));

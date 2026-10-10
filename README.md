@@ -6,7 +6,8 @@ An iOS app (and the same app on the web) backed by Supabase, usable offline at t
 ## What it does
 
 - **Teams with codes.** Organisers sign in and create teams. Each team gets a 6-character follow code; anyone with it can follow live games and stats without an account.
-- **Organisers.** Each team also has a private 10-character organiser code. A signed-in person who enters it becomes a co-organiser.
+- **Player accounts.** A player enters the team code, picks their unclaimed name, and signs up. That links their account to the player's stats, on as many teams as they like. Gaffers (team admins) are marked in the squad.
+- **Gaffers.** Each team also has a private 10-character organiser code. A signed-in person who enters it becomes a co-organiser.
 - **Minutes planning.** A slider from *Aggressive* (most effective players by goals and assists per minute play most, everyone gets at least 5 minutes) to *Fairness* (equal minutes, any extra to whoever has played least this season).
 - **Match day.** Countdown to each change, tap-to-swap upcoming subs, player injured or leaving with a suggested replacement, added time, goals, assists, keeper saves and highlights.
 - **Followers can log goals** if the organiser switches that on in Options.
@@ -71,6 +72,6 @@ Never put the `.p8` key, or any secret, in the code or in chat. GitHub secrets a
 
 ```
 python3 -m http.server 8766        # from the repo root
-cd tests && npm i playwright && node flow.mjs && node native.mjs && node delete.mjs
+cd tests && npm i playwright && node flow.mjs && node native.mjs && node delete.mjs && node players.mjs
 node shots.mjs shots light   # screenshots of every screen, for checking the design
 ```
