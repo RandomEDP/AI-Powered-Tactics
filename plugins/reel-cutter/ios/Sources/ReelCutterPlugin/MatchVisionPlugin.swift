@@ -9,9 +9,9 @@ import Vision
 
 /// Experimental: follows named players through a match recording, on the phone.
 ///
-///   analyse({ path, players: [{ pid, number }], color, length, width?, from?, to?, rate? })
+///   analyse({ path, players: [{ pid, number }], exact?, color, length, width?, from?, to?, rate? })   exact: false = the whole squad, not just who is on
 ///     -> { duration, pitch: { width, length }, cameraHeight, players: [{ pid, number, seconds, metres, reads, heat }], team: { heat }, pieces, unknownSeconds,
-///          ask: [{ piece, seconds, pictures: [jpeg as base64] }] }
+///          ask: [{ piece, seconds, pictures: [jpeg as base64] }], more }
 ///   name({ piece, number? })   says who the player in one of the `ask` pictures is (no number = not one of ours); returns the result again
 ///   cancel()
 /// While working it emits "progress" events: { stage: "look" | "sort", p }.
@@ -58,7 +58,9 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
         var pitchWidth: Double
         var cameraHeight: Double
         var width: Double
+        var onPitch: Int             // how many of ours are usually in view at once
         var told: [Int: Int] = [:]   // piece -> shirt number, as told by the person using it (-1 = not one of ours)
+        var exact = true             // the players given are exactly the ones on the pitch (false: the whole squad was given)
     }
 
     /// Loads the detector the first time it is needed.
@@ -113,11 +115,12 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private final class Piece {
         var id = 0
+        var track = 0
         var dets: [Det]
         var who: Int?
         var read = false
         var told = false
-        init(_ dets: [Det]) { self.dets = dets }
+        init(_ dets: [Det], track: Int) { self.dets = dets; self.track = track }
         var start: Int { dets[0].frame }
         var end: Int { dets[dets.count - 1].frame }
     }
@@ -150,11 +153,13 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
         let rate = max(2, min(15, call.getDouble("rate") ?? 8))
         let from = max(0, call.getDouble("from") ?? 0)
         let to = call.getDouble("to")
+        let exact = call.getBool("exact") ?? true
         cancelled = false
 
         queue.async {
             do {
-                let watched = try self.run(path: path, numbers: numbers, pidFor: pidFor, kit: kit, pitchLength: pitchLength, pitchWidth: pitchWidth, rate: rate, from: from, to: to)
+                var watched = try self.run(path: path, numbers: numbers, pidFor: pidFor, kit: kit, pitchLength: pitchLength, pitchWidth: pitchWidth, rate: rate, from: from, to: to)
+                watched.exact = exact
                 self.last = watched
                 call.resolve(self.finish(watched))
             } catch {
@@ -333,18 +338,20 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
             var current: [Det] = []
             for det in track.dets {
                 if cutFrames[trackIndex].contains(det.frame) {
-                    if current.count >= 4 { pieces.append(Piece(current)) }
+                    if current.count >= 4 { pieces.append(Piece(current, track: trackIndex)) }
                     current = []
                 } else {
                     current.append(det)
                 }
             }
-            if current.count >= 4 { pieces.append(Piece(current)) }
+            if current.count >= 4 { pieces.append(Piece(current, track: trackIndex)) }
         }
 
         for (index, piece) in pieces.enumerated() { piece.id = index }
+        let crowd = byFrame.map { $0.count }.sorted()
+        let onPitch = max(1, crowd[min(crowd.count - 1, Int(Double(crowd.count) * 0.9))])
         return Watched(path: path, numbers: numbers, pidFor: pidFor, pieces: pieces, ours: ours, times: times, dt: dt, duration: end - from, frames: frames,
-                       pitchLength: pitchLength, pitchWidth: pitchWidth, cameraHeight: cameraHeight, width: W)
+                       pitchLength: pitchLength, pitchWidth: pitchWidth, cameraHeight: cameraHeight, width: W, onPitch: onPitch)
     }
 
     // MARK: - Who is who
@@ -390,38 +397,88 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         // 6) every other piece goes to whoever could have been there, most certain first
+        var known: [Int: [Piece]] = [:]   // each named player's pieces so far, in time order
+        func place(_ piece: Piece, _ number: Int) {
+            piece.who = number
+            var list = known[number] ?? []
+            list.insert(piece, at: list.firstIndex { $0.start > piece.start } ?? list.count)
+            known[number] = list
+        }
+        for piece in pieces { if let who = piece.who, who >= 0 { place(piece, who) } }
+        /// Where this piece would slot into a player's pieces: the index of the first one starting after it ends.
+        func slot(_ piece: Piece, _ list: [Piece]) -> Int {
+            var low = 0
+            var high = list.count
+            while low < high {
+                let mid = (low + high) / 2
+                if list[mid].start > piece.end { high = mid } else { low = mid + 1 }
+            }
+            return low
+        }
+        func join(_ a: Det, _ b: Det, _ frames: Int) -> Double? {
+            let gap = Double(frames) * dt
+            let distance = hypot(a.gx - b.gx, a.gz - b.gz)
+            if distance > 7.5 * gap + 3 { return nil } // nobody runs that fast
+            return gap < 4 ? distance / (0.4 + gap) : 6 + gap
+        }
+        var fresh = 99.0 // the score for "this could be a player nobody has been put to yet"
         func fit(_ piece: Piece, _ number: Int) -> Double? {
+            guard let list = known[number], !list.isEmpty else { return fresh }
+            let at = slot(piece, list)
             var best: Double?
-            for other in pieces where other.who == number && other !== piece {
-                if other.start <= piece.end && piece.start <= other.end { return nil } // already somewhere else
-                let before = other.end < piece.start
-                let gap = Double(before ? piece.start - other.end : other.start - piece.end) * dt
-                let a = before ? other.dets[other.dets.count - 1] : piece.dets[piece.dets.count - 1]
-                let b = before ? piece.dets[0] : other.dets[0]
-                let distance = hypot(a.gx - b.gx, a.gz - b.gz)
-                if distance > 7.5 * gap + 3 { return nil } // nobody runs that fast
-                let score = gap < 4 ? distance / (0.4 + gap) : 6 + gap
+            if at > 0 {
+                let other = list[at - 1]
+                if other.end >= piece.start { return nil } // already somewhere else
+                guard let score = join(other.dets[other.dets.count - 1], piece.dets[0], piece.start - other.end) else { return nil }
+                best = score
+            }
+            if at < list.count {
+                let other = list[at]
+                guard let score = join(piece.dets[piece.dets.count - 1], other.dets[0], other.start - piece.end) else { return nil }
                 best = min(best ?? score, score)
             }
-            return best ?? 99
+            return best
         }
         var changed = true
         while changed {
             changed = false
-            var pick: (margin: Double, score: Double, piece: Piece, number: Int)?
+            // while some of the players on the pitch haven't been found yet, a loose piece may well be one of them
+            fresh = known.values.filter { !$0.isEmpty }.count < watched.onPitch ? 3 : 99
+            var picks: [(margin: Double, score: Double, piece: Piece, number: Int)] = []
             for piece in pieces where piece.who == nil {
                 var scored: [(Double, Int)] = []
                 for number in numbers { if let score = fit(piece, number) { scored.append((score, number)) } }
                 guard !scored.isEmpty else { continue }
                 scored.sort { $0.0 < $1.0 }
                 let margin = scored.count > 1 ? scored[1].0 - scored[0].0 : 50
-                if pick == nil || margin > pick!.margin || (margin == pick!.margin && scored[0].0 < pick!.score) {
-                    pick = (margin, scored[0].0, piece, scored[0].1)
-                }
+                let unseen = known[scored[0].1]?.isEmpty ?? true
+                if unseen && !watched.exact { continue } // with the whole squad given, "nobody else it could be" proves nothing
+                if margin >= 1.5 && scored[0].0 < 20 { picks.append((margin, scored[0].0, piece, scored[0].1)) }
             }
-            if let pick = pick, pick.margin >= 1.5, pick.score < 20 {
-                pick.piece.who = pick.number
+            picks.sort { $0.margin != $1.margin ? $0.margin > $1.margin : $0.score < $1.score }
+            var used = Set<Int>()
+            for pick in picks where !used.contains(pick.number) {
+                used.insert(pick.number)
+                place(pick.piece, pick.number)
                 changed = true
+            }
+            if changed { continue }
+            // nothing more by position: carry a name along the same unbroken track, across the moments two players were too close to call
+            for index in pieces.indices where pieces[index].who == nil {
+                let piece = pieces[index]
+                for near in [index - 1, index + 1] where near >= 0 && near < pieces.count {
+                    let other = pieces[near]
+                    guard other.track == piece.track, let who = other.who else { continue }
+                    let gap = Double(near < index ? piece.start - other.end : other.start - piece.end) * dt
+                    if gap > 2 { continue }
+                    if who < 0 { piece.who = -1; changed = true; break }
+                    let list = known[who] ?? []
+                    let at = slot(piece, list)
+                    if at > 0 && list[at - 1].end >= piece.start { continue }
+                    place(piece, who)
+                    changed = true
+                    break
+                }
             }
         }
 
@@ -467,15 +524,32 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
         let nameless = pieces.filter { $0.who == nil }
         let unknown = Double(nameless.reduce(0) { $0 + ($1.end - $1.start) }) * dt
         // the longest stretches nobody could be put to, with pictures, so the person using it can say who that is
+        var chains: [[Piece]] = []
+        var streak: [Piece] = []
+        for piece in pieces {
+            if piece.who == nil, let before = streak.last, before.track == piece.track {
+                streak.append(piece)
+            } else {
+                if !streak.isEmpty { chains.append(streak) }
+                streak = piece.who == nil ? [piece] : []
+            }
+        }
+        if !streak.isEmpty { chains.append(streak) }
+        func length(_ chain: [Piece]) -> Double { Double(chain.reduce(0) { $0 + ($1.end - $1.start) }) * dt }
+        let named = Double(pieces.filter { ($0.who ?? -1) >= 0 }.reduce(0) { $0 + ($1.end - $1.start) }) * dt
+        let least = max(4, watched.duration * 0.005)
+        var worth: [[Piece]] = []
+        if unknown > 0.1 * (named + unknown) { worth = chains.filter { length($0) >= least }.sorted { length($0) > length($1) } }
         var ask: [[String: Any]] = []
         let asset = AVURLAsset(url: URL(fileURLWithPath: watched.path))
         let camera = AVAssetImageGenerator(asset: asset)
         camera.appliesPreferredTrackTransform = true
         camera.requestedTimeToleranceBefore = CMTime(value: 1, timescale: 30)
         camera.requestedTimeToleranceAfter = CMTime(value: 1, timescale: 30)
-        for piece in nameless.filter({ Double($0.end - $0.start) * dt >= 1.5 }).sorted(by: { $0.dets.count > $1.dets.count }).prefix(4) {
+        for chain in worth.prefix(2) {
+            guard let longest = chain.max(by: { $0.dets.count < $1.dets.count }) else { continue }
             var chosen: [Det] = []
-            for det in piece.dets.sorted(by: { $0.height > $1.height }) where chosen.count < 3 {
+            for det in chain.flatMap({ $0.dets }).sorted(by: { $0.height > $1.height }) where chosen.count < 3 {
                 if chosen.allSatisfy({ Double(abs($0.frame - det.frame)) * dt > 0.8 }) { chosen.append(det) }
             }
             var pictures: [String] = []
@@ -488,11 +562,11 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
                 guard box.width > 8, box.height > 8, let cut = whole.cropping(to: box), let jpeg = UIImage(cgImage: cut).jpegData(compressionQuality: 0.85) else { continue }
                 pictures.append(jpeg.base64EncodedString())
             }
-            if !pictures.isEmpty { ask.append(["piece": piece.id, "seconds": Double(piece.end - piece.start) * dt, "pictures": pictures]) }
+            if !pictures.isEmpty { ask.append(["piece": longest.id, "seconds": length(chain), "pictures": pictures]) }
         }
         return [
             "duration": watched.duration, "frames": watched.frames, "pitch": ["width": pitchWidth, "length": pitchLength], "cameraHeight": watched.cameraHeight,
-            "columns": columns, "rows": rows, "players": players, "team": ["heat": heat(ours)], "ask": ask,
+            "columns": columns, "rows": rows, "players": players, "team": ["heat": heat(ours)], "ask": ask, "more": max(0, worth.count - 2),
             "pieces": pieces.count, "unknownSeconds": unknown, "numbersRead": reads.values.reduce(0, +)
         ]
     }

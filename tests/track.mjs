@@ -13,7 +13,7 @@ await pg.addInitScript(() => {
   const MV = { addListener: (n, cb) => { MV.cb = cb; }, cancel: none,
     name: async (o) => { window.__mv.push('name ' + JSON.stringify(o)); const r = JSON.parse(JSON.stringify(MV.last)); r.ask = []; r.unknownSeconds = 5; r.players[0].seconds += 36; return r; },
     analyse: async (o) => { window.__mv.push(JSON.stringify(o)); MV.cb && MV.cb({ stage: 'look', p: 0.5 }); await new Promise((r) => setTimeout(r, 300));
-      return MV.last = { ask: [{ piece: 7, seconds: 36, pictures: [PIC, PIC] }], duration: 300, frames: 2400, pitch: { width: 20.7, length: o.length }, cameraHeight: 2.3, columns: 10, rows: 15, pieces: 64, unknownSeconds: 41, numbersRead: 37,
+      return MV.last = { ask: [{ piece: 7, seconds: 36, pictures: [PIC, PIC] }], more: 3, duration: 300, frames: 2400, pitch: { width: 20.7, length: o.length }, cameraHeight: 2.3, columns: 10, rows: 15, pieces: 64, unknownSeconds: 41, numbersRead: 37,
         players: o.players.map((p, i) => ({ pid: p.pid, number: p.number, seconds: 200 + i * 20, readSeconds: i ? 30 : 0, metres: 400 + i * 50, pieces: 9, heat: grid([2 + i * 2, 4 + i * 3]) })), team: { heat: grid([5, 7]) } }; } };
   const RC = { addListener: () => {}, pickVideo: async (o) => { window.__mv.push('pick ' + o.slot); return { path: '/tmp/game.mov', duration: 1830 }; } };
   window.Capacitor = { isNativePlatform: () => true, Plugins: { MatchVision: MV, ReelCutter: RC, Haptics: { impact: none, notification: none }, KeepAwake: { keepAwake: none, allowSleep: none }, LocalNotifications: { getPending: async () => ({ notifications: [] }), cancel: none, checkPermissions: async () => ({ display: 'granted' }), requestPermissions: async () => ({ display: 'granted' }), schedule: none } } };
@@ -25,7 +25,7 @@ await pg.click('#mInsights'); console.log('tracking button before switching on:'
 await pg.click('#mOptions'); await wait(200); console.log('settings:', await view(), '| experimental section:', await pg.isVisible('#expTrack'));
 await pg.check('#expTrack'); await pg.click('#expTrackOpen'); await wait(200); console.log('opened:', await view());
 await pg.click('[data-tr="pick"]'); await wait(200); console.log('video:', await pg.textContent('#trackBody .msg'));
-await pg.click('[data-tr="go"]'); console.log('nobody ticked:', await pg.textContent('#trackBody .msg.bad'));
+await pg.click('[data-tr="go"]'); console.log('nobody ticked, no numbers:', await pg.textContent('#trackBody .msg.bad'));
 for (const [pid, n] of [[2, '56'], [3, '14'], [4, '22'], [5, '2']]) { await pg.check(`[data-tron="${pid}"]`); if (pid !== 5) await pg.fill(`[data-trnum="${pid}"]`, n); }
 await pg.click('[data-tr="go"]'); console.log('missing number:', await pg.textContent('#trackBody .msg.bad'));
 await pg.fill('[data-trnum="5"]', '2'); await pg.type('#trFrom', '0500'); await pg.type('#trTo', '1000'); await pg.click('[data-tr="go"]'); await wait(100);
