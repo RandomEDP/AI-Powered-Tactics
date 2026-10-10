@@ -64,6 +64,6 @@ await A.click('#v-setup .back');
 await A.click('#fxCard [data-fx="edit"]'); console.log('edit form prefilled:', await A.inputValue('#pOpp'), await A.inputValue('#pDate'), await A.inputValue('#pTime'), await A.inputValue('#pLoc'));
 await A.click('#pCancel'); await A.click('#pCancel'); await wait(600); console.log('after cancel:', (await fx(A)).slice(0, 40));
 await A.click('#fxCard [data-fx="new"]'); console.log('next poll defaults:', await A.inputValue('#pLoc'), '|', await A.inputValue('#pCost'), '|', await A.inputValue('#pTime'), '|', await A.inputValue('#pDate'), '(a Tuesday:', new Date(await A.inputValue('#pDate')).getDay() === 2, ')');
-await A.selectOption('#pMax', '4'); await A.fill('#pOpp', 'Real Sociable'); await A.click('#pSave'); await wait(600);
+await A.fill('#pMax', '4'); await A.fill('#pOpp', 'Real Sociable'); await A.click('#pSave'); await wait(600);
 console.log('4-a-side poll:', (await fx(A)).match(/\d+ of \d+ outfield/)[0]);
 console.log('errors:', JSON.stringify(errs)); await b.close();

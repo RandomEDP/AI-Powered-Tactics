@@ -397,6 +397,12 @@ tr.past td { opacity: .45; }
 .gnav button { min-width: 44px; min-height: 44px; border: 0; border-radius: 999px; background: var(--fill); font-weight: 700; }
 .say { background: var(--bg); border-radius: var(--r-ctl); padding: 10px 14px; font-size: 15px; font-style: italic; }
 .saybtn { align-self: flex-start; }
+.squad .sqrow { display: flex; align-items: baseline; justify-content: space-between; font-weight: 650; }
+.squad .sqrow b { font-size: 22px; font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.squad input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; border-radius: 7px; margin: 8px 0 0; background: var(--fill); }
+.squad input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; border-radius: 50%; background: var(--on); border: 3px solid var(--surface); box-shadow: 0 1px 4px rgba(0, 0, 0, .3); cursor: pointer; }
+.squad input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: var(--on); border: 3px solid var(--surface); cursor: pointer; }
+.sqticks { display: flex; justify-content: space-between; padding-inline: 11px; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 #fxCard.live { box-shadow: inset 0 0 0 2px var(--team); }
 #fxCard.ask { box-shadow: inset 0 0 0 3px #ffc83d; }
 .fxtag { align-self: flex-start; background: #ffc83d; color: #2a2100; font-size: 13px; font-weight: 750; border-radius: 999px; padding: 4px 10px; }
@@ -650,7 +656,12 @@ tr.past td { opacity: .45; }
   </div>
   <label class="field" for="pLoc">Location<input id="pLoc" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Powerleague, pitch 4"></label>
   <label class="field" for="pCost">Cost<input id="pCost" type="text" maxlength="40" autocomplete="off" placeholder="e.g. £5 each"></label>
-  <label class="field" for="pMax">Squad size<select id="pMax"><option value="7">A keeper and up to 7 outfield (with subs)</option><option value="4">A keeper and 4 outfield (no subs)</option></select></label>
+  <div class="card squad"><h2>Squad size</h2>
+    <div class="sqrow"><span>Keeper</span><b>1</b></div>
+    <div class="sqrow"><label for="pMax">Outfield players</label><b id="pMaxN">7</b></div>
+    <input id="pMax" type="range" min="4" max="7" step="1" value="7" aria-describedby="pMaxNote">
+    <div class="sqticks" aria-hidden="true"><span>4</span><span>5</span><span>6</span><span>7</span></div>
+    <p class="note" id="pMaxNote"></p></div>
   <p class="msg bad" id="pMsg"></p>
   <div class="actions"><button class="plain primary" id="pSave" type="button">Create poll</button><button class="plain" id="pCancel" type="button" hidden>Cancel this game</button></div>
 </div>
@@ -1967,16 +1978,22 @@ tr.past td { opacity: .45; }
     $('pollTitle').textContent = f ? 'Edit poll' : 'New poll';
     $('pOpp').value = f ? f.opp : ''; $('pDate').value = when.getFullYear() + '-' + p2(when.getMonth() + 1) + '-' + p2(when.getDate()); $('pTime').value = p2(when.getHours()) + ':' + p2(when.getMinutes());
     $('pLoc').value = f ? f.location : (d0.location || ''); $('pCost').value = f ? f.cost : (d0.cost || '');
-    var mx = f ? f.max_outfield : (d0.max || 7); $('pMax').value = mx === 4 ? '4' : '7';
+    var mx = f ? f.max_outfield : (d0.max || 7); $('pMax').value = Math.max(4, Math.min(7, mx | 0 || 7)); pMaxShow();
     $('pOppList').innerHTML = S.results.map(function (r) { return r.opp; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
     $('pCancel').hidden = !f; $('pMsg').textContent = ''; $('pSave').disabled = false; $('pSave').textContent = f ? 'Save poll' : 'Create poll';
   }
+  function pMaxShow() {
+    var n = +$('pMax').value, subs = Math.max(0, n - Math.max(1, S.pitch - 1));
+    $('pMaxN').textContent = n;
+    $('pMaxNote').textContent = (n + 1) + ' in the squad: one keeper and ' + n + ' outfield, so ' + (subs ? subs + (subs === 1 ? ' sub.' : ' subs.') : 'no subs.');
+  }
+  $('pMax').addEventListener('input', pMaxShow);
   $('pSave').addEventListener('click', async function () {
     if (role !== 'owner' || !sb || !teamId) return;
     var opp = $('pOpp').value.trim(), dt = new Date($('pDate').value + 'T' + ($('pTime').value || '19:00'));
     if (!opp) { $('pMsg').textContent = 'Enter who you’re playing.'; $('pOpp').focus(); return; }
     if (isNaN(dt.getTime())) { $('pMsg').textContent = 'Pick the date and kick-off time.'; return; }
-    var row = { opp: opp.slice(0, 60), ko_at: dt.getTime(), location: $('pLoc').value.trim().slice(0, 120), cost: $('pCost').value.trim().slice(0, 40), max_outfield: +$('pMax').value === 4 ? 4 : 7 };
+    var row = { opp: opp.slice(0, 60), ko_at: dt.getTime(), location: $('pLoc').value.trim().slice(0, 120), cost: $('pCost').value.trim().slice(0, 40), max_outfield: Math.max(4, Math.min(7, +$('pMax').value | 0 || 7)) };
     $('pSave').disabled = true;
     try {
       if (fxEdit) await q(sb.from('fixtures').update(row).eq('id', fxEdit.id));
