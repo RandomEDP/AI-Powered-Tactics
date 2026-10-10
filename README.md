@@ -12,7 +12,7 @@ An iOS app (and the same app on the web) backed by Supabase, usable offline at t
 - **Minutes planning.** A slider from *Aggressive* (most effective players by goals and assists per minute play most, everyone gets at least 5 minutes) to *Fairness* (equal minutes, any extra to whoever has played least this season).
 - **Match day.** Countdown to each change, tap-to-swap upcoming subs, player injured or leaving with a suggested replacement, added time, goals, assists, keeper saves and highlights.
 - **Followers can log goals** if the organiser switches that on in Options.
-- **Highlights.** Every event is timestamped. The Highlights screen writes an ffmpeg script that cuts a GoPro recording into a reel, and season reels per player. Watch-shortcut times can be imported.
+- **Highlights.** Every event is timestamped. In the iPhone app a gaffer picks the match recording from their photos and the phone cuts a clip per moment, each with the app's watermark and a caption, plus one joined reel that ends on an outro card. The clips are uploaded for the whole team to watch by game or by player (oldest first); the full recording and the joined reel stay on the phone. On a computer, the same screen writes an ffmpeg script instead. Watch-shortcut times can be imported.
 
 ## Files
 
@@ -28,6 +28,7 @@ An iOS app (and the same app on the web) backed by Supabase, usable offline at t
 | `tests/` | Browser tests against an in-memory stand-in for Supabase, the iOS alerts and account deletion |
 | `vendor/` | Bundled Supabase library and fonts, so the app works with no signal |
 | `ios/`, `capacitor.config.json`, `package.json` | The iOS app (see below) |
+| `plugins/reel-cutter/` | Native iOS plugin that cuts the highlight clips on the phone (AVFoundation): video picker, watermark, captions, outro card, share sheet |
 
 ## iOS app
 

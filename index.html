@@ -363,6 +363,12 @@ tr.past td { opacity: .45; }
 .fxrow { grid-template-columns: 1fr auto; }
 .seg button.is[data-vote] { background: var(--on); color: var(--on-ink); }
 .seg button.is[data-vote="no"] { background: var(--muted); color: var(--bg); }
+.vplayer { display: flex; flex-direction: column; gap: 8px; }
+.vplayer video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: var(--r-ctl); }
+.cliplist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; counter-reset: c; }
+.hcard .cliplist li { display: block; padding: 0; border: 0; }
+.cliplist button { width: 100%; text-align: left; border: 0; border-radius: 10px; background: var(--bg); padding: 10px 12px; font-size: 15px; font-weight: 600; }
+.cliplist button[aria-pressed="true"] { background: var(--on-soft); }
 .msg:empty, #subEdit:empty, #quickSwap:empty, #picker:empty, #outPicker:empty, #swapBody:empty { display: none; }
 .stage { max-height: 380px; }
 </style>
@@ -569,6 +575,11 @@ tr.past td { opacity: .45; }
   <label class="field" for="pMax">Squad size<select id="pMax"><option value="7">A keeper and up to 7 outfield (with subs)</option><option value="4">A keeper and 4 outfield (no subs)</option></select></label>
   <p class="msg bad" id="pMsg"></p>
   <div class="actions"><button class="plain primary" id="pSave" type="button">Create poll</button><button class="plain" id="pCancel" type="button" hidden>Cancel this game</button></div>
+</div>
+
+<div class="view" id="v-cut" hidden>
+  <div class="bar"><button class="back" type="button" data-back="1">&lsaquo; Back</button><h1>Cut highlights</h1></div>
+  <div class="view" id="cutBody"></div>
 </div>
 
 <div class="view" id="v-highlights" hidden>
@@ -1045,7 +1056,7 @@ tr.past td { opacity: .45; }
     S.view = view; saveLocal(); applyTheme();
     upgrade(S.match); lastBlock = S.match ? curSeg(S.match) : -1; pick = null; outPick = null;
     if (S.view === 'game' && !S.match) go('home');
-    else if (['intro', 'join', 'poll', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0) { /* keep what is being built */ }
+    else if (['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0) { /* keep what is being built */ }
     else if (!(S.view === 'options' && document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName))) render();
   }
   async function pullGoals() { // gaffers: fold in goals that followers logged, then clear them
@@ -1244,11 +1255,12 @@ tr.past td { opacity: .45; }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'poll', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'poll', 'cut', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
-    if ((view === 'reel' || view === 'season') && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
+    if ((view === 'reel' || view === 'season' || view === 'cut') && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
+    if (view === 'cut' && !CUT) view = 'highlights';
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
     if (!A.active && ['intro', 'welcome', 'join', 'create', 'account'].indexOf(view) < 0) view = 'welcome';
     if (view === 'create' && S.view !== 'create') resetCreate();
@@ -1271,6 +1283,7 @@ tr.past td { opacity: .45; }
     else if (S.view === 'join') renderJoin();
     else if (S.view === 'highlights') renderHighlights();
     else if (S.view === 'poll') renderPoll();
+    else if (S.view === 'cut') renderCut();
     else if (S.view === 'account') renderAccount();
     else if (S.view === 'create') renderCreate();
     else if (S.view === 'code') renderCode();
@@ -1827,19 +1840,30 @@ tr.past td { opacity: .45; }
     });
   }
   function novid(text, btn) { return '<div class="novid"><span>' + text + '</span>' + (btn || '') + '</div>'; }
+  var clipUrl = function (c) { return (CFG.url || '') + '/storage/v1/object/public/clips/' + String(c.path).split('/').map(encodeURIComponent).join('/'); };
+  function clipPlayer(list) { // one video that plays a list of clips back to back
+    return '<div class="vplayer"><video controls playsinline preload="metadata" src="' + esc(clipUrl(list[0])) + '"></video><ol class="cliplist">' +
+      list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipUrl(c)) + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
+  }
   function renderHighlights() {
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
     var own = role === 'owner', html = '', games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
     if (!games.length) { $('hlList').innerHTML = '<div class="hcard"><h3>No games yet</h3><p class="note">Highlights appear here after your first finished game. Every goal, assist and save you log is kept as a moment.</p></div>'; return; }
     if (hlBy === 'game') {
       games.forEach(function (g) {
-        var r = g.r, ms = momentsOf(r), timed = r.koAt && ms.length;
-        html += '<div class="hcard"><h3>v ' + esc(r.opp) + ' ' + r.us + '–' + r.them + (r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>' +
-          (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
-          novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.' : 'No video for this game yet.',
-            timed ? (own ? '<button class="plain primary" type="button" data-reel="' + g.i + '">Generate highlights</button>' : '<span>Ask your gaffer to generate them.</span>') : '') + '</div>';
+        var r = g.r, ms = momentsOf(r), timed = r.koAt && ms.length, vids = clips.filter(function (c) { return c.game_id === r.id; });
+        var cutBtn = !own || !timed ? '' : NATIVE ? '<button class="plain primary" type="button" data-cut="' + g.i + '">' + (vids.length ? 'Cut again from a video' : 'Cut from a video on this phone') + '</button>' : '';
+        var pcBtn = own && timed ? '<button class="plain" type="button" data-reel="' + g.i + '">Make it on a computer</button>' : '';
+        html += '<div class="hcard"><h3>v ' + esc(r.opp) + ' ' + r.us + '–' + r.them + (r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
+        if (vids.length) html += clipPlayer(vids) + (cutBtn ? '<div class="actions">' + cutBtn + '</div>' : '');
+        else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
+          novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
+            : own ? (NATIVE ? 'No video for this game yet.' : 'No video for this game yet. Open the iPhone app to cut it from a video on your phone.') : 'No video for this game yet. Ask your gaffer to generate it.',
+            cutBtn + pcBtn);
+        html += '</div>';
       });
     } else {
+      var byId = {}; S.results.forEach(function (r) { byId[r.id] = r; });
       S.players.map(function (p) {
         var list = [];
         S.results.forEach(function (r) { (r.ev || []).forEach(function (e) {
@@ -1847,21 +1871,114 @@ tr.past td { opacity: .45; }
           list.push({ at: e.at || r.koAt || r.at || 0, text: 'v ' + r.opp + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' + minOf(e) + ' ' + (e.hl ? (e.k === 'save' ? 'Save' : 'Highlight') : e.p === p.id ? 'Goal' : 'Assist for ' + (e.p != null ? nm(e.p) : 'a goal')) });
         }); });
         list.sort(function (a, b) { return a.at - b.at; });
-        return { p: p, list: list };
-      }).sort(function (a, b) { return ((b.p.id === myPid) - (a.p.id === myPid)) || (b.list.length - a.list.length); }).forEach(function (x) {
+        var vids = clips.filter(function (c) { return (c.pids || []).indexOf(p.id) >= 0; }).sort(function (a, b) { return (a.at || 0) - (b.at || 0); })
+          .map(function (c) { var r = byId[c.game_id]; return Object.assign({}, c, { title: (r ? 'v ' + r.opp + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label }); });
+        return { p: p, list: list, vids: vids };
+      }).sort(function (a, b) { return ((b.p.id === myPid) - (a.p.id === myPid)) || (b.vids.length - a.vids.length) || (b.list.length - a.list.length); }).forEach(function (x) {
         html += '<div class="hcard"><h3>' + esc(nm(x.p.id)) + ((roster[x.p.id] || {}).gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (x.p.id === myPid ? '<span class="badge you">You</span>' : '') + '</h3>' +
-          '<p class="note">' + (x.list.length ? x.list.length + (x.list.length === 1 ? ' moment' : ' moments') + ' this season, oldest first' : 'No moments yet') + '</p>' +
-          (x.list.length ? '<ul>' + x.list.map(function (m) { return '<li class="wide"><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' +
-            novid('No reel for ' + esc(nm(x.p.id)) + ' yet.', own ? '<button class="plain primary" type="button" data-season="' + x.p.id + '">Generate player reel</button>' : '<span>Ask your gaffer to generate it.</span>') : '') + '</div>';
+          '<p class="note">' + (x.vids.length ? x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ' this season, oldest first' : x.list.length ? x.list.length + (x.list.length === 1 ? ' moment' : ' moments') + ' this season, oldest first' : 'No moments yet') + '</p>';
+        if (x.vids.length) html += clipPlayer(x.vids);
+        else if (x.list.length) html += '<ul>' + x.list.map(function (m) { return '<li class="wide"><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' +
+          novid('No clips for ' + esc(nm(x.p.id)) + ' yet. They appear here when a game’s highlights are cut.', own ? '<button class="plain" type="button" data-season="' + x.p.id + '">Make a reel on a computer</button>' : '');
+        html += '</div>';
       });
     }
     $('hlList').innerHTML = html;
+    Array.prototype.forEach.call($('hlList').querySelectorAll('.vplayer video'), function (v) { // play the next clip when one ends
+      v.addEventListener('ended', function () {
+        var btns = v.parentNode.querySelectorAll('[data-clip]'), cur = 0;
+        Array.prototype.forEach.call(btns, function (b, i) { if (b.getAttribute('aria-pressed') === 'true') cur = i; });
+        if (btns[cur + 1]) btns[cur + 1].click();
+      });
+    });
   }
   $('hlToggle').addEventListener('click', function (e) { var by = e.target.getAttribute('data-by'); if (by) { hlBy = by; renderHighlights(); } });
   $('hlList').addEventListener('click', function (e) {
-    var r = e.target.getAttribute('data-reel'), s = e.target.getAttribute('data-season');
-    if (r !== null) { reelIdx = +r; go('reel'); }
+    var r = e.target.getAttribute('data-reel'), s = e.target.getAttribute('data-season'), c = e.target.getAttribute('data-clip'), cut = e.target.getAttribute('data-cut');
+    if (c !== null) {
+      var box = e.target.closest('.vplayer'), v = box.querySelector('video');
+      Array.prototype.forEach.call(box.querySelectorAll('[data-clip]'), function (b) { b.setAttribute('aria-pressed', b === e.target); });
+      v.src = e.target.getAttribute('data-src'); try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {}
+    }
+    else if (cut !== null) { CUT = { idx: +cut, stage: 'pick', src: null, msg: '', prog: '' }; go('cut'); }
+    else if (r !== null) { reelIdx = +r; go('reel'); }
     else if (s !== null) { seaWho = s; go('season'); }
+  });
+
+  // ---- cutting highlights on the phone (iPhone app only): pick the recording, line it up, cut, upload the clips
+  var CUT = null, rcBound = false;
+  function RCp() { var rc = plugin('ReelCutter'); if (rc && !rcBound) { rcBound = true; try { rc.addListener('progress', cutProgress); } catch (e) {} } return rc; }
+  function cutProgress(d) {
+    if (!CUT || !d) return;
+    var pct = Math.round((d.p || 0) * 100);
+    CUT.prog = d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';
+    var el = $('cutProg'); if (el) el.textContent = CUT.prog;
+  }
+  function cutList(r, sync) { return reelClips(r, sync, r.pre != null ? r.pre : 15, r.post != null ? r.post : 6); }
+  function renderCut() {
+    var r = CUT && S.results[CUT.idx]; if (!r) { go('highlights'); return; }
+    var html = '<p class="msg">' + esc(teamShort() + ' ' + r.us + '–' + r.them + ' ' + r.opp) + '</p>';
+    if (CUT.stage === 'pick') html += '<p class="note">Pick the recording of this game from your photos. The cutting happens on this phone, and only the finished clips are uploaded.</p>' +
+      (CUT.prog ? '<p class="msg" id="cutProg">' + esc(CUT.prog) + '</p>' : '<div class="actions"><button class="plain primary" type="button" data-cutdo="pick">Choose the video</button></div><p class="msg" id="cutProg"></p>');
+    else if (CUT.stage === 'sync') {
+      var n = cutList(r, CUT.sync || 0).length;
+      html += '<section><h2>Where is kick-off in the video?</h2><p class="note">' + (CUT.auto ? 'Worked out from when the recording started. Change it if the clips come out early or late.' : 'Play the video, find the moment of kick-off, and enter the time shown.') + '</p>' +
+        '<label class="field" for="cutSync">Kick-off at<input id="cutSync" type="text" inputmode="numeric" placeholder="m:ss" autocomplete="off" value="' + (CUT.sync != null ? hms(CUT.sync) : '') + '"></label>' +
+        '<p class="note">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut, each with the app’s watermark, plus one joined reel with an outro card to share.</p>' +
+        '<div class="actions"><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
+    }
+    else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p><p class="msg" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>';
+    else if (CUT.stage === 'done') html += '<p class="msg">' + CUT.n + (CUT.n === 1 ? ' clip is' : ' clips are') + ' now in Highlights for the whole team.</p>' +
+      '<div class="actions">' + (CUT.reel ? '<button class="plain primary" type="button" data-cutdo="share">Share the full reel</button>' : '') + '<button class="plain" type="button" data-cutdo="finish">Done</button></div>' +
+      '<p class="note">The full reel, with the outro card, is on this phone until you tap Done. Share it or save it to Photos first.</p>';
+    if (CUT.msg) html += '<p class="msg bad">' + esc(CUT.msg) + '</p>' + (CUT.stage === 'work' ? '<div class="actions"><button class="plain" type="button" data-cutdo="retry">Back</button></div>' : '');
+    $('cutBody').innerHTML = html;
+  }
+  $('cutBody').addEventListener('click', async function (e) {
+    var act = e.target.getAttribute('data-cutdo'), rc = RCp(), r = CUT && S.results[CUT.idx]; if (!act || !CUT || !r) return;
+    if (!rc) { CUT.msg = 'Cutting from a video needs the iPhone app.'; renderCut(); return; }
+    if (act === 'pick') {
+      CUT.msg = ''; CUT.prog = 'Opening your photos…'; renderCut();
+      try {
+        var src = await rc.pickVideo();
+        CUT.prog = '';
+        if (!src || src.cancelled) { renderCut(); return; }
+        CUT.src = src; CUT.stage = 'sync';
+        var guess = typeof src.created === 'number' && r.koAt ? (r.koAt - src.created) / 1000 : null;
+        CUT.auto = guess != null && guess >= 0 && guess < src.duration;
+        CUT.sync = CUT.auto ? Math.round(guess) : (typeof r.sync === 'number' ? r.sync : null);
+      } catch (err) { CUT.prog = ''; CUT.msg = (err && err.message) || 'Couldn’t read that video.'; }
+      renderCut();
+    } else if (act === 'go') {
+      var sync = parseClock($('cutSync').value);
+      if (sync === null) { CUT.msg = 'Enter where kick-off is in the video, like 2:30.'; renderCut(); return; }
+      var list = cutList(r, sync);
+      if (!list.length) { CUT.msg = 'No timed moments were logged in this game.'; renderCut(); return; }
+      CUT.sync = sync; CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; renderCut();
+      try {
+        r.sync = sync; save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
+        if (dirty || !r.id) throw new Error('Couldn’t save the game to the database. Check your signal and try again.');
+        var ink = getComputedStyle(document.documentElement).getPropertyValue('--team-ink').trim() || '#ffffff';
+        var res = await rc.cut({ path: CUT.src.path, watermark: 'AI Powered Tactics', reelFile: 'reel.mp4',
+          clips: list.map(function (c, i) { return { start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4' }; }),
+          outro: { title: teamName() + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: 'Made with AI Powered Tactics', color: S.color, ink: ink } });
+        var rows = [];
+        for (var i = 0; i < res.clips.length; i++) {
+          CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; var el = $('cutProg'); if (el) el.textContent = CUT.prog;
+          var blob = await (await fetch(window.Capacitor.convertFileSrc(res.clips[i].path))).blob();
+          var path = teamId + '/' + folderOf(r) + '/' + res.clips[i].file;
+          await q(sb.storage.from('clips').upload(path, blob, { contentType: 'video/mp4', upsert: true }));
+          rows.push({ team_id: teamId, game_id: r.id, seq: i, path: path, label: list[i].labels.join(' / ').slice(0, 200), at: list[i].at || null, dur: list[i].end - list[i].start, pids: list[i].pids });
+        }
+        await q(sb.from('clips').delete().eq('game_id', r.id));
+        await q(sb.from('clips').insert(rows));
+        ping('changed'); await pull();
+        CUT.stage = 'done'; CUT.n = rows.length; CUT.reel = res.reel ? res.reel.path : null;
+      } catch (err) { CUT.msg = (err && err.message) || 'Something went wrong while cutting.'; }
+      renderCut();
+    } else if (act === 'retry') { CUT.stage = CUT.src ? 'sync' : 'pick'; CUT.msg = ''; renderCut(); }
+    else if (act === 'share') { try { await rc.share({ path: CUT.reel }); } catch (err) { CUT.msg = (err && err.message) || 'Couldn’t open the share sheet.'; renderCut(); } }
+    else if (act === 'finish') { try { await rc.cleanup(); } catch (err) {} CUT = null; go('highlights'); }
   });
 
   // ---- new game setup
@@ -2525,14 +2642,14 @@ tr.past td { opacity: .45; }
       else { them++; label = 'Goal for ' + r.opp + '  ' + teamShort() + ' ' + us + '-' + them + ' ' + r.opp; }
       if (typeof e.at !== 'number' || typeof r.koAt !== 'number') return;
       var t = (e.at - r.koAt) / 1000 + sync;
-      raw.push({ t: t, start: Math.max(0, t - pre), end: Math.max(0, t - pre) + pre + post, label: (e.min != null ? ml(e) + ' ' : '') + label, goal: !e.hl, plain: !!e.hl && e.k !== 'save' });
+      raw.push({ t: t, start: Math.max(0, t - pre), end: Math.max(0, t - pre) + pre + post, label: (e.min != null ? ml(e) + ' ' : '') + label, goal: !e.hl, plain: !!e.hl && e.k !== 'save', at: e.at, pids: [e.p, e.us ? e.a : null].filter(function (x) { return x != null; }) });
     });
     var out = [];
     raw.forEach(function (c) {
       var last = out[out.length - 1];
       var item = { text: c.label, plain: c.plain };
-      if (last && c.start <= last.end) { last.end = Math.max(last.end, c.end); last.items.push(item); }
-      else out.push({ start: c.start, end: c.end, items: [item], t: c.t, goal: c.goal });
+      if (last && c.start <= last.end) { last.end = Math.max(last.end, c.end); last.items.push(item); c.pids.forEach(function (id) { if (last.pids.indexOf(id) < 0) last.pids.push(id); }); }
+      else out.push({ start: c.start, end: c.end, items: [item], t: c.t, goal: c.goal, at: c.at, pids: c.pids.slice() });
     });
     out.forEach(function (c) { c.labels = foldLabels(c.items); });
     return out;
@@ -2832,7 +2949,7 @@ tr.past td { opacity: .45; }
   // boot
   upgrade(S.match);
   if (S.match) lastBlock = curSeg(S.match);
-  var first = !A.introSeen ? 'intro' : !A.active ? 'welcome' : S.view === 'reel' ? 'stats' : ['intro', 'join', 'poll', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
+  var first = !A.introSeen ? 'intro' : !A.active ? 'welcome' : S.view === 'reel' ? 'stats' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
   go(first);
   setSync();
   connect();

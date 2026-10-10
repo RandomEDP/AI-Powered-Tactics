@@ -1,0 +1,9 @@
+{
+  "name": "reel-cutter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cuts highlight clips out of a match video on the phone, with a watermark, captions and an outro card.",
+  "capacitor": { "ios": { "src": "ios" } },
+  "files": ["ios/Sources", "Package.swift"],
+  "peerDependencies": { "@capacitor/core": ">=8.0.0" }
+}

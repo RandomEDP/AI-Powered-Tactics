@@ -57,8 +57,10 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo of your team crest.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save your highlight reel to your photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Choose your team crest from your photos.</string>
+	<string>Choose your team crest or a match recording from your photos.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

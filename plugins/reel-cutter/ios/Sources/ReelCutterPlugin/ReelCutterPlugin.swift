@@ -1,0 +1,379 @@
+import AVFoundation
+import Capacitor
+import Foundation
+import PhotosUI
+import UIKit
+import UniformTypeIdentifiers
+
+/// Cuts highlight clips out of a match video, on the phone.
+///
+/// JS calls, in order:
+///   pickVideo()  -> { path, duration, created? }   the person picks the recording from Photos
+///   cut({ path, clips: [{ start, dur, caption, file }], watermark, outro: { title, sub, color, ink }, reelFile })
+///                -> { clips: [{ file, path, size }], reel: { path, size } }
+///   share({ path })                                the share sheet (save to Photos, send to a chat)
+///   cleanup()                                      deletes the working files
+/// While working it emits "progress" events: { stage: "copy" | "cut" | "reel", i, n, p }.
+@objc(ReelCutterPlugin)
+public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControllerDelegate {
+    public let identifier = "ReelCutterPlugin"
+    public let jsName = "ReelCutter"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "pickVideo", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cut", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cleanup", returnType: CAPPluginReturnPromise)
+    ]
+
+    private var pickCall: CAPPluginCall?
+    private var copyObservation: NSKeyValueObservation?
+    private let queue = DispatchQueue(label: "reelcutter.work", qos: .userInitiated)
+
+    private struct Segment {
+        let start: Double
+        let dur: Double
+        let caption: String
+    }
+
+    private struct CutError: LocalizedError {
+        let message: String
+        var errorDescription: String? { message }
+    }
+
+    private var workDir: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("reelcutter", isDirectory: true)
+    }
+
+    private func ensureWorkDir() throws -> URL {
+        let dir = workDir
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    // MARK: - Pick the recording
+
+    @objc public func pickVideo(_ call: CAPPluginCall) {
+        pickCall = call
+        DispatchQueue.main.async {
+            var config = PHPickerConfiguration()
+            config.filter = .videos
+            config.selectionLimit = 1
+            config.preferredAssetRepresentationMode = .current // hand over the original file, without re-encoding it first
+            let picker = PHPickerViewController(configuration: config)
+            picker.delegate = self
+            guard let host = self.bridge?.viewController else {
+                self.pickCall = nil
+                call.reject("Couldn't open the photo picker")
+                return
+            }
+            host.present(picker, animated: true)
+        }
+    }
+
+    public func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        guard let call = pickCall else { return }
+        pickCall = nil
+        guard let provider = results.first?.itemProvider,
+              provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) else {
+            call.resolve(["cancelled": true])
+            return
+        }
+        notifyListeners("progress", data: ["stage": "copy", "p": 0])
+        let progress = provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, error in
+            guard let self = self else { return }
+            self.copyObservation = nil
+            guard let url = url else {
+                call.reject(error?.localizedDescription ?? "Couldn't read that video")
+                return
+            }
+            do {
+                // The file we are handed is deleted when this block returns, so move it somewhere of our own.
+                let dir = try self.ensureWorkDir()
+                let ext = url.pathExtension.isEmpty ? "mov" : url.pathExtension
+                let dest = dir.appendingPathComponent("source." + ext)
+                try? FileManager.default.removeItem(at: dest)
+                do {
+                    try FileManager.default.moveItem(at: url, to: dest)
+                } catch {
+                    try FileManager.default.copyItem(at: url, to: dest)
+                }
+                let asset = AVURLAsset(url: dest)
+                var result: [String: Any] = [
+                    "path": dest.path,
+                    "duration": CMTimeGetSeconds(asset.duration)
+                ]
+                if let made = asset.creationDate?.dateValue {
+                    result["created"] = made.timeIntervalSince1970 * 1000
+                }
+                call.resolve(result)
+            } catch {
+                call.reject("There isn't enough free space on this phone to read that video")
+            }
+        }
+        copyObservation = progress.observe(\.fractionCompleted) { [weak self] value, _ in
+            self?.notifyListeners("progress", data: ["stage": "copy", "p": value.fractionCompleted])
+        }
+    }
+
+    // MARK: - Cut
+
+    @objc public func cut(_ call: CAPPluginCall) {
+        guard let path = call.getString("path"),
+              let rawClips = call.options["clips"] as? [[String: Any]], !rawClips.isEmpty else {
+            call.reject("Nothing to cut")
+            return
+        }
+        let watermark = call.getString("watermark") ?? ""
+        let outro = call.options["outro"] as? [String: Any]
+        let reelFile = call.getString("reelFile")
+
+        queue.async {
+            do {
+                let dir = try self.ensureWorkDir()
+                let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+                var segments: [Segment] = []
+                var files: [String] = []
+                for (index, raw) in rawClips.enumerated() {
+                    let start = (raw["start"] as? NSNumber)?.doubleValue ?? 0
+                    let dur = (raw["dur"] as? NSNumber)?.doubleValue ?? 20
+                    segments.append(Segment(start: start, dur: dur, caption: raw["caption"] as? String ?? ""))
+                    files.append(raw["file"] as? String ?? String(format: "clip_%02d.mp4", index + 1))
+                }
+
+                var made: [[String: Any]] = []
+                for (index, segment) in segments.enumerated() {
+                    let out = dir.appendingPathComponent(files[index])
+                    try self.export(asset: asset, segments: [segment], watermark: watermark, outro: nil, to: out) { fraction in
+                        self.notifyListeners("progress", data: ["stage": "cut", "i": index, "n": segments.count, "p": fraction])
+                    }
+                    made.append(["file": files[index], "path": out.path, "size": self.fileSize(out)])
+                }
+
+                var result: [String: Any] = ["clips": made]
+                if let reelFile = reelFile {
+                    let out = dir.appendingPathComponent(reelFile)
+                    try self.export(asset: asset, segments: segments, watermark: watermark, outro: outro, to: out) { fraction in
+                        self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction])
+                    }
+                    result["reel"] = ["path": out.path, "size": self.fileSize(out)]
+                }
+                call.resolve(result)
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
+    private func fileSize(_ url: URL) -> Int {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return (attributes?[.size] as? NSNumber)?.intValue ?? 0
+    }
+
+    /// Joins the given stretches of the source video into one file, drawing the watermark over all of it,
+    /// each stretch's caption while it plays, and (for a reel) an outro card at the end.
+    private func export(asset: AVAsset, segments: [Segment], watermark: String, outro: [String: Any]?, to out: URL,
+                        progress: @escaping (Double) -> Void) throws {
+        guard let sourceVideo = asset.tracks(withMediaType: .video).first else {
+            throw CutError(message: "That file has no video in it")
+        }
+        let sourceAudio = asset.tracks(withMediaType: .audio).first
+        let total = CMTimeGetSeconds(asset.duration)
+        guard total.isFinite, total > 1 else { throw CutError(message: "That video is too short to cut") }
+
+        let composition = AVMutableComposition()
+        guard let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+            throw CutError(message: "Couldn't set up the video")
+        }
+        let audio = sourceAudio == nil ? nil : composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+        video.preferredTransform = sourceVideo.preferredTransform
+
+        let scale: CMTimeScale = 600
+        var cursor = CMTime.zero
+        var spans: [(at: Double, dur: Double, caption: String)] = []
+        for segment in segments {
+            let start = max(0, min(segment.start, total - 1))
+            let dur = max(1, min(segment.dur, total - start))
+            let range = CMTimeRange(start: CMTime(seconds: start, preferredTimescale: scale), duration: CMTime(seconds: dur, preferredTimescale: scale))
+            try video.insertTimeRange(range, of: sourceVideo, at: cursor)
+            if let audio = audio, let sourceAudio = sourceAudio {
+                try? audio.insertTimeRange(range, of: sourceAudio, at: cursor)
+            }
+            spans.append((at: CMTimeGetSeconds(cursor), dur: dur, caption: segment.caption))
+            cursor = CMTimeAdd(cursor, range.duration)
+        }
+
+        // The outro card is drawn over a few silent seconds of footage, which it covers completely.
+        var outroAt: Double?
+        if outro != nil, let first = segments.first {
+            let dur = min(3.5, total - 0.1)
+            let start = max(0, min(first.start, total - dur))
+            let range = CMTimeRange(start: CMTime(seconds: start, preferredTimescale: scale), duration: CMTime(seconds: dur, preferredTimescale: scale))
+            try video.insertTimeRange(range, of: sourceVideo, at: cursor)
+            outroAt = CMTimeGetSeconds(cursor)
+            cursor = CMTimeAdd(cursor, range.duration)
+        }
+
+        let videoComposition = AVMutableVideoComposition(propertiesOf: composition)
+        // Phones record HDR by default; these three settings make the result ordinary video that plays anywhere.
+        videoComposition.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
+        videoComposition.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
+        videoComposition.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
+        let size = videoComposition.renderSize
+        guard size.width > 0, size.height > 0 else { throw CutError(message: "Couldn't read the video's size") }
+
+        // Layers are laid out with the origin at the bottom left.
+        let parent = CALayer()
+        parent.frame = CGRect(origin: .zero, size: size)
+        let videoLayer = CALayer()
+        videoLayer.frame = parent.frame
+        parent.addSublayer(videoLayer)
+
+        let unit = min(size.width, size.height) / 100 // 1% of the shorter side, so text scales with the footage
+        let margin = unit * 3.5
+
+        if !watermark.isEmpty {
+            let mark = pill(text: watermark, fontSize: unit * 3.2, weight: .heavy, maxWidth: size.width * 0.5, unit: unit)
+            mark.frame.origin = CGPoint(x: size.width - mark.frame.width - margin, y: size.height - mark.frame.height - margin)
+            mark.opacity = 0.9
+            parent.addSublayer(mark)
+        }
+
+        for span in spans where !span.caption.isEmpty {
+            let caption = pill(text: span.caption, fontSize: unit * 4.2, weight: .bold, maxWidth: size.width * 0.8, unit: unit)
+            caption.frame.origin = CGPoint(x: margin, y: margin)
+            show(caption, from: span.at, to: outroAt == nil && span.at + span.dur >= CMTimeGetSeconds(cursor) - 0.01 ? nil : span.at + span.dur)
+            parent.addSublayer(caption)
+        }
+
+        if let outro = outro, let outroAt = outroAt {
+            let background = color(outro["color"] as? String, fallback: UIColor(red: 0.12, green: 0.42, blue: 0.29, alpha: 1))
+            let ink = color(outro["ink"] as? String, fallback: .white)
+            let card = CALayer()
+            card.frame = parent.frame
+            card.backgroundColor = background.cgColor
+            let width = size.width * 0.84
+            let title = label(text: outro["title"] as? String ?? "", fontSize: unit * 8, weight: .heavy, color: ink, maxWidth: width, centred: true)
+            let sub = label(text: outro["sub"] as? String ?? "", fontSize: unit * 4, weight: .semibold, color: ink.withAlphaComponent(0.8), maxWidth: width, centred: true)
+            let gap = unit * 3
+            let block = title.frame.height + gap + sub.frame.height
+            title.frame = CGRect(x: (size.width - width) / 2, y: (size.height - block) / 2 + sub.frame.height + gap, width: width, height: title.frame.height)
+            sub.frame = CGRect(x: (size.width - width) / 2, y: (size.height - block) / 2, width: width, height: sub.frame.height)
+            card.addSublayer(title)
+            card.addSublayer(sub)
+            show(card, from: outroAt, to: nil)
+            parent.addSublayer(card)
+        }
+
+        videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(postProcessingAsVideoLayer: videoLayer, in: parent)
+
+        try? FileManager.default.removeItem(at: out)
+        guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPreset960x540) else {
+            throw CutError(message: "This phone can't export that video")
+        }
+        session.videoComposition = videoComposition
+        session.outputURL = out
+        session.outputFileType = .mp4
+        session.shouldOptimizeForNetworkUse = true
+
+        let done = DispatchSemaphore(value: 0)
+        session.exportAsynchronously { done.signal() }
+        while done.wait(timeout: .now() + 0.3) == .timedOut {
+            progress(Double(session.progress))
+        }
+        guard session.status == .completed else {
+            throw CutError(message: session.error?.localizedDescription ?? "The video couldn't be cut")
+        }
+        progress(1)
+    }
+
+    // MARK: - Drawing helpers
+
+    /// Makes a layer visible from `from` seconds into the video until `to` (or the end).
+    private func show(_ layer: CALayer, from: Double, to: Double?) {
+        layer.opacity = 0
+        let appear = CABasicAnimation(keyPath: "opacity")
+        appear.fromValue = 0
+        appear.toValue = 1
+        appear.duration = 0.2
+        appear.beginTime = AVCoreAnimationBeginTimeAtZero + from
+        appear.fillMode = .forwards
+        appear.isRemovedOnCompletion = false
+        layer.add(appear, forKey: "appear")
+        if let to = to {
+            let vanish = CABasicAnimation(keyPath: "opacity")
+            vanish.fromValue = 1
+            vanish.toValue = 0
+            vanish.duration = 0.2
+            vanish.beginTime = AVCoreAnimationBeginTimeAtZero + max(from + 0.3, to - 0.2)
+            vanish.fillMode = .forwards
+            vanish.isRemovedOnCompletion = false
+            layer.add(vanish, forKey: "vanish")
+        }
+    }
+
+    private func label(text: String, fontSize: CGFloat, weight: UIFont.Weight, color: UIColor, maxWidth: CGFloat, centred: Bool) -> CATextLayer {
+        let font = UIFont.systemFont(ofSize: fontSize, weight: weight)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = centred ? .center : .left
+        paragraph.lineBreakMode = .byWordWrapping
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color, .paragraphStyle: paragraph]
+        let string = NSAttributedString(string: text, attributes: attributes)
+        let bounds = string.boundingRect(with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
+                                         options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
+        let layer = CATextLayer()
+        layer.string = string
+        layer.isWrapped = true
+        layer.alignmentMode = centred ? .center : .left
+        layer.contentsScale = 1
+        layer.frame = CGRect(x: 0, y: 0, width: centred ? maxWidth : ceil(bounds.width) + 2, height: ceil(bounds.height) + 2)
+        return layer
+    }
+
+    /// White text on a translucent dark rounded box, readable over any footage.
+    private func pill(text: String, fontSize: CGFloat, weight: UIFont.Weight, maxWidth: CGFloat, unit: CGFloat) -> CALayer {
+        let words = label(text: text, fontSize: fontSize, weight: weight, color: .white, maxWidth: maxWidth, centred: false)
+        let padX = unit * 2.2
+        let padY = unit * 1.4
+        let box = CALayer()
+        box.backgroundColor = UIColor.black.withAlphaComponent(0.55).cgColor
+        box.cornerRadius = unit * 1.8
+        box.frame = CGRect(x: 0, y: 0, width: words.frame.width + padX * 2, height: words.frame.height + padY * 2)
+        words.frame.origin = CGPoint(x: padX, y: padY)
+        box.addSublayer(words)
+        return box
+    }
+
+    private func color(_ hex: String?, fallback: UIColor) -> UIColor {
+        guard var value = hex?.trimmingCharacters(in: .whitespaces), !value.isEmpty else { return fallback }
+        if value.hasPrefix("#") { value.removeFirst() }
+        guard value.count == 6, let number = UInt32(value, radix: 16) else { return fallback }
+        return UIColor(red: CGFloat((number >> 16) & 0xFF) / 255, green: CGFloat((number >> 8) & 0xFF) / 255, blue: CGFloat(number & 0xFF) / 255, alpha: 1)
+    }
+
+    // MARK: - Share and tidy up
+
+    @objc public func share(_ call: CAPPluginCall) {
+        guard let path = call.getString("path"), FileManager.default.fileExists(atPath: path) else {
+            call.reject("That video is no longer on this phone")
+            return
+        }
+        DispatchQueue.main.async {
+            guard let host = self.bridge?.viewController else {
+                call.reject("Couldn't open the share sheet")
+                return
+            }
+            let sheet = UIActivityViewController(activityItems: [URL(fileURLWithPath: path)], applicationActivities: nil)
+            sheet.popoverPresentationController?.sourceView = host.view
+            sheet.completionWithItemsHandler = { _, completed, _, _ in
+                call.resolve(["completed": completed])
+            }
+            host.present(sheet, animated: true)
+        }
+    }
+
+    @objc public func cleanup(_ call: CAPPluginCall) {
+        try? FileManager.default.removeItem(at: workDir)
+        call.resolve()
+    }
+}
