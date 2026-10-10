@@ -213,6 +213,9 @@ struct WatchBrain {
         game.t0 = now.timeIntervalSince1970 * 1000
         game.running = true
         game.due = false
+        // a change listed for the very start of this half is made by starting it, so it is never asked for
+        for change in game.changes where change.h == game.halfIndex && change.from == 0 { done.insert(change.id) }
+        game.changes.removeAll { done.contains($0.id) }
         started = (phase: game.phase, t0: game.t0)
         state = game
         return Outcome(send: [remember("start", ["type": "start"], now: now)])

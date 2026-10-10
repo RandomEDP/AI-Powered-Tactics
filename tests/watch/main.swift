@@ -132,10 +132,9 @@ do {
     check(w.state?.phase == "h2" && kind(second.send.first ?? "") == "start", "second half started from the watch")
     _ = w.receive(json: phone(phase: "ht", running: false, changes: [(1, 0), (1, 5)]), sent: ms(at(1310)), now: at(1310))
     check(w.state?.phase == "h2" && w.state?.seconds(at: at(1360)) == 60, "the second-half clock holds against a stale 'half time'")
-    var due = -1
-    for s in 1311...1320 where due < 0 { if w.tick(now: at(Double(s))).becameDue { due = s } }
-    check(due > 0, "the half-time change (listed for minute 0 of the second half) is asked for once the half is running")
-    _ = w.pressSubsDone(now: at(1322))
+    var due = false
+    for s in 1311...1500 { if w.tick(now: at(Double(s))).becameDue { due = true } }
+    check(!due && w.state?.changes.first?.from == 5, "the half-time change is made by starting the half, so it isn't asked for; next is 5:00")
     _ = w.receive(json: phone(phase: "h2", t0: at(1300), changes: [(1, 5)]), sent: ms(at(1325)), now: at(1325))
     check(w.state?.seconds(at: at(1400)) == 100 && w.state?.changes.first?.from == 5 && w.presses.isEmpty, "phone agrees: second half 1:40 in, next change at 5:00")
 }
