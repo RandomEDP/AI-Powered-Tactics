@@ -3,13 +3,16 @@ import Capacitor
 import CoreGraphics
 import CoreImage
 import Foundation
+import UIKit
 import OnnxRuntimeBindings
 import Vision
 
 /// Experimental: follows named players through a match recording, on the phone.
 ///
 ///   analyse({ path, players: [{ pid, number }], color, length, width?, from?, to?, rate? })
-///     -> { duration, pitch: { width, length }, cameraHeight, players: [{ pid, number, seconds, metres, heat }], team: { heat }, pieces, unknownSeconds }
+///     -> { duration, pitch: { width, length }, cameraHeight, players: [{ pid, number, seconds, metres, reads, heat }], team: { heat }, pieces, unknownSeconds,
+///          ask: [{ piece, seconds, pictures: [jpeg as base64] }] }
+///   name({ piece, number? })   says who the player in one of the `ask` pictures is (no number = not one of ours); returns the result again
 ///   cancel()
 /// While working it emits "progress" events: { stage: "look" | "sort", p }.
 ///
@@ -18,13 +21,15 @@ import Vision
 /// Apple's Vision then reads shirt numbers from an enlarged crop of each of our players' backs.
 /// People in the team's colour are placed on the pitch using their own height as the ruler, followed from frame to
 /// frame, and the track is cut wherever two of them come close (which is where trackers swap people). Each clean piece
-/// with a number read on it is fixed to that player; the rest go to whoever could have been there.
+/// with a number read on it is fixed to that player; the rest go to whoever could have been there. Stretches it still
+/// can't name come back as pictures in `ask`, so the person using it can say who that is.
 @objc(MatchVisionPlugin)
 public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "MatchVisionPlugin"
     public let jsName = "MatchVision"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "analyse", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "name", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cancel", returnType: CAPPluginReturnPromise)
     ]
 
@@ -36,6 +41,25 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
     private var outputName = "output"
     private let imageContext = CIContext(options: nil)
     private var grid: [(Float, Float, Float)] = []   // for each of the detector's 8400 guesses: column, row, and cell size
+    private var last: Watched?                       // the most recent video looked at, kept so players can be named afterwards
+
+    /// Everything worked out from watching a video, before deciding who is who.
+    private struct Watched {
+        var path: String
+        var numbers: [Int]
+        var pidFor: [Int: Int]
+        var pieces: [Piece]
+        var ours: [Det]
+        var times: [Double]
+        var dt: Double
+        var duration: Double
+        var frames: Int
+        var pitchLength: Double
+        var pitchWidth: Double
+        var cameraHeight: Double
+        var width: Double
+        var told: [Int: Int] = [:]   // piece -> shirt number, as told by the person using it (-1 = not one of ours)
+    }
 
     /// Loads the detector the first time it is needed.
     private func detector() throws -> ORTSession {
@@ -88,9 +112,11 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private final class Piece {
+        var id = 0
         var dets: [Det]
         var who: Int?
         var read = false
+        var told = false
         init(_ dets: [Det]) { self.dets = dets }
         var start: Int { dets[0].frame }
         var end: Int { dets[dets.count - 1].frame }
@@ -128,18 +154,34 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
 
         queue.async {
             do {
-                let result = try self.run(path: path, numbers: numbers, pidFor: pidFor, kit: kit, pitchLength: pitchLength, pitchWidth: pitchWidth, rate: rate, from: from, to: to)
-                call.resolve(result)
+                let watched = try self.run(path: path, numbers: numbers, pidFor: pidFor, kit: kit, pitchLength: pitchLength, pitchWidth: pitchWidth, rate: rate, from: from, to: to)
+                self.last = watched
+                call.resolve(self.finish(watched))
             } catch {
                 call.reject(error.localizedDescription)
             }
         }
     }
 
+    @objc public func name(_ call: CAPPluginCall) {
+        guard let piece = call.getInt("piece") else { call.reject("Which player?"); return }
+        let number = call.getInt("number")
+        queue.async {
+            guard var watched = self.last, piece >= 0, piece < watched.pieces.count else {
+                call.reject("That run is no longer in memory. Track the video again.")
+                return
+            }
+            if let number = number, !watched.numbers.contains(number) { call.reject("That player wasn't ticked."); return }
+            watched.told[piece] = number ?? -1
+            self.last = watched
+            call.resolve(self.finish(watched))
+        }
+    }
+
     // MARK: - The whole job
 
     private func run(path: String, numbers: [Int], pidFor: [Int: Int], kit: (Double, Double, Double), pitchLength: Double, pitchWidth: Double,
-                     rate: Double, from: Double, to: Double?) throws -> [String: Any] {
+                     rate: Double, from: Double, to: Double?) throws -> Watched {
         let model = try detector()
         let asset = AVURLAsset(url: URL(fileURLWithPath: path))
         guard let track = asset.tracks(withMediaType: .video).first else { throw Fail(message: "That file has no video in it.") }
@@ -168,6 +210,7 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
         guard reader.startReading() else { throw Fail(message: reader.error?.localizedDescription ?? "This phone can't read that video.") }
 
         var dets: [Det] = []
+        var times: [Double] = []
         var frame = 0
         var nextAt = from
         var W = width
@@ -183,9 +226,10 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
             autoreleasepool {
                 W = Double(CVPixelBufferGetWidth(buffer))
                 H = Double(CVPixelBufferGetHeight(buffer))
-                let found = self.look(buffer, model: model, frame: frame, kit: kit, numbers: numbers, flipped: flipped, readNumbers: frame % 2 == 0)
+                let found = self.look(buffer, model: model, frame: frame, kit: kit, numbers: numbers, flipped: flipped, readNumbers: true)
                 dets.append(contentsOf: found)
             }
+            times.append(time)
             frame += 1
             if frame % 8 == 0 {
                 notifyListeners("progress", data: ["stage": "look", "p": min(1, (time - from) / (end - from))])
@@ -221,7 +265,6 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
             dets[index].gx = ((dets[index].x1 + dets[index].x2) / 2 - W / 2) * cameraHeight / below
         }
         // the camera is taken to be behind the middle of the goal, so the pitch runs half its width either side of the centre line
-        let left = -pitchWidth / 2
         let ours = dets.filter { $0.ours && $0.y2 < H * 0.985 && abs($0.gx) < pitchWidth / 2 + 1.5 && $0.gz < pitchLength + 2 }
 
         // 3) follow each of ours on the pitch, in metres
@@ -299,25 +342,52 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
             if current.count >= 4 { pieces.append(Piece(current)) }
         }
 
+        for (index, piece) in pieces.enumerated() { piece.id = index }
+        return Watched(path: path, numbers: numbers, pidFor: pidFor, pieces: pieces, ours: ours, times: times, dt: dt, duration: end - from, frames: frames,
+                       pitchLength: pitchLength, pitchWidth: pitchWidth, cameraHeight: cameraHeight, width: W)
+    }
+
+    // MARK: - Who is who
+
+    private func finish(_ watched: Watched) -> [String: Any] {
+        let pieces = watched.pieces
+        let numbers = watched.numbers
+        let dt = watched.dt
+        let pitchLength = watched.pitchLength
+        let pitchWidth = watched.pitchWidth
+        let left = -pitchWidth / 2
+        let ours = watched.ours
+        let pidFor = watched.pidFor
+
         // 5) a piece with a number read on it, clearly and more than once, is that player
+        var reads: [Int: Int] = [:]
         for piece in pieces {
+            piece.who = nil
+            piece.read = false
+            piece.told = false
             var votes: [Int: Int] = [:]
-            for det in piece.dets { if let number = det.number { votes[number, default: 0] += 1 } }
+            for det in piece.dets { if let number = det.number { votes[number, default: 0] += 1; reads[number, default: 0] += 1 } }
+            if let said = watched.told[piece.id] {
+                piece.who = said
+                piece.read = said >= 0
+                piece.told = true
+                continue
+            }
             let ranked = votes.sorted { $0.value > $1.value }
-            if let top = ranked.first, top.value >= 2, ranked.count == 1 || top.value >= 2 * ranked[1].value {
+            // a single digit could be half of someone else's number, so it has to be seen twice
+            if let top = ranked.first, top.value >= (top.key < 10 ? 2 : 1), ranked.count == 1 || top.value >= 2 * ranked[1].value {
                 piece.who = top.key
                 piece.read = true
             }
         }
         // two pieces on screen at once can't both be the same player: keep the one with more footage
         for number in numbers {
-            let mine = pieces.filter { $0.who == number }.sorted { $0.dets.count > $1.dets.count }
+            let mine = pieces.filter { $0.who == number }.sorted { $0.told != $1.told ? $0.told : $0.dets.count > $1.dets.count }
             var kept: [Piece] = []
             for piece in mine {
-                if kept.contains(where: { $0.start <= piece.end && piece.start <= $0.end }) { piece.who = nil; piece.read = false } else { kept.append(piece) }
+                if !piece.told, kept.contains(where: { $0.start <= piece.end && piece.start <= $0.end }) { piece.who = nil; piece.read = false } else { kept.append(piece) }
             }
         }
-        notifyListeners("progress", data: ["stage": "sort", "p": 0.5])
 
         // 6) every other piece goes to whoever could have been there, most certain first
         func fit(_ piece: Piece, _ number: Int) -> Double? {
@@ -390,15 +460,40 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
             let seconds = Double(mine.reduce(0) { $0 + ($1.end - $1.start) }) * dt
             let readSeconds = Double(mine.filter { $0.read }.reduce(0) { $0 + ($1.end - $1.start) }) * dt
             players.append([
-                "pid": pidFor[number] ?? -1, "number": number, "seconds": seconds, "readSeconds": readSeconds,
+                "pid": pidFor[number] ?? -1, "number": number, "seconds": seconds, "readSeconds": readSeconds, "reads": reads[number] ?? 0,
                 "metres": mine.reduce(0.0) { $0 + metres($1.dets) }, "pieces": mine.count, "heat": heat(all)
             ])
         }
-        let unknown = Double(pieces.filter { $0.who == nil }.reduce(0) { $0 + ($1.end - $1.start) }) * dt
+        let nameless = pieces.filter { $0.who == nil }
+        let unknown = Double(nameless.reduce(0) { $0 + ($1.end - $1.start) }) * dt
+        // the longest stretches nobody could be put to, with pictures, so the person using it can say who that is
+        var ask: [[String: Any]] = []
+        let asset = AVURLAsset(url: URL(fileURLWithPath: watched.path))
+        let camera = AVAssetImageGenerator(asset: asset)
+        camera.appliesPreferredTransform = true
+        camera.requestedTimeToleranceBefore = CMTime(value: 1, timescale: 30)
+        camera.requestedTimeToleranceAfter = CMTime(value: 1, timescale: 30)
+        for piece in nameless.filter({ Double($0.end - $0.start) * dt >= 1.5 }).sorted(by: { $0.dets.count > $1.dets.count }).prefix(4) {
+            var chosen: [Det] = []
+            for det in piece.dets.sorted(by: { $0.height > $1.height }) where chosen.count < 3 {
+                if chosen.allSatisfy({ Double(abs($0.frame - det.frame)) * dt > 0.8 }) { chosen.append(det) }
+            }
+            var pictures: [String] = []
+            for det in chosen where det.frame < watched.times.count {
+                guard let whole = try? camera.copyCGImage(at: CMTime(seconds: watched.times[det.frame], preferredTimescale: 600), actualTime: nil) else { continue }
+                let scale = Double(whole.width) / watched.width
+                let w = det.x2 - det.x1
+                let box = CGRect(x: (det.x1 - w * 0.35) * scale, y: (det.y1 - det.height * 0.12) * scale, width: w * 1.7 * scale, height: det.height * 1.24 * scale)
+                    .intersection(CGRect(x: 0, y: 0, width: whole.width, height: whole.height))
+                guard box.width > 8, box.height > 8, let cut = whole.cropping(to: box), let jpeg = UIImage(cgImage: cut).jpegData(compressionQuality: 0.85) else { continue }
+                pictures.append(jpeg.base64EncodedString())
+            }
+            if !pictures.isEmpty { ask.append(["piece": piece.id, "seconds": Double(piece.end - piece.start) * dt, "pictures": pictures]) }
+        }
         return [
-            "duration": end - from, "frames": frames, "pitch": ["width": pitchWidth, "length": pitchLength], "cameraHeight": cameraHeight,
-            "columns": columns, "rows": rows, "players": players, "team": ["heat": heat(ours)],
-            "pieces": pieces.count, "unknownSeconds": unknown, "numbersRead": dets.filter { $0.number != nil }.count
+            "duration": watched.duration, "frames": watched.frames, "pitch": ["width": pitchWidth, "length": pitchLength], "cameraHeight": watched.cameraHeight,
+            "columns": columns, "rows": rows, "players": players, "team": ["heat": heat(ours)], "ask": ask,
+            "pieces": pieces.count, "unknownSeconds": unknown, "numbersRead": reads.values.reduce(0, +)
         ]
     }
 
@@ -444,7 +539,7 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
         // shirt numbers: enlarge each of our players' backs and let Vision read it
         var picture = CIImage(cvPixelBuffer: buffer)
         if flipped { picture = picture.oriented(.down) }
-        for index in out.indices where out[index].ours && out[index].height > H * 0.07 {
+        for index in out.indices where out[index].ours && out[index].height > H * 0.055 {
             let det = out[index]
             let w = det.x2 - det.x1
             let top = det.y1 + det.height * 0.12

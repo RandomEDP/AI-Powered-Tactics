@@ -9,9 +9,11 @@ await pg.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorag
 await pg.addInitScript(() => {
   window.__mv = [];
   const none = async () => ({}), grid = (hot) => Array.from({ length: 150 }, (_, i) => Math.max(0, 9 - Math.abs((i % 10) - hot[0]) * 3 - Math.abs(Math.floor(i / 10) - hot[1]) * 2));
+  const PIC = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
   const MV = { addListener: (n, cb) => { MV.cb = cb; }, cancel: none,
+    name: async (o) => { window.__mv.push('name ' + JSON.stringify(o)); const r = JSON.parse(JSON.stringify(MV.last)); r.ask = []; r.unknownSeconds = 5; r.players[0].seconds += 36; return r; },
     analyse: async (o) => { window.__mv.push(JSON.stringify(o)); MV.cb && MV.cb({ stage: 'look', p: 0.5 }); await new Promise((r) => setTimeout(r, 300));
-      return { duration: 300, frames: 2400, pitch: { width: 20.7, length: o.length }, cameraHeight: 2.3, columns: 10, rows: 15, pieces: 64, unknownSeconds: 41, numbersRead: 37,
+      return MV.last = { ask: [{ piece: 7, seconds: 36, pictures: [PIC, PIC] }], duration: 300, frames: 2400, pitch: { width: 20.7, length: o.length }, cameraHeight: 2.3, columns: 10, rows: 15, pieces: 64, unknownSeconds: 41, numbersRead: 37,
         players: o.players.map((p, i) => ({ pid: p.pid, number: p.number, seconds: 200 + i * 20, readSeconds: i ? 30 : 0, metres: 400 + i * 50, pieces: 9, heat: grid([2 + i * 2, 4 + i * 3]) })), team: { heat: grid([5, 7]) } }; } };
   const RC = { addListener: () => {}, pickVideo: async (o) => { window.__mv.push('pick ' + o.slot); return { path: '/tmp/game.mov', duration: 1830 }; } };
   window.Capacitor = { isNativePlatform: () => true, Plugins: { MatchVision: MV, ReelCutter: RC, Haptics: { impact: none, notification: none }, KeepAwake: { keepAwake: none, allowSleep: none }, LocalNotifications: { getPending: async () => ({ notifications: [] }), cancel: none, checkPermissions: async () => ({ display: 'granted' }), requestPermissions: async () => ({ display: 'granted' }), schedule: none } } };
@@ -32,6 +34,9 @@ const sent = JSON.parse((await pg.evaluate(() => window.__mv)).find((x) => x.sta
 console.log('asked the phone for:', JSON.stringify(sent));
 console.log('result:', (await pg.textContent('#trackBody section:has(.heatwrap)')).replace(/\s+/g, ' ').slice(0, 330), '| heat maps:', await pg.$$eval('.heatcard svg', (x) => x.length));
 if (out) { fs.mkdirSync(out, { recursive: true }); await wait(300); await pg.screenshot({ path: `${out}/track.png`, fullPage: true }); }
+console.log('asks who:', await pg.$$eval('.whois', (x) => x.length), '| pictures:', await pg.$$eval('.whopics img', (x) => x.length), '| choices:', (await pg.$$eval('[data-trask]', (x) => x.map((b) => b.textContent))).join());
+await pg.click('[data-trask="7"][data-num="56"]'); await wait(200);
+console.log('named:', (await pg.evaluate(() => window.__mv)).find((x) => x.startsWith('name')), '| still asking:', await pg.$$eval('.whois', (x) => x.length), '|', (await pg.textContent('.heatcard small')).trim());
 await pg.reload(); await wait(400); console.log('after reload:', await view(), '| ticks kept:', await pg.$$eval('[data-tron]:checked', (x) => x.length), '| earlier runs:', await pg.$$eval('[data-trrun]', (x) => x.length));
 await pg.click('[data-trrun="0"]'); console.log('earlier run reopened:', await pg.$$eval('.heatcard', (x) => x.length), 'cards');
 console.log('errors:', JSON.stringify(errs)); await b.close();
