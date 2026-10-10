@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 import WatchConnectivity
 import WatchKit
 
@@ -72,7 +73,7 @@ struct MatchState: Codable, Equatable {
     var halfIndex: Int { phase == "h2" || phase == "ft" ? 1 : 0 }
 }
 
-final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
+final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtendedRuntimeSessionDelegate, UNUserNotificationCenterDelegate {
     @Published var state: MatchState?
     @Published var locked = false
     @Published var note = ""
@@ -80,6 +81,12 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
 
     private var unlock: DispatchWorkItem?
     private var clearNote: DispatchWorkItem?
+    private var runtime: WKExtendedRuntimeSession?                    // keeps the app on screen during a game when the wrist drops
+    private var confirmed: (id: String, at: Date)?                    // a change marked done on this watch, until the phone agrees
+    private var ticker: Timer?
+    private var askedToNotify = false
+    private var scheduled = ""
+    private var startedHere: Date?                                    // kick-off pressed on this watch, until the phone agrees
     private var newest = 0.0                                          // when the phone sent the game now showing
     private var hold: (us: Int, them: Int, until: Date)?              // a goal logged here that the phone hasn't counted yet
 
@@ -102,6 +109,77 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
         guard WCSession.isSupported() else { return }
         WCSession.default.delegate = self
         WCSession.default.activate()
+        UNUserNotificationCenter.current().delegate = self
+        // The watch keeps its own eye on the clock, so a change still buzzes the wrist when the phone app is asleep in a pocket.
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.watchTheClock() }
+        RunLoop.main.add(timer, forMode: .common)
+        ticker = timer
+    }
+
+    // MARK: - Changes coming due
+
+    /// Works out for itself whether the next change is due, and forgets one that has already been marked done here.
+    private func settle(_ game: inout MatchState) {
+        if let done = confirmed {
+            if let first = game.changes.first, first.id == done.id, Date().timeIntervalSince(done.at) < 180 {
+                game.changes.removeFirst()
+                game.due = false
+            } else {
+                confirmed = nil
+            }
+        }
+        if !game.due, game.live, game.running, game.phase == "h1" || game.phase == "h2",
+           let first = game.changes.first, first.h == game.halfIndex, game.seconds(at: Date()) >= first.from * 60 {
+            game.due = true
+        }
+    }
+
+    private func watchTheClock() {
+        guard var game = state, game.live else { return }
+        let was = game.due
+        settle(&game)
+        if game.due && !was {
+            state = game
+            buzzForSubs()
+        }
+    }
+
+    /// Three firm taps, so it's felt mid-game, and the sheet asking for the change.
+    private func buzzForSubs() {
+        askSubs = true
+        for step in 0..<3 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(step) * 0.7) { WKInterfaceDevice.current().play(.notification) }
+        }
+    }
+
+    /// A notification on the watch itself at each change still to come this half, for when the app isn't on screen.
+    private func scheduleChanges(_ game: MatchState) {
+        let center = UNUserNotificationCenter.current()
+        let live = game.live && game.running && (game.phase == "h1" || game.phase == "h2")
+        let now = game.seconds(at: Date())
+        let coming = live ? game.changes.filter { $0.h == game.halfIndex && $0.from * 60 - now > 3 } : []
+        let key = coming.map { "\($0.id)@\(Int(game.t0))-\(Int(game.base))" }.joined(separator: ",")
+        if key == scheduled { return }
+        scheduled = key
+        center.removeAllPendingNotificationRequests()
+        guard !coming.isEmpty else { return }
+        if !askedToNotify {
+            askedToNotify = true
+            center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
+        for change in coming {
+            let content = UNMutableNotificationContent()
+            content.title = "Time for subs"
+            content.body = "Off: \(change.off.joined(separator: ", ")). On: \(change.on.joined(separator: ", "))."
+            content.sound = .default
+            let wait = TimeInterval(change.from * 60 - now)
+            center.add(UNNotificationRequest(identifier: "change-\(change.id)", content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: wait, repeats: false)))
+        }
+    }
+
+    /// With the app on screen the sheet and the taps do the job, so the banner stays away.
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([])
     }
 
     // MARK: - From the phone
@@ -113,6 +191,10 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
         DispatchQueue.main.async {
             if sent > 0 && sent < self.newest { return } // an older update that arrived late
             if sent > 0 { self.newest = sent }
+            // Kick-off pressed here: until the phone has caught up, don't fall back to "before kick-off".
+            if let pressed = self.startedHere {
+                if decoded.phase == "pre" || decoded.phase == "ht", Date().timeIntervalSince(pressed) < 30, let mine = self.state { decoded.phase = mine.phase; decoded.base = mine.base; decoded.t0 = mine.t0; decoded.running = mine.running } else { self.startedHere = nil }
+            }
             // A goal logged on this watch shows straight away. Until the phone has counted it, don't let an older score undo it.
             if let hold = self.hold {
                 if !decoded.live || Date() > hold.until || decoded.us + decoded.them >= hold.us + hold.them { self.hold = nil } else {
@@ -121,16 +203,42 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
                 }
             }
             let wasDue = self.state?.due ?? false
+            self.settle(&decoded)
             self.state = decoded
+            self.scheduleChanges(decoded)
             if decoded.live && decoded.due && !wasDue { // a change has just come due: tap the wrist and ask
-                WKInterfaceDevice.current().play(.notification)
-                self.askSubs = true
+                self.buzzForSubs()
             } else if !decoded.due || !decoded.live {
                 self.askSubs = false
             }
+            self.stayInFront()
             let left = decoded.lockUntil / 1000 - Date().timeIntervalSince1970
             if left > 0 { self.lock(for: min(left, 8)) }
         }
+    }
+
+    // MARK: - Staying on screen
+
+    /// During a game the app stays in front when the wrist is lowered, so a glance always shows the clock. One session lasts up to an hour.
+    func stayInFront() {
+        let wanted = (state?.live ?? false) && state?.phase != "ft"
+        if !wanted {
+            runtime?.invalidate()
+            runtime = nil
+            return
+        }
+        if let running = runtime, running.state == .running || running.state == .scheduled { return }
+        guard WKApplication.shared().applicationState == .active else { return } // can only be started with the app on screen
+        let session = WKExtendedRuntimeSession()
+        session.delegate = self
+        session.start()
+        runtime = session
+    }
+
+    func extendedRuntimeSessionDidStart(_ extendedRuntimeSession: WKExtendedRuntimeSession) {}
+    func extendedRuntimeSessionWillExpire(_ extendedRuntimeSession: WKExtendedRuntimeSession) {}
+    func extendedRuntimeSession(_ extendedRuntimeSession: WKExtendedRuntimeSession, didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason, error: Error?) {
+        DispatchQueue.main.async { if self.runtime === extendedRuntimeSession { self.runtime = nil } }
     }
 
     /// Ask the phone for the game as it stands now. Called when the watch app opens or comes back to the front.
@@ -138,6 +246,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         guard session.activationState == .activated else { return }
+        DispatchQueue.main.async { self.stayInFront() }
         take(session.receivedApplicationContext)
         if session.isReachable {
             session.sendMessage(["event": "{\"type\":\"hello\"}"], replyHandler: { [weak self] answer in self?.take(answer) }, errorHandler: nil)
@@ -219,10 +328,26 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
         send(["type": "hl"])
     }
 
+    /// Kick off, or start the second half, from the wrist. The clock starts here at once and the phone follows.
+    func start() {
+        guard var shown = state, shown.phase == "pre" || shown.phase == "ht" else { return }
+        shown.phase = shown.phase == "pre" ? "h1" : "h2"
+        shown.base = 0
+        shown.t0 = Date().timeIntervalSince1970 * 1000
+        shown.running = true
+        state = shown
+        startedHere = Date()
+        send(["type": "start"])
+    }
+
     /// The players have swapped: tell the phone, and stop asking here straight away.
     func subsDone() {
         askSubs = false
-        if var shown = state { shown.due = false; if !shown.changes.isEmpty { shown.changes.removeFirst() }; state = shown }
+        if var shown = state {
+            if let first = shown.changes.first { confirmed = (id: first.id, at: Date()); shown.changes.removeFirst() }
+            shown.due = false
+            state = shown
+        }
         send(["type": "subs"])
     }
 }

@@ -34,6 +34,8 @@ struct ContentView: View {
 }
 
 struct IdleView: View {
+    @EnvironmentObject var model: MatchModel
+
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: "sportscourt")
@@ -42,12 +44,18 @@ struct IdleView: View {
             Text("Start a game on your iPhone")
                 .font(.headline)
                 .multilineTextAlignment(.center)
-            Text("The clock, score and subs appear here.")
+            Text("Set the game up there, then kick off from here.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
         .padding()
+        .task { // keep asking while waiting, so the game appears within a few seconds of being set up
+            while !Task.isCancelled {
+                model.refresh()
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+            }
+        }
     }
 }
 
@@ -65,7 +73,17 @@ struct MatchView: View {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Glance(state: state, now: context.date)
                 }
-                .frame(minHeight: WKInterfaceDevice.current().screenBounds.height * 0.78)
+                .frame(minHeight: WKInterfaceDevice.current().screenBounds.height * (state.phase == "pre" || state.phase == "ht" ? 0.5 : 0.78))
+
+                if state.phase == "pre" || state.phase == "ht" {
+                    Button {
+                        model.start()
+                    } label: {
+                        Text(state.phase == "pre" ? "Kick off" : "Start 2nd half").font(.headline).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
 
                 if state.due {
                     Button {

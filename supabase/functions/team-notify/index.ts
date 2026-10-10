@@ -1,6 +1,6 @@
 // Sends a notification to the phones of a team's signed-in players and gaffers.
 // Called by a gaffer's app with { code, kind, title, body, fixture? }:
-//   kickoff, poll, highlights  go to everyone on the team except the sender
+//   kickoff, goal, poll, highlights  go to everyone on the team except the sender
 //   nudge                      goes only to players who haven't answered the poll named by `fixture`
 // A player who has just claimed their profile calls it with { code, kind: "claimed" }, which tells the gaffers.
 // Anyone in the team's chat calls it with { code, kind: "chat", message: <id> } after posting; everyone else in the team is told.
@@ -29,7 +29,7 @@ async function apnsJwt(p8: string, keyId: string, teamId: string) {
   return head + "." + b64url(sig);
 }
 
-const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat"];
+const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal"];
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
 Deno.serve(async (req: Request) => {

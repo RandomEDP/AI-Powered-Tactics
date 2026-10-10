@@ -82,7 +82,9 @@
     }
     if (name === 'chat_delete') { const m = d.messages.find((x) => x.id === a.p_id); if (!m || (m.user_id !== uid() && !isOrg(d, m.team_id))) return ok(false); d.messages = d.messages.filter((x) => x.id !== a.p_id); store(d); return ok(true); }
     if (name === 'chat_report') { d.reports.push({ message_id: a.p_id, user_id: uid() }); store(d); return ok(true); }
-    if (name === 'unregister_push' || name === 'register_push') return ok(true);
+    if (name === 'register_push') { d.push = d.push || []; if (uid() && d.push.indexOf(uid()) < 0) d.push.push(uid()); store(d); return ok(true); }
+    if (name === 'unregister_push') { d.push = (d.push || []).filter((u) => u !== uid()); store(d); return ok(true); }
+    if (name === 'team_push') { const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t || !isOrg(d, t.id)) return ok(null); return ok(d.players.filter((p) => p.team_id === t.id && p.user_id && (d.push || []).indexOf(p.user_id) >= 0).map((p) => p.pid)); }
     return fail('unknown rpc ' + name);
   }
   function from(table) {

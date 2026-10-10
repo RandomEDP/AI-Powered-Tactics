@@ -71,6 +71,10 @@ public class WatchLinkPlugin: CAPPlugin, CAPBridgedPlugin, WCSessionDelegate {
         deliver()
     }
 
+    public func sessionReachabilityDidChange(_ session: WCSession) {
+        deliver() // the watch app has just come into reach: send the game straight away
+    }
+
     public func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         received(message)
     }

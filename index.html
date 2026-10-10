@@ -406,10 +406,13 @@ tr.past td { opacity: .45; }
 .tbplay button { border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 650; padding: 8px 12px; }
 #planPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #planPop[hidden] { display: none; }
+#pushPop { position: fixed; inset: 0; z-index: 47; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#pushPop[hidden] { display: none; }
 .planbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
 .planbox h2 { font-size: 24px; line-height: 1.1; } .planbox > p { color: var(--muted); font-size: 14px; }
 .tier { border-radius: 18px; padding: 14px 16px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
 .tier h3 { font-size: 17px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; } .tier h3 b { font-size: 22px; } .tier h3 small { font-size: 11px; font-weight: 800; letter-spacing: .06em; background: #c8ff3e; color: #1c2600; border-radius: 999px; padding: 3px 8px; }
+.badge.nopush { background: #d9432f; color: #fff; }
 .tier ul { margin: 0; padding-left: 18px; font-size: 14.5px; line-height: 1.4; display: flex; flex-direction: column; gap: 3px; }
 .tier.pro { background: linear-gradient(135deg, #2a1263, #5a2be2 60%, #8f4bff); color: #fff; }
 @media (prefers-reduced-motion: reduce) { #planPop, .planbox { animation: none; } }
@@ -691,6 +694,16 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <li>Supports the developer</li></ul></div>
   <p>Early access: everything is unlocked for now.</p>
   <div class="actions"><button class="plain primary" id="planOk" type="button">Got it</button></div></div></div>
+<div id="pushPop" role="dialog" aria-labelledby="pushTitle" hidden><div class="planbox">
+  <svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true" style="color:var(--on)"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.3 16a1 1 0 0 0 .9 1.5h13.6a1 1 0 0 0 .9-1.5L18 12.6V9a6 6 0 0 0-6-6zM9.8 19.5a2.3 2.3 0 0 0 4.4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <h2 id="pushTitle">Don’t miss a thing</h2>
+  <div class="tier"><ul>
+    <li><b>New game polls.</b> Be first to say you’re in before the spaces go</li>
+    <li><b>Kick-off and every goal.</b> Follow the score when you can’t be there</li>
+    <li><b>Highlights.</b> Know the moment the clips are ready</li>
+    <li><b>Squad chat and nudges</b> from your gaffer</li></ul></div>
+  <p>Your iPhone will ask next. You can change this any time in Settings.</p>
+  <div class="actions"><button class="plain primary" id="pushYes" type="button">Turn on notifications</button><button class="plain" id="pushNo" type="button">Not now</button></div></div></div>
 <div id="subPop" role="alertdialog" aria-labelledby="subPopTitle" hidden><div class="kickbox"><button class="subx" id="subPopLater" type="button" aria-label="Not yet">&times;</button><p id="subPopTitle">Time for subs</p><div id="subPopBody"></div>
   <div class="actions"><button class="plain primary" id="subPopDone" type="button">Subs done</button></div><p class="note">Close this if something’s happening on the pitch. The change waits until you tap Subs done.</p></div></div>
 <div id="askPop" role="alertdialog" aria-labelledby="askText" hidden><div class="kickbox"><p id="askText"></p>
@@ -1301,6 +1314,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (flipScore) { S.followersCanScore = true; save(); } // teams made before everyone could log goals: switched on once, and Options can switch it off
       if (wantGame === code) { wantGame = null; if (S.match) go('game'); }
       pushSetup(); if (CH.code !== code) chatPull();
+      if (org) sb.rpc('team_push', { p_code: code }).then(function (r) { if (A.active !== code || !r || !Array.isArray(r.data)) return; pushPids = {}; r.data.forEach(function (id) { pushPids[id] = 1; }); pushFor = code; if (S.view === 'home') renderHome(); }, function () {});
     } catch (e) { setSync(navigator.onLine === false ? 'offline' : 'err'); }
   }
   function adopt(r) {
@@ -1326,6 +1340,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
           m.events.push(stripNull({ on: onPitch(m, curSeg(m)), us: g.us, p: g.us && g.p != null ? g.p : null, a: g.us && g.a != null ? g.a : null, by: 'team', at: typeof g.ts === 'number' ? g.ts : Date.now(),
             min: typeof g.min === 'number' ? Math.max(0, Math.min(m.half * (m.periods === 1 ? 1 : 2), Math.round(g.min))) : matchMin(m),
             x: typeof g.x === 'number' && g.x >= 1 ? Math.min(60, Math.round(g.x)) : null }));
+          goalPush(m, m.events[m.events.length - 1]);
         }
       });
       if (ids.length) {
@@ -1371,7 +1386,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   async function addGoal(ev) {
     var m = S.match; if (!m) return;
     if (Date.now() < lockUntil) return;
-    if (role === 'owner') { ev.at = Date.now(); m.events.push(ev); save(); lockScore({ us: !!ev.us, mine: true }); ping('goal', { us: !!ev.us }); return; }
+    if (role === 'owner') { ev.at = Date.now(); m.events.push(ev); save(); lockScore({ us: !!ev.us, mine: true }); ping('goal', { us: !!ev.us }); goalPush(m, ev); return; }
     if (!sb || !A.active) return;
     var say = function (t) { goalMsg = t; clearTimeout(goalT); goalT = setTimeout(function () { goalMsg = ''; renderScore(); }, 8000); renderScore(); };
     ev.ts = Date.now(); say('Sending the goal…');
@@ -1382,8 +1397,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     } catch (e) { say('Couldn’t send the goal. Check your signal and try again.'); }
   }
   var goalMsg = '', goalT = null;
+  function goalPush(m, ev) { // tell everyone who isn't watching that the score has changed
+    var t = tally(m), line = teamShort() + ' ' + t.us + '–' + t.them + ' ' + m.opp;
+    notifyTeam('goal', ev.us ? 'Goal! ' + line : 'Goal for ' + m.opp + '. ' + line, ev.us ? (ev.p != null ? nm(ev.p) + (ev.a != null ? ', set up by ' + nm(ev.a) : '') + '.' : 'Tap to watch along.') : 'Tap to watch along.');
+  }
   // ---- "game started": a pop-up for everyone with the team open, and a notification for everyone else
-  var wantGame = null, pushOn = false, pushSaved = null, pushToken = null;
+  var wantGame = null, pushOn = false, pushSaved = null, pushToken = null, pushPids = {}, pushFor = null; // pushPids: claimed players with notifications on, as far as a gaffer is told
   function gameStarted(g) {
     if (role === 'owner' || S.view === 'game') { refetch(); return; }
     $('kickPopText').textContent = 'Game started' + (g.opp ? ' v ' + g.opp : '') + '. Watch along.';
@@ -1402,7 +1421,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function pushSetup() { // signed-in players and gaffers are asked once whether they want game-start notifications
     var P = plugin('PushNotifications'); if (!P || !sb || !me || (myPid == null && role !== 'owner')) return;
     if (pushOn) { // already set up: if this phone's token never reached the database (allowed later in iOS Settings, or no signal at the time), try again
-      if (pushSaved !== me.id) { try { P.checkPermissions().then(function (r) { if (r && r.receive === 'granted') P.register(); else if (r && r.receive === 'prompt') P.requestPermissions().then(function (q) { if (q && q.receive === 'granted') P.register(); }, function () {}); }, function () {}); } catch (e) {} }
+      if (pushSaved !== me.id) { try { P.checkPermissions().then(function (r) { if (r && r.receive === 'granted') P.register(); else if (r && r.receive === 'prompt' && $('pushPop').hidden) pushWhy(); }, function () {}); } catch (e) {} }
       return;
     }
     pushOn = true;
@@ -1412,13 +1431,28 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       P.addListener('pushNotificationActionPerformed', function (a) {
         var code = a && a.notification && a.notification.data && a.notification.data.code; if (!code || !teamMeta(code)) return;
         var kind = a.notification.data.kind || 'kickoff';
-        if (kind !== 'kickoff') { var to = kind === 'highlights' ? 'highlights' : kind === 'chat' ? 'chat' : kind === 'poll' || kind === 'nudge' ? 'games' : 'home'; if (A.active === code) { go(to); refetch(); } else openTeam(code, to); return; }
+        if (kind !== 'kickoff' && kind !== 'goal') { var to = kind === 'highlights' ? 'highlights' : kind === 'chat' ? 'chat' : kind === 'poll' || kind === 'nudge' ? 'games' : 'home'; if (A.active === code) { go(to); refetch(); } else openTeam(code, to); return; }
         if (S.match && A.active === code) { go('game'); return; }
         wantGame = code; openTeam(code, 'home');
       });
-      P.requestPermissions().then(function (r) { if (r && r.receive === 'granted') P.register(); }, function () {});
+      P.checkPermissions().then(function (r) {
+        if (r && r.receive === 'granted') P.register();
+        else if (r && (r.receive === 'prompt' || r.receive === 'prompt-with-rationale')) pushWhy();
+      }, function () {});
     } catch (e) {}
   }
+  // Before iOS asks its one-time question, say what the notifications are for. "Not now" asks again in a week.
+  function pushWhy() {
+    var last = 0; try { last = +localStorage.getItem('apt-push-asked') || 0; } catch (e) {}
+    if (Date.now() - last < 7 * 86400000 || S.view === 'game' || S.match) return;
+    $('pushPop').hidden = false;
+  }
+  $('pushYes').addEventListener('click', function () {
+    $('pushPop').hidden = true; var P = plugin('PushNotifications'); if (!P) return;
+    try { localStorage.setItem('apt-push-asked', String(Date.now())); } catch (e) {}
+    try { P.requestPermissions().then(function (r) { if (r && r.receive === 'granted') P.register(); }, function () {}); } catch (e) {}
+  });
+  $('pushNo').addEventListener('click', function () { $('pushPop').hidden = true; try { localStorage.setItem('apt-push-asked', String(Date.now())); } catch (e) {} });
   // Once anyone logs a goal the score is locked on every phone for a few seconds, so the same goal isn't logged twice.
   var LOCK_MS = 8000, lockUntil = 0, lockT2 = null, lockNote = '';
   function lockScore(g) {
@@ -1990,7 +2024,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('squadList').innerHTML = S.players.slice().sort(function (a, b) { return (!!(roster[b.id] || {}).gaffer) - (!!(roster[a.id] || {}).gaffer); }).map(function (p) {
       var x = roster[p.id] || {}, s = T[p.id];
       return '<div class="prow"><span>' + esc(nm(p.id)) + (x.gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (p.id === myPid ? '<span class="badge you">You</span>' : '') +
-        (sb && p.id !== myPid ? (x.claimed ? '<span class="badge claimed">Claimed</span>' : '<span class="badge">Not claimed</span>') : '') + '</span>' +
+        (sb && p.id !== myPid ? (x.claimed ? '<span class="badge claimed">Claimed</span>' : '<span class="badge">Not claimed</span>') : '') +
+        (sb && own && pushFor === A.active && x.claimed && !pushPids[p.id] ? '<span class="badge nopush">Notifications off</span>' : '') + '</span>' +
         '<small>' + (p.pos ? posName(p.pos) + ', ' : '') + s.g + ' G, ' + s.a + ' A</small></div>';
     }).join('');
   }
@@ -3183,6 +3218,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var ok = function (v) { return typeof v === 'number' && m.squad.indexOf(v) >= 0 ? v : null; };
     if (ev.type === 'goal') { pick = null; addGoal(stamped(m, stripNull({ us: !!ev.us, p: ev.us ? ok(ev.p) : null, a: ev.us ? ok(ev.a) : null }))); }
     else if (ev.type === 'subs') subsDone();
+    else if (ev.type === 'start') { if (m.phase === 'pre' || m.phase === 'ht') goTap(ev.at); } // kick-off or the second half, pressed on the watch
     else if (ev.type === 'hl' && m.phase !== 'pre') { m.events.push(stamped(m, stripNull({ hl: true, p: myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null, watch: true, at: Date.now() }))); save(); if (S.view === 'game') renderScore(); }
   }
   function watchDrain() {
@@ -3276,19 +3312,20 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   setInterval(tick, 250);
 
-  $('go').addEventListener('click', function () {
+  $('go').addEventListener('click', function () { goTap(); });
+  function goTap(at) { // the big clock button; `at` is when it was really pressed, if that was on the watch a moment ago
     var m = S.match; if (!m || m.phase === 'ft') return;
-    var kicked = m.phase === 'pre';
-    if (m.phase === 'pre') m.koAt = Date.now();
-    if (m.phase === 'ht') m.h2At = Date.now();
+    var kicked = m.phase === 'pre', when = typeof at === 'number' && Date.now() - at >= 0 && Date.now() - at < 600000 ? at : Date.now();
+    if (m.phase === 'pre') m.koAt = when;
+    if (m.phase === 'ht') m.h2At = when;
     if (m.phase === 'pre' || m.phase === 'ht') m.et = false;
-    if (m.phase === 'pre' || m.phase === 'ht') { m.phase = m.phase === 'pre' ? 'h1' : 'h2'; m.base = 0; m.t0 = Date.now(); m.running = true; beep(1); }
+    if (m.phase === 'pre' || m.phase === 'ht') { m.phase = m.phase === 'pre' ? 'h1' : 'h2'; m.base = 0; m.t0 = when; m.running = true; beep(1); }
     else if (m.running) { m.base = elapsed(m); m.running = false; }
     else { m.t0 = Date.now(); m.running = true; }
     if (m.ok == null || kicked || m.phase === 'h2' && m.segs[m.ok] && m.segs[m.ok].h === 0) m.ok = clockSeg(m);
     lastBlock = curSeg(m); lastDue = subDue(m); wake(); save(); renderGame();
     if (kicked) announceGame(m);
-  });
+  }
   armed($('reset'), 'Sure?', function () { var m = S.match; if (!m) return; m.phase = 'pre'; m.running = false; m.base = 0; m.et = false; delete m.koAt; delete m.htAt; delete m.h2At; delete m.ftAt; lastBlock = -1; save(); renderGame(); });
   armed($('endHalf'), 'End it early?', function () {
     var m = S.match; if (!m || (m.phase !== 'h1' && m.phase !== 'h2')) return;

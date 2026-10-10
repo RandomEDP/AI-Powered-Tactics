@@ -13,7 +13,8 @@ const wait = (ms) => p.waitForTimeout(ms), pitch = async () => (await p.textCont
 const shift = async (sec) => { await p.evaluate((sec) => { const k = 'apt-team-' + JSON.parse(localStorage.getItem('apt-app')).active; const s = JSON.parse(localStorage.getItem(k)); s.match.t0 -= sec * 1000; localStorage.setItem(k, JSON.stringify(s)); }, sec); await p.reload(); await wait(900); };
 await p.goto(BASE); await wait(300);
 await p.click('#createBtn'); await p.fill('#tName', 'Sons of Pitches FC'); await p.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await p.click('#tCreate'); await p.click('#v-code [data-go="home"]');
-await p.click('#mNew'); await p.fill('#opp', 'Dog'); await p.click('#startGame'); await p.click('#kick'); await p.click('#go'); await wait(400);
+await p.click('#mNew'); await p.fill('#opp', 'Dog'); await p.click('#startGame'); await p.click('#kick'); await wait(500); console.log('before kick-off the watch is told:', (await watch()).phase, '| phone button:', await p.textContent('#go'));
+await p.evaluate(() => window.__wcb({ event: JSON.stringify({ type: 'start', id: 'k1', at: Date.now() - 2000 }) })); await wait(500); console.log('kick-off pressed on the watch 2 s ago: phone says', await p.textContent('#phase'), '|', await p.textContent('#played'), '| watch told:', (await watch()).phase);
 const before = await pitch(); console.log('at kick-off:', before, '|', await p.textContent('#swapTitle'), '| pop-up:', await p.isVisible('#subPop'));
 await shift(303);
 console.log('5:03 in: pop-up', await p.isVisible('#subPop'), '|', (await p.textContent('#subPopBody')).replace(/\s+/g, ' ').trim(), '| line-up unchanged:', (await pitch()) === before, '|', await p.textContent('#swapTitle'), '|', await p.textContent('#countLabel'), '| watch told:', (await watch()).due);
