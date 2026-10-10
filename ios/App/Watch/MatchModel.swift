@@ -29,6 +29,7 @@ struct MatchState: Codable, Equatable {
     }
 
     var live: Bool
+    var due: Bool = false       // the first change in `changes` is waiting to be made
     var team: String = ""
     var opp: String = ""
     var us: Int = 0
@@ -46,6 +47,7 @@ struct MatchState: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         live = (try? c.decode(Bool.self, forKey: .live)) ?? false
+        due = (try? c.decode(Bool.self, forKey: .due)) ?? false
         team = (try? c.decode(String.self, forKey: .team)) ?? ""
         opp = (try? c.decode(String.self, forKey: .opp)) ?? ""
         us = (try? c.decode(Int.self, forKey: .us)) ?? 0
@@ -74,6 +76,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
     @Published var state: MatchState?
     @Published var locked = false
     @Published var note = ""
+    @Published var askSubs = false   // the "time for subs" sheet is showing
 
     private var unlock: DispatchWorkItem?
     private var clearNote: DispatchWorkItem?
@@ -117,7 +120,14 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
                     decoded.them = max(decoded.them, hold.them)
                 }
             }
+            let wasDue = self.state?.due ?? false
             self.state = decoded
+            if decoded.live && decoded.due && !wasDue { // a change has just come due: tap the wrist and ask
+                WKInterfaceDevice.current().play(.notification)
+                self.askSubs = true
+            } else if !decoded.due || !decoded.live {
+                self.askSubs = false
+            }
             let left = decoded.lockUntil / 1000 - Date().timeIntervalSince1970
             if left > 0 { self.lock(for: min(left, 8)) }
         }
@@ -207,5 +217,12 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
 
     func highlight() {
         send(["type": "hl"])
+    }
+
+    /// The players have swapped: tell the phone, and stop asking here straight away.
+    func subsDone() {
+        askSubs = false
+        if var shown = state { shown.due = false; if !shown.changes.isEmpty { shown.changes.removeFirst() }; state = shown }
+        send(["type": "subs"])
     }
 }

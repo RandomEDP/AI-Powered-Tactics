@@ -67,6 +67,16 @@ struct MatchView: View {
                 }
                 .frame(minHeight: WKInterfaceDevice.current().screenBounds.height * 0.78)
 
+                if state.due {
+                    Button {
+                        model.askSubs = true
+                    } label: {
+                        Label("Subs due", systemImage: "arrow.left.arrow.right").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                }
+
                 Changes(state: state)
                     .id("changes")
 
@@ -117,9 +127,50 @@ struct MatchView: View {
             if model.demoPage == 3 { path = [.scorer] }
         }
         }
+        .sheet(isPresented: $model.askSubs) {
+            SubsSheet(state: state)
+        }
         .confirmationDialog("Goal for \(state.opp)?", isPresented: $confirmThem, titleVisibility: .visible) {
             Button("Log the goal") { model.goal(us: false, scorer: nil, assist: nil) }
             Button("Cancel", role: .cancel) {}
+        }
+    }
+}
+
+/// Shown when a change comes due. Closing it leaves the change waiting; "Subs done" makes it.
+struct SubsSheet: View {
+    @EnvironmentObject var model: MatchModel
+    let state: MatchState
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Time for subs").font(.headline)
+                if let change = state.changes.first {
+                    if !change.off.isEmpty {
+                        Text("Off").font(.caption2.weight(.bold)).foregroundStyle(.orange)
+                        Text(change.off.joined(separator: ", ")).font(.body.weight(.semibold))
+                    }
+                    if !change.on.isEmpty {
+                        Text("On").font(.caption2.weight(.bold)).foregroundStyle(.green)
+                        Text(change.on.joined(separator: ", ")).font(.body.weight(.semibold))
+                    }
+                }
+                Button {
+                    model.subsDone()
+                } label: {
+                    Text("Subs done").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                Button {
+                    model.askSubs = false
+                } label: {
+                    Text("Not yet").frame(maxWidth: .infinity)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
         }
     }
 }

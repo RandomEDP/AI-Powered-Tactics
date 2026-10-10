@@ -386,7 +386,10 @@ tr.past td { opacity: .45; }
 #kickPop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 #kickPop[hidden] { display: none; }
 #askPop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
-#askPop[hidden] { display: none; } #askPop .kickbox { animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
+#askPop[hidden] { display: none; }
+#subPop { position: fixed; inset: 0; z-index: 44; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#subPop[hidden] { display: none; } #subPop .kickbox { position: relative; animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
+.subx { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--fill); color: var(--ink); font-size: 26px; line-height: 1; } #askPop .kickbox { animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
 .chatlist { display: flex; flex-direction: column; gap: 10px; min-height: 40vh; }
 .cmsg { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; max-width: 86%; } .cmsg.mine { align-self: flex-end; align-items: flex-end; }
 .cmsg > small { color: var(--muted); font-size: 12px; padding-inline: 6px; }
@@ -688,6 +691,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <li>Supports the developer</li></ul></div>
   <p>Early access: everything is unlocked for now.</p>
   <div class="actions"><button class="plain primary" id="planOk" type="button">Got it</button></div></div></div>
+<div id="subPop" role="alertdialog" aria-labelledby="subPopTitle" hidden><div class="kickbox"><button class="subx" id="subPopLater" type="button" aria-label="Not yet">&times;</button><p id="subPopTitle">Time for subs</p><div id="subPopBody"></div>
+  <div class="actions"><button class="plain primary" id="subPopDone" type="button">Subs done</button></div><p class="note">Close this if something’s happening on the pitch. The change waits until you tap Subs done.</p></div></div>
 <div id="askPop" role="alertdialog" aria-labelledby="askText" hidden><div class="kickbox"><p id="askText"></p>
   <div class="actions"><button class="plain primary" id="askYes" type="button">Yes</button><button class="plain" id="askNo" type="button">Not now</button></div></div></div>
 <div id="kickPop" role="alertdialog" aria-labelledby="kickPopText" hidden><div class="kickbox"><p id="kickPopText"></p>
@@ -1476,12 +1481,30 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     return r;
   }
   function elapsed(m) { return m.base + (m.running ? Date.now() - m.t0 : 0); } // keeps running into added time until the half is ended by hand
-  function curSeg(m) {
+  function clockSeg(m) { // the block the clock says the game is in
     if (m.phase === 'pre') return 0;
     if (m.phase === 'ft') return m.segs.length - 1;
     var h = m.phase === 'h1' ? 0 : 1, e = m.phase === 'ht' ? 0 : elapsed(m) / 60000, cur = -1;
     for (var i = 0; i < m.segs.length; i++) if (m.segs[i].h === h && m.segs[i].from <= e) cur = i;
     return cur < 0 ? 0 : cur;
+  }
+  // The block actually being played. A change doesn't happen by the clock alone: once it's due, the line-up stays as it was
+  // until the gaffer says the subs have been made (m.ok is the last block confirmed). Blocks where nobody swaps pass by themselves.
+  function curSeg(m) {
+    var c = clockSeg(m);
+    if (m.ok == null || (m.phase !== 'h1' && m.phase !== 'h2') || c <= m.ok) return c;
+    var i = Math.max(0, m.ok);
+    while (i < c) {
+      if (m.segs[i + 1].h !== m.segs[i].h) { i++; continue; }
+      var a = onPitch(m, i), b = onPitch(m, i + 1);
+      if (a.length === b.length && a.every(function (id) { return b.indexOf(id) >= 0; })) { i++; continue; }
+      break;
+    }
+    return i;
+  }
+  function subDue(m) { // the block whose change is waiting to be made, or -1
+    if (!m || m.ok == null || (m.phase !== 'h1' && m.phase !== 'h2')) return -1;
+    var e = curSeg(m); return e < clockSeg(m) ? e + 1 : -1;
   }
   function onPitch(m, i) { var s = m.segs[i]; return (s.gk != null ? [s.gk] : []).concat(s.on); }
   function swapAt(m, to) { // who changes when segment `to` starts
@@ -1564,6 +1587,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if ((view === 'reel' || view === 'season' || view === 'cut') && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
     if (view === 'cut' && !CUT) view = 'highlights';
     if (pick && view !== 'game') { pick = null; $('picker').innerHTML = ''; }
+    if (view !== 'game') $('subPop').hidden = true;
     if (view === 'soon' && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome';
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
     if (!A.active && ['intro', 'welcome', 'join', 'create', 'account'].indexOf(view) < 0) view = 'welcome';
@@ -2817,7 +2841,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
 
   // ---- game
-  var lastBlock = -1, pick = null, outPick = null;
+  var lastBlock = -1, pick = null, outPick = null, lastDue = -1, subAsk = false;
   function renderClock() {
     var m = S.match; if (!m) return;
     var i = curSeg(m), s = m.segs[i], e = elapsed(m), live = m.phase === 'h1' || m.phase === 'h2';
@@ -2829,7 +2853,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else {
       var first = !one && (m.phase === 'pre' || m.phase === 'h1'), added = live && !sameHalf && e >= halfMs(m);
       $('count').textContent = added ? '+' + fmt2(e - halfMs(m)) : fmt(target - (live ? e : 0));
-      $('countLabel').textContent = added ? 'Added time, until the ' + (first ? 'half-time' : 'final') + ' whistle'
+      $('countLabel').textContent = subDue(m) >= 0 ? 'Change due: make the subs' : added ? 'Added time, until the ' + (first ? 'half-time' : 'final') + ' whistle'
         : sameHalf ? (live ? 'Until the next change' : 'Until the first change') : (first ? 'Until half time' : 'Until full time');
     }
     $('go').textContent = m.phase === 'pre' ? 'Kick off' : m.phase === 'ht' ? 'Start 2nd half' : m.phase === 'ft' ? 'Full time' : m.running ? 'Pause' : 'Resume';
@@ -2859,14 +2883,16 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (!hasBench(m)) { title = 'No changes'; body = '<p class="note">Nobody is on the bench, so there are no subs to make.</p>'; }
     else if (t < 0) { title = m.phase === 'ht' ? 'No change at half time' : 'No more changes'; body = '<p class="note">' + (m.phase === 'ht' ? 'The same line-up starts the second half.' : 'This line-up finishes the game.') + '</p>'; }
     else {
-      title = m.phase === 'ht' ? 'Change now, for the second half' : m.segs[t].h !== m.segs[cb].h ? 'Next change at half time' : 'Next change at ' + m.segs[t].from + ':00';
+      var dueNow = subDue(m) === t;
+      title = m.phase === 'ht' ? 'Change now, for the second half' : dueNow ? 'Make this change now' : m.segs[t].h !== m.segs[cb].h ? 'Next change at half time' : 'Next change at ' + m.segs[t].from + ':00';
       var tap = function (list, cls) { // the gaffer can tap a name to change who it is
         if (role !== 'owner') return chips(m, list, cls);
         return list.map(function (id) { return '<button class="chip tapchip ' + cls + '" type="button" data-q="' + cls + '" data-id="' + id + '" data-t="' + t + '">' + esc(nm(id)) + '</button>'; }).join('') || '<span class="note">Nobody</span>';
       };
       body = '<div class="swap-rows"><div class="tag off">Off</div><div class="chips">' + tap(sw.off, 'off') +
              '</div><div class="tag on">On</div><div class="chips">' + tap(sw.on, 'on') + '</div></div>' +
-             (role === 'owner' ? '<p class="note">Tap a name to swap in someone else.</p>' : '');
+             (role === 'owner' ? '<p class="note">Tap a name to swap in someone else.</p>' : '') +
+             (dueNow ? (role === 'owner' ? '<div class="actions"><button class="plain primary" type="button" id="subsDoneBtn">Subs done</button></div><p class="note">The line-up below stays as it is until you tap this.</p>' : '<p class="note">Waiting for the gaffer to make the change.</p>') : '');
     }
     $('swapTitle').textContent = title; $('swapBody').innerHTML = body;
 
@@ -2878,8 +2904,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('rota').innerHTML = html;
     var gm = gameMins(m), ids = (m.squad || []).slice().sort(function (x, y) { return gm[y] - gm[x]; });
     $('minsNote').textContent = ids.length ? 'Minutes today: ' + ids.map(function (id) { return nm(id) + ' ' + gm[id] + (m.gone.indexOf(id) >= 0 ? ' (out)' : ''); }).join(', ') + '.' : '';
-    renderOut(); renderEdit(); renderQuick(); renderScore(); renderClock(); syncAlerts();
+    renderOut(); renderEdit(); renderQuick(); renderScore(); renderClock(); renderSubPop(); syncAlerts();
   }
+  $('swapBody').addEventListener('click', function (e) { if (e.target.id === 'subsDoneBtn') subsDone(); });
+  $('subPopDone').addEventListener('click', subsDone);
+  $('subPopLater').addEventListener('click', function () { subAsk = false; renderSubPop(); });
 
   // ---- edit upcoming subs: swap a pitch player (A) and a bench player (B) for stretch t, then swap them back in the
   // earliest later stretch where that is possible, so both end the game on the minutes they were planned.
@@ -3133,7 +3162,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var sw = swapAt(m, i); if (!sw.on.length && !sw.off.length) continue;
       changes.push({ h: m.segs[i].h, from: m.segs[i].from, on: sw.on.map(nm), off: sw.off.map(nm) });
     }
-    return { live: true, team: teamShort(), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
+    return { live: true, due: subDue(m) >= 0, team: teamShort(), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
       players: pickOrder(m).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0, gk: id === m.segs[cb].gk }; }) };
   }
   function watchPush() {
@@ -3153,6 +3182,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (ev.id) watchSeen[ev.id] = 1;
     var ok = function (v) { return typeof v === 'number' && m.squad.indexOf(v) >= 0 ? v : null; };
     if (ev.type === 'goal') { pick = null; addGoal(stamped(m, stripNull({ us: !!ev.us, p: ev.us ? ok(ev.p) : null, a: ev.us ? ok(ev.a) : null }))); }
+    else if (ev.type === 'subs') subsDone();
     else if (ev.type === 'hl' && m.phase !== 'pre') { m.events.push(stamped(m, stripNull({ hl: true, p: myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null, watch: true, at: Date.now() }))); save(); if (S.view === 'game') renderScore(); }
   }
   function watchDrain() {
@@ -3222,12 +3252,27 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function tick() {
     var m = S.match; if (!m || !m.running) return;
     if (!m.et && elapsed(m) >= halfMs(m)) { m.et = true; if (role === 'owner') { save(); beep(4); } } // time is up; the clock carries on as added time
-    var cb = curSeg(m);
-    if (cb !== lastBlock) {
-      var sw = swapAt(m, cb);
-      if (lastBlock >= 0 && (sw.off.length || sw.on.length)) beep(3);
-      lastBlock = cb; renderGame();
-    } else renderClock();
+    var cb = curSeg(m), due = subDue(m);
+    if (due !== lastDue) { // a change has just come due: buzz and ask, but don't make it until someone says it's done
+      lastDue = due;
+      if (due >= 0) { beep(3); subAsk = role === 'owner'; }
+      else subAsk = false;
+      lastBlock = cb; renderGame(); watchPush();
+    } else if (cb !== lastBlock) { lastBlock = cb; renderGame(); }
+    else renderClock();
+  }
+  function subsDone() { // the gaffer says the players have swapped
+    var m = S.match, due = subDue(m); if (!m || role !== 'owner' || due < 0) return;
+    m.ok = due; subAsk = false; lastBlock = curSeg(m); lastDue = subDue(m);
+    if (lastDue >= 0) subAsk = true; // the one after is already due as well
+    save(); renderGame(); watchPush();
+  }
+  function renderSubPop() {
+    var m = S.match, due = subDue(m), el = $('subPop');
+    if (!m || due < 0 || !subAsk || role !== 'owner' || S.view !== 'game') { el.hidden = true; return; }
+    var sw = swapAt(m, due);
+    $('subPopBody').innerHTML = '<div class="swap-rows"><div class="tag off">Off</div><div class="chips">' + chips(m, sw.off, 'off') + '</div><div class="tag on">On</div><div class="chips">' + chips(m, sw.on, 'on') + '</div></div>';
+    el.hidden = false;
   }
   setInterval(tick, 250);
 
@@ -3240,7 +3285,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (m.phase === 'pre' || m.phase === 'ht') { m.phase = m.phase === 'pre' ? 'h1' : 'h2'; m.base = 0; m.t0 = Date.now(); m.running = true; beep(1); }
     else if (m.running) { m.base = elapsed(m); m.running = false; }
     else { m.t0 = Date.now(); m.running = true; }
-    lastBlock = curSeg(m); wake(); save(); renderGame();
+    if (m.ok == null || kicked || m.phase === 'h2' && m.segs[m.ok] && m.segs[m.ok].h === 0) m.ok = clockSeg(m);
+    lastBlock = curSeg(m); lastDue = subDue(m); wake(); save(); renderGame();
     if (kicked) announceGame(m);
   });
   armed($('reset'), 'Sure?', function () { var m = S.match; if (!m) return; m.phase = 'pre'; m.running = false; m.base = 0; m.et = false; delete m.koAt; delete m.htAt; delete m.h2At; delete m.ftAt; lastBlock = -1; save(); renderGame(); });
