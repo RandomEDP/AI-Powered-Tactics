@@ -55,6 +55,8 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Set your team's home ground to where you are now, so nearby teams can find you.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Add your team's games to your calendar.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>

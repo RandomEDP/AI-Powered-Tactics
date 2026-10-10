@@ -85,6 +85,27 @@
     if (name === 'register_push') { d.push = d.push || []; if (uid() && d.push.indexOf(uid()) < 0) d.push.push(uid()); store(d); return ok(true); }
     if (name === 'unregister_push') { d.push = (d.push || []).filter((u) => u !== uid()); store(d); return ok(true); }
     if (name === 'team_push') { const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t || !isOrg(d, t.id)) return ok(null); return ok(d.players.filter((p) => p.team_id === t.id && p.user_id && (d.push || []).indexOf(p.user_id) >= 0).map((p) => p.pid)); }
+    if (['rival_home', 'set_home', 'find_teams', 'challenge_send', 'challenge_reply', 'my_challenges', 'challenge_result'].includes(name)) {
+      d.riv = d.riv || {}; d.chal = d.chal || [];
+      const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok(null);
+      const org = isOrg(d, t.id), inTeam = org || (!!uid() && d.players.some((p) => p.team_id === t.id && p.user_id === uid())), r = d.riv[t.id] || {};
+      const terms = (p) => ({ side: +p.side === 7 ? 7 : 5, half: Math.max(1, Math.min(60, Math.round(+p.half) || 15)), periods: +p.periods === 1 ? 1 : 2, subs: Math.max(0, Math.min(7, Math.round(+p.subs) || 0)), ko_at: +p.ko_at, location: String(p.location || '').slice(0, 120), note: String(p.note || '').slice(0, 200) });
+      if (name === 'rival_home') return ok({ home: r.home || '', set: r.lat != null, elo: r.elo || 1000, games: r.games || 0 });
+      if (name === 'set_home') { if (!org) return ok(false); d.riv[t.id] = Object.assign({ elo: 1000, games: 0 }, r, { home: a.p_name, lat: a.p_lat, lng: a.p_lng }); store(d); return ok(true); }
+      if (!inTeam) return ok(null);
+      if (name === 'find_teams') return ok(d.teams.filter((o) => o.id !== t.id && (d.riv[o.id] || {}).lat != null && (!a.p_query || o.name.toLowerCase().includes(a.p_query.toLowerCase()))).map((o) => ({ id: o.id, name: o.name, short: o.short, color: o.color, home: d.riv[o.id].home, elo: d.riv[o.id].elo || 1000, games: 0, km: r.lat == null ? null : Math.round(Math.hypot(r.lat - d.riv[o.id].lat, r.lng - d.riv[o.id].lng) * 1110) / 10 })));
+      if (name === 'challenge_send') { if (!org) return fail('no', '42501'); const c = { id: crypto.randomUUID(), from_team: t.id, to_team: a.p_to, kind: a.p_kind === 'elo' ? 'elo' : 'friendly', terms: terms(a.p_terms), status: 'proposed', turn: a.p_to, rounds: 0, at: Date.now() }; d.chal.push(c); store(d); return ok(c.id); }
+      if (name === 'my_challenges') return ok(d.chal.filter((c) => c.from_team === t.id || c.to_team === t.id).map((c) => { const o = d.teams.find((x) => x.id === (c.from_team === t.id ? c.to_team : c.from_team)); return { id: c.id, kind: c.kind, status: c.status, terms: c.terms, rounds: c.rounds, sent: c.from_team === t.id, my_turn: c.status === 'proposed' && c.turn === t.id, fixture: c.from_team === t.id ? c.fa || null : c.fb || null, my_score: (c.from_team === t.id ? c.fs : c.ts) || null, elo_change: null, other: { id: o.id, name: o.name, short: o.short, color: o.color, elo: (d.riv[o.id] || {}).elo || 1000 }, at: c.at }; }));
+      const c = d.chal.find((x) => x.id === a.p_id); if (!c || !org) return ok('missing');
+      if (name === 'challenge_result') { c[c.from_team === t.id ? 'fs' : 'ts'] = { us: a.p_us, them: a.p_them }; store(d); return ok(c.fs && c.ts ? 'played' : 'waiting'); }
+      if (c.status !== 'proposed') return ok('closed');
+      const other = c.from_team === t.id ? c.to_team : c.from_team;
+      if (a.p_action === 'decline') { c.status = c.from_team === t.id ? 'cancelled' : 'declined'; store(d); return ok('ok'); }
+      if (c.turn !== t.id) return ok('not_your_turn');
+      if (a.p_action === 'counter') { c.terms = terms(a.p_terms); c.turn = other; c.rounds++; store(d); return ok('ok'); }
+      const mk = (team, opp) => { const f = { id: crypto.randomUUID(), team_id: team, opp: d.teams.find((x) => x.id === opp).name, ko_at: c.terms.ko_at, location: c.terms.location, cost: '', max_outfield: c.terms.side - 1 + c.terms.subs, status: 'open', side: c.terms.side, kind: 'game', fmt: { side: c.terms.side, half: c.terms.half, sub: Math.min(5, c.terms.half), periods: c.terms.periods } }; d.fixtures.push(f); return f.id; };
+      c.fa = mk(c.from_team, c.to_team); c.fb = mk(c.to_team, c.from_team); c.status = 'accepted'; store(d); return ok('ok');
+    }
     return fail('unknown rpc ' + name);
   }
   function from(table) {

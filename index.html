@@ -413,6 +413,12 @@ tr.past td { opacity: .45; }
 .tier { border-radius: 18px; padding: 14px 16px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
 .tier h3 { font-size: 17px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; } .tier h3 b { font-size: 22px; } .tier h3 small { font-size: 11px; font-weight: 800; letter-spacing: .06em; background: #c8ff3e; color: #1c2600; border-radius: 999px; padding: 3px 8px; }
 .badge.nopush { background: #d9432f; color: #fff; }
+#rivalsBadge { margin-left: 8px; min-width: 20px; height: 20px; border-radius: 10px; background: #ffc83d; color: #2a2100; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; } #rivalsBadge[hidden] { display: none; }
+.elo { display: flex; align-items: baseline; gap: 10px; } .elo b { font-size: 44px; font-weight: 800; font-stretch: 75%; line-height: 1; } .elo span { color: var(--muted); font-size: 14px; }
+.rteam { display: grid; grid-template-columns: 12px 1fr auto; gap: 12px; align-items: center; padding-block: 12px; border-bottom: 1px solid var(--line); } .rteam:last-child { border-bottom: 0; }
+.rteam i { width: 12px; height: 36px; border-radius: 6px; } .rteam b { display: block; font-size: 17px; } .rteam small { color: var(--muted); font-size: 13px; } .rteam em { font-style: normal; font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; }
+.rteam button { grid-column: 2 / 4; justify-self: start; }
+.chal { display: flex; flex-direction: column; gap: 8px; padding-block: 14px; border-bottom: 1px solid var(--line); } .chal:last-child { border-bottom: 0; } .chal h3 { font-size: 18px; } .chal p { font-size: 15px; }
 .tier ul { margin: 0; padding-left: 18px; font-size: 14.5px; line-height: 1.4; display: flex; flex-direction: column; gap: 3px; }
 .tier.pro { background: linear-gradient(135deg, #2a1263, #5a2be2 60%, #8f4bff); color: #fff; }
 @media (prefers-reduced-motion: reduce) { #planPop, .planbox { animation: none; } }
@@ -715,9 +721,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="bar"><h1>Games</h1></div>
   <p class="note" id="gamesCount"></p>
   <p class="note" id="gamesEmpty" hidden></p>
-  <div class="actions"><button class="plain own" id="gamesNew" type="button">Schedule a game</button></div>
+  <div class="actions"><button class="plain own" id="gamesNew" type="button">Schedule a game</button><button class="plain" id="rivalsOpen" type="button">Play another team<b id="rivalsBadge" hidden></b></button></div>
   <div class="gtrack" id="gamesTrack" hidden></div>
   <div class="dots gdots" id="gamesDots"></div>
+</div>
+
+<div class="view" id="v-rivals" hidden>
+  <div class="bar"><button class="back" type="button" data-go="games">&lsaquo; Games</button><h1>Play another team</h1></div>
+  <div id="rivalsBody"></div>
 </div>
 
 <div class="view" id="v-chat" hidden>
@@ -1137,7 +1148,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var role = 'viewer', teamId = null, orgCode = null;
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1313,7 +1324,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (org) pullGoals();
       if (flipScore) { S.followersCanScore = true; save(); } // teams made before everyone could log goals: switched on once, and Options can switch it off
       if (wantGame === code) { wantGame = null; if (S.match) go('game'); }
-      pushSetup(); if (CH.code !== code) chatPull();
+      pushSetup(); if (CH.code !== code) chatPull(); if (RV.code !== code || S.view === 'games') rivalsPull();
       if (org) sb.rpc('team_push', { p_code: code }).then(function (r) { if (A.active !== code || !r || !Array.isArray(r.data)) return; pushPids = {}; r.data.forEach(function (id) { pushPids[id] = 1; }); pushFor = code; if (S.view === 'home') renderHome(); }, function () {});
     } catch (e) { setSync(navigator.onLine === false ? 'offline' : 'err'); }
   }
@@ -1427,11 +1438,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     pushOn = true;
     try {
       P.addListener('registration', function (t) { if (t && t.value && me) { pushToken = t.value; var uid = me.id; sb.rpc('register_push', { p_token: t.value }).then(function (r) { if (!r || !r.error) pushSaved = uid; }, function () {}); } });
-      P.addListener('pushNotificationReceived', function (n) { var d = n && n.data; if (!d || d.code !== A.active) return; if (d.kind === 'chat') chatPull(); else refetch(); }); // arrived with the app open
+      P.addListener('pushNotificationReceived', function (n) { var d = n && n.data; if (!d || d.code !== A.active) return; if (d.kind === 'chat') chatPull(); else if (d.kind === 'challenge') rivalsPull(); else refetch(); }); // arrived with the app open
       P.addListener('pushNotificationActionPerformed', function (a) {
         var code = a && a.notification && a.notification.data && a.notification.data.code; if (!code || !teamMeta(code)) return;
         var kind = a.notification.data.kind || 'kickoff';
-        if (kind !== 'kickoff' && kind !== 'goal') { var to = kind === 'highlights' ? 'highlights' : kind === 'chat' ? 'chat' : kind === 'poll' || kind === 'nudge' ? 'games' : 'home'; if (A.active === code) { go(to); refetch(); } else openTeam(code, to); return; }
+        if (kind !== 'kickoff' && kind !== 'goal') { var to = kind === 'highlights' ? 'highlights' : kind === 'chat' ? 'chat' : kind === 'challenge' ? 'rivals' : kind === 'poll' || kind === 'nudge' ? 'games' : 'home'; if (A.active === code) { go(to); refetch(); } else openTeam(code, to); return; }
         if (S.match && A.active === code) { go('game'); return; }
         wantGame = code; openTeam(code, 'home');
       });
@@ -1614,7 +1625,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1654,6 +1665,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'games') renderGames();
     else if (S.view === 'board') renderBoard();
     else if (S.view === 'chat') { renderChat(); chatPull(); }
+    else if (S.view === 'rivals') { renderRivals(); rivalsPull(); }
     else if (S.view === 'track') renderTrack();
     else if (S.view === 'setup') renderSetup();
     else if (S.view === 'mins') renderMins();
@@ -1888,7 +1900,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     me = null; closeTeam();
     A.teams.slice().forEach(function (t) { forgetTeam(t.code); });
     A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; crest = null; J = null;
-    CH = { code: null, list: [], unread: 0 }; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
+    CH = { code: null, list: [], unread: 0 }; RV = { code: null, list: [], home: null, near: [], q: '', form: null, msg: '' }; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
     saveApp(); applyTheme(); go('welcome');
   }
   $('aSignOut').addEventListener('click', async function () { await signOutAll(); aSay(''); });
@@ -2255,6 +2267,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('optViewer').hidden = own;
     var todo = myPid == null ? 0 : fixtures.filter(function (f) { return !(f.votes || []).some(function (v) { return v.pid === myPid; }); }).length;
     $('tabBadge').hidden = !todo; $('tabBadge').textContent = todo;
+    var rn = own ? RV.list.filter(function (c) { return c.my_turn; }).length : 0; $('rivalsBadge').hidden = !rn; $('rivalsBadge').textContent = rn; $('rivalsOpen').hidden = !sb;
+    $('tabBadge').hidden = !(todo + rn); $('tabBadge').textContent = todo + rn;
     $('chatBadge').hidden = !CH.unread || S.view === 'chat'; $('chatBadge').textContent = CH.unread > 9 ? '9+' : CH.unread;
   }
   $('tabs').addEventListener('click', function (e) {
@@ -2272,6 +2286,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('opp').value = tour ? '' : f.opp || ''; $('oppErr').hidden = true;
     S.players.forEach(function (p) { D.sel[p.id] = p.id === s.gk || s.start.indexOf(p.id) >= 0 ? 'start' : s.bench.indexOf(p.id) >= 0 ? 'bench' : 'out'; });
     D.keeper = s.gk; D.manualBench = true; if (!tour) D.fx = f.id; // a tournament's poll stays open for the next game
+    var ch = RV.list.filter(function (c) { return c.fixture === f.id; })[0]; if (ch) $('friendly').checked = ch.kind === 'friendly';
     renderSetup();
   }
 
@@ -3344,6 +3359,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.pitch === 7 ? 7 : null, tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now() });
     S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
     if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
+    var played = m.fx ? RV.list.filter(function (c) { return c.fixture === m.fx; })[0] : null; // a game against another team on the app: tell them our score
+    if (played && sb) sb.rpc('challenge_result', { p_code: A.active, p_id: played.id, p_us: t.us, p_them: t.them }).then(function () { rivalsPull(); }, function () {});
     S.match = null; pick = null; outPick = null; ed = null; save(); go('stats');
   });
 
@@ -3592,6 +3609,141 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('planOpen').addEventListener('click', function () { planShow(true); });
   $('trackOpen').addEventListener('click', function () { go('track'); });
   // ================= end of player tracking
+  // ================= playing other teams: a home ground, nearby teams and their Elo, and challenges both gaffers agree
+  var RV = { code: null, list: [], home: null, near: [], q: '', form: null, msg: '' }, rvBusy = false;
+  async function rivalsPull() {
+    var code = A.active; if (!sb || !code) return;
+    try {
+      var h = await q(sb.rpc('rival_home', { p_code: code })); if (A.active !== code) return;
+      RV.code = code; RV.home = h.data || null;
+      if (me) {
+        var c = await q(sb.rpc('my_challenges', { p_code: code })); if (A.active !== code) return;
+        RV.out = c.data === null; RV.list = c.data || [];
+        if (!RV.out && S.view === 'rivals') { var n = await q(sb.rpc('find_teams', { p_code: code, p_query: RV.q || null })); if (A.active !== code) return; RV.near = n.data || []; }
+      } else { RV.out = true; RV.list = []; }
+      RV.err = false;
+    } catch (e) { RV.err = true; }
+    renderTabs(); if (S.view === 'rivals' && !RV.form && !RV.homeEdit) renderRivals();
+  }
+  function rvTerms(t) { return [whenText(t.ko_at), t.location || 'place to be agreed', t.side + '-a-side', t.periods === 2 ? '2 × ' + t.half + ' min' : t.half + ' min, no half time', 'up to ' + t.subs + (t.subs === 1 ? ' sub' : ' subs')].join(' · '); }
+  function rvDefaults(side) { var f = fmtDefault('game', side); return { side: side, half: f.half, periods: f.periods, subs: side === 7 ? 3 : 3 }; }
+  function renderRivals() {
+    var own = role === 'owner', h = RV.home, html = '';
+    if (!sb) html = '<p class="note">This needs the team to be connected.</p>';
+    else if (!me || RV.out) html = '<div class="hcard"><h3>For the squad</h3><p class="note">Sign in and claim your player to see nearby teams and your team’s rating.</p><div class="actions"><button class="plain primary" type="button" data-go="' + (me ? 'home' : 'account') + '">' + (me ? 'Go to the team screen' : 'Sign in') + '</button></div></div>';
+    else if (RV.form) html = rvFormHtml();
+    else if (RV.homeEdit) html = '<section><h2>Your home ground</h2><p class="note">Where you usually play: your local Powerleague, Goals or park pitch. Other teams see its name and roughly how far away you are. Nobody’s own location is stored.</p>' +
+      '<label class="field" for="rvHomeName">Name of the ground<input id="rvHomeName" type="text" maxlength="80" autocomplete="off" placeholder="e.g. Powerleague Romford" value="' + esc((h && h.home) || '') + '"></label>' +
+      '<label class="field" for="rvPost">Its postcode (UK)<input id="rvPost" type="text" maxlength="10" autocomplete="off" autocapitalize="characters" placeholder="e.g. RM7 0JU"></label>' +
+      '<div class="actions"><button class="plain primary" type="button" data-rv="saveHome">Save</button><button class="plain" type="button" data-rv="hereHome">Use where I am now</button><button class="plain" type="button" data-rv="cancel">Cancel</button></div>' +
+      (h && h.set ? '<div class="actions"><button class="plain" type="button" data-rv="offMap">Take us off the map</button></div>' : '') + '</section>';
+    else {
+      if (RV.err) html += '<p class="msg bad">Couldn’t load this. Check your signal.</p>';
+      html += '<div class="hcard"><div class="elo"><b>' + (h ? h.elo : 1000) + '</b><span>' + esc(teamName()) + '’s Elo' + (h && h.games ? ', from ' + h.games + (h.games === 1 ? ' Elo match' : ' Elo matches') : '. Everyone starts on 1000') + '</span></div>' +
+        '<p class="note">' + (h && h.set ? 'Home ground: ' + esc(h.home || 'set') + '.' : own ? 'Set your home ground so nearby teams can find you and you can find them.' : 'Your gaffer hasn’t set a home ground yet, so other teams can’t find you.') + '</p>' +
+        (own ? '<div class="actions"><button class="plain' + (h && h.set ? '' : ' primary') + '" type="button" data-rv="home">' + (h && h.set ? 'Change home ground' : 'Set your home ground') + '</button></div>' : '') + '</div>';
+      var open = RV.list.filter(function (c) { return c.status === 'proposed' || c.status === 'accepted' || c.status === 'disputed'; }), past = RV.list.filter(function (c) { return open.indexOf(c) < 0; });
+      if (open.length) html += '<section><h2>Challenges</h2><div class="inslist">' + open.map(function (c) {
+        var kind = c.kind === 'elo' ? 'Elo match' : 'Friendly', o = '<div class="chal"><h3>' + esc(c.other.name) + ' <small class="note">Elo ' + c.other.elo + '</small></h3><p><b>' + kind + '.</b> ' + esc(rvTerms(c.terms)) + '</p>' + (c.terms.note ? '<p class="note">“' + esc(c.terms.note) + '”</p>' : '');
+        if (c.status === 'proposed') o += '<p class="note">' + (c.my_turn ? (c.rounds ? 'They’ve sent back different terms. ' : 'They’ve challenged you. ') + (own ? 'Your move.' : 'Waiting for your gaffer.') : 'Waiting for their gaffer to answer.') + '</p>' +
+          (own ? '<div class="actions">' + (c.my_turn ? '<button class="plain primary" type="button" data-rvact="accept" data-id="' + c.id + '">Accept</button><button class="plain" type="button" data-rvact="counter" data-id="' + c.id + '">Suggest changes</button>' : '') + '<button class="plain" type="button" data-rvact="decline" data-id="' + c.id + '">' + (c.sent ? 'Call it off' : 'Turn it down') + '</button></div>' : '');
+        else if (c.status === 'accepted') o += '<p class="note">Agreed. The poll is in Games' + (c.my_score ? ', and your score is in: waiting for theirs.' : c.kind === 'elo' ? '. Both teams’ scores must match for the ratings to move.' : '.') + '</p>';
+        else o += '<p class="msg bad">The two teams reported different scores, so nothing has changed. Play the game from its poll again or agree the score with their gaffer.</p>';
+        return o + '</div>';
+      }).join('') + '</div></section>';
+      html += '<section><h2>' + (RV.q ? 'Teams called “' + esc(RV.q) + '”' : 'Teams near you') + '</h2><form class="tbsave" id="rvSearch"><input id="rvQ" type="search" maxlength="40" placeholder="Search by team name" autocomplete="off" value="' + esc(RV.q) + '"><button class="plain" type="submit">Search</button></form>';
+      if (!RV.near.length) html += '<p class="note">' + (RV.q ? 'No team by that name has set a home ground.' : h && h.set ? 'No other teams within 40 km yet. Search by name, or tell the teams you play about the app.' : 'Set a home ground to see who’s nearby, or search by name.') + '</p>';
+      else html += '<div class="inslist">' + RV.near.map(function (o) {
+        return '<div class="rteam"><i style="background:' + (/^#[0-9a-f]{6}$/i.test(o.color || '') ? o.color : '#888') + '"></i><span><b>' + esc(o.name) + '</b><small>' + esc([o.home, o.km != null ? o.km + ' km away' : ''].filter(Boolean).join(' · ')) + '</small></span><em title="Elo">' + o.elo + '</em>' +
+          (own ? '<button class="plain" type="button" data-rvch="' + o.id + '">Challenge</button>' : '') + '</div>'; }).join('') + '</div>';
+      html += '</section>';
+      if (past.length) html += '<section><h2>Recent</h2><div class="inslist">' + past.map(function (c) {
+        var what = c.status === 'played' ? 'Played' + (c.my_score ? ', ' + c.my_score.us + '–' + c.my_score.them : '') + (c.elo_change != null ? ' · Elo ' + (c.elo_change >= 0 ? '+' : '') + c.elo_change : '') : c.status === 'declined' ? (c.sent ? 'They turned it down' : 'You turned it down') : c.sent ? 'You called it off' : 'They called it off';
+        return '<div class="chal"><h3>' + esc(c.other.name) + '</h3><p class="note">' + (c.kind === 'elo' ? 'Elo match' : 'Friendly') + ' · ' + esc(what) + '</p></div>'; }).join('') + '</div></section>';
+      html += '<p class="note">How Elo works: every team starts on 1000. Only Elo matches count, and only once both gaffers have finished the game in the app with the same score. Beat a higher-rated team and you gain more; a bigger win counts for more. Friendlies never change it.</p>';
+    }
+    if (RV.msg) html += '<p class="msg" role="status">' + esc(RV.msg) + '</p>';
+    $('rivalsBody').innerHTML = html;
+  }
+  function rvFormHtml() {
+    var f = RV.form, t = f.terms, d = new Date(t.ko_at), day = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()), tg = function (attr, val, text, on) { return '<button type="button" ' + attr + '="' + val + '" aria-pressed="' + !!on + '">' + text + '</button>'; };
+    return '<section><h2>' + (f.id ? 'Suggest changes to ' : 'Challenge ') + esc(f.other.name) + '</h2>' +
+      (f.id ? '<p class="note">' + (f.kind === 'elo' ? 'Elo match' : 'Friendly') + '. Change whatever you like and send it back.</p>' : '<div class="toggle" role="group" aria-label="Kind of game">' + tg('data-rvkind', 'friendly', 'Friendly', f.kind === 'friendly') + tg('data-rvkind', 'elo', 'Elo match', f.kind === 'elo') + '</div><p class="note">' + (f.kind === 'elo' ? 'Counts towards both teams’ Elo once both have reported the same score.' : 'Just a game. Ratings don’t move.') + '</p>') +
+      '<div class="two"><label class="field" for="rvDate">Date<input id="rvDate" type="date" value="' + day + '"></label><label class="field" for="rvTime">Kick-off<input id="rvTime" type="time" value="' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + '"></label></div>' +
+      '<label class="field" for="rvLoc">Where<input id="rvLoc" type="text" maxlength="120" autocomplete="off" value="' + esc(t.location || '') + '"></label>' +
+      '<div class="toggle" role="group" aria-label="Team size">' + tg('data-rvside', 5, '5-a-side', t.side === 5) + tg('data-rvside', 7, '7-a-side', t.side === 7) + '</div>' +
+      '<div class="toggle" role="group" aria-label="Halves">' + tg('data-rvper', 2, 'Two halves', t.periods === 2) + tg('data-rvper', 1, 'No half time', t.periods === 1) + '</div>' +
+      '<div class="two"><label class="field" for="rvHalf">' + (t.periods === 2 ? 'Minutes each half' : 'Minutes') + '<input id="rvHalf" type="number" inputmode="numeric" min="1" max="60" value="' + t.half + '"></label><label class="field" for="rvSubs">Most subs each<input id="rvSubs" type="number" inputmode="numeric" min="0" max="7" value="' + t.subs + '"></label></div>' +
+      '<label class="field" for="rvNote">Message (optional)<input id="rvNote" type="text" maxlength="200" autocomplete="off" value="' + esc(t.note || '') + '"></label>' +
+      '<div class="actions"><button class="plain primary" type="button" data-rv="send">' + (f.id ? 'Send it back' : 'Send the challenge') + '</button><button class="plain" type="button" data-rv="cancel">Cancel</button></div></section>';
+  }
+  function rvKeep() { // what's typed on the challenge form, before it is redrawn
+    var f = RV.form; if (!f || !$('rvDate')) return;
+    var when = new Date($('rvDate').value + 'T' + ($('rvTime').value || '19:30')).getTime(); if (isFinite(when)) f.terms.ko_at = when;
+    f.terms.location = $('rvLoc').value.trim(); f.terms.note = $('rvNote').value.trim();
+    var hv = Math.round(+$('rvHalf').value), sv = Math.round(+$('rvSubs').value); if (hv >= 1 && hv <= 60) f.terms.half = hv; if (sv >= 0 && sv <= 7) f.terms.subs = sv;
+  }
+  async function rvNotify(id) { if (sb.functions) { try { await sb.functions.invoke('team-notify', { body: { code: A.active, kind: 'challenge', challenge: id } }); } catch (e) {} } }
+  $('rivalsOpen').addEventListener('click', function () { RV.form = null; RV.homeEdit = false; RV.msg = ''; go('rivals'); });
+  $('rivalsBody').addEventListener('submit', function (e) { e.preventDefault(); if (e.target.id !== 'rvSearch') return; RV.q = $('rvQ').value.trim(); rivalsPull(); });
+  $('rivalsBody').addEventListener('click', async function (e) {
+    var t = e.target.closest('button'); if (!t || t.type === 'submit' || rvBusy) return; var g = function (a) { return t.getAttribute(a); }, v, own = role === 'owner';
+    if ((v = g('data-rvkind')) !== null) { rvKeep(); RV.form.kind = v; renderRivals(); return; }
+    if ((v = g('data-rvside')) !== null) { rvKeep(); if (+v !== RV.form.terms.side) Object.assign(RV.form.terms, rvDefaults(+v)); renderRivals(); return; }
+    if ((v = g('data-rvper')) !== null) { rvKeep(); RV.form.terms.periods = +v; renderRivals(); return; }
+    if (!own) return;
+    if ((v = g('data-rvch')) !== null) { // a fresh challenge: this team's usual format, next week at the usual time, at home
+      var o = RV.near.filter(function (x) { return x.id === v; })[0]; if (!o) return;
+      var d0 = new Date(Date.now() + 7 * 86400000), tm = ((S.poll || {}).time || '19:30').split(':'); d0.setHours(+tm[0] || 19, +tm[1] || 0, 0, 0);
+      RV.form = { other: o, kind: 'friendly', terms: Object.assign(rvDefaults(defSide()), { ko_at: d0.getTime(), location: (RV.home && RV.home.home) || '', note: '' }) }; RV.msg = ''; renderRivals(); window.scrollTo(0, 0); return;
+    }
+    if ((v = g('data-rvact')) !== null) {
+      var c = RV.list.filter(function (x) { return x.id === g('data-id'); })[0]; if (!c) return;
+      if (v === 'counter') { RV.form = { id: c.id, other: c.other, kind: c.kind, terms: JSON.parse(JSON.stringify(c.terms)) }; RV.msg = ''; renderRivals(); window.scrollTo(0, 0); return; }
+      rvBusy = true; t.disabled = true;
+      try {
+        var res = await q(sb.rpc('challenge_reply', { p_code: A.active, p_id: c.id, p_action: v }));
+        if (res.data === 'ok') { RV.msg = v === 'accept' ? 'It’s on. A poll for the game is now in Games for both teams.' : ''; rvNotify(c.id); if (v === 'accept') { ping('changed'); pull(); } }
+        else RV.msg = res.data === 'closed' ? 'That one has already been settled.' : 'That didn’t go through. Try again.';
+      } catch (err) { RV.msg = 'Couldn’t do that. Check your signal.'; }
+      rvBusy = false; rivalsPull(); return;
+    }
+    v = g('data-rv');
+    if (v === 'cancel') { RV.form = null; RV.homeEdit = false; RV.msg = ''; renderRivals(); }
+    else if (v === 'home') { RV.homeEdit = true; RV.msg = ''; renderRivals(); }
+    else if (v === 'send') {
+      rvKeep(); var f = RV.form;
+      if (!(f.terms.ko_at > Date.now())) { RV.msg = 'Pick a date and time that hasn’t passed.'; renderRivals(); return; }
+      rvBusy = true; t.disabled = true;
+      try {
+        var id = f.id, r2;
+        if (id) { r2 = await q(sb.rpc('challenge_reply', { p_code: A.active, p_id: id, p_action: 'counter', p_terms: f.terms })); if (r2.data !== 'ok') throw new Error('no'); }
+        else { r2 = await q(sb.rpc('challenge_send', { p_code: A.active, p_to: f.other.id, p_kind: f.kind, p_terms: f.terms })); id = r2.data; if (!id) throw new Error('no'); }
+        rvNotify(id); RV.form = null; RV.msg = f.id ? 'Sent back to ' + f.other.name + '.' : 'Challenge sent to ' + f.other.name + '. Their gaffer has been told.';
+      } catch (err) { RV.msg = 'That didn’t send. Check the details and your signal.'; }
+      rvBusy = false; renderRivals(); rivalsPull();
+    }
+    else if (v === 'saveHome' || v === 'hereHome' || v === 'offMap') {
+      var name = ($('rvHomeName').value || '').trim(), where = null;
+      rvBusy = true; RV.msg = '';
+      try {
+        if (v === 'saveHome') {
+          var pc = ($('rvPost').value || '').replace(/\s+/g, '').toUpperCase(); if (!name) throw new Error('Give the ground a name.'); if (!pc) throw new Error('Enter the ground’s postcode, or use where you are now.');
+          var pr = await fetch('https://api.postcodes.io/postcodes/' + encodeURIComponent(pc)), pj = await pr.json().catch(function () { return {}; });
+          if (!pr.ok || !pj.result) throw new Error('That postcode wasn’t found. Check it, or use where you are now.');
+          where = [pj.result.latitude, pj.result.longitude];
+        } else if (v === 'hereHome') {
+          if (!name) throw new Error('Give the ground a name.');
+          where = await new Promise(function (ok, no) { if (!navigator.geolocation) return no(new Error('This phone won’t share where it is.')); navigator.geolocation.getCurrentPosition(function (p) { ok([p.coords.latitude, p.coords.longitude]); }, function () { no(new Error('Couldn’t get your location. Allow it, or enter the postcode instead.')); }, { timeout: 15000, maximumAge: 600000 }); });
+        }
+        var sv = await q(sb.rpc('set_home', { p_code: A.active, p_name: name, p_lat: where ? where[0] : null, p_lng: where ? where[1] : null }));
+        if (!sv.data) throw new Error('Only a gaffer can set the home ground.');
+        RV.homeEdit = false; RV.msg = where ? 'Home ground saved. Nearby teams can now find you.' : 'You’re off the map.';
+      } catch (err) { RV.msg = (err && err.message) || 'Couldn’t save that.'; }
+      rvBusy = false; renderRivals(); rivalsPull();
+    }
+  });
+  // ================= end of playing other teams
   // ================= squad chat: one conversation per team, for its signed-in players and gaffers
   var CH = { code: null, list: [], unread: 0 }, chOpen = null, chAnim = 0, chBusy = false;
   function chStore(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(TKEY + A.active + ':chat' + k)); localStorage.setItem(TKEY + A.active + ':chat' + k, JSON.stringify(v)); } catch (e) {} return null; }

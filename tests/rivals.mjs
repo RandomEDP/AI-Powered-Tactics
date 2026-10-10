@@ -1,0 +1,43 @@
+// Playing another team: home grounds, finding teams, a challenge sent, countered and accepted, and the poll it makes for both.
+import { chromium } from 'playwright';
+import fs from 'fs';
+const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');
+const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
+const out = process.argv[2];
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+await ctx.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true, plansSeen: true })); });
+await ctx.route('**/*', (r) => { const u = r.request().url(); if (u.includes('vendor/supabase.js')) return r.fulfill({ contentType: 'application/javascript', body: MOCK });
+  if (u.includes('api.postcodes.io')) return r.fulfill({ contentType: 'application/json', body: JSON.stringify(u.includes('RM70JU') ? { result: { latitude: 51.5712, longitude: 0.1731 } } : u.includes('RM81AA') ? { result: { latitude: 51.556, longitude: 0.13 } } : { error: 'Invalid postcode' }), status: u.includes('RM') ? 200 : 404 });
+  return u.startsWith(BASE) ? r.continue() : r.abort(); });
+const A = await ctx.newPage(); const errs = []; A.on('pageerror', (e) => errs.push(String(e))); const wait = (ms) => A.waitForTimeout(ms);
+const view = () => A.evaluate(() => [...document.querySelectorAll('[id^="v-"]')].filter((v) => !v.hidden).map((v) => v.id).join()), body = async () => (await A.textContent('#rivalsBody')).replace(/\s+/g, ' ');
+const calls = async () => (await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).calls || [])).filter((c) => c.body.kind === 'challenge').length;
+const signOut = async () => { if (await A.isVisible('#v-rivals .back')) { await A.click('#v-rivals .back'); await wait(300); } await A.click('#tabs [data-tab="options"]'); await wait(200); await A.click('#optSignOut'); await A.click('#optSignOut'); await wait(700); };
+const signIn = async (email, pass) => { await A.click('#acctBtn'); await A.fill('#aEmail', email); await A.fill('#aPass', pass); await A.click('#aSignIn'); await wait(900); if (await A.isVisible('#myTeams button')) { await A.click('#myTeams button'); await wait(700); } };
+const make = async (email, team, players) => { await A.click('#createBtn'); await A.fill('#aEmail', email); await A.fill('#aPass', 'longpassword'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
+  await A.fill('#tName', team); await A.fill('#tPlayers', players); await A.click('#tCreate'); await wait(500); await A.click('#v-code [data-go="home"]'); await wait(300); };
+const rivals = async () => { await A.click('#tabs [data-tab="games"]'); await wait(200); await A.click('#rivalsOpen'); await wait(600); };
+await A.goto(BASE); await wait(300);
+await make('a@example.com', 'Sons of Pitches FC', 'Spice\nJake\nChaplin\nIssac\nAli\nEthan');
+await rivals(); console.log('first look:', (await body()).slice(0, 150));
+await A.click('[data-rv="home"]'); await A.fill('#rvHomeName', 'Powerleague Romford'); await A.fill('#rvPost', 'zz99'); await A.click('[data-rv="saveHome"]'); await wait(500); console.log('bad postcode:', await A.textContent('#rivalsBody .msg'));
+await A.fill('#rvHomeName', 'Powerleague Romford'); await A.fill('#rvPost', 'rm7 0ju'); await A.click('[data-rv="saveHome"]'); await wait(700); console.log('home saved:', (await body()).match(/Home ground: [^.]*/)[0], '|', await A.textContent('#rivalsBody .msg'));
+await signOut();
+await make('b@example.com', 'Athletico Pathetico', 'Ant\nBaz\nCol\nDaz\nEd\nFaz');
+await rivals(); await A.click('[data-rv="home"]'); await A.fill('#rvHomeName', 'Goals Dagenham'); await A.fill('#rvPost', 'RM8 1AA'); await A.click('[data-rv="saveHome"]'); await wait(900);
+console.log('nearby for B:', (await A.$$eval('.rteam', (x) => x.map((y) => y.textContent.replace(/\s+/g, ' ')))).join(' / '));
+await A.fill('#rvQ', 'sons'); await A.press('#rvQ', 'Enter'); await wait(600); console.log('search "sons":', await A.$$eval('.rteam b', (x) => x.map((y) => y.textContent)));
+await A.click('[data-rvch]'); await wait(200); console.log('form defaults:', await A.inputValue('#rvLoc'), '|', await A.inputValue('#rvHalf'), 'min |', await A.inputValue('#rvSubs'), 'subs |', await A.inputValue('#rvTime'));
+await A.click('[data-rvkind="elo"]'); await A.fill('#rvDate', '2026-12-01'); await A.fill('#rvTime', '20:00'); await A.fill('#rvNote', 'Loser buys the oranges'); if (out) { fs.mkdirSync(out, { recursive: true }); await A.screenshot({ path: `${out}/challenge-form.png`, fullPage: true }); }
+await A.click('[data-rv="send"]'); await wait(700); console.log('sent:', await A.textContent('#rivalsBody .msg'), '| notified:', await calls(), '|', (await A.textContent('.chal')).replace(/\s+/g, ' ').slice(0, 170));
+await signOut(); await signIn('a@example.com', 'longpassword');
+console.log('A badge on Games tab:', await A.textContent('#tabBadge')); await rivals(); console.log('A sees:', (await A.textContent('.chal')).replace(/\s+/g, ' ').slice(0, 200));
+if (out) await A.screenshot({ path: `${out}/rivals.png`, fullPage: true });
+await A.click('[data-rvact="counter"]'); await wait(200); await A.fill('#rvTime', '19:00'); await A.fill('#rvHalf', '20'); await A.click('[data-rvside="7"]'); await A.fill('#rvLoc', 'Powerleague Romford, pitch 2'); await A.click('[data-rv="send"]'); await wait(700);
+console.log('countered:', await A.textContent('#rivalsBody .msg'), '|', (await A.textContent('.chal')).replace(/\s+/g, ' ').slice(0, 190));
+await signOut(); await signIn('b@example.com', 'longpassword'); await rivals(); console.log('B sees the counter:', (await A.textContent('.chal')).replace(/\s+/g, ' ').slice(0, 200));
+await A.click('[data-rvact="accept"]'); await wait(900); console.log('accepted:', await A.textContent('#rivalsBody .msg'), '| notified so far:', await calls());
+await A.click('#v-rivals .back'); await wait(400); console.log('B poll:', (await A.textContent('#gamesTrack .fxc')).replace(/\s+/g, ' ').slice(0, 150));
+await A.click('#gamesTrack .fxc [data-fx="start"]'); await wait(400); console.log('start from the poll:', await view(), '| opponent', await A.inputValue('#opp'), '| friendly ticked:', await A.isChecked('#friendly'));
+console.log('errors:', JSON.stringify(errs)); await b.close();
