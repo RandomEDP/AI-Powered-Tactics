@@ -351,6 +351,10 @@ tr.past td { opacity: .45; }
 .vote { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
 .vote button.no[aria-pressed="true"] { background: var(--bib); color: #fff; }
 .fxwhen { font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: .01em; }
+#kickPop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+#kickPop[hidden] { display: none; }
+.kickbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); }
+.kickbox p { font-size: 20px; font-weight: 750; }
 #fxCard.live { box-shadow: inset 0 0 0 2px var(--team); }
 #fxCard.ask { box-shadow: inset 0 0 0 3px #ffc83d; }
 .fxtag { align-self: flex-start; background: #ffc83d; color: #2a2100; font-size: 13px; font-weight: 750; border-radius: 999px; padding: 4px 10px; }
@@ -546,6 +550,9 @@ tr.past td { opacity: .45; }
   <div class="actions"><button class="plain" id="codeCopy" type="button">Copy code</button><button class="plain primary" type="button" data-go="home">Go to the team</button></div>
   <p class="note">Anyone with the code can follow live games and see the stats. To add another gaffer, share the gaffer code from Options.</p>
 </div>
+
+<div id="kickPop" role="alertdialog" aria-labelledby="kickPopText" hidden><div class="kickbox"><p id="kickPopText"></p>
+  <div class="actions"><button class="plain primary" id="kickWatch" type="button">Watch along</button><button class="plain" id="kickLater" type="button">Not now</button></div></div></div>
 
 <div class="view" id="v-home">
   <div class="hero"><img id="heroCrest" alt="" hidden><h1 id="heroName"></h1><p id="homeRecord"></p><p class="app-name">AI Powered Tactics</p></div>
@@ -780,7 +787,7 @@ tr.past td { opacity: .45; }
       <div class="codeline"><span>Gaffer code</span><b id="orgCode"></b><button class="plain" id="orgCopy" type="button">Copy</button><button class="plain" id="orgNew" type="button">New code</button></div>
       <p class="note">Only give this to people who should run games. They sign in, then enter it under Gaffer account.</p>
     </div>
-    <label class="check" for="oScore"><input id="oScore" type="checkbox"><span>Followers can log goals <small>(they show in the game tagged as logged by a teammate)</small></span></label>
+    <label class="check" for="oScore"><input id="oScore" type="checkbox"><span>Everyone on the team can log goals <small>(theirs show in the game tagged as logged by a teammate)</small></span></label>
     <label class="field" for="oName">Team name<input id="oName" type="text" maxlength="40" autocomplete="off"></label>
     <label class="field" for="oShort">Short name for the scoreboard<input id="oShort" type="text" maxlength="10" autocomplete="off"></label>
     <div class="field"><span>Team colour</span><div class="swatches" id="oColors"></div></div>
@@ -832,7 +839,7 @@ tr.past td { opacity: .45; }
   // ---- teams on this device. The team itself lives in the database; this device remembers which ones it follows
   // and keeps a copy of each so the app opens instantly and works with no signal.
   var AKEY = 'apt-app', TKEY = 'apt-team-', DEFAULT_COLOR = '#1f6b4a';
-  function blankTeam() { return { name: '', short: '', color: DEFAULT_COLOR, players: [], nextId: 1, half: 15, sub: 5, pitch: 5, lastKeeper: null, results: [], match: null, followersCanScore: false, poll: null }; }
+  function blankTeam() { return { name: '', short: '', color: DEFAULT_COLOR, players: [], nextId: 1, half: 15, sub: 5, pitch: 5, lastKeeper: null, results: [], match: null, followersCanScore: true, poll: null }; }
   var A = { teams: [], active: null, view: 'welcome' };
   try { var a0 = JSON.parse(localStorage.getItem(AKEY)); if (a0 && Array.isArray(a0.teams)) A = Object.assign(A, a0); } catch (e) {}
   function saveApp() { try { localStorage.setItem(AKEY, JSON.stringify(A)); } catch (e) {} }
@@ -1050,10 +1057,15 @@ tr.past td { opacity: .45; }
       adopt(remote);
       setCrest(d.team.crest, true);
       synced = org ? snapshot() : null;
+      var flipScore = false;
+      if (org) { try { if (!localStorage.getItem(TKEY + code + ':scoreOn')) { localStorage.setItem(TKEY + code + ':scoreOn', '1'); flipScore = !S.followersCanScore; } } catch (e) {} }
       if (org) { try { localStorage.setItem(TKEY + code + ':synced', JSON.stringify(synced)); } catch (e) {} }
       setRole(org ? 'owner' : remote.followersCanScore ? 'scorer' : 'viewer');
       setSync(org ? 'ok' : remote.followersCanScore ? 'watchS' : 'watch');
       if (org) pullGoals();
+      if (flipScore) { S.followersCanScore = true; save(); } // teams made before everyone could log goals: switched on once, and Options can switch it off
+      if (wantGame === code) { wantGame = null; if (S.match) go('game'); }
+      pushSetup();
     } catch (e) { setSync(navigator.onLine === false ? 'offline' : 'err'); }
   }
   function adopt(r) {
@@ -1097,6 +1109,7 @@ tr.past td { opacity: .45; }
     chanCode = code;
     chan = sb.channel('team:' + code, { config: { broadcast: { self: false } } })
       .on('broadcast', { event: 'changed' }, function (m) { if (!m.payload || m.payload.by !== SESSION) refetch(); })
+      .on('broadcast', { event: 'kickoff' }, function (m) { gameStarted(m.payload || {}); })
       .on('broadcast', { event: 'goal' }, function (m) { lockScore(m.payload || {}); if (role === 'owner') pullGoals(); })
       .subscribe();
     clearInterval(pollT); // a slow safety net in case a broadcast is missed
@@ -1133,8 +1146,33 @@ tr.past td { opacity: .45; }
     } catch (e) { say('Couldn’t send the goal. Check your signal and try again.'); }
   }
   var goalMsg = '', goalT = null;
+  // ---- "game started": a pop-up for everyone with the team open, and a notification for everyone else
+  var wantGame = null, pushOn = false;
+  function gameStarted(g) {
+    if (role === 'owner' || S.view === 'game') { refetch(); return; }
+    $('kickPopText').textContent = 'Game started' + (g.opp ? ' v ' + g.opp : '') + '. Watch along.';
+    $('kickPop').hidden = false; refetch();
+  }
+  async function announceGame(m) { // the gaffer's phone tells everyone once the game is in the database
+    ping('kickoff', { opp: m.opp });
+    if (!sb || !A.active || !me) return;
+    try { clearTimeout(wt); await syncAll(); ping('kickoff', { opp: m.opp }); if (sb.functions) await sb.functions.invoke('game-started', { body: { code: A.active, opp: m.opp } }); } catch (e) {}
+  }
+  function pushSetup() { // signed-in players and gaffers are asked once whether they want game-start notifications
+    var P = plugin('PushNotifications'); if (!P || pushOn || !sb || !me || (myPid == null && role !== 'owner')) return;
+    pushOn = true;
+    try {
+      P.addListener('registration', function (t) { if (t && t.value) sb.rpc('register_push', { p_token: t.value }).then(function () {}, function () {}); });
+      P.addListener('pushNotificationActionPerformed', function (a) {
+        var code = a && a.notification && a.notification.data && a.notification.data.code; if (!code || !teamMeta(code)) return;
+        if (S.match && A.active === code) { go('game'); return; }
+        wantGame = code; openTeam(code, 'home');
+      });
+      P.requestPermissions().then(function (r) { if (r && r.receive === 'granted') P.register(); }, function () {});
+    } catch (e) {}
+  }
   // Once anyone logs a goal the score is locked on every phone for a few seconds, so the same goal isn't logged twice.
-  var LOCK_MS = 10000, lockUntil = 0, lockT2 = null, lockNote = '';
+  var LOCK_MS = 8000, lockUntil = 0, lockT2 = null, lockNote = '';
   function lockScore(g) {
     var m = S.match; if (!m) return;
     lockUntil = Date.now() + LOCK_MS; pick = null;
@@ -2532,7 +2570,7 @@ tr.past td { opacity: .45; }
     $('svBtn').disabled = $('hlBtn').disabled || m.segs[curSeg(m)].gk == null;
     var locked = Date.now() < lockUntil; if (locked) pick = null;
     $('goalMsg').hidden = !goalMsg && !locked; $('goalMsg').classList.toggle('toast', locked);
-    $('goalMsg').textContent = locked ? (lockNote ? lockNote + ' ' : '') + 'Score locked for 10 seconds so it isn’t counted twice.' : goalMsg;
+    $('goalMsg').textContent = locked ? (lockNote ? lockNote + ' ' : '') + 'Score locked for 8 seconds so it isn’t counted twice.' : goalMsg;
     $('goalUs').disabled = $('goalThem').disabled = locked || (m.phase === 'ft' && role !== 'owner');
     if (pick && pick.step === 'scorer') html = '<div class="picker"><strong>Who scored?</strong><div class="chips">' + pickBtns(m, null) +
       '<button class="pick alt" type="button" data-p="x">Own goal or not sure</button><button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div>';
@@ -2548,6 +2586,8 @@ tr.past td { opacity: .45; }
     });
     $('events').innerHTML = html;
   }
+  $('kickWatch').addEventListener('click', function () { $('kickPop').hidden = true; if (S.match) go('game'); else { wantGame = A.active; pull(); } });
+  $('kickLater').addEventListener('click', function () { $('kickPop').hidden = true; });
   $('goalUs').addEventListener('click', function () { pick = { step: 'scorer' }; renderScore(); });
   $('hlBtn').addEventListener('click', function () { var m = S.match; if (!m || role !== 'owner') return; pick = null; m.events.push(stamped(m, { hl: true, at: Date.now() })); save(); renderScore(); });
   $('svBtn').addEventListener('click', function () {
@@ -2669,6 +2709,7 @@ tr.past td { opacity: .45; }
 
   $('go').addEventListener('click', function () {
     var m = S.match; if (!m || m.phase === 'ft') return;
+    var kicked = m.phase === 'pre';
     if (m.phase === 'pre') m.koAt = Date.now();
     if (m.phase === 'ht') m.h2At = Date.now();
     if (m.phase === 'pre' || m.phase === 'ht') m.et = false;
@@ -2676,6 +2717,7 @@ tr.past td { opacity: .45; }
     else if (m.running) { m.base = elapsed(m); m.running = false; }
     else { m.t0 = Date.now(); m.running = true; }
     lastBlock = curSeg(m); wake(); save(); renderGame();
+    if (kicked) announceGame(m);
   });
   armed($('reset'), 'Sure?', function () { var m = S.match; if (!m) return; m.phase = 'pre'; m.running = false; m.base = 0; m.et = false; delete m.koAt; delete m.htAt; delete m.h2At; delete m.ftAt; lastBlock = -1; save(); renderGame(); });
   armed($('endHalf'), 'End it early?', function () {

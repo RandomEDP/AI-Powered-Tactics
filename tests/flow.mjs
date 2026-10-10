@@ -49,12 +49,12 @@ console.log('B lock notice:', await B.textContent('#goalMsg'), '| A buttons lock
 // --- A lets followers log goals; B logs one; A folds it in
 await A.click('#v-game .back'); await A.click('#mOptions'); await A.check('#oScore'); await wait(1200);
 console.log('A organiser code shown:', await A.textContent('#orgCode'));
-await B.waitForTimeout(500); await B.reload(); await wait(500);
+await B.waitForTimeout(500); await B.reload(); await wait(500); if (await vis(B, '#mResume')) { await B.click('#mResume'); await wait(200); } // both test phones share one browser's storage
 console.log('B role after setting:', await B.evaluate(() => document.body.className), '| goal btn visible:', await vis(B, '#goalUs'));
-await wait(9000); console.log('unlocked after 10s:', !(await B.isDisabled('#goalUs')));
+await wait(7200); console.log('unlocked after 8s:', !(await B.isDisabled('#goalUs')));
 await B.click('#goalUs'); await B.click('#picker button[data-p]'); await B.click('#picker button[data-p="x"]'); await wait(1500);
 // a second follower goal inside the 10 seconds is the same goal logged twice, and is dropped
-await B.reload(); await wait(500); await B.click('#goalUs'); await B.click('#picker button[data-p]'); await B.click('#picker button[data-p="x"]'); await wait(1500); // a reloaded phone has lost the lock, like a second follower tapping at the same moment
+await B.reload(); await wait(500); if (await vis(B, '#mResume')) { await B.click('#mResume'); await wait(200); } await B.click('#goalUs'); await B.click('#picker button[data-p]'); await B.click('#picker button[data-p="x"]'); await wait(1500); // a reloaded phone has lost the lock, like a second follower tapping at the same moment
 console.log('B message:', await B.textContent('#goalMsg'));
 await A.click('#v-options .back'); await A.click('#mResume'); await wait(300);
 console.log('A score after follower goal:', await A.textContent('#usN'), '-', await A.textContent('#themN'), '| tag:', (await A.textContent('#events')).includes('teammate'), '| queue empty:', (await db(A)).goal_queue.length === 0);

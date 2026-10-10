@@ -31,7 +31,7 @@
     }
     if (name === 'create_team') {
       if (!uid()) return fail('permission denied for function create_team', '42501');
-      const t = { id: crypto.randomUUID(), code: code(6), organiser_code: code(10), name: a.p_name, short: a.p_short, color: a.p_color, crest: a.p_crest, settings: a.p_settings, followers_can_score: false };
+      const t = { id: crypto.randomUUID(), code: code(6), organiser_code: code(10), name: a.p_name, short: a.p_short, color: a.p_color, crest: a.p_crest, settings: a.p_settings, followers_can_score: true };
       d.teams.push(t); d.team_members.push({ team_id: t.id, user_id: uid() });
       (a.p_players || []).forEach((p) => d.players.push({ team_id: t.id, pid: p.pid, name: p.name }));
       store(d); return ok({ id: t.id, code: t.code, organiser_code: t.organiser_code });
@@ -124,5 +124,6 @@
   const storage = { from: (bucket) => ({ upload: async (path, blob) => { const d = load(); const team = d.teams.find((t) => t.id === path.split('/')[0]);
     if (!team || !isOrg(d, team.id)) return { data: null, error: { message: 'new row violates row-level security policy' } };
     d.files = d.files || []; d.files.push({ bucket, path, size: blob.size, type: blob.type }); store(d); return { data: { path }, error: null }; } }) };
-  window.supabase = { createClient: () => ({ rpc, from, auth, channel, storage, removeChannel() {} }) };
+  const functions = { invoke: async (name, o) => { const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); return { data: { sent: 0 }, error: null }; } };
+  window.supabase = { createClient: () => ({ rpc, from, auth, channel, storage, functions, removeChannel() {} }) };
 })();

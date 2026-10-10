@@ -82,7 +82,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
         DispatchQueue.main.async {
             self.state = decoded
             let left = decoded.lockUntil / 1000 - Date().timeIntervalSince1970
-            if left > 0 { self.lock(for: min(left, 10)) }
+            if left > 0 { self.lock(for: min(left, 8)) }
         }
     }
 
@@ -150,7 +150,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate {
         if let scorer = scorer { event["p"] = scorer }
         if let assist = assist { event["a"] = assist }
         send(event)
-        lock(for: 10)
+        lock(for: 8)
     }
 
     func highlight() {

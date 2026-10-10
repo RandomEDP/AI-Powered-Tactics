@@ -92,7 +92,7 @@ struct MatchView: View {
                     .disabled(state.phase == "pre" || state.phase == "ft")
 
                     if model.locked {
-                        Text("Score locked for 10 seconds")
+                        Text("Score locked for 8 seconds")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

@@ -16,6 +16,9 @@
     },
     "LocalNotifications": {
       "presentationOptions": []
+    },
+    "PushNotifications": {
+      "presentationOptions": []
     }
   }
 }
