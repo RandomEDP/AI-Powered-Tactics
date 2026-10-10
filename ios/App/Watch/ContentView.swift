@@ -218,8 +218,8 @@ struct ScorerList: View {
 
     var body: some View {
         List {
-            ForEach(state.players.filter { $0.on } + state.players.filter { !$0.on }) { player in
-                Button(player.name) { path = [.scorer, .assist(player.id)] }
+            ForEach(state.players) { player in // the phone sends them likeliest scorer first, keeper last
+                Button(player.gk ? player.name + " (keeper)" : player.name) { path = [.scorer, .assist(player.id)] }
                     .foregroundStyle(player.on ? .primary : .secondary)
             }
             Button("Own goal or not sure") {
@@ -244,8 +244,8 @@ struct AssistList: View {
                 model.goal(us: true, scorer: scorer, assist: nil)
                 path = []
             }
-            ForEach((state.players.filter { $0.on } + state.players.filter { !$0.on }).filter { $0.id != scorer }) { player in
-                Button(player.name) {
+            ForEach(state.players.filter { $0.id != scorer }) { player in
+                Button(player.gk ? player.name + " (keeper)" : player.name) {
                     model.goal(us: true, scorer: scorer, assist: player.id)
                     path = []
                 }

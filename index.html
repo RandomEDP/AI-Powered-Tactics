@@ -261,6 +261,10 @@ body.ro:not(.sc) .scr { display: none !important; }
 
 /* ---- pickers and pop-ups */
 .picker { background: var(--surface); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.pickpop { position: fixed; inset: 0; z-index: 45; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .15s both; }
+.pickpop .picker { width: 100%; max-width: 480px; max-height: 100%; overflow-y: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); animation: sheet .28s cubic-bezier(.2, .9, .2, 1) both; }
+.pickpop .pick { min-height: 52px; font-size: 17px; } .pick small { font-weight: 500; opacity: .6; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .pickpop, .pickpop .picker { animation: none; } }
 .picker strong { font-size: 20px; font-weight: 750; letter-spacing: -.01em; line-height: 1.2; }
 .pick { min-height: 46px; padding: 6px 16px; border-radius: 999px; border: 0; background: var(--on-soft); color: var(--ink); font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
 .pick.benchp, .pick.alt, .picker.out .pick, .ed .pick { background: var(--fill); }
@@ -1559,6 +1563,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
     if ((view === 'reel' || view === 'season' || view === 'cut') && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
     if (view === 'cut' && !CUT) view = 'highlights';
+    if (pick && view !== 'game') { pick = null; $('picker').innerHTML = ''; }
     if (view === 'soon' && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome';
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
     if (!A.active && ['intro', 'welcome', 'join', 'create', 'account'].indexOf(view) < 0) view = 'welcome';
@@ -3044,11 +3049,20 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('noticeOk').addEventListener('click', function () { var m = S.match; if (!m) return; delete m.notice; save(); renderGame(); });
 
   // ---- score
-  function pickBtns(m, skip) {
-    var cb = curSeg(m), on = onPitch(m, cb), html = '';
-    on.concat(m.segs[cb].bench).forEach(function (id) {
+  // Who to offer first when a goal goes in: outfield players on the pitch, most prolific first (goals for the scorer, assists for the pass),
+  // then the bench, and the keeper last of all.
+  function pickOrder(m, assist) {
+    var cb = curSeg(m), on = onPitch(m, cb), gk = m.segs[cb].gk, n = {};
+    S.results.forEach(function (r) { Object.keys(r.per || {}).forEach(function (k) { n[k] = (n[k] || 0) + ((assist ? r.per[k].a : r.per[k].g) || 0); }); });
+    m.events.forEach(function (e) { var k = e.us ? (assist ? e.a : e.p) : null; if (k != null) n[k] = (n[k] || 0) + 1; });
+    var best = function (a, b) { return (n[b] || 0) - (n[a] || 0); };
+    return on.filter(function (id) { return id !== gk; }).sort(best).concat(m.segs[cb].bench.slice().sort(best), on.filter(function (id) { return id === gk; }));
+  }
+  function pickBtns(m, skip, assist) {
+    var cb = curSeg(m), on = onPitch(m, cb), gk = m.segs[cb].gk, html = '';
+    pickOrder(m, assist).forEach(function (id) {
       if (id === skip) return;
-      html += '<button class="pick' + (on.indexOf(id) < 0 ? ' benchp' : '') + '" type="button" data-p="' + id + '">' + esc(nm(id)) + '</button>';
+      html += '<button class="pick' + (on.indexOf(id) < 0 ? ' benchp' : '') + '" type="button" data-p="' + id + '">' + esc(nm(id)) + (id === gk ? ' <small>keeper</small>' : on.indexOf(id) < 0 ? ' <small>bench</small>' : '') + '</button>';
     });
     return html;
   }
@@ -3066,10 +3080,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('goalMsg').hidden = !goalMsg && !locked; $('goalMsg').classList.toggle('toast', locked);
     $('goalMsg').textContent = locked ? (lockNote ? lockNote + ' ' : '') + 'Score locked for 8 seconds so it isn’t counted twice.' : goalMsg;
     $('goalUs').disabled = $('goalThem').disabled = locked || (m.phase === 'ft' && role !== 'owner');
-    if (pick && pick.step === 'scorer') html = '<div class="picker"><strong>Who scored?</strong><div class="chips">' + pickBtns(m, null) +
-      '<button class="pick alt" type="button" data-p="x">Own goal or not sure</button><button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div>';
-    else if (pick) html = '<div class="picker"><strong>Who set up ' + esc(nm(pick.p)) + '?</strong><div class="chips">' + pickBtns(m, pick.p) +
-      '<button class="pick alt" type="button" data-p="x">No assist</button></div></div>';
+    if (pick && pick.step === 'scorer') html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Who scored?"><strong>Who scored?</strong><div class="chips">' + pickBtns(m, null) +
+      '<button class="pick alt" type="button" data-p="x">Own goal or not sure</button><button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div></div>';
+    else if (pick) html = '<div class="pickpop"><div class="picker" role="dialog" aria-label="Who set it up?"><strong>Who set up ' + esc(nm(pick.p)) + '?</strong><div class="chips"><button class="pick alt" type="button" data-p="x">No assist</button>' + pickBtns(m, pick.p, true) +
+      '</div></div></div>';
     $('picker').innerHTML = html;
     html = '';
     m.events.slice().reverse().forEach(function (e) {
@@ -3091,10 +3105,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
   $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; pick = null; addGoal(stamped(m, { us: false })); });
   $('undo').addEventListener('click', function () { var m = S.match; if (!m) return; pick = null; m.events.pop(); save(); renderScore(); });
+  document.body.appendChild($('picker')); // the pop-up sits above everything, outside the game screen's own layout
   $('picker').addEventListener('click', function (e) {
     var m = S.match; if (!m || !pick) return;
     if (e.target.getAttribute('data-cancel')) { pick = null; renderScore(); return; }
-    var v = e.target.getAttribute('data-p'); if (v === null) return;
+    var pb = e.target.closest('[data-p]'), v = pb ? pb.getAttribute('data-p') : null; if (v === null) return;
     var id = v === 'x' ? null : +v;
     if (pick.step === 'scorer' && id != null) { pick = { step: 'assist', p: id }; renderScore(); return; }
     var ev = stamped(m, { us: true, p: pick.step === 'scorer' ? null : pick.p, a: pick.step === 'scorer' ? null : id });
@@ -3119,7 +3134,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       changes.push({ h: m.segs[i].h, from: m.segs[i].from, on: sw.on.map(nm), off: sw.off.map(nm) });
     }
     return { live: true, team: teamShort(), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
-      players: on.concat(m.segs[cb].bench).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0 }; }) };
+      players: pickOrder(m).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0, gk: id === m.segs[cb].gk }; }) };
   }
   function watchPush() {
     if (!Watch) return;

@@ -17,6 +17,15 @@ struct MatchState: Codable, Equatable {
         var id: Int
         var name: String
         var on: Bool
+        var gk: Bool = false
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(Int.self, forKey: .id)
+            name = (try? c.decode(String.self, forKey: .name)) ?? ""
+            on = (try? c.decode(Bool.self, forKey: .on)) ?? false
+            gk = (try? c.decode(Bool.self, forKey: .gk)) ?? false
+        }
     }
 
     var live: Bool

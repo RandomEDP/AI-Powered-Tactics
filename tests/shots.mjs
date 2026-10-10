@@ -37,7 +37,7 @@ await p.click('#startGame'); await p.$eval('#tactic', (el) => { el.value = 35; e
 await p.click('#kick'); await p.click('#go');
 await p.evaluate(() => { const k = 'apt-team-' + JSON.parse(localStorage.getItem('apt-app')).active; const s = JSON.parse(localStorage.getItem(k)); s.match.t0 -= 252000; localStorage.setItem(k, JSON.stringify(s)); });
 await p.reload(); await p.waitForTimeout(500);
-await p.click('#goalUs'); await p.click('#picker button[data-p]'); await p.click('#picker button[data-p="x"]'); await p.click('#goalThem'); await p.click('#svBtn');
+await p.click('#goalUs'); await p.waitForTimeout(350); console.log('scorer pop-up order:', (await p.$$eval('#picker .pick', (x) => x.map((y) => y.textContent))).join(' | ')); await shot('pick-scorer', false); await p.click('#picker button[data-p]'); await p.click('#picker button[data-p="x"]'); await p.click('#goalThem'); await p.click('#svBtn');
 await shot('game'); await shot('game-full', true);
 await p.click('#swapBody button[data-q="on"]'); await shot('game-swap-popup'); await p.click('#quickSwap button[data-cancel]');
 await p.click('#outBtn'); await shot('game-out-popup'); await p.click('#outPicker button[data-cancel]');
