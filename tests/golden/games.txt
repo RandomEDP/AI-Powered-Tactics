@@ -1,0 +1,17 @@
+bar before a team is open: false
+shirt numbers in db: ["Spice 13","Ethan 9"]
+bar on home: true | Home Games0 Chat0 Tactics Settings
+games, empty: v-games | No games lined up. Schedule one and the squad can say who’s in.
+after three polls: v-games | cards: [
+  'Next game: v Athletico Pathetico',
+  'v Borussia Teeth',
+  'v Inter Row Z'
+] | Game 1 of 3. Swipe for the others. | badge: 3
+dot label on the map: 9
+second card after "I'm in": 1 of 7 outfield | first card: 0 of 7 outfield | still showing Game 2 of 3. Swipe for the others. | badge: 2
+votes in db: ["Borussia Teeth:in"]
+home card: Are you in?Next game: v Athletico PatheticoTue 13 Oct, 19:30 · 8 spaces leftYou haven’t answered yet. 8 still to answer. 2 more games lined up.Say if you’re in ›
+see all -> v-games
+settings tab -> v-options | bar still shown: true
+bar on stats: false
+errors: []

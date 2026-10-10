@@ -1,0 +1,10 @@
+before kick-off the watch is told: pre | phone button: Kick off
+kick-off pressed on the watch 2 s ago: phone says First half | 0:02 played | watch told: h1
+at kick-off: Spice (GK)PuxleyIssacReeceEthan | Next change at 5:00 | pop-up: false
+5:03 in: pop-up true | OffPuxleyIssacReeceOnJakeChaplinHarrison | line-up unchanged: true | Make this change now | Change due: make the subs | watch told: true
+closed with the x: pop-up false | card button: true
+goal logged while the change waits: score 1 | picker still offers the old line-up first: Puxley,Issac,Reece,Ethan | on the pitch for it: 5 players | confirmed block: 0
+subs done: Spice (GK)JakeChaplinHarrisonEthan | changed: true | Next change at 10:00 | watch told due: false
+next one due at 10:00: pop-up true
+"Subs done" from the watch: pop-up false | Next change at half time
+errors: []

@@ -1,5 +1,5 @@
 // A change waits for the gaffer: when it comes due a pop-up asks, the line-up stays put until "Subs done", and a goal can be logged in between.
-import { chromium } from 'playwright';
+import { chromium } from './pinned.mjs';
 import fs from 'fs';
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const out = process.argv[2];

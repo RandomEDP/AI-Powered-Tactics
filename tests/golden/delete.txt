@@ -1,0 +1,6 @@
+privacy link: privacy.html
+delete visible: true
+armed: Tap again to delete it for good
+message: Your account has been deleted. | users left: 0 | teams left: 0 | signed out: true
+privacy page: Privacy Policy · Gaffer | Who is responsible
+errors: []

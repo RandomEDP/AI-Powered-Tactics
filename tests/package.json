@@ -1,0 +1,11 @@
+{
+  "name": "gaffer-tests",
+  "private": true,
+  "type": "module",
+  "description": "Tests for the Gaffer app. Run them all with: node run.mjs",
+  "scripts": { "test": "node run.mjs" },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.0",
+    "playwright": "^1.55.0"
+  }
+}

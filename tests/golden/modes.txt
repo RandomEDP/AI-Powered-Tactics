@@ -1,0 +1,20 @@
+new game default: 5-a-side, 2 × 15 min, 4 outfield and a keeper on the pitch. Squad of 5 to 8. | 8 playing: 5 on the pitch, 3 on the bench.
+7-a-side: 7-a-side, 2 × 15 min, 6 outfield and a keeper on the pitch. Squad of 7 to 10. | Up to 10 can play. Set who starts, who starts on the bench and who’s out. Tap GK for the keeper, who stays on all game. | 10 playing: 7 on the pitch, 3 on the bench.
+minutes screen: v-mins | 10 rows | All the outfield minutes are handed out.
+7-a-side match: pitch 7 | half 20 | periods 2 | on at kick-off 7 | squad 10 | stretches 8
+tournament form: Tournament name | 7-a-side, 10 min, no half time, 6 outfield and a keeper on the pitch. Squad of 7 to 10. | half time ticked: false | squad slider 6-9
+7-a-side tournament slider: 6-9 | 10 in the squad: one keeper and 9 outfield, so 3 subs.
+card: Are you in?TournamentNext up: Summer 5sSat 17 Oct, 10:00 · 8 spaces leftGoals Dagenham, 5-a-side, 10 min, no half time games0 of 7 outfield, keeper: n
+  setup for Dog: Tournament: Summer 5s | opponent blank: true | friendly hidden: true | 5-a-side, 10 min, no half time, 4 outfield and a keeper on the pitch. Squad of 5 to 8.
+  phase: In play | whistle button: Full time
+  after the whistle: Full time
+  setup for Cat: Tournament: Summer 5s | opponent blank: true | friendly hidden: true | 5-a-side, 10 min, no half time, 4 outfield and a keeper on the pitch. Squad of 5 to 8.
+  phase: In play | whistle button: Full time
+  after the whistle: Full time
+card after two games: v Dog1–0v Cat2–0 | buttons: [ 'KKAABBCCDD', 'Start the next game', 'Finish tournament' ]
+games in db: [["Seven Up","0-0",7,null,null],["Dog","1-0",null,1,"Summer 5s"],["Cat","2-0",null,1,"Summer 5s"]] | poll still open: open
+season: Played 1: won 0, drew 1, lost 0. Scored 0, conceded 0. | scopes: [ 'Season', 'Summer 5s' ] | results listed: 1 | top scorer row: A345300
+tournament: Played 2: won 2, drew 0, lost 0. Scored 3, conceded 0. | results listed: [ 'W2–0v Cat★ A 8', 'W1–0v Dog★ A 7' ] | players shown: 7
+home record: Played 1: W0 D1 L0
+after Finish tournament, games lined up: 0
+errors: []

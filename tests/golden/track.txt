@@ -1,0 +1,14 @@
+tracking button before switching on: false
+settings: v-options | experimental section: true
+opened: v-track
+video: Video chosen, 30:30 long.
+nobody ticked, no numbers: Give the players shirt numbers in Settings, or tick who is on and type them here.
+missing number: Give Luca a shirt number.
+working: Watching the video, 50%
+asked the phone for: {"path":"/tmp/game.mov","color":"#1f6b4a","length":30,"width":20,"exact":true,"from":300,"to":600,"players":[{"pid":2,"number":56},{"pid":3,"number":14},{"pid":4,"number":22},{"pid":5,"number":2}]}
+result: Result5:00 analysed on a 30 by 21 m pitch. Camera worked out as about 2.3 m up.Who is this?It couldn’t read a number on this player. Say who it is and it will follow him from there. 3 more after this, longest first; stop whenever it’s good enough.On the pitch for 0:36TobiDevKofiLucaSomeone elseTobi #56Followed for 3:20 of 5:00,  | heat maps: 5
+asks who: 1 | pictures: 2 | choices: Tobi,Dev,Kofi,Luca,Someone else
+named: name {"piece":7,"number":56} | still asking: 0 | #56
+after reload: v-track | ticks kept: 4 | earlier runs: 1
+earlier run reopened: 5 cards
+errors: []

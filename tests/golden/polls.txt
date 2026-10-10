@@ -1,0 +1,22 @@
+no poll yet: Next gameNo game lined up. Create a poll so the squad can say who’s in.Create a poll
+form: v-poll | default squad size: 7
+empty opponent: Enter who you’re playing.
+created: v-games | Are you in?Next game: v Athletico PatheticoTue 13 Oct, 19:30 · 8 spaces leftPowerleague Romford, pitch 4, £5 each, 5-a-side, 2 × 15 min0 of 7 outfield
+7 outfield in: 7 of 7 outfield (full)
+8th outfield: The outfield spots are all taken.
+second keeper: Someone is already down as keeper.
+card: Next game: v Athletico PatheticoTue 13 Oct, 19:30 · fullPowerleague Romford, pitch 4, £5 each, 5-a-side, 2 × 15 min7 of 7 outfield (full), keeper: SpiceI’m inIn goalI’m outSomeone is already down as keeper.SpSpiceJaJakeChChaplinHaHarrisonEtEthanDrag a player to move them. Tap one to send them to the bench.BenchPuxleyIssacReeceCa
+dots on pitch: SpSpice@50%,85% JaJake@25%,43% ChChaplin@50%,43% HaHarrison@75%,43% EtEthan@50%,20%
+after drag, saved lineup: {"pos":{"8":[72,28]}}
+bench before: PuxleyIssacReece | after tapping Jake: JakePuxleyIssacReece
+player sees on home: Are you in?Next game: v Athletico PatheticoTue 13 Oct, 19:30 · fullYou haven’t answered yet.Say if you’re in ›
+button -> v-games
+player buttons: in disabled true | gk disabled true | gaffer tools: false
+after "can't make it": Can’t make it: Mark, Ali
+start -> v-setup | opponent: Athletico Pathetico | line-up msg: Put 3 on the bench to start. You have 4.
+rows: Spice:GK Jake:Bench Chaplin:Start Harrison:Start Puxley:Bench Issac:Bench Reece:Bench Ethan:Start Ali:Out Adrian:Out Mark:Out
+edit form prefilled: Athletico Pathetico 2026-10-13 19:30 Powerleague Romford, pitch 4
+after cancel: v-games | No games lined up. Schedule one and the squad can say who’s in.
+next poll defaults: Powerleague Romford, pitch 4 | £5 each | 19:30 | 2026-10-13 (a Tuesday: true )
+4-a-side poll: 0 of 4 outfield
+errors: []

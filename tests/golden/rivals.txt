@@ -1,0 +1,15 @@
+first look: 1000Sons of Pitches FC’s Elo. Everyone starts on 1000Set your home ground so nearby teams can find you and you can find them.Set your home groundTeams
+bad postcode: That postcode wasn’t found. Check it, or use where you are now.
+home saved: Home ground: Powerleague Romford | Home ground saved. Nearby teams can now find you.
+nearby for B: Sons of Pitches FCPowerleague Romford · 5.1 km away1000Challenge
+search "sons": [ 'Sons of Pitches FC' ]
+form defaults: Goals Dagenham | 15 min | 3 subs | 19:30
+sent: Challenge sent to Sons of Pitches FC. Their gaffer has been told. | notified: 1 | Sons of Pitches FC Elo 1000Elo match. Tue 1 Dec, 20:00 · Goals Dagenham · 5-a-side · 2 × 15 min · up to 3 subs“Loser buys the oranges”Waiting for their gaffer to answer.C
+A badge on Games tab: 1
+A sees: Athletico Pathetico Elo 1000Elo match. Tue 1 Dec, 20:00 · Goals Dagenham · 5-a-side · 2 × 15 min · up to 3 subs“Loser buys the oranges”They’ve challenged you. Your move.AcceptSuggest changesTurn it do
+countered: Sent back to Athletico Pathetico. | Athletico Pathetico Elo 1000Elo match. Tue 1 Dec, 19:00 · Powerleague Romford, pitch 2 · 7-a-side · 2 × 15 min · up to 3 subs“Loser buys the oranges”Waiting for their gaffer to answer.Turn i
+B sees the counter: Sons of Pitches FC Elo 1000Elo match. Tue 1 Dec, 19:00 · Powerleague Romford, pitch 2 · 7-a-side · 2 × 15 min · up to 3 subs“Loser buys the oranges”They’ve sent back different terms. Your move.AcceptS
+accepted: It’s on. A poll for the game is now in Games for both teams. | notified so far: 3
+B poll: Next game: v Sons of Pitches FCTue 1 Dec, 19:00 · 10 spaces leftPowerleague Romford, pitch 2, 7-a-side, 2 × 15 min0 of 9 outfield, keeper: neededChoos
+start from the poll: v-setup | opponent Sons of Pitches FC | friendly ticked: false
+errors: []

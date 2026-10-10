@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import { chromium } from './pinned.mjs';
 import fs from 'fs';
 const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8') + `
 ;(function(){ const make = window.supabase.createClient; window.supabase.createClient = function(){ const c = make(); const rpc0 = c.rpc;

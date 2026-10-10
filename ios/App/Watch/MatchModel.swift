@@ -18,6 +18,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     private var ticker: Timer?
     private var askedToNotify = false
     private var scheduled = ""
+    private let savedBrain = "watch.brain"
 
     /// Set only in the simulator, to take the App Store screenshots: which part of the screen to show.
     @Published var demoPage: Int?
@@ -36,6 +37,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
             return
         }
         #endif
+        restore()
         guard WCSession.isSupported() else { return }
         WCSession.default.delegate = self
         WCSession.default.activate()
@@ -46,6 +48,23 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         ticker = timer
     }
 
+    // MARK: - Surviving a restart
+
+    /// watchOS can close the app mid-game (or it can crash). What the watch knew, and what it was still waiting to tell the phone,
+    /// is kept so it carries straight on when it reopens.
+    private func keep() {
+        guard let data = try? JSONEncoder().encode(brain) else { return }
+        UserDefaults.standard.set(data, forKey: savedBrain)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: savedBrain + ".at")
+    }
+
+    private func restore() {
+        let age = Date().timeIntervalSince1970 - UserDefaults.standard.double(forKey: savedBrain + ".at")
+        guard age >= 0, age < 3 * 60 * 60, let data = UserDefaults.standard.data(forKey: savedBrain), let old = try? JSONDecoder().decode(WatchBrain.self, from: data) else { return }
+        brain = old
+        state = old.state
+    }
+
     // MARK: - Changes coming due
 
     /// Once a second: the watch's own check for a change coming due, and another go at anything the phone hasn't acknowledged.
@@ -54,9 +73,12 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     }
 
     /// Puts the brain's verdict on screen and carries out what it asked for.
-    private func apply(_ outcome: WatchBrain.Outcome) {
-        if state != brain.state { state = brain.state }
+    private func apply(_ outcome: WatchBrain.Outcome, save: Bool = false) {
+        let changed = state != brain.state
+        if changed { state = brain.state }
+        if changed || save || outcome.becameDue || outcome.timeUp { keep() }
         if outcome.becameDue { buzzForSubs() }
+        if outcome.timeUp { buzzForTime() }
         if !(brain.state?.due ?? false) || !(brain.state?.live ?? false) { if askSubs { askSubs = false } }
         for json in outcome.send { deliver(json, first: false) }
     }
@@ -69,18 +91,27 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         }
     }
 
+    /// The half has run out: two long taps, different from the three for subs. The clock carries on until the whistle is pressed.
+    private func buzzForTime() {
+        for step in 0..<2 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(step) * 0.9) { WKInterfaceDevice.current().play(.stop) }
+        }
+        say("Time's up")
+    }
+
     /// A notification on the watch itself at each change still to come this half, for when the app isn't on screen.
     private func scheduleChanges(_ game: MatchState) {
         let center = UNUserNotificationCenter.current()
         let live = game.live && game.running && (game.phase == "h1" || game.phase == "h2")
         let now = game.seconds(at: Date())
         let coming = live ? game.changes.filter { $0.h == game.halfIndex && $0.from * 60 - now > 3 } : []
-        // (Int64: a watch's ordinary Int is too small to hold a time in milliseconds)
-        let key = coming.map { "\($0.id)@\(Int64(game.t0))-\(Int64(game.base))" }.joined(separator: ",")
+        // (the times go into the key as they are: a watch's ordinary Int is too small to hold a time in milliseconds)
+        let whistle = live ? game.half * 60 - now : 0 // seconds until the half runs out
+        let key = coming.map { "\($0.id)@\(game.t0)-\(game.base)" }.joined(separator: ",") + (whistle > 3 ? "|end@\(game.t0)-\(game.base)" : "")
         if key == scheduled { return }
         scheduled = key
         center.removeAllPendingNotificationRequests()
-        guard !coming.isEmpty else { return }
+        guard !coming.isEmpty || whistle > 3 else { return }
         if !askedToNotify {
             askedToNotify = true
             center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
@@ -92,6 +123,13 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
             content.sound = .default
             let wait = TimeInterval(change.from * 60 - now)
             center.add(UNNotificationRequest(identifier: "change-\(change.id)", content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: wait, repeats: false)))
+        }
+        if whistle > 3 {
+            let content = UNMutableNotificationContent()
+            content.title = "Time's up"
+            content.body = game.lastHalf ? "Blow for full time when you're ready." : "Blow for half time when you're ready."
+            content.sound = .default
+            center.add(UNNotificationRequest(identifier: "time-up", content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(whistle), repeats: false)))
         }
     }
 
@@ -106,7 +144,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         guard let json = payload["state"] as? String else { return }
         let sent = (payload["sent"] as? NSNumber)?.doubleValue ?? 0
         DispatchQueue.main.async {
-            self.apply(self.brain.receive(json: json, sent: sent, now: Date()))
+            self.apply(self.brain.receive(json: json, sent: sent, now: Date()), save: true)
             guard let game = self.state else { return }
             self.scheduleChanges(game)
             self.stayInFront()
@@ -209,6 +247,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     /// Carries out a press: shows its effect at once, sends it, and taps the wrist.
     private func press(_ outcome: WatchBrain.Outcome) {
         if state != brain.state { state = brain.state }
+        keep()
         for json in outcome.send { deliver(json, first: true) }
         if !outcome.send.isEmpty { WKInterfaceDevice.current().play(.success) }
         if outcome.becameDue { buzzForSubs() }
@@ -228,6 +267,13 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     /// Kick off, or start the second half, from the wrist. The clock starts here at once and the phone follows.
     func start() {
         press(brain.pressStart(now: Date()))
+        stayInFront()
+    }
+
+    /// The whistle, from the wrist: half time, or full time in the last half.
+    func endHalf() {
+        askSubs = false
+        press(brain.pressEnd(now: Date()))
         stayInFront()
     }
 

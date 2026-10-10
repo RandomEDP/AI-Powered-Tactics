@@ -1,0 +1,18 @@
+B before kick-off: v-home | pop-up showing: false
+B pop-up: true | Game started v Dog. Watch along.
+announce call: [{"name":"team-notify","body":{"code":"<code>","kind":"kickoff","title":"SOP FC v Dog","body":"Game started. Watch along."}}]
+B after Watch along: v-game | can log goals: true | class: ro sc
+A after B logs a goal: 1 - 0 | A notice: Goal for SOP FC logged on another phone. Score locked for 8 seconds so it isn’t counted twice. | A locked: true
+still locked after 6.5s: true
+locked after 8.5s: false
+nudge: Nudge sent to 2 phones: “Sons of Pitches FC need you” | button now disabled: true
+notifications asked for: [["team-notify","kickoff","SOP FC v Dog","Game started. Watch along."],["team-notify","goal","Goal! SOP FC 1–0 Dog","Puxley."],["team-notify","poll","Sons of Pitches FC v Athletico Pathetico","New game on Tue 13 Oct, 19:30. Are you in?"],["team-notify","nudge","Sons of Pitches FC need you","8 spots left v Athletico Pathetico, Tue 13 Oct, 19:30. Are you in?"]]
+zoom locked: manipulation
+coming soon hidden by default: true
+plans button before switching on: false
+plans pop-up: true | Gaffer £4.99 a monthCOMING SOON
+settings buttons: true true | sign out shown: true | Signed in as gaffer@example.com. Your team and stats stay put; sign back in to pick up where you left off.
+coming soon: v-soon | AI match reports / Ratings from the video / Team Elo rating and leaderboard / AI powered commentary
+first tap: Tap again to sign out
+signed out -> v-welcome
+errors: []

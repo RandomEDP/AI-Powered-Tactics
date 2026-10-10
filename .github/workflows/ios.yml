@@ -19,7 +19,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Everything that can be checked without an iPhone or a watch, on every push and before every TestFlight build:
+  # the watch's logic on its own, whole games played between the phone app and the watch logic over a bad connection,
+  # the phone app in a headless browser, and the database's functions and security rules in a real Postgres.
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the test tools
+        working-directory: tests
+        run: npm ci && npx playwright install --with-deps chromium
+
+      - name: Swift, for the watch logic
+        run: swiftc --version || { echo "::error::No Swift compiler on this runner"; exit 1; }
+
+      - name: Run every test
+        env:
+          EVENINGS: 12
+        run: node tests/run.mjs
+
   ios:
+    needs: tests
     runs-on: macos-15
     timeout-minutes: 45
     steps:

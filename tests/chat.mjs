@@ -1,5 +1,5 @@
 // Squad chat, recording a play on the tactics board and sending it to the chat, the calendar prompt, and signing out.
-import { chromium } from 'playwright';
+import { chromium } from './pinned.mjs';
 import fs from 'fs';
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');

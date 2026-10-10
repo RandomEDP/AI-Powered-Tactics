@@ -3,17 +3,22 @@
 (function () {
   const KEY = '__mockdb';
   const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips', 'messages', 'reports'];
-  const load = () => { const d = JSON.parse(localStorage.getItem(KEY) || '{}'); TABLES.forEach((t) => { d[t] = d[t] || []; }); return d; };
-  const store = (d) => localStorage.setItem(KEY, JSON.stringify(d));
+  // tests/lib.mjs gives every phone its own browser profile, like real devices; then the database lives with the test runner (window.__mockRemote).
+  const REMOTE = window.__mockRemote || null;
+  const xhr = (method, body) => { const x = new XMLHttpRequest(); x.open(method, REMOTE, false); x.send(body || null); return x.responseText; };
+  const load = () => { const d = JSON.parse((REMOTE ? xhr('GET') : localStorage.getItem(KEY)) || '{}'); TABLES.forEach((t) => { d[t] = d[t] || []; }); return d; };
+  const store = (d) => { if (REMOTE) xhr('PUT', JSON.stringify(d)); else localStorage.setItem(KEY, JSON.stringify(d)); };
   const code = (n) => { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < n; i++) s += a[Math.floor(Math.random() * a.length)]; return s; };
   const uid = () => (sessionStorage.getItem('__mockuser') || null);
   const isOrg = (d, team) => !!uid() && d.team_members.some((m) => m.team_id === team && m.user_id === uid());
   const teamOf = (d, table, row) => table === 'teams' ? row.id : (row.team_id || (d.games.find((g) => g.id === row.game_id) || {}).team_id);
   const ok = (data) => Promise.resolve({ data, error: null });
   const fail = (message, code) => Promise.resolve({ data: null, error: { message, code } });
-  const bc = new BroadcastChannel('__mockrt');
+  const heard = []; window.__rtRecv = (m) => heard.forEach((cb) => cb({ data: m }));
+  const bc = REMOTE ? { postMessage: (m) => { if (!window.__offline) window.__rtSend(m); }, addEventListener: (n, cb) => heard.push(cb) } : new BroadcastChannel('__mockrt');
   window.__mockCalls = [];
   function rpc(name, a) {
+    if (window.__offline) return fail('Failed to fetch', '');
     const d = load(); window.__mockCalls.push('rpc:' + name);
     if (name === 'get_team') {
       const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok(null);
@@ -120,6 +125,7 @@
     };
     const pk = { teams: ['id'], players: ['team_id', 'pid'], games: ['id'], game_players: ['game_id', 'pid'], game_events: ['game_id', 'seq'], live_matches: ['team_id'], goal_queue: ['id'], fixtures: ['id'], clips: ['game_id', 'seq'] }[table];
     function run() {
+      if (window.__offline) return fail('Failed to fetch', '');
       const d = load(); window.__mockCalls.push(op + ':' + table);
       const rows = d[table], allowed = (r) => isOrg(d, teamOf(d, table, r));
       if (op === 'select') return ok(rows.filter((r) => allowed(r) && filters.every((f) => f(r))));

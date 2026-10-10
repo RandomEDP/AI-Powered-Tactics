@@ -31,6 +31,8 @@ struct MatchState: Codable, Equatable {
     }
 
     var live: Bool
+    var gid: String = ""        // which game this is, so nothing from the last one is carried into the next
+    var acks: [String] = []     // presses from this watch that the phone has dealt with
     var due: Bool = false       // the first change in `changes` is waiting to be made
     var team: String = ""
     var opp: String = ""
@@ -49,6 +51,8 @@ struct MatchState: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         live = (try? c.decode(Bool.self, forKey: .live)) ?? false
+        gid = (try? c.decode(String.self, forKey: .gid)) ?? ""
+        acks = (try? c.decode([String].self, forKey: .acks)) ?? []
         due = (try? c.decode(Bool.self, forKey: .due)) ?? false
         team = (try? c.decode(String.self, forKey: .team)) ?? ""
         opp = (try? c.decode(String.self, forKey: .opp)) ?? ""
@@ -58,10 +62,10 @@ struct MatchState: Codable, Equatable {
         running = (try? c.decode(Bool.self, forKey: .running)) ?? false
         base = (try? c.decode(Double.self, forKey: .base)) ?? 0
         t0 = (try? c.decode(Double.self, forKey: .t0)) ?? 0
-        half = (try? c.decode(Int.self, forKey: .half)) ?? 15
+        half = min(max((try? c.decode(Int.self, forKey: .half)) ?? 15, 1), 200) // (kept small: minutes are multiplied up to seconds in a 32-bit Int)
         periods = (try? c.decode(Int.self, forKey: .periods)) ?? 2
         lockUntil = (try? c.decode(Double.self, forKey: .lockUntil)) ?? 0
-        changes = (try? c.decode([Change].self, forKey: .changes)) ?? []
+        changes = ((try? c.decode([Change].self, forKey: .changes)) ?? []).filter { ($0.h == 0 || $0.h == 1) && $0.from >= 0 && $0.from <= 200 }
         players = (try? c.decode([Player].self, forKey: .players)) ?? []
     }
 
@@ -74,19 +78,24 @@ struct MatchState: Codable, Equatable {
     }
 
     var halfIndex: Int { phase == "h2" || phase == "ft" ? 1 : 0 }
-    var playing: Bool { live && running && (phase == "h1" || phase == "h2") }
+    var inPlay: Bool { phase == "h1" || phase == "h2" }
+    var playing: Bool { live && running && inPlay }
+    /// The whistle that ends this half is the final one.
+    var lastHalf: Bool { phase == "h2" || periods == 1 }
+    /// How far through the game a phase is: pre, first half, half time, second half, full time.
+    static func order(_ phase: String) -> Int { ["pre": 0, "h1": 1, "ht": 2, "h2": 3, "ft": 4][phase] ?? 0 }
 }
 
 /// The watch's own judgement, kept apart from what the phone last said.
 ///
 /// The phone can be asleep in a pocket for minutes at a time, and its updates can arrive late, twice or out of order.
-/// So anything pressed on the watch takes effect here at once and stays in effect until the phone's own account agrees,
-/// and each press is sent again every few seconds until then.
-struct WatchBrain {
+/// So anything pressed on the watch takes effect here at once and stays in effect until the phone says it has dealt
+/// with that press (it lists the presses it has taken in), and each press is sent again every few seconds until then.
+struct WatchBrain: Codable {
     /// Something pressed on the watch that the phone hasn't yet shown it has taken in.
-    struct Press: Equatable {
+    struct Press: Codable, Equatable {
         var id: String
-        var kind: String        // start, subs, goal, hl
+        var kind: String        // start, end, subs, goal
         var json: String
         var made: Date
         var lastSent: Date
@@ -95,19 +104,27 @@ struct WatchBrain {
 
     struct Outcome: Equatable {
         var becameDue = false   // a change has just come due: buzz and ask
+        var timeUp = false      // the half has just run out: buzz
         var send: [String] = [] // events (JSON) to deliver to the phone now
     }
 
+    private struct Held: Codable { var us: Int; var them: Int; var until: Date }  // the score after a goal logged here
+    private struct Claim: Codable { var phase: String; var t0: Double }           // where the whistle pressed here has taken the game
+    private struct Ending: Codable { var sent: Double; var at: Date }             // the phone said "no game" mid-game
+
     private(set) var state: MatchState?
     private(set) var presses: [Press] = []
-    private var newest = 0.0                                    // when the phone sent the newest update taken in
-    private var hold: (us: Int, them: Int, until: Date)?        // the score after a goal logged here, until the phone has counted it
-    private var done: Set<String> = []                          // changes confirmed on this watch, for the rest of the game
-    private var started: (phase: String, t0: Double)?           // kick-off or second half pressed here, until the phone agrees
-    private var ending: (sent: Double, at: Date)?               // the phone said "no game" mid-game: believed only when it says so again
+    private var newest = 0.0                // when the phone sent the newest update taken in
+    private var gid = ""                    // the game all of this belongs to
+    private var held: Held?                 // until the phone has counted the goal
+    private var done: Set<String> = []      // changes confirmed on this watch, for the rest of the game
+    private var called: Set<String> = []    // halves whose "time's up" buzz has been given
+    private var claim: Claim?               // until the phone has caught up with the whistle
+    private var ending: Ending?             // believed only when the phone says so again
 
     static let resendEvery: TimeInterval = 10
-    static let giveUpAfter: TimeInterval = 15 * 60
+    static let believeAfter: TimeInterval = 20 // a lone "no game" that nothing has contradicted for this long is true
+    static let giveUpAfter: TimeInterval = 3 * 60 * 60 // longer than any game: a phone asleep in a bag for a whole half still gets everything
 
     init() {}
 
@@ -125,39 +142,51 @@ struct WatchBrain {
         if !game.live {
             // "No game" in the middle of one is usually the phone app waking up before it has found its feet.
             // Believe it only when a second, later update says the same at least a few seconds on.
-            if let current = state, current.playing || started != nil {
-                if let first = ending, first.sent != sent, now.timeIntervalSince(first.at) >= 3 {
+            if let current = state, current.live, current.inPlay || current.phase == "ht" || claim != nil {
+                if let first = ending, first.sent != sent && now.timeIntervalSince(first.at) >= 3 || now.timeIntervalSince(first.at) >= WatchBrain.believeAfter {
                     // confirmed: fall through and clear everything
                 } else {
-                    if ending == nil { ending = (sent: sent, at: now) }
+                    if ending == nil { ending = Ending(sent: sent, at: now) }
                     return Outcome()
                 }
             }
             forgetGame()
+            gid = ""
             state = game
             return Outcome()
         }
         ending = nil
 
-        // Kick-off (or the second half) pressed here: the clock is ours until the phone has started its own.
-        if let mine = started {
-            let before = mine.phase == "h1" ? "pre" : "ht"
-            if game.phase == before {
-                game.phase = mine.phase
-                game.base = 0
-                game.t0 = mine.t0
-                game.running = true
+        // A different game from the one this watch was following: nothing carries over.
+        if !game.gid.isEmpty && game.gid != gid {
+            forgetGame()
+            gid = game.gid
+        }
+
+        // The phone lists the presses it has dealt with. Those are finished, whatever it did with them.
+        if !game.acks.isEmpty {
+            let acked = Set(game.acks)
+            presses.removeAll { acked.contains($0.id) }
+        }
+        game.acks = []
+
+        // A whistle pressed here (kick-off, half time, second half, full time): the watch's word stands until
+        // the phone has caught up, or has dealt with every one of those presses and still says otherwise.
+        if let mine = claim {
+            if MatchState.order(game.phase) >= MatchState.order(mine.phase) || !presses.contains(where: { $0.kind == "start" || $0.kind == "end" }) {
+                claim = nil
+                presses.removeAll { $0.kind == "start" || $0.kind == "end" }
             } else {
-                started = nil
-                presses.removeAll { $0.kind == "start" }
+                move(&game, to: mine.phase, t0: mine.t0)
             }
         }
-        if game.phase == "pre" { done = [] } // a new game
+        if game.phase == "pre" { done = []; called = [] } // not started, or started again from scratch
 
-        // A goal logged here shows straight away. Until the phone has counted it, an older score doesn't undo it.
-        if let mine = hold {
-            if now > mine.until || game.us + game.them >= mine.us + mine.them {
-                hold = nil
+        // A goal logged here shows straight away. Until the phone has dealt with it, an older score doesn't undo it.
+        if let mine = held {
+            let waiting = presses.contains { $0.kind == "goal" }
+            if !waiting || now > mine.until || game.us + game.them >= mine.us + mine.them {
+                held = nil
                 presses.removeAll { $0.kind == "goal" }
             } else {
                 game.us = max(game.us, mine.us)
@@ -173,20 +202,32 @@ struct WatchBrain {
 
         let wasDue = state?.due ?? false
         judgeDue(&game, now: now)
+        // time already up when the watch first hears of this half: the moment has passed, so no buzz for it
+        if game.inPlay, game.seconds(at: now) >= game.half * 60 + 30 { called.insert(game.phase) }
         state = game
         return Outcome(becameDue: game.due && !wasDue)
     }
 
     // MARK: The watch's own clock
 
-    /// Call once a second. Notices a change coming due without any help from the phone, and says which presses to send again.
+    /// Call once a second. Notices a change coming due and the half running out without any help from the phone,
+    /// and says which presses to send again.
     mutating func tick(now: Date) -> Outcome {
         var outcome = Outcome()
+        if let first = ending, now.timeIntervalSince(first.at) >= WatchBrain.believeAfter, let none = try? JSONDecoder().decode(MatchState.self, from: Data("{\"live\":false}".utf8)) {
+            forgetGame()
+            gid = ""
+            state = none
+        }
         if var game = state, game.live {
             let wasDue = game.due
             judgeDue(&game, now: now)
             if game.due != wasDue { state = game }
             outcome.becameDue = game.due && !wasDue
+            if game.playing, !called.contains(game.phase), game.seconds(at: now) >= game.half * 60 {
+                called.insert(game.phase)
+                outcome.timeUp = true
+            }
         }
         presses.removeAll { now.timeIntervalSince($0.made) > WatchBrain.giveUpAfter }
         for index in presses.indices where now.timeIntervalSince(presses[index].lastSent) >= WatchBrain.resendEvery {
@@ -200,7 +241,18 @@ struct WatchBrain {
         if !game.due, game.playing, let first = game.changes.first, first.h == game.halfIndex, game.seconds(at: now) >= first.from * 60 {
             game.due = true
         }
-        if game.due && (game.changes.isEmpty || !game.playing && game.phase != "h1" && game.phase != "h2") { game.due = false }
+        if game.due && (game.changes.isEmpty || !game.inPlay || game.changes[0].h != game.halfIndex) { game.due = false }
+    }
+
+    /// Puts the game into a phase the whistle on this watch has started.
+    private func move(_ game: inout MatchState, to phase: String, t0: Double) {
+        game.phase = phase
+        game.base = 0
+        game.t0 = t0
+        game.running = phase == "h1" || phase == "h2"
+        game.due = false
+        if phase == "ft" { game.changes = [] }
+        if phase == "ht" || phase == "h2" { game.changes.removeAll { $0.h == 0 } } // the first half's changes are behind us
     }
 
     // MARK: Presses on the watch
@@ -208,24 +260,36 @@ struct WatchBrain {
     /// Kick off, or start the second half. The clock starts here at once.
     mutating func pressStart(now: Date) -> Outcome {
         guard var game = state, game.live, game.phase == "pre" || game.phase == "ht" else { return Outcome() }
-        game.phase = game.phase == "pre" ? "h1" : "h2"
-        game.base = 0
-        game.t0 = now.timeIntervalSince1970 * 1000
-        game.running = true
-        game.due = false
+        let next = game.phase == "pre" ? "h1" : "h2"
+        let t0 = (now.timeIntervalSince1970 * 1000).rounded()
+        move(&game, to: next, t0: t0)
+        if next == "h1" { done = [] }
+        called.remove(next)
         // a change listed for the very start of this half is made by starting it, so it is never asked for
         for change in game.changes where change.h == game.halfIndex && change.from == 0 { done.insert(change.id) }
         game.changes.removeAll { done.contains($0.id) }
-        started = (phase: game.phase, t0: game.t0)
+        claim = Claim(phase: next, t0: t0)
         state = game
-        return Outcome(send: [remember("start", ["type": "start"], now: now)])
+        return Outcome(send: [remember("start", ["type": "start", "to": next], now: now)])
+    }
+
+    /// The whistle: half time, or full time if this is the last half. The clock stops here at once.
+    mutating func pressEnd(now: Date) -> Outcome {
+        guard var game = state, game.live, game.inPlay else { return Outcome() }
+        let from = game.phase
+        let next = game.lastHalf ? "ft" : "ht"
+        move(&game, to: next, t0: 0)
+        claim = Claim(phase: next, t0: 0)
+        presses.removeAll { $0.kind == "subs" } // a change nobody made before the whistle is no longer wanted
+        state = game
+        return Outcome(send: [remember("end", ["type": "end", "from": from], now: now)])
     }
 
     /// The players have swapped.
     mutating func pressSubsDone(now: Date) -> Outcome {
-        guard var game = state, game.live, let first = game.changes.first else { return Outcome() }
+        guard var game = state, game.live, game.due, let first = game.changes.first else { return Outcome() }
         done.insert(first.id)
-        game.changes.removeFirst()
+        game.changes.removeAll { $0.id == first.id }
         game.due = false
         judgeDue(&game, now: now) // the one after may already be due as well
         state = game
@@ -234,9 +298,9 @@ struct WatchBrain {
 
     /// A goal. The score moves here at once.
     mutating func pressGoal(us: Bool, scorer: Int?, assist: Int?, now: Date) -> Outcome {
-        guard var game = state, game.live else { return Outcome() }
+        guard var game = state, game.live, game.phase != "ft" else { return Outcome() }
         if us { game.us += 1 } else { game.them += 1 }
-        hold = (us: game.us, them: game.them, until: now.addingTimeInterval(90))
+        held = Held(us: game.us, them: game.them, until: now.addingTimeInterval(WatchBrain.giveUpAfter))
         state = game
         var event: [String: Any] = ["type": "goal", "us": us]
         if let scorer = scorer { event["p"] = scorer }
@@ -246,30 +310,33 @@ struct WatchBrain {
 
     /// A highlight. Sent once: the phone queues it if it can't take it straight away.
     mutating func pressHighlight(now: Date) -> Outcome {
-        Outcome(send: [WatchBrain.event(["type": "hl"], id: UUID().uuidString, now: now)])
+        guard let game = state, game.live, game.phase != "pre", game.phase != "ft" else { return Outcome() }
+        return Outcome(send: [event(["type": "hl"], id: UUID().uuidString, now: now)])
     }
 
     // MARK: Bookkeeping
 
     private mutating func forgetGame() {
-        hold = nil
+        held = nil
         done = []
-        started = nil
+        called = []
+        claim = nil
         ending = nil
         presses = []
     }
 
     private mutating func remember(_ kind: String, _ fields: [String: Any], now: Date, change: String? = nil) -> String {
         let id = UUID().uuidString
-        let json = WatchBrain.event(fields, id: id, now: now)
+        let json = event(fields, id: id, now: now)
         presses.append(Press(id: id, kind: kind, json: json, made: now, lastSent: now, change: change))
         return json
     }
 
-    private static func event(_ fields: [String: Any], id: String, now: Date) -> String {
+    private func event(_ fields: [String: Any], id: String, now: Date) -> String {
         var event = fields
         event["id"] = id
         event["at"] = (now.timeIntervalSince1970 * 1000).rounded()
+        if !gid.isEmpty { event["gid"] = gid }
         guard let data = try? JSONSerialization.data(withJSONObject: event, options: [.sortedKeys]), let json = String(data: data, encoding: .utf8) else { return "{}" }
         return json
     }

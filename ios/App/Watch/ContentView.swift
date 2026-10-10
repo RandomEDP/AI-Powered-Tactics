@@ -65,6 +65,7 @@ struct MatchView: View {
     let state: MatchState
     @Binding var path: [Step]
     @State private var confirmThem = false
+    @State private var confirmEnd = false
 
     var body: some View {
         ScrollViewReader { reader in
@@ -83,6 +84,20 @@ struct MatchView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.green)
+                }
+
+                if state.inPlay { // once time is up the whistle is the next thing wanted, so it sits right under the clock
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        if state.seconds(at: context.date) >= state.half * 60 {
+                            Button {
+                                confirmEnd = true
+                            } label: {
+                                Label(state.lastHalf ? "Full time" : "Half time", systemImage: "flag.checkered").font(.headline).frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.orange)
+                        }
+                    }
                 }
 
                 if state.due {
@@ -122,6 +137,15 @@ struct MatchView: View {
                     }
                     .disabled(state.phase == "pre" || state.phase == "ft")
 
+                    if state.inPlay {
+                        Button {
+                            confirmEnd = true
+                        } label: {
+                            Label(state.lastHalf ? "Full time" : "Half time", systemImage: "flag.checkered").frame(maxWidth: .infinity)
+                        }
+                        .tint(.gray)
+                    }
+
                     if model.locked {
                         Text("Score locked for 8 seconds")
                             .font(.footnote)
@@ -147,6 +171,10 @@ struct MatchView: View {
         }
         .sheet(isPresented: $model.askSubs) {
             SubsSheet(state: state)
+        }
+        .confirmationDialog(state.lastHalf ? "Blow for full time?" : "Blow for half time?", isPresented: $confirmEnd, titleVisibility: .visible) {
+            Button(state.lastHalf ? "Full time" : "Half time") { model.endHalf() }
+            Button("Cancel", role: .cancel) {}
         }
         .confirmationDialog("Goal for \(state.opp)?", isPresented: $confirmThem, titleVisibility: .visible) {
             Button("Log the goal") { model.goal(us: false, scorer: nil, assist: nil) }

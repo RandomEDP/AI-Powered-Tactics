@@ -31,7 +31,7 @@ An iOS app (and the same app on the web) backed by Supabase, usable offline at t
 | `supabase/migrations/` | Database schema, row level security and functions |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team |
 | `privacy.html` | Privacy policy (linked from the app and needed for the App Store listing) |
-| `tests/` | Browser tests against an in-memory stand-in for Supabase, the iOS alerts and account deletion |
+| `tests/` | Tests for the watch logic, the phone app, phone and watch together, and the database (see below) |
 | `vendor/` | Bundled Supabase library and fonts, so the app works with no signal |
 | `ios/`, `capacitor.config.json`, `package.json` | The iOS app (see below) |
 | `ios/App/Watch/` | Apple Watch companion app (SwiftUI): clock, score, next changes, and logging goals and highlights. It has no sign-in; the iPhone app sends it the game in progress |
@@ -80,7 +80,21 @@ Never put the `.p8` key, or any secret, in the code or in chat. GitHub secrets a
 ## Running the tests
 
 ```
-python3 -m http.server 8766        # from the repo root
-cd tests && npm i playwright && node flow.mjs && node native.mjs && node delete.mjs && node players.mjs && node polls.mjs
-node shots.mjs shots light   # screenshots of every screen, for checking the design
+cd tests && npm ci && npx playwright install chromium   # once
+node tests/run.mjs                                      # everything; needs swiftc on the path for the watch parts
+node tests/run.mjs link                                 # just the suites whose name contains "link"
 ```
+
+They also run on GitHub on every push, and a TestFlight build only goes ahead once they pass.
+
+| What | Where | How it checks |
+|---|---|---|
+| The watch's decisions on their own | `tests/watch/main.swift` | Plays games through `ios/App/Watch/MatchLogic.swift` with a made-up clock and a phone that goes quiet, repeats itself or wakes up confused |
+| Phone and watch together | `tests/link.test.mjs` | Whole games between the real phone app and the real watch logic over a stand-in for the link: phone frozen in a pocket, watch out of reach, the watch app restarted, clocks apart. Checked second by second |
+| The phone running a game | `tests/match.test.mjs`, `tests/watchlink.test.mjs` | Clock, changes that wait to be confirmed, injuries, whistles; presses from the watch arriving late, twice or out of order |
+| Several phones on one team | `tests/sync.test.mjs` | Gaffer, followers and a second gaffer, no signal, the app closed with changes not yet uploaded, signing out |
+| The database | `tests/db.test.mjs` | Every migration loaded into a real Postgres in memory, then the functions and security rules used as a gaffer, a player, a stranger and someone not signed in. Elo sums included |
+| App and database agree | `tests/contract.test.mjs` | Every function the app calls exists with those arguments; every row the app writes fits the real tables |
+| Walk-throughs of each screen | `tests/*.mjs` (no `.test`) | Print what they see; compared with `tests/golden/`. After an intended change: `node tests/run.mjs --update` and read the diff |
+
+`node tests/shots.mjs shots light` takes screenshots of every screen, for checking the design (serve the repo root on port 8766 first: `python3 -m http.server 8766`).

@@ -1,5 +1,5 @@
 // Experimental player tracking: the per-person switch in Settings, and the tracking screen with a stand-in for the native plugin.
-import { chromium } from 'playwright';
+import { chromium } from './pinned.mjs';
 import fs from 'fs';
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });

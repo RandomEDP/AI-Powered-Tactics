@@ -1118,7 +1118,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function forgetTeam(code) {
     A.teams = A.teams.filter(function (x) { return x.code !== code; });
-    try { ['', ':crest', ':synced', ':roster'].forEach(function (k) { localStorage.removeItem(TKEY + code + k); }); } catch (e) {}
+    try { Object.keys(localStorage).forEach(function (k) { if (k === TKEY + code || k.indexOf(TKEY + code + ':') === 0) localStorage.removeItem(k); }); } catch (e) {} // everything this phone kept for the team
     if (A.active === code) A.active = null;
     saveApp();
   }
@@ -1303,7 +1303,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips })); } catch (e) {}
       var org = !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
-      if (org && (dirty || syncing)) return; // our own edits are on their way up; theirs will arrive after
+      if (org && (dirty || syncing)) { if (!syncing) { clearTimeout(wt); wt = setTimeout(syncAll, 300); } return; } // our own edits are on their way up (sent now if they were waiting for this); theirs will arrive after
       var remote = fromRemote(d);
       if (org && synced === null) {
         var saved = loadSynced(code), local = loadCache(code);
@@ -1333,6 +1333,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     S = Object.assign(blankTeam(), JSON.parse(JSON.stringify(r)));
     S.view = view; saveLocal(); applyTheme();
     upgrade(S.match); lastBlock = S.match ? curSeg(S.match) : -1; pick = null; outPick = null;
+    watchPush(); // another gaffer's phone may have changed the game
     if (S.view === 'game' && !S.match) go('home');
     else if (['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0) { /* keep what is being built */ }
     else if (!(S.view === 'options' && document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName))) render();
@@ -1348,10 +1349,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (m && m.events.some(function (e) { return !e.hl && typeof e.at === 'number' && Math.abs(e.at - when) < LOCK_MS; })) return;
         var ok = function (v) { return v == null || (typeof v === 'number' && m.squad.indexOf(v) >= 0); };
         if (m && m.phase !== 'ft' && typeof g.us === 'boolean' && ok(g.p) && ok(g.a)) {
-          m.events.push(stripNull({ on: onPitch(m, curSeg(m)), us: g.us, p: g.us && g.p != null ? g.p : null, a: g.us && g.a != null ? g.a : null, by: 'team', at: typeof g.ts === 'number' ? g.ts : Date.now(),
+          goalPush(m, putEvent(m, stripNull({ on: onPitch(m, curSeg(m)), us: g.us, p: g.us && g.p != null ? g.p : null, a: g.us && g.a != null ? g.a : null, by: 'team', at: typeof g.ts === 'number' ? g.ts : Date.now(),
             min: typeof g.min === 'number' ? Math.max(0, Math.min(m.half * (m.periods === 1 ? 1 : 2), Math.round(g.min))) : matchMin(m),
-            x: typeof g.x === 'number' && g.x >= 1 ? Math.min(60, Math.round(g.x)) : null }));
-          goalPush(m, m.events[m.events.length - 1]);
+            x: typeof g.x === 'number' && g.x >= 1 ? Math.min(60, Math.round(g.x)) : null })));
         }
       });
       if (ids.length) {
@@ -1394,10 +1394,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     setSync(org ? 'saving' : 'watch');
     listen(code); pull();
   }
-  async function addGoal(ev) {
+  async function addGoal(ev, at) { // `at`: when it really went in, for a goal pressed on the watch that has only just reached this phone
     var m = S.match; if (!m) return;
-    if (Date.now() < lockUntil) return;
-    if (role === 'owner') { ev.at = Date.now(); m.events.push(ev); save(); lockScore({ us: !!ev.us, mine: true }); ping('goal', { us: !!ev.us }); goalPush(m, ev); return; }
+    if (!at && Date.now() < lockUntil) return;
+    if (role === 'owner') { ev.at = at || Date.now(); putEvent(m, ev); save(); lockScore({ us: !!ev.us, mine: true, at: ev.at }); ping('goal', { us: !!ev.us }); goalPush(m, ev); return; }
     if (!sb || !A.active) return;
     var say = function (t) { goalMsg = t; clearTimeout(goalT); goalT = setTimeout(function () { goalMsg = ''; renderScore(); }, 8000); renderScore(); };
     ev.ts = Date.now(); say('Sending the goal…');
@@ -1406,6 +1406,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (res.data) { ping('goal', { us: !!ev.us }); lockScore({ us: !!ev.us, mine: true }); say('Goal sent. It shows up once a gaffer’s phone picks it up.'); }
       else { say('Goal logging is switched off for this team.'); setRole('viewer'); setSync('watch'); }
     } catch (e) { say('Couldn’t send the goal. Check your signal and try again.'); }
+  }
+  function putEvent(m, ev) { // in the order things happened: one logged on a watch or another phone can arrive after a later one
+    var i = m.events.length; while (i > 0 && typeof ev.at === 'number' && typeof m.events[i - 1].at === 'number' && m.events[i - 1].at > ev.at) i--;
+    m.events.splice(i, 0, ev); return ev;
   }
   var goalMsg = '', goalT = null;
   function goalPush(m, ev) { // tell everyone who isn't watching that the score has changed
@@ -1468,9 +1472,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var LOCK_MS = 8000, lockUntil = 0, lockT2 = null, lockNote = '';
   function lockScore(g) {
     var m = S.match; if (!m) return;
-    lockUntil = Date.now() + LOCK_MS; pick = null;
+    var until = (typeof g.at === 'number' ? Math.min(g.at, Date.now()) : Date.now()) + LOCK_MS; // from when it was scored: a goal from the watch that arrives minutes late locks nothing
+    if (until <= Date.now()) { watchPush(); if (S.view === 'game') renderScore(); return; }
+    lockUntil = until; pick = null;
     lockNote = g.mine ? (role === 'owner' ? '' : 'Goal sent.') : 'Goal for ' + (g.us ? teamShort() : m.opp) + ' logged on another phone.';
-    clearTimeout(lockT2); lockT2 = setTimeout(function () { lockUntil = 0; lockNote = ''; if (S.view === 'game') renderScore(); }, LOCK_MS + 50);
+    clearTimeout(lockT2); lockT2 = setTimeout(function () { lockUntil = 0; lockNote = ''; if (S.view === 'game') renderScore(); }, until - Date.now() + 50);
     watchPush();
     if (S.view === 'game') renderScore();
   }
@@ -1525,7 +1531,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     });
     return r;
   }
-  function elapsed(m) { return m.base + (m.running ? Date.now() - m.t0 : 0); } // keeps running into added time until the half is ended by hand
+  var asOf = 0; // set for a moment to stamp something that happened a little while ago (a press on the watch that has only just arrived)
+  function elapsed(m) { return Math.max(0, m.base + (m.running ? (asOf && asOf >= m.t0 ? asOf : Date.now()) - m.t0 : 0)); } // (never negative: another phone's clock can be a few seconds ahead of this one) // keeps running into added time until the half is ended by hand
   function clockSeg(m) { // the block the clock says the game is in
     if (m.phase === 'pre') return 0;
     if (m.phase === 'ft') return m.segs.length - 1;
@@ -2385,7 +2392,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (a === 'release' && sb) { try { await q(sb.rpc('release_player', { p_code: A.active })); myPid = null; pull(); } catch (err) {} }
   });
   $('mResume').addEventListener('click', function () { go('game'); });
-  armed($('mNew'), 'Scrap the game in progress?', function () { S.match = null; go('setup'); }, function () { return !!S.match; });
+  armed($('mNew'), 'Scrap the game in progress?', function () { if (role !== 'owner') return; if (S.match) { S.match = null; save(); } go('setup'); }, function () { return !!S.match; });
   $('mStats').addEventListener('click', function () { go('stats'); });
   $('mHighlights').addEventListener('click', function () { go('highlights'); });
   $('mInsights').addEventListener('click', function () { go('insights'); });
@@ -2895,7 +2902,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var F = fmtFix(D.fmt);
     S.match = { opp: $('opp').value.trim() || 'Opponents', friendly: !D.tour && $('friendly').checked, order: pl.ids, keeper: D.keeper, segs: mkSegs(sched, pl.ids, D.keeper, F.half, F.sub, F.periods),
                 squad: pl.ids.concat(D.keeper != null ? [D.keeper] : []), gone: [],
-                half: F.half, sub: F.sub, pitch: F.side, periods: F.periods, events: [], phase: 'pre', running: false, base: 0, t0: 0 };
+                half: F.half, sub: F.sub, pitch: F.side, periods: F.periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
     if (D.fx) S.match.fx = D.fx;
     if (D.tour) { S.match.tour = D.tour.id; S.match.tourName = D.tour.name; }
     fmtRemember(D.tour ? 'tournament' : 'game', F);
@@ -3118,13 +3125,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var m = S.match; if (!m) return;
     var i = curSeg(m), s = m.segs[i], live = m.phase === 'h1' || m.phase === 'h2';
     var tm = live ? Math.max(s.from, Math.min(s.to, Math.floor(elapsed(m) / 60000))) : s.from;
-    var wasOn = s.on.indexOf(X) >= 0 || s.gk === X, hadBench = s.bench.filter(function (id) { return id !== X; }).length > 0;
+    var wasOn = s.on.indexOf(X) >= 0 || s.gk === X, hadBench = s.bench.filter(function (id) { return id !== X; }).length > 0, waiting = subDue(m) >= 0;
     var cameOn = applyOut(m, X, G, i, tm, R, live && elapsed(m) >= halfMs(m)), msg = nm(X) + ' is out.';
+    if (live && !waiting && m.ok != null) m.ok = clockSeg(m); // this swap happens now: it isn't a change waiting to be confirmed
     if (G != null) msg += ' ' + nm(G) + ' goes in goal.';
     if (cameOn.length) msg += ' ' + listAnd(cameOn.map(nm)) + (cameOn.length > 1 ? ' come' : ' comes') + ' on now.';
     else if (wasOn && !hadBench) msg += ' Nobody is on the bench, so you play one short.';
     msg += ' The rota below is updated.';
-    m.notice = msg; outPick = null; pick = null; lastBlock = curSeg(m); save(); renderGame();
+    m.notice = msg; outPick = null; pick = null; lastBlock = curSeg(m); lastDue = subDue(m); save(); renderGame();
   }
   $('outBtn').addEventListener('click', function () { outPick = outPick ? null : { step: 'who' }; renderOut(); });
   $('outPicker').addEventListener('click', function (e) {
@@ -3220,40 +3228,78 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   try { watchSeen = JSON.parse(localStorage.getItem('apt-watch-seen')) || {}; } catch (e) {} // remembered across restarts, so a press the watch repeats is never counted twice
   function watchState() {
     var m = S.match; if (!m || role !== 'owner') return { live: false };
+    if (!m.gid) { m.gid = uuid(); saveLocal(); } // a game set up before games had an id
     var t = tally(m), cb = curSeg(m), on = onPitch(m, cb), changes = [], first = m.phase === 'pre' || m.phase === 'ht' ? cb : cb + 1;
-    for (var i = Math.max(1, first); i < m.segs.length && changes.length < 4; i++) {
+    for (var i = Math.max(1, first); i < m.segs.length && changes.length < 40; i++) { // every change still to come: the watch may not hear from this phone again until full time
       var sw = swapAt(m, i); if (!sw.on.length && !sw.off.length) continue;
       changes.push({ h: m.segs[i].h, from: m.segs[i].from, on: sw.on.map(nm), off: sw.off.map(nm) });
     }
-    return { live: true, due: subDue(m) >= 0, team: teamShort(), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
+    var acks = Object.keys(watchSeen).sort(function (a, b) { return watchSeen[b] - watchSeen[a] || (a < b ? -1 : 1); }).slice(0, 24); // presses from the watch this phone has dealt with, so it can stop repeating them
+    return { live: true, gid: m.gid, acks: acks, due: subDue(m) >= 0, team: teamShort(), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
       players: pickOrder(m).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0, gk: id === m.segs[cb].gk }; }) };
   }
-  function watchPush() {
+  function watchSend() {
     if (!Watch || role !== 'owner') return; // only the phone running the game speaks to the watch; while this app is still finding out who it is, it says nothing
-    clearTimeout(watchT); watchT = setTimeout(function () {
-      watchDrain();
-      var json = JSON.stringify(watchState()); if (json === watchLast && Date.now() - watchSentAt < 30000) return; // unchanged, but said again now and then in case one was missed
-      watchLast = json; watchSentAt = Date.now(); try { Watch.push({ state: json }).catch(function () {}); } catch (e) {}
-    }, 150);
+    var json = JSON.stringify(watchState()); if (json === watchLast && Date.now() - watchSentAt < 30000) return; // unchanged, but said again now and then in case one was missed
+    watchLast = json; watchSentAt = Date.now(); try { Watch.push({ state: json }).catch(function () {}); } catch (e) {}
   }
-  function watchEvent(d) {
-    var ev, m = S.match; try { ev = JSON.parse(d.event); } catch (e) { return; }
-    if (!ev || (ev.id && watchSeen[ev.id])) return; // the watch sends each press again until it sees the result, so the same one can arrive many times
-    // The watch can wake this app before it has finished signing in and loading the game: keep the event for a few minutes and try again.
-    if (!m || role !== 'owner') { if (!d.again) watchQueue.push({ event: d.event, again: true, t: Date.now() }); return; }
-    if (ev.id) { watchSeen[ev.id] = Date.now(); try { var ids = Object.keys(watchSeen).sort(function (a, b) { return watchSeen[b] - watchSeen[a]; }).slice(0, 80), keep = {}; ids.forEach(function (k) { keep[k] = watchSeen[k]; }); watchSeen = keep; localStorage.setItem('apt-watch-seen', JSON.stringify(keep)); } catch (e) {} }
-    if (m.phase === 'ft') return;
+  function watchPush() {
+    if (!Watch || role !== 'owner') return;
+    clearTimeout(watchT); watchT = setTimeout(function () { watchDrain(); watchSend(); }, 150);
+  }
+  var PHASES = { pre: 0, h1: 1, ht: 2, h2: 3, ft: 4 };
+  // One press from the watch. Returns true if it can't be dealt with yet (the app is still loading, or an earlier press it follows
+  // hasn't arrived), so it is kept and tried again. The watch repeats each press until this phone lists it as dealt with.
+  function watchEvent(json) {
+    var ev, m = S.match; try { ev = JSON.parse(json); } catch (e) { return false; }
+    if (!ev || typeof ev !== 'object' || typeof ev.id !== 'string' || !ev.id || watchSeen[ev.id]) return false; // every press has an id; without one a repeat couldn't be told from a new press
+    if (!m || role !== 'owner') return true;
+    var seen = function () {
+      if (!ev.id) return; watchSeen[ev.id] = Date.now();
+      try { var ids = Object.keys(watchSeen).sort(function (a, b) { return watchSeen[b] - watchSeen[a]; }).slice(0, 80), keep = {}; ids.forEach(function (k) { keep[k] = watchSeen[k]; }); watchSeen = keep; localStorage.setItem('apt-watch-seen', JSON.stringify(keep)); } catch (e) {}
+    };
+    if ((ev.gid && m.gid && ev.gid !== m.gid) || m.phase === 'ft') { seen(); return false; } // pressed during a different game, or after the final whistle
+    var now = Date.now(), raw = typeof ev.at === 'number' && now - ev.at > -10000 && now - ev.at < 3 * 3600000 ? ev.at : now, when = Math.min(raw, now), at = PHASES[m.phase]; // the watch's clock can be a second or two ahead of this one
     var ok = function (v) { return typeof v === 'number' && m.squad.indexOf(v) >= 0 ? v : null; };
-    if (ev.type === 'goal') { pick = null; addGoal(stamped(m, stripNull({ us: !!ev.us, p: ev.us ? ok(ev.p) : null, a: ev.us ? ok(ev.a) : null }))); }
-    else if (ev.type === 'subs') { if (!ev.change || subDue(m) < 0 || m.segs[subDue(m)].h + '-' + m.segs[subDue(m)].from === ev.change) subsDone(); } // only the change the watch was asked about
-    else if (ev.type === 'start') { if (m.phase === 'pre' || m.phase === 'ht') goTap(ev.at); } // kick-off or the second half, pressed on the watch
-    else if (ev.type === 'hl' && m.phase !== 'pre') { m.events.push(stamped(m, stripNull({ hl: true, p: myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null, watch: true, at: Date.now() }))); save(); if (S.view === 'game') renderScore(); }
+    if (ev.type === 'start') { // kick-off or the second half, pressed on the watch
+      var to = ev.to === 'h1' || ev.to === 'h2' ? ev.to : m.phase === 'ht' ? 'h2' : 'h1';
+      if (at < PHASES[to] - 1) return true; // "second half" has arrived before "half time"
+      seen(); if (at === PHASES[to] - 1 && !(to === 'h2' && m.periods === 1)) goTap(Math.max(when, to === 'h2' ? m.htAt || 0 : 0));
+    } else if (ev.type === 'end') { // the whistle
+      var from = ev.from === 'h2' ? 'h2' : 'h1';
+      if (at < PHASES[from]) return true;
+      seen(); if (m.phase === from && when >= m.t0) endHalf(when); // one timed before this half began was pressed in an earlier one
+    } else if (ev.type === 'subs') { // only the change the watch was asked about
+      var due = subDue(m), name = function (i) { return m.segs[i].h + '-' + m.segs[i].from; };
+      if (ev.change && (due < 0 || name(due) !== ev.change)) {
+        for (var i = Math.max(due, curSeg(m)) + 1; i < m.segs.length; i++) if (name(i) === ev.change) return true; // not due on this phone's clock yet: any second now
+        seen(); return false;
+      }
+      seen(); subsDone();
+    } else if (ev.type === 'goal') {
+      seen(); pick = null;
+      if (m.events.some(function (e) { return !e.hl && typeof e.at === 'number' && Math.abs(e.at - raw) < LOCK_MS; })) return false; // the same goal, already logged on another phone
+      asOf = when; var g; try { g = stamped(m, stripNull({ us: !!ev.us, p: ev.us ? ok(ev.p) : null, a: ev.us ? ok(ev.a) : null })); } finally { asOf = 0; }
+      addGoal(g, raw);
+    } else if (ev.type === 'hl') {
+      seen(); if (m.phase === 'pre') return false;
+      asOf = when; var h; try { h = stamped(m, stripNull({ hl: true, p: myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null, watch: true, at: raw })); } finally { asOf = 0; }
+      putEvent(m, h); save(); if (S.view === 'game') renderScore();
+    } else seen();
+    return false;
+  }
+  function watchTake(d) { // straight from the watch
+    if (!d || typeof d.event !== 'string') return;
+    watchDrain(); // anything already waiting goes first
+    if (watchEvent(d.event)) watchQueue.push({ event: d.event, t: Date.now() });
+    watchSend(); // answer at once: the app may only be awake for a moment
   }
   function watchDrain() {
-    if (!watchQueue.length || !S.match || role !== 'owner') { watchQueue = watchQueue.filter(function (x) { return Date.now() - x.t < 600000; }); return; }
-    var q2 = watchQueue; watchQueue = []; q2.forEach(function (x) { if (Date.now() - x.t < 600000) watchEvent(x); });
+    watchQueue = watchQueue.filter(function (x) { return Date.now() - x.t < 1200000; });
+    if (!watchQueue.length || !S.match || role !== 'owner') return;
+    var q2 = watchQueue; watchQueue = []; q2.forEach(function (x) { if (watchEvent(x.event)) watchQueue.push(x); });
   }
-  if (Watch) { try { Watch.addListener('event', watchEvent); } catch (e) {} setInterval(watchPush, 5000); }
+  if (Watch) { try { Watch.addListener('event', watchTake); } catch (e) {} setInterval(watchPush, 5000); }
   // a light tap under the finger for every button press, and no zooming by pinch or double tap
   var tapAt = 0;
   document.addEventListener('pointerdown', function (e) {
@@ -3342,26 +3388,31 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
   $('go').addEventListener('click', function () { goTap(); });
   function goTap(at) { // the big clock button; `at` is when it was really pressed, if that was on the watch a moment ago
-    var m = S.match; if (!m || m.phase === 'ft') return;
-    var kicked = m.phase === 'pre', when = typeof at === 'number' && Date.now() - at >= 0 && Date.now() - at < 600000 ? at : Date.now();
+    var m = S.match; if (!m || m.phase === 'ft' || role !== 'owner') return;
+    var kicked = m.phase === 'pre', began = kicked || m.phase === 'ht', when = typeof at === 'number' && Date.now() - at >= 0 ? at : Date.now();
     if (m.phase === 'pre') m.koAt = when;
     if (m.phase === 'ht') m.h2At = when;
     if (m.phase === 'pre' || m.phase === 'ht') m.et = false;
     if (m.phase === 'pre' || m.phase === 'ht') { m.phase = m.phase === 'pre' ? 'h1' : 'h2'; m.base = 0; m.t0 = when; m.running = true; beep(1); }
     else if (m.running) { m.base = elapsed(m); m.running = false; }
     else { m.t0 = Date.now(); m.running = true; }
-    if (m.ok == null || kicked || m.phase === 'h2' && m.segs[m.ok] && m.segs[m.ok].h === 0) m.ok = clockSeg(m);
-    lastBlock = curSeg(m); lastDue = subDue(m); wake(); save(); renderGame();
+    if (began) { // the half starts with its own line-up; if it really started a while ago (on the watch), any change since is still to be confirmed
+      for (var i = 0; i < m.segs.length; i++) if (m.segs[i].h === (m.phase === 'h2' ? 1 : 0)) { m.ok = i; break; }
+    } else if (m.ok == null) m.ok = clockSeg(m);
+    lastBlock = curSeg(m); lastDue = subDue(m);
+    if (began && lastDue >= 0) { subAsk = true; beep(3); }
+    wake(); save(); renderGame();
     if (kicked) announceGame(m);
   }
-  armed($('reset'), 'Sure?', function () { var m = S.match; if (!m) return; m.phase = 'pre'; m.running = false; m.base = 0; m.et = false; delete m.koAt; delete m.htAt; delete m.h2At; delete m.ftAt; lastBlock = -1; save(); renderGame(); });
-  armed($('endHalf'), 'End it early?', function () {
-    var m = S.match; if (!m || (m.phase !== 'h1' && m.phase !== 'h2')) return;
+  armed($('reset'), 'Sure?', function () { var m = S.match; if (!m || role !== 'owner') return; m.phase = 'pre'; m.running = false; m.base = 0; m.et = false; delete m.ok; lastDue = -1; subAsk = false; delete m.koAt; delete m.htAt; delete m.h2At; delete m.ftAt; lastBlock = -1; save(); renderGame(); });
+  function endHalf(when) { // the whistle; `when` is when it was really blown, if that was on the watch a moment ago
+    var m = S.match; if (!m || role !== 'owner' || (m.phase !== 'h1' && m.phase !== 'h2')) return;
     var last = m.phase === 'h2' || m.periods === 1; // a game with no half time ends at the first whistle
-    m[last ? 'ftAt' : 'htAt'] = Date.now();
+    m[last ? 'ftAt' : 'htAt'] = typeof when === 'number' ? when : Date.now();
     m.running = false; m.base = 0; m.et = false; m.phase = last ? 'ft' : 'ht';
-    lastBlock = curSeg(m); save(); renderGame();
-  }, function () { var m = S.match; return !!m && elapsed(m) < halfMs(m); });
+    lastBlock = curSeg(m); lastDue = -1; subAsk = false; save(); renderGame();
+  }
+  armed($('endHalf'), 'End it early?', function () { endHalf(); }, function () { var m = S.match; return !!m && elapsed(m) < halfMs(m); });
   armed($('finish'), 'Tap again to finish', function () {
     var m = S.match; if (!m) return;
     var gm = gameMins(m), t = tally(m), per = {};

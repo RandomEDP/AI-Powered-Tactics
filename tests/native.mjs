@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import { chromium } from './pinned.mjs';
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const pg = await b.newPage({ viewport: { width: 400, height: 900 } }); const errs = []; pg.on('pageerror', (e) => errs.push(String(e)));

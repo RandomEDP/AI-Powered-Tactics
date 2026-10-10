@@ -1,5 +1,5 @@
 // Kick-off: everyone with the team open gets a "Game started" pop-up, can watch along and log goals; the score locks for 8 seconds.
-import { chromium } from 'playwright';
+import { chromium } from './pinned.mjs';
 import fs from 'fs';
 const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first

@@ -1,5 +1,5 @@
 // Playing another team: home grounds, finding teams, a challenge sent, countered and accepted, and the poll it makes for both.
-import { chromium } from 'playwright';
+import { chromium } from './pinned.mjs';
 import fs from 'fs';
 const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first

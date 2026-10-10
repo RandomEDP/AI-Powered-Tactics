@@ -1,5 +1,5 @@
 // Player accounts: join by code, claim a player, gaffer badge, locked buttons, highlights screen.
-import { chromium } from 'playwright';
+import { chromium } from './pinned.mjs';
 import fs from 'fs';
 const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'utf8');
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first

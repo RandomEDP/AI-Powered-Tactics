@@ -1,5 +1,5 @@
 // The tactics board: shapes, names, drawing, set pieces, saving. It is a sandbox and touches nothing else.
-import { chromium } from 'playwright';
+import { chromium } from './pinned.mjs';
 import fs from 'fs';
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });

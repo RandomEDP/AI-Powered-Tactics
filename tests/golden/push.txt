@@ -1,0 +1,7 @@
+explainer shown: true | iOS asked yet: [] | New game polls. Be first to say you’re in before the spaces go Kick-off and every goal. Fo
+after "Not now" and a relaunch: shown again false
+a week later: shown true
+after "Turn on": ["ios asked","register"] | saved to the database: true | pop-up gone: true
+next launch: shown false
+goal notification: [["Goal! SOP FC 1–0 Dog","Chaplin, set up by Harrison."]]
+errors: []

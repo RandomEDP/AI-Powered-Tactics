@@ -1,0 +1,19 @@
+board: 6 pieces | shapes: [ '2-2', '1-2-1', '2-1-1', '1-1-2', '3-1' ]
+diamond: u1@50.0 110.0 u2@25.0 82.0 u3@75.0 82.0 u4@50.0 52.0
+named: [ 'Marsh', 'Tobi', 'Dev', 'Kofi', 'Luca' ] | No games yet, so this is just the first names on the list.
+tap a player -> Who’s this?
+after a drag: u2@15.0 60.0
+lines drawn: 1
+with opposition: 11 pieces
+set piece: One darts across the near post for a first-time finish while another peels to the back. One stays home. | arrows: 3
+played, pieces moved: true | reset offered: true
+back to the start: true
+7-a-side pieces: 7 | saved: [ 'Corner one' ]
+loaded save, ours: 5
+  talk: <varies>
+  coin: <varies>
+  captain: <varies>
+  pens: <varies>
+picture: tactics.png
+after reload still on: v-board | saves kept: 1
+errors: []

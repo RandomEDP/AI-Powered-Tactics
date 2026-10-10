@@ -1,6 +1,6 @@
 // Walks every screen and saves screenshots, for checking the design by eye.
 // Usage: node shots.mjs <output dir> [light|dark]
-import { chromium } from 'playwright';
+import { chromium } from './pinned.mjs';
 import fs from 'fs';
 const out = process.argv[2] || 'shots', scheme = process.argv[3] || 'light';
 fs.mkdirSync(out, { recursive: true });
