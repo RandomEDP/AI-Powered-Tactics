@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>AI Powered Tactics</title>
+<title>Gaffer</title>
 <meta name="description" content="Fair or aggressive line-ups, sub rotations, live scores, stats and highlight reels for small-sided football teams.">
 <meta name="theme-color" content="#1f6b4a">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,7 +16,7 @@
 
 <link rel="stylesheet" href="vendor/fonts.css">
 <style>
-/* AI Powered Tactics.
+/* Gaffer.
    One typeface (Bricolage Grotesque): wide and heavy for headings, condensed and heavy for the clock and scores.
    Flat tonal surfaces, no shadows. Three radii by rank: 28px for the pitch panel (hero, clock, intro stage),
    20px for cards, 14px for controls. The team colour drives every accent. */
@@ -412,7 +412,7 @@ tr.past td { opacity: .45; }
 <div class="app">
 
 <div class="intro" id="v-intro" hidden>
-  <div class="intro-top"><span class="brand"><img src="icons/icon-192.png" alt="">AI Powered Tactics</span><button class="link" id="introSkip" type="button">Skip</button></div>
+  <div class="intro-top"><span class="brand"><img src="icons/icon-192.png" alt="">Gaffer</span><button class="link" id="introSkip" type="button">Skip</button></div>
   <div class="intro-track" id="introTrack">
 
     <article class="ipage" aria-label="What the app is for"><div class="ipage-in">
@@ -514,7 +514,7 @@ tr.past td { opacity: .45; }
 </div>
 
 <div class="view" id="v-welcome" hidden>
-  <div class="wtop"><span class="brand"><img src="icons/icon-192.png" alt="">AI Powered Tactics</span><button class="link" id="introOpen" type="button">How it works</button></div>
+  <div class="wtop"><span class="brand"><img src="icons/icon-192.png" alt="">Gaffer</span><button class="link" id="introOpen" type="button">How it works</button></div>
   <h1 class="lead">Join your team</h1>
   <div class="card"><h2>Got a team code?</h2><p class="note">Your gaffer has a 6-character code for the team. Enter it to pick your player and see your stats.</p>
     <div class="joinrow"><input id="joinCode" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="K7Q2MX" aria-label="Team code"><button class="plain primary" id="joinBtn" type="button">Find team</button></div>
@@ -587,7 +587,7 @@ tr.past td { opacity: .45; }
     <div class="mock"><b class="k">Commentary</b><div class="wave" aria-hidden="true"><i></i><i style="animation-delay:.1s"></i><i style="animation-delay:.2s"></i><i style="animation-delay:.3s"></i><i style="animation-delay:.4s"></i><i style="animation-delay:.5s"></i><i style="animation-delay:.6s"></i><i style="animation-delay:.7s"></i><i style="animation-delay:.8s"></i><i style="animation-delay:.9s"></i><i style="animation-delay:1s"></i><i style="animation-delay:.15s"></i><i style="animation-delay:.35s"></i><i style="animation-delay:.55s"></i><i style="animation-delay:.75s"></i><i style="animation-delay:.95s"></i></div><span>“He’s picked that up on the halfway line, and what a finish!”</span></div>
   </div>
   <span class="soon-tag">In the works</span>
-  <div class="itext"><h1>The AI part of AI Powered Tactics</h1><p>The app already knows every goal, assist, save and minute. Next, it starts telling you what they mean.</p></div>
+  <div class="itext"><h1>AI is coming to Gaffer</h1><p>The app already knows every goal, assist, save and minute. Next, it starts telling you what they mean.</p></div>
   <ul class="soon-list">
     <li><b>AI powered insights</b><span>What your stats are really saying: who plays best together, when you score and concede, who’s in form, and the line-up to pick next.</span></li>
     <li><b>AI powered commentary</b><span>A commentator’s voice over your footage, calling the goals by name. For the full game or just the highlights.</span></li>
@@ -596,7 +596,7 @@ tr.past td { opacity: .45; }
 </div>
 
 <div class="view" id="v-home">
-  <div class="hero"><img id="heroCrest" alt="" hidden><h1 id="heroName"></h1><p id="homeRecord"></p><p class="app-name">AI Powered Tactics</p></div>
+  <div class="hero"><img id="heroCrest" alt="" hidden><h1 id="heroName"></h1><p id="homeRecord"></p><p class="app-name">Gaffer</p></div>
   <div class="card" id="pendCard" hidden><h2 id="pendTitle"></h2><p class="note">Tap the link in the email we sent you, then sign in here to finish joining.</p>
     <div class="actions"><button class="plain primary" type="button" data-go="account">Sign in</button></div></div>
   <div class="card" id="fxCard" hidden></div>
@@ -1836,7 +1836,7 @@ tr.past td { opacity: .45; }
   function icsFor(f) {
     var z = function (ms) { return new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, ''); };
     var t = function (v) { return String(v || '').replace(/\\/g, '\\\\').replace(/([,;])/g, '\\$1').replace(/\r?\n/g, '\\n'); };
-    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//AI Powered Tactics//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Gaffer//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
       'UID:' + f.id + '@aipoweredtactics', 'DTSTAMP:' + z(Date.now()), 'DTSTART:' + z(f.ko_at), 'DTEND:' + z(f.ko_at + 3600000),
       'SUMMARY:' + t(teamName() + ' vs ' + (f.opp || 'TBC'))].concat(f.location ? ['LOCATION:' + t(f.location)] : [], f.cost ? ['DESCRIPTION:' + t('Cost: ' + f.cost)] : [],
       ['END:VEVENT', 'END:VCALENDAR']).join('\r\n') + '\r\n';
@@ -2142,9 +2142,9 @@ tr.past td { opacity: .45; }
         r.sync = sync; save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
         if (dirty || !r.id) throw new Error('Couldn’t save the game to the database. Check your signal and try again.');
         var ink = getComputedStyle(document.documentElement).getPropertyValue('--team-ink').trim() || '#ffffff';
-        var res = await rc.cut({ path: CUT.src.path, watermark: 'AI Powered Tactics', reelFile: 'reel.mp4',
+        var res = await rc.cut({ path: CUT.src.path, watermark: 'Gaffer', reelFile: 'reel.mp4',
           clips: list.map(function (c, i) { return { path: c.second ? CUT.src2.path : CUT.src.path, start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4' }; }),
-          outro: { title: teamName() + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: 'Made with AI Powered Tactics', color: S.color, ink: ink } });
+          outro: { title: teamName() + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: 'Made with Gaffer', color: S.color, ink: ink } });
         var rows = [];
         for (var i = 0; i < res.clips.length; i++) {
           CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; var el = $('cutProg'); if (el) el.textContent = CUT.prog;
@@ -2886,7 +2886,7 @@ tr.past td { opacity: .45; }
   function reelScript(r, clips, captions) {
     var L = [], pad = function (n) { return ('0' + n).slice(-2); }, clean = function (s) { return String(s).replace(/[\r\n]+/g, ' '); };
     L.push('#!/usr/bin/env bash');
-    L.push('# ' + clean(teamName()) + ' v ' + clean(r.opp) + ' (' + r.us + '-' + r.them + ') highlights, made by AI Powered Tactics.');
+    L.push('# ' + clean(teamName()) + ' v ' + clean(r.opp) + ' (' + r.us + '-' + r.them + ') highlights, made by Gaffer.');
     L.push('# Run it with the GoPro files in recording order:  bash highlights.sh GX010001.MP4 GX020001.MP4');
     L.push('set -euo pipefail');
     L.push('[ "$#" -ge 1 ] || { echo "Give the GoPro files in order, e.g. bash highlights.sh GX01*.MP4 GX02*.MP4"; exit 1; }');
@@ -3015,7 +3015,7 @@ tr.past td { opacity: .45; }
   function seasonScript(people) { // people: [{ slug, name, clips }]
     var L = [], clean = function (s) { return String(s).replace(/[\r\n]+/g, ' '); }, n = 0;
     L.push('#!/usr/bin/env bash');
-    L.push('# ' + clean(teamName()) + ' season reels, made by AI Powered Tactics.');
+    L.push('# ' + clean(teamName()) + ' season reels, made by Gaffer.');
     L.push('# Run it from the folder that holds one folder per game:  bash season.sh');
     L.push('set -euo pipefail');
     L.push('CAPTIONS=1   # set to 0 if ffmpeg complains about drawtext');

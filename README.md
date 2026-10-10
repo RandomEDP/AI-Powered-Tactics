@@ -1,4 +1,4 @@
-# AI Powered Tactics
+# Gaffer
 
 Line-ups, sub rotations, live scores, stats and highlight reels for small-sided football teams.
 An iOS app (and the same app on the web) backed by Supabase, usable offline at the pitch.

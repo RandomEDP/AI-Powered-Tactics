@@ -1,6 +1,6 @@
 {
-  "name": "AI Powered Tactics",
-  "short_name": "Tactics",
+  "name": "Gaffer",
+  "short_name": "Gaffer",
   "description": "Fair or aggressive line-ups, sub rotations, live scores, stats and highlight reels for small-sided football teams.",
   "start_url": "./",
   "scope": "./",
