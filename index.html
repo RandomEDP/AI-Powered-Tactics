@@ -381,6 +381,15 @@ tr.past td { opacity: .45; }
 .fxwhen { font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: .01em; }
 #kickPop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 #kickPop[hidden] { display: none; }
+#planPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#planPop[hidden] { display: none; }
+.planbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
+.planbox h2 { font-size: 24px; line-height: 1.1; } .planbox > p { color: var(--muted); font-size: 14px; }
+.tier { border-radius: 18px; padding: 14px 16px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
+.tier h3 { font-size: 17px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; } .tier h3 b { font-size: 22px; } .tier h3 small { font-size: 11px; font-weight: 800; letter-spacing: .06em; background: #c8ff3e; color: #1c2600; border-radius: 999px; padding: 3px 8px; }
+.tier ul { margin: 0; padding-left: 18px; font-size: 14.5px; line-height: 1.4; display: flex; flex-direction: column; gap: 3px; }
+.tier.pro { background: linear-gradient(135deg, #2a1263, #5a2be2 60%, #8f4bff); color: #fff; }
+@media (prefers-reduced-motion: reduce) { #planPop, .planbox { animation: none; } }
 .kickbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); }
 .kickbox p { font-size: 20px; font-weight: 750; }
 #tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); box-shadow: 0 -1px 0 var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -645,6 +654,19 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <p class="note">Anyone with the code can follow live games and see the stats. To add another gaffer, share the gaffer code from Options.</p>
 </div>
 
+<div id="planPop" role="dialog" aria-labelledby="planTitle" hidden><div class="planbox">
+  <h2 id="planTitle">Free to use. Gaffer tier on the way.</h2>
+  <div class="tier"><h3>Free</h3><ul>
+    <li>Fair subs, live scores, polls, stats, insights, the tactics board and the Apple Watch app</li>
+    <li><b>One highlight reel to try.</b> Log the goals as they go in, point it at your GoPro or phone footage, and it cuts every goal into a reel with the score, your badge and an outro, ready to share</li>
+    <li>Ads (not switched on yet)</li></ul></div>
+  <div class="tier pro"><h3>Gaffer <b>£4.99</b><small>COMING SOON</small></h3><ul>
+    <li>Everything in Free, with no ads</li>
+    <li>Highlight reels for every game</li>
+    <li>AI voiceovers on your reels, AI match reports, and new features as they land</li>
+    <li>Supports the developer</li></ul></div>
+  <p>Early access: everything is unlocked for now.</p>
+  <div class="actions"><button class="plain primary" id="planOk" type="button">Got it</button></div></div></div>
 <div id="kickPop" role="alertdialog" aria-labelledby="kickPopText" hidden><div class="kickbox"><p id="kickPopText"></p>
   <div class="actions"><button class="plain primary" id="kickWatch" type="button">Watch along</button><button class="plain" id="kickLater" type="button">Not now</button></div></div></div>
 
@@ -939,6 +961,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
 <div class="view" id="v-options" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Settings</h1></div>
+  <section>
+    <h2>Plans</h2>
+    <p class="note">Everything is free during early access. A paid Gaffer tier is coming.</p>
+    <div class="actions"><button class="plain" id="planOpen" type="button">See what’s free and what’s coming</button></div>
+  </section>
   <section>
     <h2>Experimental</h2>
     <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
@@ -1577,7 +1604,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var calm = false; try { calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
     introTrack.scrollTo({ left: i * introTrack.clientWidth, behavior: calm ? 'auto' : 'smooth' });
   }
-  function introDone() { A.introSeen = true; saveApp(); go(A.active ? 'home' : 'welcome'); }
+  function introDone() { A.introSeen = true; saveApp(); go(A.active ? 'home' : 'welcome'); planShow(); }
+  function planShow(again) { if (A.plansSeen && !again) return; $('planPop').hidden = false; try { $('planOk').focus(); } catch (e) {} } // what's free and what will be paid, shown once
+  $('planOk').addEventListener('click', function () { $('planPop').hidden = true; A.plansSeen = true; saveApp(); });
   (function () {
     var html = '';
     for (var i = 0; i < introN; i++) html += '<button type="button" data-i="' + i + '" aria-label="' + esc(introTrack.children[i].getAttribute('aria-label')) + '"></button>';
@@ -3362,6 +3391,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
   $('expTrack').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.track = e.target.checked; saveApp(); renderOptions(); });
   $('expTrackOpen').addEventListener('click', function () { go('track'); });
+  $('planOpen').addEventListener('click', function () { planShow(true); });
   $('trackOpen').addEventListener('click', function () { go('track'); });
   // ================= end of player tracking
   // ================= tactics board: a sandbox. Everything in this block stands alone and is kept on this phone only.
@@ -3904,6 +3934,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   if (S.match) lastBlock = curSeg(S.match);
   var first = !A.introSeen ? 'intro' : !A.active ? 'welcome' : S.view === 'reel' ? 'stats' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
   go(first);
+  if (A.introSeen) planShow();
   setSync();
   connect();
   if ('serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js'); } catch (e) {} }

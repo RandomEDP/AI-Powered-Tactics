@@ -3,7 +3,7 @@ const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const pg = await b.newPage({ viewport: { width: 400, height: 900 } }); const errs = []; pg.on('pageerror', (e) => errs.push(String(e)));
 await pg.route('**/*', (r) => r.request().url().startsWith(BASE) && !r.request().url().includes('supabase') ? r.continue() : r.abort());
-await pg.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true })); }); // skip the first-launch intro
+await pg.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true, plansSeen: true })); }); // skip the first-launch intro
 await pg.addInitScript(() => {
   window.__log = [];
   const pend = [];

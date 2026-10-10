@@ -5,7 +5,7 @@ const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'ut
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 } });
-await ctx.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true })); });
+await ctx.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true, plansSeen: true })); });
 await ctx.route('**/*', (r) => { const u = r.request().url(); if (u.includes('vendor/supabase.js')) return r.fulfill({ contentType: 'application/javascript', body: MOCK }); return u.startsWith(BASE) ? r.continue() : r.abort(); });
 const errs = [];
 const open = async (label, fresh) => { const p = await ctx.newPage(); p.on('pageerror', (e) => errs.push(label + ': ' + e)); await p.goto(BASE); if (fresh) { await p.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('apt-')).forEach((k) => localStorage.removeItem(k))); await p.reload(); } await p.waitForTimeout(300); return p; };

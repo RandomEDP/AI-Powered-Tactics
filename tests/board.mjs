@@ -5,7 +5,7 @@ const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const pg = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 }); const errs = [], out = process.argv[2]; pg.on('pageerror', (e) => errs.push(String(e)));
 await pg.route('**/*', (r) => r.request().url().startsWith(BASE) && !r.request().url().includes('supabase') ? r.continue() : r.abort());
-await pg.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true })); });
+await pg.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true, plansSeen: true })); });
 const wait = (ms) => pg.waitForTimeout(ms), shot = async (n) => { if (out) { fs.mkdirSync(out, { recursive: true }); await wait(300); await pg.screenshot({ path: `${out}/${n}.png`, fullPage: true }); } };
 const pcs = () => pg.$$eval('#tbSvg [data-pc]', (g) => g.map((x) => x.getAttribute('data-pc') + '@' + x.getAttribute('transform').replace(/translate\(|\)/g, '')));
 await pg.goto(BASE); await wait(300);

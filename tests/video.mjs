@@ -5,7 +5,7 @@ const MOCK = fs.readFileSync(new URL('./mock-supabase.js', import.meta.url), 'ut
 const BASE = 'http://localhost:8766/'; // serve the repo root on this port first
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
-await ctx.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true })); });
+await ctx.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true, plansSeen: true })); });
 await ctx.addInitScript((base) => {
   window.__rc = [];
   const RC = { addListener: (n, cb) => { RC.cb = cb; return { remove() {} }; },
