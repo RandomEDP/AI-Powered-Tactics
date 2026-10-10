@@ -470,7 +470,7 @@ public class MatchVisionPlugin: CAPPlugin, CAPBridgedPlugin {
         var ask: [[String: Any]] = []
         let asset = AVURLAsset(url: URL(fileURLWithPath: watched.path))
         let camera = AVAssetImageGenerator(asset: asset)
-        camera.appliesPreferredTransform = true
+        camera.appliesPreferredTrackTransform = true
         camera.requestedTimeToleranceBefore = CMTime(value: 1, timescale: 30)
         camera.requestedTimeToleranceAfter = CMTime(value: 1, timescale: 30)
         for piece in nameless.filter({ Double($0.end - $0.start) * dt >= 1.5 }).sorted(by: { $0.dets.count > $1.dets.count }).prefix(4) {
