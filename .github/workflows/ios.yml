@@ -68,6 +68,9 @@ jobs:
             -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" archive "${AUTH[@]}" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="${{ github.run_number }}" | tail -n 60
+          # What the watch app inside the archive says about itself, for when it won't install on a watch.
+          WATCH="$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app/Watch/Watch.app"
+          echo "--- watch app"; plutil -p "$WATCH/Info.plist" || true; lipo -archs "$WATCH/Watch" || true; ls "$WATCH" || true
           sed "s/TEAM_ID/$APPLE_TEAM_ID/" ios/ExportOptions.plist > "$RUNNER_TEMP/ExportOptions.plist"
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" "${AUTH[@]}"

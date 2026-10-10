@@ -339,6 +339,7 @@ tr.past td { opacity: .45; }
 .steps code { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--fill); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
 .badge { display: inline-block; font-size: 12px; font-weight: 750; border-radius: 999px; padding: 2px 9px; margin-left: 6px; vertical-align: 2px; background: var(--fill); color: var(--muted); white-space: nowrap; }
 .badge.gaffer { background: var(--gold); color: #131715; }
+.badge.claimed { background: none; box-shadow: inset 0 0 0 1.5px var(--on); color: var(--on); }
 .badge.you { background: var(--on); color: var(--on-ink); }
 .menu button.locked { opacity: .45; }
 .statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -610,7 +611,7 @@ tr.past td { opacity: .45; }
   <button class="soon-pill" type="button" data-go="soon"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI insights and commentary</small></button>
   <p class="note" id="homeNote" hidden>No game on right now. When one starts, it appears here.</p>
   <div class="card" id="meCard" hidden></div>
-  <section id="squadSec" hidden><h2>Squad</h2><div class="plist" id="squadList"></div></section>
+  <section id="squadSec" hidden><h2>Squad</h2><p class="note" id="squadNote" hidden></p><div class="plist" id="squadList"></div></section>
   <div class="menu"><button id="mSwitch" type="button">Switch team</button></div>
   <p class="note" id="sync"></p>
 </div>
@@ -1577,6 +1578,7 @@ tr.past td { opacity: .45; }
       var res = await q(sb.rpc('claim_player', { p_code: p.code, p_pid: p.pid, p_last_name: p.last || null, p_position: p.pos || 'mix' }));
       A.pending = null; A.notice = res.data === 'ok' ? null : (res.data === 'taken' ? 'Someone else has already claimed ' + p.name + '. Pick your player again.' : 'That player is no longer on the team.');
       saveApp(); myTeams = null; rememberTeam(p.code, p.team, null); openTeam(p.code, 'home');
+      if (res.data === 'ok' && sb.functions) { try { sb.functions.invoke('team-notify', { body: { code: p.code, kind: 'claimed' } }).then(function () {}, function () {}); } catch (e) {} } // lets the gaffers know
     } catch (e) { jSay('Couldn’t join the team. Check your signal and try again.', true); if (!A.active) go('welcome'); }
     pendBusy = false;
   }
@@ -1743,9 +1745,12 @@ tr.past td { opacity: .45; }
     // squad, with the gaffer marked
     var T = totals(true);
     $('squadSec').hidden = !S.players.length;
+    var nClaimed = S.players.filter(function (p) { return (roster[p.id] || {}).claimed; }).length;
+    $('squadNote').hidden = !sb; $('squadNote').textContent = nClaimed + ' of ' + S.players.length + ' have claimed their profile.';
     $('squadList').innerHTML = S.players.slice().sort(function (a, b) { return (!!(roster[b.id] || {}).gaffer) - (!!(roster[a.id] || {}).gaffer); }).map(function (p) {
       var x = roster[p.id] || {}, s = T[p.id];
-      return '<div class="prow"><span>' + esc(nm(p.id)) + (x.gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (p.id === myPid ? '<span class="badge you">You</span>' : '') + '</span>' +
+      return '<div class="prow"><span>' + esc(nm(p.id)) + (x.gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (p.id === myPid ? '<span class="badge you">You</span>' : '') +
+        (sb ? (x.claimed ? '<span class="badge claimed">Claimed</span>' : '<span class="badge">Not claimed</span>') : '') + '</span>' +
         '<small>' + (p.pos ? posName(p.pos) + ', ' : '') + s.g + ' G, ' + s.a + ' A</small></div>';
     }).join('');
   }

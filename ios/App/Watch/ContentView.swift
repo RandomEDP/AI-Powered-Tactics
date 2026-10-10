@@ -1,4 +1,5 @@
 import SwiftUI
+import WatchKit
 
 enum Step: Hashable {
     case scorer
@@ -63,7 +64,7 @@ struct MatchView: View {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Glance(state: state, now: context.date)
                 }
-                .containerRelativeFrame(.vertical)
+                .frame(minHeight: WKInterfaceDevice.current().screenBounds.height * 0.78)
 
                 Changes(state: state)
 

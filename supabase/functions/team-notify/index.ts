@@ -2,6 +2,8 @@
 // Called by a gaffer's app with { code, kind, title, body, fixture? }:
 //   kickoff, poll, highlights  go to everyone on the team except the sender
 //   nudge                      goes only to players who haven't answered the poll named by `fixture`
+// A player who has just claimed their profile calls it with { code, kind: "claimed" }, which tells the gaffers.
+// The wording of that one is written here, not by the caller.
 // Needs these secrets (Edge Functions > Secrets):
 //   APNS_KEY_P8   the contents of an Apple Push Notifications key (.p8)
 //   APNS_KEY_ID   that key's ID
@@ -26,7 +28,7 @@ async function apnsJwt(p8: string, keyId: string, teamId: string) {
   return head + "." + b64url(sig);
 }
 
-const KINDS = ["kickoff", "poll", "highlights", "nudge"];
+const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed"];
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
 Deno.serve(async (req: Request) => {
@@ -34,17 +36,23 @@ Deno.serve(async (req: Request) => {
   try {
     const input = await req.json();
     const kind = KINDS.includes(input.kind) ? input.kind : "kickoff";
-    const title = clean(input.title, 80), text = clean(input.body, 180);
-    if (!title || !text) return json({ error: "Nothing to send" }, 400);
+    let title = clean(input.title, 80), text = clean(input.body, 180);
+    if (kind !== "claimed" && (!title || !text)) return json({ error: "Nothing to send" }, 400);
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
     if (!who?.user) return json({ error: "Sign in first" }, 401);
 
-    const { data: team } = await db.from("teams").select("id,code").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
+    const { data: team } = await db.from("teams").select("id,code,name").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
     if (!team) return json({ error: "No such team" }, 404);
     const { data: gaffers } = await db.from("team_members").select("user_id").eq("team_id", team.id);
-    if (!(gaffers || []).some((g) => g.user_id === who.user.id)) return json({ error: "Only a gaffer can notify the team" }, 403);
+    const isGaffer = (gaffers || []).some((g) => g.user_id === who.user.id);
+    let claimed: { name: string } | null = null;
+    if (kind === "claimed") {
+      const { data: mine } = await db.from("players").select("name").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
+      if (!mine) return json({ error: "You haven't claimed a player on this team" }, 403);
+      claimed = mine; title = clean(team.name, 80); text = `${clean(mine.name, 40)} has claimed their profile.`;
+    } else if (!isGaffer) return json({ error: "Only a gaffer can notify the team" }, 403);
 
     const p8 = Deno.env.get("APNS_KEY_P8"), keyId = Deno.env.get("APNS_KEY_ID"), teamId = Deno.env.get("APPLE_TEAM_ID");
     if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
@@ -57,6 +65,8 @@ Deno.serve(async (req: Request) => {
       const { data: votes } = await db.from("fixture_votes").select("pid").eq("fixture_id", fixture.id);
       const answered = new Set((votes || []).map((v) => v.pid));
       users = (players || []).filter((p) => !answered.has(p.pid)).map((p) => p.user_id);
+    } else if (claimed) {
+      users = (gaffers || []).map((g) => g.user_id);
     } else {
       users = [...(players || []), ...(gaffers || [])].map((r) => r.user_id);
     }
