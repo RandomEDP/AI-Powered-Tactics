@@ -17,10 +17,11 @@ const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(
 // Google's own wording for why the live-commentator delivery was refused is long and ends in a web address that doesn't
 // fit on a phone screen: say what it means instead.
 const reason = (m: string) =>
-  /has not been used in project|is disabled|SERVICE_DISABLED/i.test(m) ? "Google's Agent Platform API has to be switched on for the project the key belongs to"
+  /has not been used in project|it is disabled|SERVICE_DISABLED/i.test(m) ? "Google's Agent Platform API has to be switched on for the project the key belongs to"
+  : /are blocked|SERVICE_BLOCKED/i.test(m) ? "the key is limited to certain Google services. In Google Cloud: Credentials, open the key, API restrictions, and add Agent Platform API"
+  : /API keys are not supported/i.test(m) ? "Google doesn't take an API key for this delivery: it needs a service account instead"
   : /billing/i.test(m) ? "the Google project needs billing switched on"
-  : /permission|not authori[sz]ed|api key/i.test(m) ? "the key isn't allowed to use it"
-  : m.replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
+  : m.replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim().slice(0, 170);
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -53,11 +54,11 @@ Deno.serve(async (req: Request) => {
     const speak = async (body: unknown, note: (m: string) => void) => {
       const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const out = await res.json().catch(() => ({}));
-      if (!res.ok || !out.audioContent) { note(String(out?.error?.message || `the voice service answered ${res.status}`).slice(0, 200)); return null; }
+      if (!res.ok || !out.audioContent) { note(String(out?.error?.message || `the voice service answered ${res.status}`).slice(0, 400)); return null; }
       return out.audioContent as string;
     };
     const straight = (text: string) => speak({ input: { text }, voice: { languageCode: "en-GB", name: `en-GB-Chirp3-HD-${voice}` }, audioConfig: { audioEncoding: "MP3" } }, (m) => { problem = m; });
-    const performed = (text: string) => speak({ input: { text, prompt: HYPE }, voice: { languageCode: "en-GB", name: voice, model_name: "gemini-2.5-flash-tts" }, audioConfig: { audioEncoding: "MP3" } }, (m) => { hypeProblem = m; });
+    const performed = (text: string) => speak({ input: { text, prompt: HYPE }, voice: { languageCode: "en-GB", name: voice, model_name: "gemini-2.5-flash-tts" }, audioConfig: { audioEncoding: "MP3" } }, (m) => { if (!hypeProblem) console.error("live-commentator delivery refused:", m); hypeProblem = m; });
     let engine = "chirp";
     let audio: (string | null)[] = [];
     if (input.style !== "plain") {
