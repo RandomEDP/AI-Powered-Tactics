@@ -14,6 +14,13 @@ const VOICES = ["Fenrir", "Puck", "Sadachbia", "Algenib", "Orus", "Charon", "Kor
 const HYPE = "You are an excitable British football commentator calling the action live on television. Loud, fast and full of energy, voice rising to a shout on the goal. Say exactly this:";
 const MONTHLY = 40000; // characters per team per month: roughly forty reels
 const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
+// Google's own wording for why the live-commentator delivery was refused is long and ends in a web address that doesn't
+// fit on a phone screen: say what it means instead.
+const reason = (m: string) =>
+  /has not been used in project|is disabled|SERVICE_DISABLED/i.test(m) ? "Google's Agent Platform API has to be switched on for the project the key belongs to"
+  : /billing/i.test(m) ? "the Google project needs billing switched on"
+  : /permission|not authori[sz]ed|api key/i.test(m) ? "the key isn't allowed to use it"
+  : m.replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -65,7 +72,7 @@ Deno.serve(async (req: Request) => {
     }
     if (engine === "chirp") audio = await Promise.all(lines.map((text) => text ? straight(text) : null));
     if (!audio.some(Boolean)) return json({ error: problem || hypeProblem || "The voice service gave nothing back." });
-    return json({ audio, chars, voice, engine, note: engine === "chirp" && hypeProblem ? hypeProblem : undefined });
+    return json({ audio, chars, voice, engine, note: engine === "chirp" && hypeProblem ? reason(hypeProblem) : undefined });
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) });
   }
