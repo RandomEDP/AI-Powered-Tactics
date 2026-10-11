@@ -4,4 +4,10 @@ a week later: shown true
 after "Turn on": ["ios asked","register"] | saved to the database: true | pop-up gone: true
 next launch: shown false
 goal notification: [["Goal! SOP FC 1–0 Dog","Chaplin, set up by Harrison."]]
+phones registered while allowed: 1
+switched off in iOS Settings, app opened: taken off the list true | phones registered: 0
+opened again: asked the database again false
+after a relaunch, still off: phones registered 0 | explainer shown: false
+switched back on, app opened: phones registered 1
+switched off before updating the app: asks iOS for the address ["register"] | phones registered: 0
 errors: []

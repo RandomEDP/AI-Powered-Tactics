@@ -1452,13 +1452,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function pushSetup() { // signed-in players and gaffers are asked once whether they want game-start notifications
     var P = plugin('PushNotifications'); if (!P || !sb || !me || (myPid == null && role !== 'owner')) return;
-    if (pushOn) { // already set up: if this phone's token never reached the database (allowed later in iOS Settings, or no signal at the time), try again
-      if (pushSaved !== me.id) { try { P.checkPermissions().then(function (r) { if (r && r.receive === 'granted') P.register(); else if (r && r.receive === 'prompt' && $('pushPop').hidden) pushWhy(); }, function () {}); } catch (e) {} }
-      return;
-    }
+    if (pushOn) { pushCheck(P); return; } // already set up: every time the app comes to the front, see whether iOS still allows notifications
     pushOn = true;
     try {
-      P.addListener('registration', function (t) { if (t && t.value && me) { pushToken = t.value; var uid = me.id; sb.rpc('register_push', { p_token: t.value }).then(function (r) { if (!r || !r.error) pushSaved = uid; }, function () {}); } });
+      P.addListener('registration', function (t) { // iOS has told the app this phone's address for notifications (it does so whether or not they are allowed)
+        if (!t || !t.value || !me) return;
+        pushToken = t.value; try { localStorage.setItem('apt-push-token', t.value); } catch (e) {}
+        var uid = me.id, on = function () { sb.rpc('register_push', { p_token: t.value }).then(function (r) { if (!r || !r.error) { pushSaved = uid; pushGone = null; } }, function () {}); };
+        try { P.checkPermissions().then(function (r) { if (r && r.receive === 'denied') pushOff(P); else on(); }, on); } catch (e) { on(); }
+      });
       P.addListener('pushNotificationReceived', function (n) { var d = n && n.data; if (!d || d.code !== A.active) return; if (d.kind === 'chat') chatPull(); else if (d.kind === 'challenge') rivalsPull(); else refetch(); }); // arrived with the app open
       P.addListener('pushNotificationActionPerformed', function (a) {
         var code = a && a.notification && a.notification.data && a.notification.data.code; if (!code || !teamMeta(code)) return;
@@ -1467,11 +1469,29 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (S.match && A.active === code) { go('game'); return; }
         wantGame = code; openTeam(code, 'home');
       });
+      pushCheck(P);
+    } catch (e) {}
+  }
+  var pushGone = null, pushAskedToken = false;
+  function pushCheck(P) {
+    try {
       P.checkPermissions().then(function (r) {
-        if (r && r.receive === 'granted') P.register();
-        else if (r && (r.receive === 'prompt' || r.receive === 'prompt-with-rationale')) pushWhy();
+        var s = r && r.receive; if (!me) return;
+        if (s === 'granted') { if (pushSaved !== me.id) P.register(); } // not yet in the database (allowed later in iOS Settings, or no signal at the time)
+        else if (s === 'denied') pushOff(P);
+        else if ((s === 'prompt' || s === 'prompt-with-rationale') && $('pushPop').hidden) pushWhy();
       }, function () {});
     } catch (e) {}
+  }
+  // Notifications have been switched off for the app in iOS Settings. Apple still accepts notifications for the phone and
+  // quietly drops them, so the database has to be told: otherwise the gaffer's "sent to 2 phones" counts a phone that
+  // showed nothing, and the squad list doesn't flag the player as having notifications off.
+  function pushOff(P) {
+    if (!me || pushGone === me.id) return;
+    var token = pushToken; if (!token) { try { token = localStorage.getItem('apt-push-token'); } catch (e) {} }
+    if (!token) { if (!pushAskedToken) { pushAskedToken = true; try { P.register(); } catch (e) {} } return; } // ask iOS for this phone's address; the answer comes back through the listener above
+    var uid = me.id;
+    sb.rpc('unregister_push', { p_token: token }).then(function (r) { if (!r || !r.error) { pushGone = uid; pushSaved = null; ping('changed'); } }, function () {});
   }
   // Before iOS asks its one-time question, say what the notifications are for. "Not now" asks again in a week.
   function pushWhy() {
