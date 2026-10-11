@@ -86,6 +86,16 @@ struct MatchView: View {
                     .tint(.green)
                 }
 
+                if state.inPlay && !state.running { // stopped on the phone (for an injury, or by a stray touch in a pocket)
+                    Button {
+                        model.resume()
+                    } label: {
+                        Text("Restart the clock").font(.headline).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
+
                 if state.inPlay { // once time is up the whistle is the next thing wanted, so it sits right under the clock
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         if state.seconds(at: context.date) >= state.half * 60 {
@@ -100,14 +110,45 @@ struct MatchView: View {
                     }
                 }
 
-                if state.due {
-                    Button {
-                        model.askSubs = true
-                    } label: {
-                        Label("Subs due", systemImage: "arrow.left.arrow.right").frame(maxWidth: .infinity)
+                if state.due, let change = state.changes.first { // also asked in a sheet when it comes due; this stays until it's done
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("Subs due", systemImage: "arrow.left.arrow.right")
+                            .font(.headline)
+                            .foregroundStyle(.orange)
+                        if !change.off.isEmpty {
+                            Text("Off: " + change.off.joined(separator: ", ")).font(.footnote.weight(.semibold))
+                        }
+                        if !change.on.isEmpty {
+                            Text("On: " + change.on.joined(separator: ", ")).font(.footnote.weight(.semibold))
+                        }
+                        Button {
+                            model.subsDone()
+                        } label: {
+                            Text("Subs done").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                // What the phone hasn't yet taken in. It keeps everything the watch sends, but only shows and saves it once
+                // the Gaffer app is opened there, so at the end of the game this says whether that has happened.
+                if state.phase == "ft" && model.waiting > 0 {
+                    Text("Open Gaffer on your iPhone to save the game. \(model.waiting) to send.")
+                        .font(.footnote)
+                        .foregroundStyle(.yellow)
+                        .multilineTextAlignment(.center)
+                } else if state.phase == "ft" {
+                    Text("All on your iPhone. Finish the game there.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                } else if !state.inPlay && model.waiting > 0 {
+                    Text("\(model.waiting) still to reach your iPhone. Open Gaffer there when you can.")
+                        .font(.footnote)
+                        .foregroundStyle(.yellow)
+                        .multilineTextAlignment(.center)
                 }
 
                 Changes(state: state)
@@ -120,7 +161,7 @@ struct MatchView: View {
                         Text("Goal \(state.team)").frame(maxWidth: .infinity)
                     }
                     .tint(.green)
-                    .disabled(model.locked || state.phase == "ft")
+                    .disabled(model.locked || !state.inPlay)
 
                     Button {
                         confirmThem = true
@@ -128,14 +169,14 @@ struct MatchView: View {
                         Text("Goal \(state.opp)").frame(maxWidth: .infinity)
                     }
                     .tint(.red)
-                    .disabled(model.locked || state.phase == "ft")
+                    .disabled(model.locked || !state.inPlay)
 
                     Button {
                         model.highlight()
                     } label: {
                         Label("Highlight", systemImage: "star.fill").frame(maxWidth: .infinity)
                     }
-                    .disabled(state.phase == "pre" || state.phase == "ft")
+                    .disabled(!state.inPlay)
 
                     if state.inPlay {
                         Button {

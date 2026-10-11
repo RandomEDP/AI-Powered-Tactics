@@ -33,7 +33,7 @@ const finish = async (p) => { p.errs.forEach((e) => check(false, 'page error: ' 
   eq([m.phase, m.t0, m.ok], ['h1', at, 0], 'the game is started from when it really kicked off');
   check(/^6:1/.test(await p.text('#played')), `the clock reads 6:10 (${await p.text('#played')})`);
   eq([await p.visible('#subPop'), (await p.watch()).due, (await p.watch()).changes[0].from], [true, true, 5], 'and the 5:00 change, already past, is waiting to be confirmed rather than assumed made');
-  check((await p.haptics()).indexOf('WARNING') >= 0, 'with a buzz');
+  eq(await p.haptics(), [], 'quietly: news this old gets no beep or buzz');
   await p.fromWatch({ type: 'subs', change: '0-5', id: id(), at: at + 305000, gid });
   eq([(await p.match()).ok, await p.visible('#subPop'), (await p.watch()).due], [1, false, false], '"Subs done" from the watch, arriving right behind it, makes the change');
   await finish(p);
@@ -183,6 +183,127 @@ const finish = async (p) => { p.errs.forEach((e) => check(false, 'page error: ' 
   await p.run(6000);
   const m = await p.match();
   eq([m.phase, m.gid !== gid, m.opp], ['pre', true, 'Cat'], 'a kick-off press left over from the last game does not start the next one');
+  await finish(p);
+}
+
+// ---------- 8. The phone asleep in a bag for the whole game: everything the watch sent is waiting in the phone's own store
+{
+  const p = await setup(); const gid = (await p.match()).gid, squad = (await p.match()).squad, scorer = squad[1], helper = squad[2];
+  const KO = (await p.now()) + 5000, min = 60000;
+  const presses = [
+    { type: 'start', to: 'h1', at: KO },
+    { type: 'goal', us: true, p: scorer, a: helper, at: KO + 3 * min + 10000 },   // 4th minute
+    { type: 'goal', us: false, at: KO + 5 * min + 5000 },                         // 6th minute, after the change came due but before it was made
+    { type: 'subs', change: '0-5', at: KO + 5 * min + 12000 },
+    { type: 'goal', us: true, p: scorer, at: KO + 7 * min },                      // 8th minute, new line-up
+    { type: 'subs', change: '0-10', at: KO + 10 * min + 20000 },
+    { type: 'hl', at: KO + 12 * min },
+    { type: 'end', from: 'h1', at: KO + 15 * min + 30000 },
+    { type: 'start', to: 'h2', at: KO + 20 * min },
+    { type: 'subs', change: '1-5', at: KO + 25 * min + 8000 },
+    { type: 'goal', us: false, at: KO + 28 * min },                               // 9th minute of the second half
+    { type: 'subs', change: '1-10', at: KO + 30 * min + 15000 },
+    { type: 'goal', us: true, at: KO + 35 * min + 20000 },                        // 15:20 of the second half: added time
+    { type: 'end', from: 'h2', at: KO + 35 * min + 40000 },
+  ].map((e, i) => Object.assign({ id: 'bag-' + i, gid }, e));
+  // they reach the phone in a jumbled order (two different routes from the watch), one of them twice
+  for (const i of [8, 0, 3, 1, 2, 5, 4, 7, 6, 9, 13, 10, 12, 11, 4]) await p.toInbox(presses[i]);
+  eq([(await p.match()).phase, (await p.inbox()).length], ['pre', 14], 'with the app asleep nothing has happened yet, and all fourteen presses are being kept');
+  await p.haptics();
+  await p.sleep(41 * min); // the gaffer gets the phone out after the game
+  await p.run(1000);
+  let m = await p.match(), ws = await p.watch();
+  eq([m.phase, m.koAt, m.htAt, m.h2At, m.ftAt], ['ft', KO, KO + 15 * min + 30000, KO + 20 * min, KO + 35 * min + 40000], 'on waking, the whole game is there: all four whistles at the times they were blown');
+  eq(m.events.map((e) => [e.hl ? 'hl' : e.us ? 'us' : 'them', e.min, e.x ?? 0, e.at - KO]),
+    [['us', 4, 0, 190000], ['them', 6, 0, 305000], ['us', 8, 0, 420000], ['hl', 13, 0, 720000], ['them', 24, 0, 28 * min], ['us', 30, 1, 35 * min + 20000]], 'every goal and the highlight, in order, each in its own minute');
+  const lineup = (i) => [m.segs[i].gk].concat(m.segs[i].on).sort((a, b) => a - b), on = (i) => m.events[i].on.slice().sort((a, b) => a - b);
+  eq([on(0), on(1), on(2), on(4), on(5)], [lineup(0), lineup(0), lineup(1), lineup(4), lineup(5)], 'each goal credited to the five who were really on: the one scored while a change was waiting goes to the old line-up');
+  eq([m.events[0].p, m.events[0].a, m.ok, await p.visible('#subPop')], [scorer, helper, 5, false], 'scorer and assist kept, every change confirmed, nothing left asking');
+  eq([ws.phase, ws.us, ws.them, presses.every((x) => ws.acks.indexOf(x.id) >= 0), await p.inbox()], ['ft', 3, 2, true, []], 'the watch is told 3–2 at full time and that all fourteen are dealt with, and the phone\'s store is emptied');
+  eq(await p.haptics(), [], 'all of it taken in without a single beep');
+  // one more turns up late: a goal from just before the final whistle that took another route
+  await p.fromWatch({ type: 'goal', us: false, id: 'bag-late', gid, at: KO + 35 * min + 30000 });
+  await p.fromWatch({ type: 'goal', us: true, id: 'bag-after', gid, at: KO + 36 * min });
+  m = await p.match();
+  eq([m.events.length, m.events[6].us, m.events[6].min, m.events[6].x, m.events[6].on.slice().sort((a, b) => a - b)], [7, false, 30, 1, lineup(5)], 'a goal from before the final whistle that arrives after it still counts, in its minute; one pressed after the whistle does not');
+  await p.click('#finish'); await p.click('#finish');
+  const r = (await p.team()).results[0];
+  eq([r.us, r.them, r.ev.length], [3, 3, 7], 'and the result saved is the game that was played');
+  await finish(p);
+}
+
+// ---------- 9. The app thrown out of memory in the bag: it starts from cold and still has everything
+{
+  const p = await setup(); const gid = (await p.match()).gid;
+  const KO = await p.now();
+  await p.toInbox({ type: 'goal', us: true, id: 'cold-2', gid, at: KO + 100000 });
+  await p.toInbox({ type: 'start', to: 'h1', id: 'cold-1', gid, at: KO });
+  await p.page.clock.fastForward(4 * 60000);
+  await p.page.reload(); await p.run(1500);
+  let m = await p.match();
+  eq([m.phase, m.t0, m.events.length, m.events[0] && m.events[0].min, await p.inbox()], ['h1', KO, 1, 2, []], 'reloaded from cold: kick-off and the goal are taken in from the phone\'s store, in the right order');
+  // the same press also arrives live, twice: still one goal
+  await p.fromWatch({ type: 'goal', us: true, id: 'cold-2', gid, at: KO + 100000 });
+  await p.fromWatch({ type: 'goal', us: true, id: 'cold-2', gid, at: KO + 100000 }, { kept: false });
+  eq([(await p.match()).events.length, await p.inbox()], [1, []], 'the watch repeating a press already dealt with adds nothing and leaves nothing behind');
+  // a phone whose store isn't there (an older build): the live message alone still works
+  await p.fromWatch({ type: 'goal', us: false, id: 'cold-3', gid, at: await p.now() }, { kept: false });
+  eq((await p.match()).events.length, 2, 'a press that only arrives live is dealt with just the same');
+  await finish(p);
+}
+
+// ---------- 10. Goals that arrive ahead of the whistle they follow, or long after their half
+{
+  const p = await setup(); const gid = (await p.match()).gid, t = await p.now();
+  await p.fromWatch({ type: 'goal', us: true, id: 'early-1', gid, at: t + 1000 });
+  eq([(await p.match()).events.length, (await p.watch()).acks.indexOf('early-1')], [0, -1], 'a goal that arrives before the kick-off it followed is held, not counted at minute nought');
+  await p.run(60000);
+  await p.fromWatch({ type: 'start', to: 'h1', id: 'early-0', gid, at: t });
+  await p.run(6000);
+  let m = await p.match();
+  eq([m.phase, m.events.length, m.events[0].min, (await p.watch()).us], ['h1', 1, 1, 1], 'once kick-off arrives the goal goes in, in the first minute');
+  await p.run(15 * 60000);
+  if (await p.visible('#subPop')) await p.click('#subPopLater');
+  const ht = await p.now();
+  await p.click('#endHalf');
+  // a second-half goal before "second half" has arrived; and a first-half goal that took the slow route
+  await p.run(5 * 60000);
+  await p.fromWatch({ type: 'goal', us: false, id: 'h2-goal', gid, at: (await p.now()) - 20000 });
+  eq((await p.match()).events.length, 1, 'a goal from after half time, with the second half not yet started here, waits');
+  await p.fromWatch({ type: 'goal', us: true, id: 'h1-slow', gid, at: t + 12 * 60000 + 30000 });
+  m = await p.match();
+  const first = (i) => [m.segs[i].gk].concat(m.segs[i].on).sort((a, b) => a - b);
+  eq([m.events.length, m.events[1].min, m.events[1].on.slice().sort((a, b) => a - b)], [2, 13, first(2)], 'a first-half goal arriving at half time goes into the 13th minute, with the line-up of that stretch');
+  await p.fromWatch({ type: 'start', to: 'h2', id: 'h2-start', gid, at: (await p.now()) - 40000 });
+  await p.run(6000);
+  m = await p.match();
+  eq([m.phase, m.events.length, m.events[2].us, m.events[2].min], ['h2', 3, false, 16], 'and when the second half arrives, the goal that was waiting goes into its first minute');
+  await p.fromWatch({ type: 'goal', us: true, id: 'h1-slower', gid, at: t + 2 * 60000 });
+  m = await p.match();
+  eq([m.events.length, m.events[1].min, m.events[1].at - t, m.events.map((e) => e.min)], [4, 3, 120000, [1, 3, 13, 16]], 'a first-half goal arriving in the second half still lands in the first half, in order');
+  check(ht > 0, 'half time was blown');
+  await finish(p);
+}
+
+// ---------- 11. The clock stopped on the phone and restarted from the wrist
+{
+  const p = await setup(); const gid = (await p.match()).gid;
+  await p.click('#go'); await p.run(3 * 60000);
+  await p.fromWatch({ type: 'resume', id: 'res-0', gid, at: await p.now() });
+  eq((await p.match()).running, true, 'a restart while the clock is running changes nothing');
+  await p.click('#go');
+  let m = await p.match(); const stoppedAt = m.base;
+  eq([m.running, (await p.watch()).running, Math.round(stoppedAt / 1000) >= 180], [false, false, true], 'stopped on the phone: the watch is told');
+  await p.run(40000);
+  const at = (await p.now()) - 5000;
+  await p.fromWatch({ type: 'resume', id: 'res-1', gid, at });
+  m = await p.match();
+  eq([m.running, m.base, m.t0, (await p.watch()).running, (await p.watch()).acks.indexOf('res-1') >= 0], [true, stoppedAt, at, true, true], 'restarted from the wrist: the phone clock runs on from where it stopped, from the moment the watch was pressed');
+  await p.run(2 * 60000);
+  check(await p.visible('#subPop'), 'and the 5:00 change still comes due at 5:00 of play');
+  await p.click('#subPopDone'); await p.click('#endHalf'); await p.click('#endHalf');
+  await p.fromWatch({ type: 'resume', id: 'res-2', gid, at: await p.now() });
+  eq([(await p.match()).phase, (await p.match()).running], ['ht', false], 'a restart arriving at half time does not start anything');
   await finish(p);
 }
 

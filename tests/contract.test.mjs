@@ -44,18 +44,32 @@ const A = await w.phone({ db: true, native: true });
 await A.click('#createBtn'); await A.signUp('ethan@example.com');
 await A.page.fill('#tName', 'Sons of Pitches FC'); await A.page.fill('#tShort', 'SOP FC'); await A.page.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await A.click('#tCreate'); await A.run(600);
 await A.click('#v-code [data-go="home"]');
-await A.newGame('Dog & Bone'); await A.click('#go'); await A.run(61000);
+await A.newGame('Dog & Bone');
+// Kicked off from a watch whose clock reports fractions of a millisecond (an older watch app did exactly this, and the
+// database then refused the finished game: its times must be whole numbers). Everything from the watch below is like that.
+const gid = (await A.match()).gid, frac = async (back) => (await A.now()) - back + 0.375;
+await A.fromWatch({ type: 'start', to: 'h1', id: 'frac-ko', gid, at: await frac(1500) }); await A.run(61000);
 await A.click('#goalUs'); await A.click('#picker button[data-p]'); await A.click('#picker button[data-p]:not([data-p="x"])'); await A.run(9000);
-await A.click('#goalThem'); await A.click('#hlBtn'); await A.click('#svBtn');
+await A.fromWatch({ type: 'goal', us: false, id: 'frac-goal', gid, at: await frac(700.7878) }); await A.fromWatch({ type: 'hl', id: 'frac-hl', gid, at: await frac(300.5) });
+await A.page.evaluate(async ([code, ts]) => { const sb = window.supabase.createClient(); await sb.rpc('queue_goal', { p_code: code, p_payload: { us: true, ts, min: 2.6 } }); }, [(await A.page.evaluate(() => JSON.parse(localStorage.getItem('apt-app')).active)), (await A.now()) + 20000.25]);
+await A.run(21000); // a follower's goal with a fractional time too, folded in on the gaffer's next check
+await A.click('#svBtn');
 let m = await A.match(); const out = m.segs[0].on[0];
 await A.click('#outBtn'); await A.click(`#outPicker button[data-o="${out}"]`); await A.click('#outPicker button.best');
 await A.run(4 * 60000); if (await A.visible('#subPopDone')) await A.click('#subPopDone');
 await A.run(2000);
 const live = w.db().live_matches[0];
-await A.click('#endHalf'); await A.click('#endHalf'); await A.click('#go'); await A.run(3000); await A.click('#endHalf'); await A.click('#endHalf'); await A.click('#finish'); await A.click('#finish'); await A.run(3000);
+await A.fromWatch({ type: 'end', from: 'h1', id: 'frac-ht', gid, at: await frac(200.2) });
+await A.fromWatch({ type: 'start', to: 'h2', id: 'frac-h2', gid, at: await frac(100.9) }); await A.run(3000);
+await A.fromWatch({ type: 'end', from: 'h2', id: 'frac-ft', gid, at: await frac(50.123) });
+eq((await A.match()).phase, 'ft', 'the game was run from the watch to full time');
+await A.click('#finish'); await A.click('#finish'); await A.run(3000);
 // a shirt number and a position on a player, as the squad screen saves them
 const mock = w.db(), mt = mock.teams[0];
-eq([mock.games.length, mock.game_players.length, mock.game_events.length], [1, 8, 4], 'the stand-in holds the finished game: 8 players and 4 events');
+eq([mock.games.length, mock.game_players.length, mock.game_events.length], [1, 8, 5], 'the stand-in holds the finished game: 8 players and 5 events');
+const g0 = mock.games[0], isWhole = (v) => v === null || Number.isInteger(v);
+check([g0.ko_at, g0.ht_at, g0.h2_at, g0.ft_at, g0.finished_at].every((v) => Number.isInteger(v)) && mock.game_events.every((e) => isWhole(e.at) && isWhole(e.min) && isWhole(e.x) && isWhole(e.pid)),
+  `every time and minute the app saved is a whole number, whatever the watch and followers sent (${[g0.ko_at, g0.ht_at, g0.h2_at, g0.ft_at]}; ${mock.game_events.map((e) => e.at)})`);
 
 const ethan = await d.user('ethan@example.com');
 const made = await d.rpc(ethan, 'create_team', { p_name: mt.name, p_short: mt.short, p_color: mt.color, p_crest: null, p_settings: mt.settings, p_players: mock.players.map((p) => ({ pid: p.pid, name: p.name })) });
@@ -81,14 +95,16 @@ for (const e of mock.game_events) await fit('game_events', e);
 // ---------- and what the real get_team sends back has everything the app reads from the stand-in's
 const real = await d.rpc(ethan, 'get_team', { p_code: made.code });
 const pretend = await A.page.evaluate(async (code) => { const sb = window.supabase.createClient(); return (await sb.rpc('get_team', { p_code: code })).data; }, mt.code);
+if (check(real.games.length === 1 && pretend.games.length === 1, 'the finished game is in the real database')) {
 const missing = (a, b, where) => Object.keys(a || {}).filter((k) => !(k in (b || {}))).map((k) => where + '.' + k);
 const gaps = [].concat(missing(pretend, real, 'team data'), missing(pretend.team, real.team, 'team'), missing(pretend.players[0], real.players[0], 'player'), missing(pretend.games[0], real.games[0], 'game'),
   missing(pretend.games[0].players[0], real.games[0].players[0], 'game player'), missing(pretend.games[0].events[0], real.games[0].events[0], 'game event'));
 eq(gaps.filter((g) => !['game.team_id', 'team.id_', 'game event.game_id', 'game event.seq', 'game.created_at'].includes(g)), [], 'the real get_team returns every field the stand-in does (so the app reads the same things from both)');
-eq([real.games[0].us, real.games[0].them, real.games[0].players.length, real.games[0].events.length, real.live.phase, real.players.length], [1, 1, 8, 4, live.state.phase, 8], 'and the game read back from the real database is the one that was played');
+eq([real.games[0].us, real.games[0].them, real.games[0].players.length, real.games[0].events.length, real.live.phase, real.players.length], [2, 1, 8, 5, live.state.phase, 8], 'and the game read back from the real database is the one that was played');
 const ev = real.games[0].events.find((e) => e.kind === 'goal');
 check(Array.isArray(ev.on_pitch) && ev.on_pitch.length === 5 && typeof ev.at === 'number' && ev.pid != null && ev.assist != null, 'with the goal\'s scorer, assist, time and who was on the pitch');
 check(Array.isArray(real.games[0].lineups) && real.games[0].lineups.length >= 6, 'and the line-ups, stretch by stretch');
 
+}
 await w.close(); await d.close();
 await done(A);

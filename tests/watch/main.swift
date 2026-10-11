@@ -51,7 +51,7 @@ do {
     var resent = 0
     for s in 1...240 { let o = w.tick(now: at(Double(s))); resent += o.send.filter { kind($0) == "start" }.count; if s % 45 == 0 { _ = w.receive(json: phone(phase: "pre", running: false), sent: ms(at(Double(s))), now: at(Double(s))) } }
     check(w.state?.phase == "h1" && w.state?.seconds(at: at(240)) == 240, "four minutes on, phone still asleep, the clock is still right (\(w.state?.seconds(at: at(240)) ?? -1))")
-    check(resent >= 20, "kick-off is sent again every ten seconds until the phone takes it in (\(resent) times)")
+    check(resent >= 7 && resent <= 9, "kick-off is sent again every half minute until the phone takes it in (\(resent) times in four minutes)")
     // the change at 5:00 comes due with no word from the phone
     let first = run(&w, from: 241, to: 320)
     check(first.subs == [300], "the watch buzzes for the change at exactly 5:00 by its own clock (buzzed at \(first.subs))")
@@ -137,7 +137,7 @@ do {
     check(field((g.send.first ?? ""), "p") as? Int == 2 && field((g.send.first ?? ""), "a") as? Int == 1 && field((g.send.first ?? ""), "us") as? Bool == true, "with its scorer and assist")
     _ = w.receive(json: phone(us: 0), sent: ms(at(125)), now: at(125))
     check(w.state?.us == 1, "the phone's older 0 doesn't undo it")
-    let again = run(&w, from: 121, to: 150)
+    let again = run(&w, from: 121, to: 200)
     check(again.sent.count >= 2 && again.sent.allSatisfy { id($0) == id((g.send.first ?? "")) }, "the goal is sent again, under the same id, until the phone has dealt with it (\(again.sent.count))")
     // the phone asleep for ten minutes: the score must not slip back
     for s in stride(from: 160, through: 760, by: 30) { _ = w.receive(json: phone(us: 0), sent: ms(at(Double(s))), now: at(Double(s))) }
@@ -262,7 +262,7 @@ do {
     check(w.state?.phase == "h2" && w.state?.seconds(at: at(1300)) == 65, "second half running by the watch's clock against a phone that still says 'before kick-off'")
     let r2 = run(&w, from: 1236, to: 2140)
     check(r2.subs == [1535] && r2.time == [2135], "second half: subs at 5:00, time at 15:00 (\(r2.subs), \(r2.time))")
-    check(Set(r2.sent.map { kind($0) }) == ["start", "end"] && r2.sent.count > 100, "all three whistles keep being sent while the phone is asleep")
+    check(Set(r2.sent.map { kind($0) }) == ["start", "end"] && r2.sent.count > 60, "all three whistles keep being sent while the phone is asleep (\(r2.sent.count))")
     let ft = w.pressEnd(now: at(2150))
     check(w.state?.phase == "ft" && w.state?.changes.isEmpty == true && field((ft.send.first ?? ""), "from") as? String == "h2", "full time")
     // the phone works through them one at a time
@@ -472,6 +472,52 @@ do {
     _ = w.receive(json: phone(), sent: ms(at(1)), now: at(1))
     let h = w.pressHighlight(now: at(50))
     check(kind(h.send.first ?? "") == "hl" && w.presses.isEmpty, "a highlight is sent once and not repeated")
+}
+
+// ---------- 22b. Goals and highlights only while a half is being played
+do {
+    var w = WatchBrain()
+    _ = w.receive(json: phone(phase: "pre", running: false), sent: ms(at(-5)), now: at(-5))
+    check(w.pressGoal(us: true, scorer: 2, assist: nil, now: at(-1)).send.isEmpty && w.state?.us == 0, "no goal before kick-off: the clock has to be started first")
+    _ = w.pressStart(now: at(0))
+    check(w.pressGoal(us: true, scorer: 2, assist: nil, now: at(30)).send.count == 1 && w.state?.us == 1, "a goal once it has kicked off")
+    _ = w.receive(json: phone(running: false, base: 40_000, us: 1), sent: ms(at(40)), now: at(40))
+    check(w.pressGoal(us: false, scorer: nil, assist: nil, now: at(50)).send.count == 1 && w.state?.them == 1, "a goal can be logged while the clock is stopped")
+    _ = w.receive(json: phone(base: 40_000, t0: at(60), us: 1, them: 1), sent: ms(at(60)), now: at(60))
+    _ = w.pressEnd(now: at(1000))
+    check(w.pressGoal(us: true, scorer: nil, assist: nil, now: at(1010)).send.isEmpty && w.pressHighlight(now: at(1011)).send.isEmpty && w.state?.us == 1, "nothing is logged during the break")
+    _ = w.pressStart(now: at(1300))
+    check(w.pressGoal(us: true, scorer: nil, assist: nil, now: at(1310)).send.count == 1 && w.pressHighlight(now: at(1320)).send.count == 1 && w.state?.us == 2, "and again once the second half is under way")
+}
+
+// ---------- 22c. The clock stopped on the phone (a stoppage, or a stray touch in a pocket) and restarted from the wrist
+do {
+    var w = WatchBrain()
+    _ = w.receive(json: phone(), sent: ms(at(1)), now: at(1))
+    check(w.pressResume(now: at(50)).send.isEmpty, "nothing to restart while the clock is running")
+    _ = w.receive(json: phone(running: false, base: 200_000), sent: ms(at(200)), now: at(200))
+    check(w.state?.running == false && w.state?.seconds(at: at(260)) == 200, "stopped on the phone at 3:20")
+    let r = w.pressResume(now: at(260))
+    check(w.state?.running == true && w.state?.seconds(at: at(300)) == 240 && kind(r.send.first ?? "") == "resume", "restarted from the wrist a minute later: it runs on from 3:20")
+    check(w.pressResume(now: at(261)).send.isEmpty, "a second press does nothing")
+    _ = w.receive(json: phone(running: false, base: 200_000), sent: ms(at(280)), now: at(280))
+    check(w.state?.running == true && w.state?.seconds(at: at(300)) == 240, "the phone still saying 'stopped' doesn't stop it again")
+    let b = run(&w, from: 281, to: 400)
+    check(b.subs == [360], "the 5:00 change comes due at 5:00 of play (\(b.subs))")
+    check(b.sent.contains { kind($0) == "resume" }, "and the restart keeps being sent")
+    _ = w.receive(json: phone(acks: [id(r.send.first ?? "")], base: 200_000, t0: at(260), due: true), sent: ms(at(401)), now: at(401))
+    check(w.state?.seconds(at: at(420)) == 360 && w.presses.isEmpty, "the phone restarts at the same moment: one clock, nothing left to send")
+    // stopped again on the phone at a different point while an earlier restart is still on its way: the phone's word
+    _ = w.receive(json: phone(running: false, base: 400_000, due: true), sent: ms(at(500)), now: at(500))
+    let r2 = w.pressResume(now: at(520))
+    _ = w.receive(json: phone(running: false, base: 450_000, due: true), sent: ms(at(600)), now: at(600))
+    check(w.state?.running == false && w.state?.seconds(at: at(610)) == 450 && !w.presses.contains { $0.kind == "resume" } && !r2.send.isEmpty, "if the phone has since been restarted and stopped somewhere else, the watch goes with the phone")
+    // the whistle after a restart the phone never heard about
+    _ = w.receive(json: phone(running: false, base: 880_000, due: true), sent: ms(at(700)), now: at(700))
+    _ = w.pressResume(now: at(710))
+    let e = w.pressEnd(now: at(760))
+    _ = w.receive(json: phone(running: false, base: 880_000, due: true), sent: ms(at(770)), now: at(770))
+    check(w.state?.phase == "ht" && w.state?.running == false && kind(e.send.first ?? "") == "end", "half time blown after a restart from the wrist: half time it stays")
 }
 
 // ---------- 23. Presses with no game on do nothing and don't crash

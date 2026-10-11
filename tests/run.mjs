@@ -1,5 +1,6 @@
 // Runs everything:  node tests/run.mjs            (add --update to accept what the walk-throughs print now)
 //   1. the watch's logic, on its own                      tests/watch/main.swift
+//      and the phone's store of the watch's presses        tests/plugin/main.swift (the real plugin source, built off-phone)
 //   2. the suites that check as they go                   tests/*.test.mjs  (link.test.mjs plays whole games between phone and watch)
 //   3. the older walk-throughs, compared with what they printed last time   tests/golden/*.txt
 // Needs: node, the `playwright` package with Chromium, and swiftc (any Swift 5.9+; without it the watch parts are skipped, loudly).
@@ -31,6 +32,16 @@ else {
     const build = spawnSync('swiftc', [logic, path.join(HERE, 'watch/main.swift'), '-o', path.join(tmp, 'watchtests')], { encoding: 'utf8' });
     if (build.status !== 0) note('watch logic', false, 'does not compile\n' + build.stderr);
     else { const r = spawnSync(path.join(tmp, 'watchtests'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout); note('watch logic', r.status === 0, lastLine(r.stdout)); }
+  }
+  if (want('plugin') || want('watch')) {
+    // The phone's side of the link is a Capacitor plugin. Its two imports and @objc markers are taken out so it builds here
+    // against stand-ins for Capacitor and WatchConnectivity; everything else is the code that ships.
+    const src = fs.readFileSync(path.join(ROOT, 'plugins/reel-cutter/ios/Sources/ReelCutterPlugin/WatchLinkPlugin.swift'), 'utf8')
+      .replace(/^import (Capacitor|WatchConnectivity)\n/gm, '').replace(/^@objc\([A-Za-z]+\)\n/gm, '').replace(/@objc public func/g, 'public func');
+    fs.writeFileSync(path.join(tmp, 'WatchLinkPlugin.swift'), src);
+    const build = spawnSync('swiftc', [path.join(HERE, 'plugin/stubs.swift'), path.join(tmp, 'WatchLinkPlugin.swift'), path.join(HERE, 'plugin/main.swift'), '-o', path.join(tmp, 'plugintests')], { encoding: 'utf8' });
+    if (build.status !== 0) note("phone's watch plugin", false, 'does not compile\n' + build.stderr);
+    else { fs.mkdirSync(path.join(tmp, 'home'), { recursive: true }); const r = spawnSync(path.join(tmp, 'plugintests'), { encoding: 'utf8', env: Object.assign({}, process.env, { HOME: path.join(tmp, 'home') }) }); if (r.status !== 0) console.log(r.stdout + r.stderr); note("phone's watch plugin", r.status === 0, lastLine(r.stdout)); }
   }
   const cli = spawnSync('swiftc', [logic, path.join(HERE, 'watch/cli/main.swift'), '-o', path.join(tmp, 'watchbrain')], { encoding: 'utf8' });
   if (cli.status !== 0) note('watch logic for the whole-game tests', false, 'does not compile\n' + cli.stderr); else env.WATCHBRAIN = path.join(tmp, 'watchbrain');

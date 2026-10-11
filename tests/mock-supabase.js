@@ -126,6 +126,7 @@
     const pk = { teams: ['id'], players: ['team_id', 'pid'], games: ['id'], game_players: ['game_id', 'pid'], game_events: ['game_id', 'seq'], live_matches: ['team_id'], goal_queue: ['id'], fixtures: ['id'], clips: ['game_id', 'seq'] }[table];
     function run() {
       if (window.__offline) return fail('Failed to fetch', '');
+      if (window.__refuse && window.__refuse(table, op, body)) return fail('invalid input syntax for type bigint', '22P02'); // a test making the database turn a row down
       const d = load(); window.__mockCalls.push(op + ':' + table);
       const rows = d[table], allowed = (r) => isOrg(d, teamOf(d, table, r));
       if (op === 'select') return ok(rows.filter((r) => allowed(r) && filters.every((f) => f(r))));

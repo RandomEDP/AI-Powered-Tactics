@@ -10,10 +10,14 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     @Published var locked = false
     @Published var note = ""
     @Published var askSubs = false   // the "time for subs" sheet is showing
+    @Published var waiting = 0       // presses the phone hasn't yet said it has dealt with
 
     private var unlock: DispatchWorkItem?
     private var clearNote: DispatchWorkItem?
-    private var runtime: WKExtendedRuntimeSession?                    // keeps the app on screen during a game when the wrist drops
+    private var runtime: WKExtendedRuntimeSession?                    // keeps the app running during a game when the wrist drops
+    private var runtimeNotBefore = Date.distantPast                   // so a session that won't start isn't tried again every second
+    private var runtimeSince = Date.distantPast                       // when the session now running was started
+    private var renewing = false                                      // the old session is being ended so a fresh one can take over
     private var brain = WatchBrain()
     private var ticker: Timer?
     private var askedToNotify = false
@@ -59,10 +63,22 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     }
 
     private func restore() {
-        let age = Date().timeIntervalSince1970 - UserDefaults.standard.double(forKey: savedBrain + ".at")
-        guard age >= 0, age < 3 * 60 * 60, let data = UserDefaults.standard.data(forKey: savedBrain), let old = try? JSONDecoder().decode(WatchBrain.self, from: data) else { return }
+        let store = UserDefaults.standard
+        // If the app has died three times running within moments of opening, what was saved is the likeliest cause: start clean.
+        // (Three, and a short wait, so that being opened in the background and put straight back to sleep never counts.)
+        let strikesKey = savedBrain + ".strikes"
+        let strikes = store.integer(forKey: strikesKey)
+        store.set(strikes + 1, forKey: strikesKey)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { store.set(0, forKey: strikesKey) } // it got going fine
+        if strikes >= 3 {
+            store.removeObject(forKey: savedBrain)
+            return
+        }
+        let age = Date().timeIntervalSince1970 - store.double(forKey: savedBrain + ".at")
+        guard age >= 0, age < 3 * 60 * 60, let data = store.data(forKey: savedBrain), let old = try? JSONDecoder().decode(WatchBrain.self, from: data) else { return }
         brain = old
         state = old.state
+        waiting = old.presses.count
     }
 
     // MARK: - Changes coming due
@@ -70,6 +86,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     /// Once a second: the watch's own check for a change coming due, and another go at anything the phone hasn't acknowledged.
     private func watchTheClock() {
         apply(brain.tick(now: Date()))
+        stayInFront() // (does nothing unless a session is wanted and missing, or its hour is running out)
     }
 
     /// Puts the brain's verdict on screen and carries out what it asked for.
@@ -80,6 +97,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         if outcome.becameDue { buzzForSubs() }
         if outcome.timeUp { buzzForTime() }
         if !(brain.state?.due ?? false) || !(brain.state?.live ?? false) { if askSubs { askSubs = false } }
+        if waiting != brain.presses.count { waiting = brain.presses.count }
         for json in outcome.send { deliver(json, first: false) }
     }
 
@@ -102,6 +120,10 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     /// A notification on the watch itself at each change still to come this half, for when the app isn't on screen.
     private func scheduleChanges(_ game: MatchState) {
         let center = UNUserNotificationCenter.current()
+        if game.live && !askedToNotify { // asked once, when a game first shows, so the question never arrives in the middle of kick-off
+            askedToNotify = true
+            center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
         let live = game.live && game.running && (game.phase == "h1" || game.phase == "h2")
         let now = game.seconds(at: Date())
         let coming = live ? game.changes.filter { $0.h == game.halfIndex && $0.from * 60 - now > 3 } : []
@@ -112,10 +134,6 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         scheduled = key
         center.removeAllPendingNotificationRequests()
         guard !coming.isEmpty || whistle > 3 else { return }
-        if !askedToNotify {
-            askedToNotify = true
-            center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
-        }
         for change in coming {
             let content = UNMutableNotificationContent()
             content.title = "Time for subs"
@@ -133,9 +151,12 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         }
     }
 
-    /// With the app on screen the sheet and the taps do the job, so the banner stays away.
+    /// Looking at the app, the sheet and the taps do the job, so the banner stays away. With the wrist down the app's own taps
+    /// may not be felt, so then the watch shows the notification and buzzes for it itself.
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([])
+        DispatchQueue.main.async {
+            completionHandler(WKApplication.shared().applicationState == .active ? [] : [.banner, .sound, .list])
+        }
     }
 
     // MARK: - From the phone
@@ -144,10 +165,13 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         guard let json = payload["state"] as? String else { return }
         let sent = (payload["sent"] as? NSNumber)?.doubleValue ?? 0
         DispatchQueue.main.async {
+            let before = self.state?.phase
             self.apply(self.brain.receive(json: json, sent: sent, now: Date()), save: true)
             guard let game = self.state else { return }
             self.scheduleChanges(game)
             self.stayInFront()
+            // a half started on the phone while this app is on screen: the same fresh hour as starting it from here
+            if game.inPlay, game.running, before == "pre" || before == "ht", WKApplication.shared().applicationState == .active { self.renewIfShort() }
             let left = game.lockUntil / 1000 - Date().timeIntervalSince1970
             if left > 0 { self.lock(for: min(left, 8)) }
         }
@@ -155,26 +179,46 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
 
     // MARK: - Staying on screen
 
-    /// During a game the app stays in front when the wrist is lowered, so a glance always shows the clock. One session lasts up to an hour.
+    /// During a game the app keeps running when the wrist is lowered, so its own clock can buzz for a change and a glance shows
+    /// the time. A session lasts up to an hour and can only be started with the app on screen; if it has ended (or never
+    /// started), the next moment the app is on screen starts another. Called every second, so it mends itself.
     func stayInFront() {
         let wanted = (state?.live ?? false) && state?.phase != "ft"
-        if !wanted {
+        guard wanted else {
             runtime?.invalidate()
             runtime = nil
             return
         }
-        if let running = runtime, running.state == .running || running.state == .scheduled { return }
-        guard WKApplication.shared().applicationState == .active else { return } // can only be started with the app on screen
+        // One under way, or about to be: leave it. (Starting a second alongside it is refused, and both can be lost.)
+        if let current = runtime, current.state != .invalid { return }
+        guard WKApplication.shared().applicationState == .active, Date() >= runtimeNotBefore else { return }
+        runtimeNotBefore = Date().addingTimeInterval(5) // one that won't start isn't tried again every second
         let session = WKExtendedRuntimeSession()
         session.delegate = self
         session.start()
         runtime = session
+        runtimeSince = Date()
+    }
+
+    /// A session lasts an hour from when it started, which may have been when the game was set up, well before kick-off.
+    /// Called when a half is started from the wrist (so the app is on screen): if the hour wouldn't see the game out,
+    /// the session is ended and a fresh one started in its place.
+    private func renewIfShort() {
+        guard let current = runtime, current.state == .running, let game = state, !renewing else { return }
+        let toPlay = Double(game.half) * 60 * (game.phase == "h1" && game.periods != 1 ? 2 : 1) + (game.phase == "h1" && game.periods != 1 ? 10 * 60 : 0) + 8 * 60
+        guard Date().timeIntervalSince(runtimeSince) + toPlay > 58 * 60 else { return }
+        renewing = true
+        runtimeNotBefore = Date.distantPast
+        current.invalidate() // the fresh one is started when this one reports it has ended (below), or by the next second's check
     }
 
     func extendedRuntimeSessionDidStart(_ extendedRuntimeSession: WKExtendedRuntimeSession) {}
     func extendedRuntimeSessionWillExpire(_ extendedRuntimeSession: WKExtendedRuntimeSession) {}
     func extendedRuntimeSession(_ extendedRuntimeSession: WKExtendedRuntimeSession, didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason, error: Error?) {
-        DispatchQueue.main.async { if self.runtime === extendedRuntimeSession { self.runtime = nil } }
+        DispatchQueue.main.async {
+            if self.runtime === extendedRuntimeSession { self.runtime = nil }
+            if self.renewing { self.renewing = false; self.runtimeNotBefore = Date.distantPast; self.stayInFront() }
+        }
     }
 
     /// Ask the phone for the game as it stands now. Called when the watch app opens or comes back to the front.
@@ -247,6 +291,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     /// Carries out a press: shows its effect at once, sends it, and taps the wrist.
     private func press(_ outcome: WatchBrain.Outcome) {
         if state != brain.state { state = brain.state }
+        if waiting != brain.presses.count { waiting = brain.presses.count }
         keep()
         for json in outcome.send { deliver(json, first: true) }
         if !outcome.send.isEmpty { WKInterfaceDevice.current().play(.success) }
@@ -255,7 +300,10 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     }
 
     func goal(us: Bool, scorer: Int?, assist: Int?) {
-        guard !locked else { return }
+        guard !locked else {
+            say("Not logged: a goal went in on the score a moment ago.") // (the lock is there so one goal isn't counted twice)
+            return
+        }
         press(brain.pressGoal(us: us, scorer: scorer, assist: assist, now: Date()))
         lock(for: 8)
     }
@@ -268,6 +316,12 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     func start() {
         press(brain.pressStart(now: Date()))
         stayInFront()
+        renewIfShort()
+    }
+
+    /// The clock was stopped on the phone and play is back on: start it again from the wrist.
+    func resume() {
+        press(brain.pressResume(now: Date()))
     }
 
     /// The whistle, from the wrist: half time, or full time in the last half.

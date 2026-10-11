@@ -39,6 +39,7 @@ export async function world() {
   const local = '/opt/pw-browsers/chromium';
   browser = browser || await chromium.launch({ executablePath: process.env.CHROMIUM || (fs.existsSync(local) ? local : undefined) });
   const made = [], pages = [], clocks = [], id = 'w' + (++worlds);
+  const frozen = new Map(); // phones asleep in a pocket: their apps don't run and live updates pass them by
   let held = null, release = () => {}; // live updates between phones can be held back for a moment, to make two things happen "at once"
   let worldT = T0 + 1500; // every phone in a world keeps the same time, as real phones do
   const advance = async (ms, skip) => { for (let left = ms; left > 0; left -= 250) for (const c of clocks) if (c !== skip) await c.runFor(Math.min(250, left)); worldT += ms; };
@@ -54,14 +55,24 @@ export async function world() {
     await ctx.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true, plansSeen: true })); });
     if (native) await ctx.addInitScript(() => {
       const T = window.__t = { watch: [], haptics: [], notes: [], pending: [], watchCb: null };
-      const WL = { push: async (o) => { T.watch.push({ state: o.state, sent: Date.now() }); return { sent: true }; }, addListener: (n, cb) => { T.watchCb = cb; } };
+      // The native half of the watch link. Like the real plugin it keeps every press from the watch on disk (here: localStorage,
+      // so it survives the page reloading) until the web app says it has dealt with it, and hands them over when asked.
+      const NI = '__native_inbox', inbox = () => JSON.parse(localStorage.getItem(NI) || '[]');
+      const WL = { addListener: (n, cb) => { T.watchCb = cb; }, pending: async () => ({ events: inbox().map((e) => e.event) }),
+        push: async (o) => { T.watch.push({ state: o.state, sent: Date.now() }); if (o.seen && o.seen.length) { const seen = new Set(o.seen); localStorage.setItem(NI, JSON.stringify(inbox().filter((e) => !seen.has(e.id)))); } return { sent: true }; } };
+      // A press reaching the phone: always kept; the web app is only told there and then if `live` (it may be asleep, or the telling may be lost).
+      window.__nativeGot = (json, live) => {
+        let id = null; try { id = JSON.parse(json).id; } catch (e) {}
+        if (typeof id === 'string' && id) { const q = inbox(); if (!q.some((e) => e.id === id)) { q.push({ id, event: json }); localStorage.setItem(NI, JSON.stringify(q)); } }
+        if (live && T.watchCb) T.watchCb({ event: json });
+      };
       const LN = { getPending: async () => ({ notifications: T.pending.slice() }), cancel: async () => { T.pending.length = 0; }, checkPermissions: async () => ({ display: 'granted' }), requestPermissions: async () => ({ display: 'granted' }),
         schedule: async ({ notifications }) => { notifications.forEach((n) => { T.pending.push(n); T.notes.push({ title: n.title, body: n.body, at: +n.schedule.at }); }); } };
       window.Capacitor = { isNativePlatform: () => true, Plugins: { WatchLink: WL, LocalNotifications: LN, Haptics: { impact: async () => {}, notification: async (o) => { T.haptics.push(o.type); } }, KeepAwake: { keepAwake: async () => {}, allowSleep: async () => {} } } };
     });
     if (db) {
       await ctx.addInitScript((url) => { window.__mockRemote = url; }, '/__db/' + id);
-      const relay = (from, msg) => { for (const other of pages) if (other !== from) other.evaluate((m) => window.__rtRecv && !window.__offline && window.__rtRecv(m), msg).catch(() => {}); };
+      const relay = (from, msg) => { for (const other of pages) if (other !== from && !frozen.has(other)) other.evaluate((m) => window.__rtRecv && !window.__offline && window.__rtRecv(m), msg).catch(() => {}); };
       await ctx.exposeBinding('__rtSend', (src, msg) => { if (held) held.push([src.page, msg]); else relay(src.page, msg); });
       release = () => { const q = held || []; held = null; q.forEach((x) => relay(x[0], x[1])); };
     }
@@ -72,6 +83,11 @@ export async function world() {
     if (clock) { await page.clock.pauseAt(at + 1000); await page.clock.runFor(500); clocks.push(page.clock); }
     const P = {
       page, ctx, errs, label,
+      /// Asleep in a pocket: the app stops running and misses live updates, while time carries on for everyone else. `thaw` wakes it.
+      freeze: () => { const i = clocks.indexOf(page.clock); if (i >= 0) clocks.splice(i, 1); frozen.set(page, worldT); },
+      thaw: async () => { const since = frozen.get(page); if (since === undefined) return; frozen.delete(page); await page.clock.fastForward(worldT - since); clocks.push(page.clock); await advance(300); },
+      /// Live updates from other phones pass this one by (its connection has dropped, as it does while a phone sleeps).
+      deaf: (on) => { if (on) { if (!frozen.has(page)) frozen.set(page, worldT); } else frozen.delete(page); },
       /// This phone is finished with.
       close: async () => { const i = clocks.indexOf(page.clock); if (i >= 0) clocks.splice(i, 1); const j = pages.indexOf(page); if (j >= 0) pages.splice(j, 1); await ctx.close().catch(() => {}); },
       /// Lets `ms` of time pass on this phone with the app running.
@@ -95,8 +111,11 @@ export async function world() {
       watch: async () => { const all = await page.evaluate(() => window.__t.watch); return all.length ? JSON.parse(all[all.length - 1].state) : null; },
       watchLog: () => page.evaluate(() => window.__t.watch.map((x) => ({ sent: x.sent, state: JSON.parse(x.state) }))),
       watchTake: () => page.evaluate(() => window.__t.watch.splice(0)),
-      /// A press arriving from the watch.
-      fromWatch: async (ev) => { await page.evaluate((e) => window.__t.watchCb({ event: typeof e === 'string' ? e : JSON.stringify(e) }), ev); if (clock) await advance(300); },
+      /// A press arriving from the watch with the app awake. `kept: false` skips the phone's own store, as if only the live message got through.
+      fromWatch: async (ev, { kept = true } = {}) => { await page.evaluate(([e, k]) => { const json = typeof e === 'string' ? e : JSON.stringify(e); if (k) window.__nativeGot(json, true); else window.__t.watchCb({ event: json }); }, [ev, kept]); if (clock) await advance(300); },
+      /// A press reaching the phone while the app is asleep: kept by the phone, the web app not told.
+      toInbox: (ev) => page.evaluate((e) => window.__nativeGot(typeof e === 'string' ? e : JSON.stringify(e), false), ev),
+      inbox: () => page.evaluate(() => JSON.parse(localStorage.getItem('__native_inbox') || '[]').map((e) => e.id)),
       haptics: () => page.evaluate(() => window.__t.haptics.splice(0)),
       /// Makes a team with eight players in the app's no-account mode and returns to the home screen.
       localTeam: async (names = ['Spice', 'Jake', 'Chaplin', 'Harrison', 'Puxley', 'Issac', 'Reece', 'Ethan']) => {

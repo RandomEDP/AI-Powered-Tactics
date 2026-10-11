@@ -77,17 +77,48 @@ eq([await A.text('#usN'), (await A.match()).events.length, await B.text('#usN')]
 const aw = await A.watch(), cw = await C.watch();
 eq([aw.us, aw.them, cw.us, cw.them, aw.gid === cw.gid, aw.t0 === cw.t0], [3, 3, 3, 3, true, true], 'each gaffer\'s watch is told the same game, clock and score');
 
+// ---------- the second gaffer's phone goes into a pocket, and comes out after a lot has happened
+C.freeze();
+await w.run(9000);
+await A.click('#goalThem'); await w.run(9000);
+await A.click('#goalUs'); await A.click('#picker button[data-p]'); await A.click('#picker button[data-p="x"]');
+await w.run(16 * 60000); // well past time up; the change at 5:00 has come due on the first gaffer's phone on the way
+if (await A.visible('#subPopDone')) await A.click('#subPopDone');
+if (await A.visible('#subPopDone')) await A.click('#subPopDone');
+await w.run(3000);
+const before = w.db().live_matches[0].state;
+eq([before.events.length, before.ok >= 1], [8, true], 'meanwhile the first gaffer has logged two more goals and made the changes');
+await C.thaw(); await w.run(4000);
+const after = w.db().live_matches[0].state;
+eq([after.events.length, after.ok, after.t0], [before.events.length, before.ok, before.t0], 'the second gaffer\'s phone waking with its old copy of the game does not write it over the real one');
+eq([(await C.match()).events.length, await C.text('#usN') + '-' + await C.text('#themN'), (await A.match()).events.length, await A.text('#usN') + '-' + await A.text('#themN')], [8, '4-4', 8, '4-4'], 'it catches up instead, and the first gaffer\'s phone is untouched');
+eq([(await A.watch()).us, (await A.watch()).them, (await C.watch()).us, (await C.watch()).them], [4, 4, 4, 4], 'both watches agree');
+
 // ---------- whistle on one gaffer's phone, finish on the other
-await A.click('#endHalf'); await A.click('#endHalf'); await w.run(3000, A, B, C);
+await A.click('#endHalf'); await w.run(3000, A, B, C); // (time is up, so no "End it early?")
 eq([(await C.match()).phase, await B.text('#phase')], ['ht', 'Half time'], 'half time blown by one gaffer shows everywhere');
 await C.click('#go'); await w.run(3000, A, B, C);
 eq((await A.match()).phase, 'h2', 'second half started by the other');
 await C.click('#endHalf'); await C.click('#endHalf'); await C.click('#finish'); await C.click('#finish'); await w.run(4000, A, B, C);
 let d = w.db();
-eq([d.games.length, d.games[0].us, d.games[0].them, d.live_matches.length, d.game_players.length, d.game_events.length], [1, 3, 3, 0, 8, 6], 'finished: one game, 3–3, with its players and events, and no live game left');
+eq([d.games.length, d.games[0].us, d.games[0].them, d.live_matches.length, d.game_players.length, d.game_events.length], [1, 4, 4, 0, 8, 8], 'finished: one game, 4–4, with its players and events, and no live game left');
 eq([(await A.team()).match, (await A.team()).results.length, await A.view()], [null, 1, 'home'], 'the first gaffer\'s phone leaves the game screen and has the result');
 eq([(await B.team()).results.length, await B.view()], [1, 'home'], 'so does the follower\'s');
 eq((await A.watch()).live, false, 'and the first gaffer\'s watch is told it is over');
+
+// ---------- a game the database won't take doesn't stop the next one being saved
+const quickGame = async (opp) => { await A.newGame(opp); await A.click('#go'); await A.click('#goalThem'); await A.click('#endHalf'); await A.click('#endHalf'); await A.click('#go'); await A.click('#endHalf'); await A.click('#endHalf'); await A.click('#finish'); await A.click('#finish'); await A.run(2500); await A.click('#v-stats .back'); };
+await A.page.evaluate(() => { window.__refuse = (table, op, body) => table === 'games' && op === 'upsert' && body && body.opp === 'Poison'; });
+await quickGame('Poison');
+eq([w.db().games.map((g) => g.opp), (await A.team()).results.map((r) => r.opp), w.db().live_matches.length], [['Dog'], ['Dog', 'Poison'], 0], 'a game the database turns down stays on the phone; the live game is still cleared');
+check(/Couldn.t save/.test(await A.page.textContent('#sync')), 'and the app says it could not save');
+await quickGame('Cat');
+eq(w.db().games.map((g) => g.opp), ['Dog', 'Cat'], 'the next game is saved all the same');
+eq([w.db().game_players.filter((x) => x.game_id === w.db().games[1].id).length, w.db().game_events.filter((x) => x.game_id === w.db().games[1].id).length], [8, 1], 'with its players and its goal');
+await A.page.evaluate(() => { window.__refuse = null; });
+await A.run(20000);
+eq([w.db().games.map((g) => g.opp).sort(), /Saved/.test(await A.page.textContent('#sync'))], [['Cat', 'Dog', 'Poison'], true], 'and the one that was turned down goes up as soon as the database will take it');
+await w.run(3000);
 
 // ---------- closed with a change not yet uploaded
 await A.click('#mOptions');
@@ -103,7 +134,7 @@ check(/Sunday Strikers FC/.test((await B.team()).name) && /Sunday Strikers FC/.t
 await A.page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('apt-team')).forEach((k) => localStorage.removeItem(k)));
 await A.page.reload(); await A.run(2500);
 let t = await A.team();
-eq([t.name, t.players.length, t.results.length, t.results[0].us, t.results[0].ev.length], ['Sunday Strikers FC', 8, 1, 3, 6], 'wiped and reopened: team, squad, result and its events are all back');
+eq([t.name, t.players.length, t.results.length, t.results[0].us, t.results[0].ev.length], ['Sunday Strikers FC', 8, 3, 4, 8], 'wiped and reopened: team, squad, results and their events are all back');
 
 // ---------- signing out leaves nothing behind
 await A.page.evaluate(() => { location.hash = ''; });

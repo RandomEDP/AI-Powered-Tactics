@@ -15,6 +15,7 @@ while let line = readLine() {
     case "tick": outcome = brain.tick(now: now)
     case "start": outcome = brain.pressStart(now: now)
     case "end": outcome = brain.pressEnd(now: now)
+    case "resume": outcome = brain.pressResume(now: now)
     case "subs": outcome = brain.pressSubsDone(now: now)
     case "goal": outcome = brain.pressGoal(us: cmd["us"] as? Bool ?? false, scorer: cmd["p"] as? Int, assist: cmd["a"] as? Int, now: now)
     case "hl": outcome = brain.pressHighlight(now: now)

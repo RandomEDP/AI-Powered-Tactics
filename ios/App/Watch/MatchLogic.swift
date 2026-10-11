@@ -95,7 +95,7 @@ struct WatchBrain: Codable {
     /// Something pressed on the watch that the phone hasn't yet shown it has taken in.
     struct Press: Codable, Equatable {
         var id: String
-        var kind: String        // start, end, subs, goal
+        var kind: String        // start, end, resume, subs, goal
         var json: String
         var made: Date
         var lastSent: Date
@@ -111,6 +111,7 @@ struct WatchBrain: Codable {
     private struct Held: Codable { var us: Int; var them: Int; var until: Date }  // the score after a goal logged here
     private struct Claim: Codable { var phase: String; var t0: Double }           // where the whistle pressed here has taken the game
     private struct Ending: Codable { var sent: Double; var at: Date }             // the phone said "no game" mid-game
+    private struct Resumed: Codable { var phase: String; var base: Double; var t0: Double } // the clock restarted here after a stoppage
 
     private(set) var state: MatchState?
     private(set) var presses: [Press] = []
@@ -121,8 +122,9 @@ struct WatchBrain: Codable {
     private var called: Set<String> = []    // halves whose "time's up" buzz has been given
     private var claim: Claim?               // until the phone has caught up with the whistle
     private var ending: Ending?             // believed only when the phone says so again
+    private var resumed: Resumed?           // until the phone's clock is running again too
 
-    static let resendEvery: TimeInterval = 10
+    static let resendEvery: TimeInterval = 30 // (the phone keeps every press it receives, so this is only a safety net)
     static let believeAfter: TimeInterval = 20 // a lone "no game" that nothing has contradicted for this long is true
     static let giveUpAfter: TimeInterval = 3 * 60 * 60 // longer than any game: a phone asleep in a bag for a whole half still gets everything
 
@@ -178,6 +180,16 @@ struct WatchBrain: Codable {
                 presses.removeAll { $0.kind == "start" || $0.kind == "end" }
             } else {
                 move(&game, to: mine.phase, t0: mine.t0)
+            }
+        }
+        // The clock restarted here after a stoppage: it keeps running until the phone has restarted its own (or has moved on).
+        if let mine = resumed {
+            if game.phase != mine.phase || game.running || game.base != mine.base || !presses.contains(where: { $0.kind == "resume" }) {
+                resumed = nil
+                presses.removeAll { $0.kind == "resume" }
+            } else {
+                game.running = true
+                game.t0 = mine.t0
             }
         }
         if game.phase == "pre" { done = []; called = [] } // not started, or started again from scratch
@@ -280,9 +292,21 @@ struct WatchBrain: Codable {
         let next = game.lastHalf ? "ft" : "ht"
         move(&game, to: next, t0: 0)
         claim = Claim(phase: next, t0: 0)
+        resumed = nil
         presses.removeAll { $0.kind == "subs" } // a change nobody made before the whistle is no longer wanted
         state = game
         return Outcome(send: [remember("end", ["type": "end", "from": from], now: now)])
+    }
+
+    /// The clock was stopped (on the phone) and play has started again: set it running from the wrist.
+    mutating func pressResume(now: Date) -> Outcome {
+        guard var game = state, game.live, game.inPlay, !game.running else { return Outcome() }
+        let t0 = (now.timeIntervalSince1970 * 1000).rounded()
+        game.running = true
+        game.t0 = t0
+        resumed = Resumed(phase: game.phase, base: game.base, t0: t0)
+        state = game
+        return Outcome(send: [remember("resume", ["type": "resume"], now: now)])
     }
 
     /// The players have swapped.
@@ -296,9 +320,9 @@ struct WatchBrain: Codable {
         return Outcome(becameDue: game.due, send: [remember("subs", ["type": "subs", "change": first.id], now: now, change: first.id)])
     }
 
-    /// A goal. The score moves here at once.
+    /// A goal. The score moves here at once. (Only while a half is being played: before kick-off the clock has to be started first.)
     mutating func pressGoal(us: Bool, scorer: Int?, assist: Int?, now: Date) -> Outcome {
-        guard var game = state, game.live, game.phase != "ft" else { return Outcome() }
+        guard var game = state, game.live, game.inPlay else { return Outcome() }
         if us { game.us += 1 } else { game.them += 1 }
         held = Held(us: game.us, them: game.them, until: now.addingTimeInterval(WatchBrain.giveUpAfter))
         state = game
@@ -310,7 +334,7 @@ struct WatchBrain: Codable {
 
     /// A highlight. Sent once: the phone queues it if it can't take it straight away.
     mutating func pressHighlight(now: Date) -> Outcome {
-        guard let game = state, game.live, game.phase != "pre", game.phase != "ft" else { return Outcome() }
+        guard let game = state, game.live, game.inPlay else { return Outcome() }
         return Outcome(send: [event(["type": "hl"], id: UUID().uuidString, now: now)])
     }
 
@@ -321,6 +345,7 @@ struct WatchBrain: Codable {
         done = []
         called = []
         claim = nil
+        resumed = nil
         ending = nil
         presses = []
     }
