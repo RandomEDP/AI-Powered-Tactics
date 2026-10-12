@@ -210,12 +210,15 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   1. The gaffer marks on a pitch drawing where each camera stood (up to 4, draggable). The positions are remembered per
      team in `localStorage` `apt-cams:<code>`.
   2. They pick each camera's video, from Photos, with an optional separate second-half video.
-  3. They confirm each camera's kick-off time, which is auto-guessed from the recording's creation time. Below it,
-     **Line up the clips** plays a clip from the video (`#cutPrev`, through `convertFileSrc`); the gaffer drags to the
-     moment and taps "It happens here", and that camera's kick-off (or second-half kick-off) moves so the logged moment
-     lands there, i.e. each moment comes `pre` (15) seconds into its clip. Ethan's first real cut had every clip starting
-     just after the goal (a guess thrown by a trimmed video, or goals logged late), and he asked for exactly this;
-     `cuttiming.test.mjs` covers it.
+  3. **Line up the video** (one camera at a time, tabs if several): the list has kick-off, the second-half kick-off and
+     every moment. The gaffer picks one, drags the video (`#cutPrev`, through `convertFileSrc`) to it (a goal: when the
+     ball hits the net) and taps "It happens here"; the next unmarked one is picked. `k.marks` ('ko', 'h2', 'e:<at>' →
+     seconds in its video). `camAt` works out every moment: kick-off sets the first half's clock and the second-half
+     kick-off the second's (they differ if the recording paused, or the second half is its own video); until marked, the
+     recording's start time stands in (`sync`/`sync2`). Marked moments give how late moments were logged (the middle
+     value, same half first), applied to every moment not marked; a marked moment is used exactly. A mark more than a
+     minute from where the others put it is questioned; Clear removes one. Ethan asked for this after his first real
+     cut came out late. `cuttiming.test.mjs` covers it.
   4. The phone cuts.
 - **Which camera each moment comes from:**
   - our goals: nearest the opposition goal;
@@ -234,6 +237,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Reading the video:** with full Photos access (asked once, before the picker) the picked video is used where it is in
   the library (`inPlace`, `PHImageManager`, the version as it looks in Photos, else the original), so nothing is copied;
   otherwise it's copied into the working folder as before.
+- **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files, to cut again from scratch.
 - On a computer, the same screen writes an ffmpeg script instead (`reelScript`). That path is single-video.
 
 ### Live streaming (Gaffer tier; behind the experimental switch for gaffers) (`0017_live_streams.sql`, `live-stream`)

@@ -203,7 +203,9 @@
   }
   const storage = { from: (bucket) => ({ upload: async (path, blob) => { const d = load(); const team = d.teams.find((t) => t.id === path.split('/')[0]);
     if (!team || !isOrg(d, team.id)) return { data: null, error: { message: 'new row violates row-level security policy' } };
-    d.files = d.files || []; d.files.push({ bucket, path, size: blob.size, type: blob.type }); store(d); return { data: { path }, error: null }; } }) };
+    d.files = d.files || []; d.files.push({ bucket, path, size: blob.size, type: blob.type }); store(d); return { data: { path }, error: null }; },
+    remove: async (paths) => { const d = load(); const mine = (paths || []).filter((p) => { const team = d.teams.find((t) => t.id === String(p).split('/')[0]); return team && isOrg(d, team.id); });
+      d.files = (d.files || []).filter((f) => !(f.bucket === bucket && mine.includes(f.path))); store(d); return { data: mine.map((name) => ({ name })), error: null }; } }) };
   // The live-stream edge function (tests/stream.test.mjs runs the real one): the team's camera link, on only while live.
   // A test plugs the GoPro in with d.camera = true, and makes the server unready with d.streamOff.
   function liveStream(d, b) {

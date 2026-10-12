@@ -49,12 +49,17 @@ await tap(0.08, 0.6);
 console.log('after a tap and a video:', await A.locator('#camSvg [data-cam]').count(), 'camera |', (await A.textContent('.camlist')).replace(/\s+/g, ' '));
 await shot(A, 'cut-cams-one');
 await A.click('#cutBody [data-cutdo="next"]'); await wait(300);
-console.log('sync screen:', (await A.textContent('#cutBody')).replace(/\s+/g, ' ').slice(0, 330), '| kick-off field:', await A.inputValue('#cutSync-0'));
+const marks = () => A.$$eval('#cutBody .marks li', (li) => li.map((x) => x.querySelector('b').textContent + ' ' + x.querySelector('span').textContent).join(' | '));
+// marking a moment: the video stands in, reporting where it has been dragged to
+const mark = async (key, t) => { if (key) await A.click(`#cutBody [data-cutdo="sel"][data-key="${key}"]`); await wait(200);
+  await A.evaluate((x) => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => x, set: () => {} }); }, t); await A.click('#cutBody [data-cutdo="here"]'); await wait(200); };
+console.log('sync screen:', (await A.textContent('#cutBody')).replace(/\s+/g, ' ').slice(0, 330));
+console.log('to mark:', await marks());
 await shot(A, 'cut-sync');
-await A.fill('#cutSync-0', ''); await A.type('#cutSync-0', '0210'); console.log('typed 0210 ->', await A.inputValue('#cutSync-0'));
+await mark('ko', 130); console.log('kick-off marked at 2:10 ->', await marks());
 await A.click('#cutBody [data-cutdo="vid2"]'); await wait(400);
-console.log('second video: kick-off kept', await A.inputValue('#cutSync-0'), '| second half at', await A.inputValue('#cutSync2-0'));
-await A.fill('#cutSync2-0', ''); await A.type('#cutSync2-0', '0005'); await shot(A, 'cut-two');
+console.log('second video:', await marks());
+await mark('h2', 5); console.log('second half marked at 0:05 in it ->', await marks()); await shot(A, 'cut-two');
 console.log('commentary switch:', await A.isVisible('#cutVoice')); await A.check('#cutVoice');
 await A.click('#cutBody [data-cutdo="go"]'); await wait(2500);
 { const c = JSON.parse((await A.evaluate(() => window.__rc)).filter((x) => x.startsWith('cut ')).pop().slice(4)); const v = (await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).calls)).filter((x) => x.name === 'reel-voice').pop();
@@ -86,7 +91,7 @@ await shot(A, 'cut-sync-two');
 await A.click('#cutBody [data-cutdo="cams"]'); await A.check('#camSwap'); await A.click('#cutBody [data-cutdo="next"]'); await wait(300);
 console.log('swapped at half time:', (await A.textContent('#cutCount')).replace(/\s+/g, ' '));
 // camera 2 started its kick-off late in a short video, so it hasn't got the second goal: that comes from camera 1 instead
-await A.fill('#cutSync-1', ''); await A.type('#cutSync-1', '2450'); await A.uncheck('#cutVoice'); await A.click('#cutBody [data-cutdo="go"]'); await wait(2500);
+await A.click('#cutBody [data-cutdo="lc"][data-cam="1"]'); await wait(200); await mark('ko', 1490); console.log('camera 2:', await marks()); await A.uncheck('#cutVoice'); await A.click('#cutBody [data-cutdo="go"]'); await wait(2500);
 { const c = JSON.parse((await A.evaluate(() => window.__rc)).filter((x) => x.startsWith('cut ')).pop().slice(4)); console.log('two-camera cut:', JSON.stringify(c.clips.map((x) => [x.path, x.caption]))); }
 console.log('plugin calls:', (await A.evaluate(() => window.__rc)).map((x) => x.split(' {')[0]).join(', '));
 await A.click('#cutBody [data-cutdo="finish"]'); await wait(300);

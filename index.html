@@ -426,6 +426,14 @@ tr.past td { opacity: .45; }
 #livePop { position: fixed; inset: 0; z-index: 46; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #livePop[hidden] { display: none; }
 .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; line-height: 1.4; }
+.marks { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.marks li { display: flex; gap: 8px; align-items: center; }
+.marks li > button.plain { flex: 1 1 auto; min-width: 0; width: auto; display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; text-align: left; font-size: 14px; padding: 8px 12px; }
+.marks li > button.plain b { flex: 1 1 9em; min-width: 0; }
+.marks li > button.plain span { color: var(--muted); font-weight: 500; text-align: right; margin-left: auto; }
+.marks li > .link { flex: none; }
+.marks li.on > button.plain { outline: 2px solid var(--ink); }
+.camtabs button[aria-pressed="true"] { outline: 2px solid var(--ink); }
 .cutprev { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 10px 12px; margin: 12px 0; }
 .cutprev h3 { margin: 0 0 4px; font-size: 16px; }
 .cutprev video { display: block; width: 100%; max-height: 240px; border-radius: 8px; background: #000; margin-top: 8px; }
@@ -2615,6 +2623,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       (says.some(Boolean) && window.speechSynthesis ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '') +
       '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipUrl(c)) + '" data-line="' + esc(says[i] || '') + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
+  var HLDEL = { i: -1, until: 0, msg: '', busy: false }; // Delete these highlights: armed by the first tap
   function renderHighlights() {
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
     var own = role === 'owner', html = '', games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
@@ -2625,7 +2634,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         var cutBtn = !own || !timed ? '' : NATIVE ? '<button class="plain primary" type="button" data-cut="' + g.i + '">' + (vids.length ? 'Cut again from a video' : 'Cut from a video on this phone') + '</button>' : '';
         var pcBtn = own && timed ? '<button class="plain" type="button" data-reel="' + g.i + '">Make it on a computer</button>' : '';
         html += '<div class="hcard"><h3>v ' + esc(r.opp) + ' ' + r.us + '–' + r.them + (r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
-        if (vids.length) html += clipPlayer(vids) + (cutBtn ? '<div class="actions">' + cutBtn + '</div>' : '');
+        var delBtn = own && vids.length ? '<button class="plain" type="button" data-hldel="' + g.i + '"' + (HLDEL.busy ? ' disabled' : '') + '>' + (HLDEL.i === g.i && Date.now() < HLDEL.until ? 'Tap again to delete them' : 'Delete these highlights') + '</button>' : '';
+        if (vids.length) html += clipPlayer(vids) + (cutBtn || delBtn ? '<div class="actions">' + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '');
         else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
             : own ? (NATIVE ? 'No video for this game yet.' : 'No video for this game yet. Open the iPhone app to cut it from a video on your phone.') : 'No video for this game yet. Ask your gaffer to generate it.',
@@ -2663,6 +2673,18 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       });
     });
   }
+  async function hlDelete(r, i) { // so a game's highlights can be cut again from scratch
+    if (!sb || !r.id || role !== 'owner') return;
+    HLDEL.busy = true; HLDEL.msg = 'Deleting…'; renderHighlights();
+    var paths = clips.filter(function (c) { return c.game_id === r.id; }).map(function (c) { return c.path; });
+    try {
+      await q(sb.from('clips').delete().eq('game_id', r.id));
+      try { if (paths.length) await q(sb.storage.from('clips').remove(paths)); } catch (e) {} // (a file left behind is never shown: the rows are what list them)
+      HLDEL = { i: i, until: 0, msg: 'Deleted. Cut them again from a video whenever you like.', busy: false };
+      ping('changed'); await pull();
+    } catch (e) { HLDEL = { i: i, until: 0, msg: 'Couldn’t delete them. Check your signal and try again.', busy: false }; }
+    renderHighlights();
+  }
   $('hlToggle').addEventListener('click', function (e) { var by = e.target.getAttribute('data-by'); if (by) { hlBy = by; renderHighlights(); } });
   $('hlList').addEventListener('click', function (e) {
     var r = e.target.getAttribute('data-reel'), s = e.target.getAttribute('data-season'), c = e.target.getAttribute('data-clip'), cut = e.target.getAttribute('data-cut');
@@ -2674,6 +2696,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       v.src = e.target.getAttribute('data-src'); try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {}
     }
     else if (cut !== null) { CUT = cutStart(+cut); go('cut'); }
+    else if (e.target.getAttribute('data-hldel') !== null) { // twice, then the game's clips go from Highlights and from storage
+      var di = +e.target.getAttribute('data-hldel'), dr = S.results[di]; if (!dr || HLDEL.busy) return;
+      if (HLDEL.i === di && Date.now() < HLDEL.until) { HLDEL.until = 0; hlDelete(dr, di); }
+      else { HLDEL = { i: di, until: Date.now() + 3000, msg: '' }; renderHighlights(); setTimeout(function () { if (S.view === 'highlights') renderHighlights(); }, 3100); }
+    }
     else if (r !== null) { reelIdx = +r; go('reel'); }
     else if (s !== null) { seaWho = s; go('season'); }
   });
@@ -2699,12 +2726,42 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var g = src && typeof src.created === 'number' && at ? (at - src.created) / 1000 : null;
     return g != null && g >= 0 && g < src.duration ? Math.round(g) : null;
   }
+  // Where a logged moment is in a camera's video. The gaffer marks kick-off, the second-half kick-off and a few goals in
+  // the video (k.marks: 'ko', 'h2', 'e:<logged time>' -> seconds into its video). Kick-off sets the video's own clock for
+  // the first half, and the second-half kick-off for the second (they differ if the recording was paused or the second
+  // half is its own video); until they're marked, the time the recording started stands in (k.sync, k.sync2). Marked
+  // moments show how late moments tend to be logged, and every moment not marked is moved by that much (the middle
+  // value, from its own half if any are marked there). A marked moment is used exactly.
+  function camGap(r) { return r.h2At && r.koAt ? (r.h2At - r.koAt) / 1000 : 0; }
+  function camTwo(r, k, at) { return !!(k.src2 && r.h2At && at >= r.h2At); } // in this camera's second-half video
+  function camRel(r, at, two) { return (at - (two ? r.h2At : r.koAt)) / 1000; }
+  function camBase(r, k, two, h2) { // where the logged clock's zero (kick-off, or the second half's in a second video) is in the video
+    var m = k.marks || {};
+    if (two) return m.h2 != null ? m.h2 : k.sync2 != null ? k.sync2 : null;
+    var b1 = m.ko != null ? m.ko : k.sync != null ? k.sync : null, b2 = m.h2 != null && !k.src2 ? m.h2 - camGap(r) : null;
+    return h2 ? (b2 != null ? b2 : b1) : (b1 != null ? b1 : b2);
+  }
+  function middle(a) { a = a.slice().sort(function (x, y) { return x - y; }); var n = a.length; return !n ? null : n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2; }
+  function camAt(r, k, at, skip) { // { two, t, marked }, or null while nothing about this video is known
+    var m = k.marks || {}, two = camTwo(r, k, at), h2 = !!(r.h2At && at >= r.h2At), key = 'e:' + at;
+    if (m[key] != null && key !== skip) return { two: two, t: m[key], marked: true };
+    var same = [], other = [];
+    Object.keys(m).forEach(function (x) {
+      if (x.slice(0, 2) !== 'e:' || x === skip || x === key) return;
+      var xa = +x.slice(2), xtwo = camTwo(r, k, xa), xh2 = !!(r.h2At && xa >= r.h2At); if (xtwo !== two) return;
+      var b = camBase(r, k, xtwo, xh2);
+      (xh2 === h2 ? same : other).push(m[x] - camRel(r, xa, xtwo) - (b != null ? b : 0));
+    });
+    var base = camBase(r, k, two, h2), late = middle(same.length ? same : other);
+    if (base == null) return late == null ? null : { two: two, t: camRel(r, at, two) + late, marked: false }; // only marked moments to go on
+    return { two: two, t: camRel(r, at, two) + base + (late || 0), marked: false };
+  }
   function camSeg(r, cam, c) { // where a clip (timed in seconds from kick-off) is in this camera's footage
-    if (!cam.src || cam.sync == null) return null;
-    var two = !!(cam.src2 && cam.sync2 != null && r.h2At && r.koAt && c.at >= r.h2At), src = two ? cam.src2 : cam.src;
-    var off = two ? cam.sync2 - (r.h2At - r.koAt) / 1000 : cam.sync, len = typeof src.duration === 'number' && src.duration > 0 ? src.duration : Infinity;
-    var t = c.t + off, end = c.end + off;
-    return { path: src.path, start: Math.max(0, c.start + off), end: end, t: t, sees: t >= 0 && t <= len, whole: c.start + off >= 0 && end <= len };
+    if (!cam.src) return null;
+    var p = camAt(r, cam, c.at); if (!p) return null;
+    var src = p.two ? cam.src2 : cam.src, shift = p.t - c.t, len = typeof src.duration === 'number' && src.duration > 0 ? src.duration : Infinity;
+    var start = c.start + shift, end = c.end + shift;
+    return { path: src.path, start: Math.max(0, start), end: end, t: p.t, sees: p.t >= 0 && p.t <= len, whole: start >= 0 && end <= len };
   }
   function camOrder(r, c, cams, swap) { // nearest first to the goal the moment happened at
     var flip = !!(swap && r.h2At && c.at >= r.h2At), gv = (c.focus === 'us') !== flip ? 1 : 0;
@@ -2712,21 +2769,41 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     return cams.slice().sort(function (a, b) { return far(a) - far(b) || a.id - b.id; });
   }
   function cutPlan(r, cams, swap) { // the clips to cut, each from its camera's video
-    var live = cams.filter(function (k) { return k.src && k.sync != null; }); if (!live.length) return [];
+    var live = cams.filter(function (k) { return k.src; }); if (!live.length) return [];
     var pre = r.pre != null ? r.pre : 15, post = r.post != null ? r.post : 6, BIG = 1e5; // (timed well clear of zero, so nothing is trimmed until it's in a video)
     var split = r.h2At && r.koAt && live.some(function (k) { return k.src2; }); // a half filmed as its own video starts its own clips
     var base = split ? reelClips(r, BIG, pre, post, function (e) { return e.at < r.h2At; }).concat(reelClips(r, BIG, pre, post, function (e) { return e.at >= r.h2At; }))
       : reelClips(r, BIG, pre, post);
     return base.map(function (c) {
       c.t -= BIG; c.start -= BIG; c.end -= BIG;
-      var order = camOrder(r, c, live, swap), segs = order.map(function (k) { return camSeg(r, k, c); }), k = 0;
-      for (var i = 0; i < segs.length; i++) if (segs[i].whole) { k = i; break; }
-      if (!segs[k].whole) for (var j = 0; j < segs.length; j++) if (segs[j].sees) { k = j; break; }
+      var order = camOrder(r, c, live, swap), segs = order.map(function (k) { return camSeg(r, k, c); }), k = -1;
+      for (var i = 0; i < segs.length; i++) if (segs[i] && segs[i].whole) { k = i; break; }
+      if (k < 0) for (var j = 0; j < segs.length; j++) if (segs[j] && segs[j].sees) { k = j; break; }
+      if (k < 0) for (var x = 0; x < segs.length; x++) if (segs[x]) { k = x; break; }
+      if (k < 0) return null; // no video it can be placed in yet
       var s = segs[k];
       return Object.assign(c, { path: s.path, start: s.start, end: s.end, t: s.t, cam: cams.indexOf(order[k]) + 1 });
+    }).filter(Boolean);
+  }
+  function cutRows(r, k) { // what can be marked in a camera's video: kick-off, the second half's, and every moment, in order
+    var m = k.marks || {}, two2 = !!k.src2, rows = [];
+    var b1 = camBase(r, k, false, false), bh = camBase(r, k, two2, true);
+    rows.push({ key: 'ko', at: r.koAt, label: 'Kick-off', t: b1, two: false, marked: m.ko != null });
+    if (r.h2At && r.periods !== 1) rows.push({ key: 'h2', at: r.h2At, label: 'Second-half kick-off', t: bh == null ? null : bh + (two2 ? 0 : camGap(r)), two: two2, marked: m.h2 != null });
+    momentsOf(r).forEach(function (x) {
+      if (typeof x.e.at !== 'number') return;
+      var p = camAt(r, k, x.e.at);
+      rows.push({ key: 'e:' + x.e.at, at: x.e.at, label: minOf(x.e) + ' ' + x.text, t: p ? p.t : null, two: camTwo(r, k, x.e.at), marked: !!(p && p.marked) });
+    });
+    return rows.sort(function (a, b) { return a.at - b.at; });
+  }
+  function camForget(r, k, second) { // a video replaced or taken away: the marks made in it go too
+    var m = k.marks || {};
+    Object.keys(m).forEach(function (key) {
+      var at = key === 'ko' ? r.koAt : key === 'h2' ? r.h2At : +key.slice(2), inTwo = !!(k.src2 && r.h2At && at >= r.h2At);
+      if (second ? inTwo : !inTwo) delete m[key];
     });
   }
-  function order1(c) { return CUT.cams[c.cam - 1] || null; } // the camera a planned clip is cut from
   function camKey() { return 'apt-cams:' + (A.active || ''); }
   function camStore() { // where the cameras stood is remembered for next week; the videos aren't
     try { localStorage.setItem(camKey(), JSON.stringify({ cams: CUT.cams.map(function (k) { return { u: +k.u.toFixed(3), v: +k.v.toFixed(3) }; }), swap: CUT.swap })); } catch (e) {}
@@ -2777,25 +2854,23 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         (live.length ? '<button class="plain primary" type="button" data-cutdo="next">Next</button>' : '') + '</div>' +
         '<p class="note">The cutting happens on this phone, and only the finished clips are uploaded.</p></section>';
     } else if (CUT.stage === 'sync') {
-      var many = live.length > 1, plan = cutPlan(r, CUT.cams, CUT.swap), n = plan.length;
-      html += '<section><h2>Where is kick-off in ' + (many ? 'each video' : 'the video') + '?</h2><p class="note">' + (live.every(function (k) { return k.auto; }) ? 'Worked out from when the recording started. Change it if the clips come out early or late.' : 'Play the video, find the moment of kick-off, and enter the time shown.') + '</p>';
-      live.forEach(function (k) {
-        var id = 'cutSync-' + k.id, id2 = 'cutSync2-' + k.id, who = many ? 'Camera ' + camNo(k) + ': kick-off at' : 'Kick-off at';
-        html += '<label class="field" for="' + id + '">' + who + '<input id="' + id + '" data-sync="' + k.id + '" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + (k.sync != null ? mmss(k.sync) : '') + '"></label>';
-        if (k.src2) html += '<label class="field" for="' + id2 + '">' + (many ? 'Camera ' + camNo(k) + ': second half kicks off at, in its second video' : 'Second half kicks off at, in the second video') + '<input id="' + id2 + '" data-sync2="' + k.id + '" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off" value="' + (k.sync2 != null ? mmss(k.sync2) : '') + '"></label>' +
-          '<div class="actions"><button class="plain" type="button" data-cutdo="drop2" data-cam="' + k.id + '">Remove the second video' + (many ? ' for camera ' + camNo(k) : '') + '</button></div>';
-        else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button></div>';
-      });
-      var pi = Math.min(CUT.pv || 0, Math.max(0, n - 1)), pv = plan[pi], pre = r.pre != null ? r.pre : 15;
-      if (pv) { // line the clips up from one moment: the gaffer finds it in the video and says "here"
-        var pk = order1(pv), two = !!(pk && pk.src2 && pv.path === pk.src2.path);
-        html += '<div class="cutprev"><h3>Line up the clips</h3><p class="note">Clip ' + (pi + 1) + ' of ' + n + (many ? ', from camera ' + pv.cam : '') + ': <b>' + esc(pv.labels[0]) + '</b>.</p>' +
-          '<p class="note">Play or drag the video to the moment it happens, then tap <b>It happens here</b>. Every clip ' + (many ? 'from camera ' + pv.cam + ' ' : '') + 'is lined up from it, so each moment comes ' + pre + ' seconds in, after the build-up.</p>' +
-          '<video id="cutPrev" playsinline controls preload="metadata" data-start="' + pv.start.toFixed(1) + '" data-t="' + pv.t.toFixed(1) + '" data-cam="' + (pk ? pk.id : '') + '" data-two="' + (two ? 1 : 0) + '" src="' + esc(fileSrc(pv.path)) + '"></video>' +
-          '<div class="actions"><button class="plain primary" type="button" data-cutdo="here">It happens here</button>' +
-          (n > 1 ? '<button class="plain" type="button" data-cutdo="pvnext">' + (pi + 1 < n ? 'Next clip' : 'First clip') + '</button>' : '') + '</div>' +
-          (CUT.moved ? '<p class="msg" role="status" id="cutMoved">' + esc(CUT.moved) + '</p>' : '') + '</div>';
-      }
+      var many = live.length > 1, plan = cutPlan(r, CUT.cams, CUT.swap), n = plan.length, pre = r.pre != null ? r.pre : 15;
+      var lk = camById(CUT.lc), k = lk && lk.src ? lk : live[0], rows = cutRows(r, k), sel = rows.filter(function (x) { return x.key === CUT.sel; })[0] || rows[0];
+      html += '<section><h2>Line up the video</h2><p class="note">Mark kick-off' + (rows.some(function (x) { return x.key === 'h2'; }) ? ', the second-half kick-off' : '') +
+        ' and two or three goals. For each: pick it below, play or drag the video to the moment (for a goal, when the ball hits the net), and tap <b>It happens here</b>. Gaffer works out every other moment from them; each clip starts ' + pre + ' seconds before its moment.</p>';
+      if (many) html += '<div class="actions camtabs">' + live.map(function (x) { return '<button class="plain" type="button" data-cutdo="lc" data-cam="' + x.id + '" aria-pressed="' + (x === k) + '">Camera ' + camNo(x) + '</button>'; }).join('') + '</div>';
+      var file = sel.two ? k.src2 : k.src, seek = sel.t != null ? Math.max(0, sel.t - (sel.key === 'ko' || sel.key === 'h2' ? 5 : 12)) : 0;
+      html += '<div class="cutprev"><p class="note" id="cutSel">' + (many ? 'Camera ' + camNo(k) + ': marking' : 'Marking') + ' <b>' + esc(sel.label) + '</b>' + (sel.two ? ', in the second-half video' : '') + '</p>' +
+        '<video id="cutPrev" playsinline controls preload="metadata" data-seek="' + seek.toFixed(1) + '" data-cam="' + k.id + '" data-key="' + esc(sel.key) + '" src="' + esc(fileSrc(file.path)) + '"></video>' +
+        '<div class="actions"><button class="plain primary" type="button" data-cutdo="here">It happens here</button></div>' +
+        (CUT.moved ? '<p class="msg" role="status" id="cutMoved">' + esc(CUT.moved) + '</p>' : '') +
+        '<ol class="marks">' + rows.map(function (x) {
+          return '<li' + (x === sel ? ' class="on"' : '') + '><button class="plain" type="button" data-cutdo="sel" data-key="' + esc(x.key) + '"><b>' + esc(x.label) + '</b><span>' +
+            (x.t == null ? 'Not known yet' : (x.marked ? 'Marked at ' : 'About ') + mmss(x.t) + (x.two ? ' (second video)' : '')) + '</span></button>' +
+            (x.marked ? '<button class="link" type="button" data-cutdo="unmark" data-key="' + esc(x.key) + '">Clear</button>' : '') + '</li>';
+        }).join('') + '</ol></div>';
+      if (k.src2) html += '<div class="actions"><button class="plain" type="button" data-cutdo="drop2" data-cam="' + k.id + '">Remove the second-half video' + (many ? ' for camera ' + camNo(k) : '') + '</button></div>';
+      else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button></div>';
       html += busy;
       if (A.exp && A.exp.track) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(experimental: a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel)</small></span></label>' +
         '<div class="two"><label class="field" for="cutVoiceName">Voice<select id="cutVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
@@ -2813,9 +2888,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (CUT.msg) html += '<p class="msg bad">' + esc(CUT.msg) + '</p>' + (CUT.stage === 'work' ? '<div class="actions"><button class="plain" type="button" data-cutdo="retry">Back</button></div>' : '');
     $('cutBody').innerHTML = html;
     var pvEl = $('cutPrev');
-    if (pvEl) { // the preview starts where its clip starts
-      var a0 = +pvEl.getAttribute('data-start');
-      pvEl.addEventListener('loadedmetadata', function () { try { pvEl.currentTime = a0; } catch (e) {} }); // (the rest of the video can still be dragged to)
+    if (pvEl) { // the video opens a few seconds before where the moment is thought to be (all of it can still be dragged to)
+      var a0 = +pvEl.getAttribute('data-seek');
+      pvEl.addEventListener('loadedmetadata', function () { try { pvEl.currentTime = a0; } catch (e) {} });
     }
   }
   function fileSrc(path) { var C = window.Capacitor; try { return C && C.convertFileSrc ? C.convertFileSrc(path) : path; } catch (e) { return path; } } // a file on the phone, as the web view can play it
@@ -2837,9 +2912,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var src = await rc.pickVideo({ slot: k.id * 2 + (second ? 2 : 1) }); // each camera has two slots: its video, and a separate second half
       CUT.prog = '';
       if (!src || src.cancelled) drop();
-      else if (second) { k.src2 = src; k.sync2 = cutGuess(src, r.h2At); }
+      else if (second) { k.src2 = src; k.sync2 = cutGuess(src, r.h2At); camForget(r, k, true); }
       else {
-        k.src = src; var guess = cutGuess(src, r.koAt);
+        k.src = src; camForget(r, k, false); var guess = cutGuess(src, r.koAt);
         k.auto = guess != null; k.sync = k.auto ? guess : (typeof r.sync === 'number' && CUT.cams.filter(function (x) { return x.src; }).length === 1 ? r.sync : null);
       }
     } catch (err) { CUT.prog = ''; CUT.msg = (err && err.message) || 'Couldn’t read that video.'; drop(); }
@@ -2874,9 +2949,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var VOICES = [['Fenrir', 'Fenrir (excitable)'], ['Puck', 'Puck (upbeat)'], ['Sadachbia', 'Sadachbia (lively)'], ['Algenib', 'Algenib (gravelly)'], ['Orus', 'Orus (firm)'], ['Charon', 'Charon (measured)'], ['Kore', 'Kore (firm, female)'], ['Leda', 'Leda (youthful, female)']];
   function voicePick() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return { voice: v && v.voice ? v.voice : 'Fenrir', style: v && v.style === 'plain' ? 'plain' : 'hype' }; }
   $('cutBody').addEventListener('click', async function (e) {
-    var act = e.target.getAttribute('data-cutdo'), rc = RCp(), r = CUT && S.results[CUT.idx]; if (!act || !CUT || !r) return;
+    var bt = e.target.closest ? e.target.closest('[data-cutdo]') : e.target, act = bt && bt.getAttribute('data-cutdo'), rc = RCp(), r = CUT && S.results[CUT.idx]; if (!act || !CUT || !r) return;
     if (!rc) { CUT.msg = 'Cutting from a video needs the iPhone app.'; renderCut(); return; }
-    var cam = e.target.hasAttribute('data-cam') ? camById(+e.target.getAttribute('data-cam')) : null;
+    var cam = bt.hasAttribute('data-cam') ? camById(+bt.getAttribute('data-cam')) : null;
     if (act === 'add') { // somewhere free along a touchline or behind a goal, to be dragged where it really was
       cutKeep();
       var spots = [[-0.14, 0.5], [1.14, 0.5], [0.5, 1.12], [0.5, -0.12]], spot = spots.filter(function (s) { return !CUT.cams.some(function (k) { return Math.hypot(k.u - s[0], k.v - s[1]) < 0.15; }); })[0] || spots[0];
@@ -2884,21 +2959,22 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     } else if (act === 'vid' && cam) camPick(cam, false, false);
     else if (act === 'vid2' && cam) camPick(cam, true, false);
     else if (act === 'rm' && cam) { cutKeep(); CUT.cams = CUT.cams.filter(function (k) { return k !== cam; }); CUT.msg = ''; camStore(); renderCut(); }
-    else if (act === 'drop2' && cam) { cutKeep(); cam.src2 = null; cam.sync2 = null; renderCut(); }
+    else if (act === 'drop2' && cam) { cutKeep(); camForget(r, cam, true); cam.src2 = null; cam.sync2 = null; renderCut(); }
     else if (act === 'next') { cutKeep(); if (!CUT.cams.some(function (k) { return k.src; })) return; CUT.stage = 'sync'; CUT.msg = ''; renderCut(); }
     else if (act === 'cams') { cutKeep(); CUT.stage = 'cams'; CUT.msg = ''; renderCut(); }
-    else if (act === 'here') { // the moment is at this point in the video: this camera's kick-off is moved to match
-      cutKeep(); var pe = $('cutPrev'), hk = pe ? camById(+pe.getAttribute('data-cam')) : null, at = pe ? +pe.currentTime : NaN, was = pe ? +pe.getAttribute('data-t') : NaN;
-      if (!hk || !isFinite(at) || !isFinite(was)) return;
-      var two2 = pe.getAttribute('data-two') === '1', key = two2 ? 'sync2' : 'sync', by2 = Math.round(at - was);
-      if (hk[key] == null) { CUT.msg = 'Enter where kick-off is in the video first, like 02:30.'; renderCut(); return; }
-      if (hk[key] + by2 < 0) { CUT.msg = 'That would put kick-off before the video starts. Check you’ve found the right moment.'; renderCut(); return; }
-      hk[key] += by2; hk.auto = false; CUT.msg = '';
-      var whose = CUT.cams.filter(function (k) { return k.src; }).length > 1 ? 'Camera ' + camNo(hk) + (two2 ? '’s second-half clips' : '’s clips') : two2 ? 'The second-half clips' : 'The clips';
-      CUT.moved = !by2 ? whose + ' were already lined up.' : whose + ' moved ' + Math.abs(by2) + (Math.abs(by2) === 1 ? ' second ' : ' seconds ') + (by2 < 0 ? 'earlier' : 'later') + ', so each moment comes ' + (r.pre != null ? r.pre : 15) + ' seconds in.';
-      renderCut();
+    else if (act === 'sel') { cutKeep(); CUT.sel = bt.getAttribute('data-key'); CUT.moved = ''; renderCut(); }
+    else if (act === 'lc' && cam) { cutKeep(); CUT.lc = cam.id; CUT.sel = 'ko'; CUT.moved = ''; renderCut(); }
+    else if (act === 'unmark') { cutKeep(); var uk = camById(+$('cutPrev').getAttribute('data-cam')), ukey = bt.getAttribute('data-key'); if (uk && uk.marks) delete uk.marks[ukey]; CUT.sel = ukey; CUT.moved = ''; renderCut(); }
+    else if (act === 'here') { // the selected moment is at this point in the video
+      cutKeep(); var pe = $('cutPrev'), hk = pe ? camById(+pe.getAttribute('data-cam')) : null, key = pe ? pe.getAttribute('data-key') : '', at = pe ? +pe.currentTime : NaN;
+      if (!hk || !key || !isFinite(at) || at < 0) return;
+      var hrows = cutRows(r, hk), row = hrows.filter(function (x) { return x.key === key; })[0]; if (!row) return;
+      var before = key.slice(0, 2) === 'e:' ? camAt(r, hk, row.at, key) : null; // where the other marks would have put it
+      hk.marks = hk.marks || {}; hk.marks[key] = Math.round(at * 10) / 10; CUT.msg = '';
+      CUT.moved = row.label + ': marked at ' + mmss(at) + '.' + (before && Math.abs(before.t - at) > 60 ? ' That’s ' + Math.round(Math.abs(before.t - at) / 60) + ' min from where the other marks put it: check it’s the right moment.' : '');
+      var after = cutRows(r, hk), idx = after.map(function (x) { return x.key; }).indexOf(key), next = after.slice(idx + 1).filter(function (x) { return !x.marked; })[0];
+      CUT.sel = next ? next.key : key; renderCut();
     }
-    else if (act === 'pvnext') { cutKeep(); var tot = cutPlan(r, CUT.cams, CUT.swap).length; CUT.pv = tot ? ((CUT.pv || 0) + 1) % tot : 0; renderCut(); }
     else if (act === 'hear') { // a sample line in the chosen voice, played straight away
       cutKeep(); CUT.heard = 'Fetching the voice…'; renderCut();
       try {
@@ -2910,11 +2986,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     else if (act === 'go') {
       var live = CUT.cams.filter(function (k) { return k.src; }), many = live.length > 1, bad = null;
-      live.forEach(function (k) { // what's in the boxes now is what's used: an emptied box is a missing time
-        var a = $('cutSync-' + k.id), b = $('cutSync2-' + k.id);
-        k.sync = a ? parseClock(a.value) : k.sync; if (k.src2) k.sync2 = b ? parseClock(b.value) : k.sync2;
-        if (!bad && k.sync === null) bad = 'Enter where kick-off is in ' + (many ? 'camera ' + camNo(k) + '’s video' : 'the video') + ', like 02:30.';
-        if (!bad && k.src2 && k.sync2 === null) bad = 'Enter where the second half kicks off in ' + (many ? 'camera ' + camNo(k) + '’s second video' : 'the second video') + ', like 00:45.';
+      live.forEach(function (k) { // every video needs at least one mark (or the time it started) to line it up
+        if (!bad && !camAt(r, k, r.koAt) && !(k.marks && Object.keys(k.marks).length)) bad = 'Mark kick-off (or a goal) in ' + (many ? 'camera ' + camNo(k) + '’s video' : 'the video') + ' first.';
+        if (!bad && k.src2 && r.h2At && !camAt(r, k, r.h2At)) bad = 'Mark the second-half kick-off (or a second-half goal) in ' + (many ? 'camera ' + camNo(k) + '’s second video' : 'the second video') + ' first.';
       });
       if ($('cutVoice')) CUT.voice = $('cutVoice').checked;
       if (!live.length) { CUT.stage = 'cams'; renderCut(); return; }
@@ -2923,7 +2997,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (!list.length) { CUT.msg = 'No timed moments were logged in this game.'; renderCut(); return; }
       CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; renderCut();
       try {
-        r.sync = live[0].sync; save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
+        var b0 = camBase(r, live[0], false, false); if (b0 != null) r.sync = Math.max(0, Math.round(b0)); save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
         if (dirty || !r.id) throw new Error('Couldn’t save the game to the database. Check your signal and try again.');
         var ink = getComputedStyle(document.documentElement).getPropertyValue('--team-ink').trim() || '#ffffff';
         // commentary: a line for each clip plus an intro and a sign-off, spoken by a cloud voice and mixed in on the phone
