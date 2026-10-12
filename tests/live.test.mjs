@@ -19,6 +19,8 @@ await B.page.fill('#joinCode', code); await B.click('#joinBtn'); await B.run(500
 // Cloudflare's player, as far as these phones can reach it (stands in for the real thing; nothing leaves the test)
 const cloudflare = (P) => P.ctx.route('https://customer-test.cloudflarestream.com/**', (r) => r.fulfill({ contentType: 'text/html', body: '<p>the stream</p>' }));
 await cloudflare(B);
+// this follower's browser can't play the stream's format itself (newer Chromes can: phone C below covers that way)
+await B.page.evaluate(() => { HTMLMediaElement.prototype.canPlayType = function (t) { return /mpegurl/.test(t) ? '' : 'maybe'; }; });
 await B.page.evaluate(() => { window.__quiet = []; window.Capacitor.Plugins.ChatQuiet = { quiet: async (o) => { window.__quiet.push(o); return {}; } }; });
 const quiet = () => B.page.evaluate(() => window.__quiet.slice(-1)[0] || null);
 
