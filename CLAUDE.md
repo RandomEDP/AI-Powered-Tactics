@@ -211,9 +211,11 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
      team in `localStorage` `apt-cams:<code>`.
   2. They pick each camera's video, from Photos, with an optional separate second-half video.
   3. They confirm each camera's kick-off time, which is auto-guessed from the recording's creation time. Below it,
-     **Check the timing** plays each clip from the video (`#cutPrev`, through `convertFileSrc`), and "5 seconds
-     earlier / later" moves kick-off in every camera's video at once. Ethan's first real cut had every clip starting just
-     after the goal (a guess thrown by a trimmed video, or goals logged late); `cuttiming.test.mjs` covers it.
+     **Line up the clips** plays a clip from the video (`#cutPrev`, through `convertFileSrc`); the gaffer drags to the
+     moment and taps "It happens here", and that camera's kick-off (or second-half kick-off) moves so the logged moment
+     lands there, i.e. each moment comes `pre` (15) seconds into its clip. Ethan's first real cut had every clip starting
+     just after the goal (a guess thrown by a trimmed video, or goals logged late), and he asked for exactly this;
+     `cuttiming.test.mjs` covers it.
   4. The phone cuts.
 - **Which camera each moment comes from:**
   - our goals: nearest the opposition goal;

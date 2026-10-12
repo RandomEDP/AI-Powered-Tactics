@@ -1,7 +1,8 @@
 // Cutting highlights: the clip timing can be checked and moved before cutting. Ethan's first cut from a real game had
 // every clip starting just after the goal: the kick-off time worked out from when the recording started was off (a video
 // trimmed in Photos keeps its old start time; and goals are often logged a few seconds after they go in). The kick-off
-// step now shows each clip from the video, and "5 seconds earlier / later" moves every clip, in every camera's video.
+// step now shows each clip from the video: the gaffer finds the moment in it and taps "It happens here", and that
+// camera's clips are lined up from it, so each moment comes 15 seconds in.
 import { world, suite } from './lib.mjs';
 const { check, eq, done } = suite('phone: checking the highlight timing');
 const w = await world();
@@ -33,35 +34,41 @@ await A.click('#cutBody [data-cutdo="next"]');
 
 // ---------- the kick-off step shows the first clip from the video
 const kick = await A.page.inputValue('#cutSync-0');
-const prev = () => A.page.evaluate(() => { const v = document.getElementById('cutPrev'); return v ? { src: v.getAttribute('src'), start: +v.getAttribute('data-start'), end: +v.getAttribute('data-end') } : null; });
+const prev = () => A.page.evaluate(() => { const v = document.getElementById('cutPrev'); return v ? { src: v.getAttribute('src'), start: +v.getAttribute('data-start'), t: +v.getAttribute('data-t') } : null; });
 const p0 = await prev();
 check(/^0[5-9]:\d\d$/.test(kick), `kick-off is worked out from when the recording started (${kick})`);
-eq([!!p0, p0 && p0.src, /Check the timing/.test(await A.text('#cutBody')), /Clip 1 of 2: .*Jake/.test(await A.text('#cutBody'))], [true, '/phone/game1.mov', true, true],
+eq([!!p0, p0 && p0.src, /Line up the clips/.test(await A.text('#cutBody')), /Clip 1 of 2: .*Jake/.test(await A.text('#cutBody'))], [true, '/phone/game1.mov', true, true],
   'the kick-off step shows the first clip, from the video picked, with what it is');
-check(/should start a few seconds before the moment/.test(await A.text('#cutBody')), 'and says what to look for');
+check(/drag the video to the moment it happens, then tap It happens here\. Every clip is lined up from it, so each moment comes 15 seconds in, after the build-up/.test(await A.text('#cutBody')), 'and says what to do');
 const secs = (s) => { const [m, x] = s.split(':').map(Number); return m * 60 + x; };
-check(Math.abs(p0.start - (secs(kick) + 40 - 15)) <= 2 && Math.abs(p0.end - p0.start - 21) <= 1, `it plays from 15 seconds before the goal to 6 after, in the video (${p0.start}–${p0.end}, kick-off ${kick})`);
+check(Math.abs(p0.t - (secs(kick) + 40)) <= 2 && Math.abs(p0.t - p0.start - 15) < 0.5, `it starts 15 seconds before where the goal was worked out to be (${p0.start}, goal at ${p0.t}, kick-off ${kick})`);
+// the gaffer drags the video to the goal (here the video stands in: it reports where it's been dragged to)
+const here = async (t) => { await A.page.evaluate((x) => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => x, set: () => {} }); }, t); await A.click('#cutBody [data-cutdo="here"]'); };
 
-// ---------- the goals came out late: move every clip 20 seconds earlier
-for (let i = 0; i < 4; i++) await A.click('#cutBody [data-cutdo="nudge"][data-by="-5"]');
+// ---------- the goals came out late: the goal is really 22 seconds earlier in the video than worked out
+await here(p0.t - 22);
 const p1 = await prev(), kick1 = await A.page.inputValue('#cutSync-0');
-eq([Math.round(p0.start - p1.start), secs(kick) - secs(kick1), await A.text('#cutMoved')], [20, 20, 'Every clip moved 20 seconds earlier.'],
-  'four taps on "5 seconds earlier" move the clip, and kick-off in the video, 20 seconds earlier, and it says so');
-await A.click('#cutBody [data-cutdo="nudge"][data-by="5"]');
-eq([Math.round((await prev()).start - p1.start), await A.text('#cutMoved')], [5, 'Every clip moved 15 seconds earlier.'], '"5 seconds later" moves them back');
+eq([Math.round(p0.t - p1.t), Math.round(p1.t - p1.start), secs(kick) - secs(kick1), await A.text('#cutMoved')], [22, 15, 22, 'The clips moved 22 seconds earlier, so each moment comes 15 seconds in.'],
+  '"It happens here" lines the clips up from that moment: 22 seconds earlier, the goal 15 seconds in, kick-off moved to match, and it says so');
+await here(p1.t);
+eq(await A.text('#cutMoved'), 'The clips were already lined up.', 'tapped again at the same moment: nothing moves');
+await here(p1.t + 3);
+eq([Math.round((await prev()).t - p1.t), await A.text('#cutMoved')], [3, 'The clips moved 3 seconds later, so each moment comes 15 seconds in.'], 'and it can move them later as well');
+await here(-5000);
+eq([await A.text('#cutBody .msg.bad'), Math.round((await prev()).t - p1.t)], ['That would put kick-off before the video starts. Check you’ve found the right moment.', 3], 'a moment before the video could start is turned away');
+const p2t = (await prev()).t;
 await A.click('#cutBody [data-cutdo="pvnext"]');
 const p2 = await prev();
-check(/Clip 2 of 2: .*Goal for Dog Squad/.test(await A.text("#cutBody")) && p2.start > p1.start + 60, `Next clip shows the goal against (${p2.start} after ${p1.start}: ${await A.text("#cutBody .cutprev .note")})`);
+check(/Clip 2 of 2: .*Goal for Dog Squad/.test(await A.text('#cutBody')) && p2.t > p2t + 60 && Math.abs(p2.t - p2.start - 15) < 0.5, `Next clip shows the goal against, lined up the same way (${p2.start}, goal at ${p2.t})`);
 await A.click('#cutBody [data-cutdo="pvnext"]');
 check(/Clip 1 of 2/.test(await A.text('#cutBody')), 'and round to the first again');
-eq(secs(await A.page.inputValue('#cutSync-0')), secs(kick1) + 5, 'what was moved stays in the kick-off box across redraws');
+eq(secs(await A.page.inputValue('#cutSync-0')), secs(kick1) + 3, 'the kick-off box keeps the lined-up time across redraws');
 
-// ---------- the cut uses the moved timing
-const typed = secs(await A.page.inputValue('#cutSync-0'));
+// ---------- the cut uses the lined-up timing
 await A.click('#cutBody [data-cutdo="go"]'); await A.run(3000);
 const cut = await A.page.evaluate(() => (window.__rc.filter((x) => x[0] === 'cut').pop() || [])[1]);
 check(!!cut && cut.clips.length === 2, 'the highlights are cut');
-check(cut && Math.abs(cut.clips[0].start - (typed + 40 - 15)) <= 2 && Math.round(p0.start - cut.clips[0].start) === 15, `the first clip starts 15 seconds earlier than first worked out (${cut && cut.clips[0].start} v ${p0.start})`);
+check(cut && Math.abs(cut.clips[0].start - (p2t - 15)) < 1 && Math.round(p0.start - cut.clips[0].start) === 19, `the first clip starts 15 seconds before where the goal was found (${cut && cut.clips[0].start}; the goal at ${p2t})`);
 
 for (const e of A.errs) check(false, 'page error: ' + e);
 await w.close();

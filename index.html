@@ -2726,6 +2726,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       return Object.assign(c, { path: s.path, start: s.start, end: s.end, t: s.t, cam: cams.indexOf(order[k]) + 1 });
     });
   }
+  function order1(c) { return CUT.cams[c.cam - 1] || null; } // the camera a planned clip is cut from
   function camKey() { return 'apt-cams:' + (A.active || ''); }
   function camStore() { // where the cameras stood is remembered for next week; the videos aren't
     try { localStorage.setItem(camKey(), JSON.stringify({ cams: CUT.cams.map(function (k) { return { u: +k.u.toFixed(3), v: +k.v.toFixed(3) }; }), swap: CUT.swap })); } catch (e) {}
@@ -2785,13 +2786,16 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
           '<div class="actions"><button class="plain" type="button" data-cutdo="drop2" data-cam="' + k.id + '">Remove the second video' + (many ? ' for camera ' + camNo(k) : '') + '</button></div>';
         else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button></div>';
       });
-      var pi = Math.min(CUT.pv || 0, Math.max(0, n - 1)), pv = plan[pi];
-      if (pv) html += '<div class="cutprev"><h3>Check the timing</h3><p class="note">Clip ' + (pi + 1) + ' of ' + n + (many ? ', from camera ' + pv.cam : '') + ': ' + esc(pv.labels.join(', ')) +
-        '. It should start a few seconds before the moment. If the moment has already happened when it starts, move the clips earlier.</p>' +
-        '<video id="cutPrev" playsinline controls preload="metadata" muted data-start="' + pv.start.toFixed(1) + '" data-end="' + pv.end.toFixed(1) + '" src="' + esc(fileSrc(pv.path)) + '"></video>' +
-        '<div class="actions"><button class="plain" type="button" data-cutdo="nudge" data-by="-5">5 seconds earlier</button><button class="plain" type="button" data-cutdo="nudge" data-by="5">5 seconds later</button>' +
-        (n > 1 ? '<button class="plain" type="button" data-cutdo="pvnext">' + (pi + 1 < n ? 'Next clip' : 'First clip') + '</button>' : '') + '</div>' +
-        (CUT.moved ? '<p class="msg" role="status" id="cutMoved">Every clip moved ' + Math.abs(CUT.moved) + ' seconds ' + (CUT.moved < 0 ? 'earlier' : 'later') + '.</p>' : '') + '</div>';
+      var pi = Math.min(CUT.pv || 0, Math.max(0, n - 1)), pv = plan[pi], pre = r.pre != null ? r.pre : 15;
+      if (pv) { // line the clips up from one moment: the gaffer finds it in the video and says "here"
+        var pk = order1(pv), two = !!(pk && pk.src2 && pv.path === pk.src2.path);
+        html += '<div class="cutprev"><h3>Line up the clips</h3><p class="note">Clip ' + (pi + 1) + ' of ' + n + (many ? ', from camera ' + pv.cam : '') + ': <b>' + esc(pv.labels[0]) + '</b>.</p>' +
+          '<p class="note">Play or drag the video to the moment it happens, then tap <b>It happens here</b>. Every clip ' + (many ? 'from camera ' + pv.cam + ' ' : '') + 'is lined up from it, so each moment comes ' + pre + ' seconds in, after the build-up.</p>' +
+          '<video id="cutPrev" playsinline controls preload="metadata" data-start="' + pv.start.toFixed(1) + '" data-t="' + pv.t.toFixed(1) + '" data-cam="' + (pk ? pk.id : '') + '" data-two="' + (two ? 1 : 0) + '" src="' + esc(fileSrc(pv.path)) + '"></video>' +
+          '<div class="actions"><button class="plain primary" type="button" data-cutdo="here">It happens here</button>' +
+          (n > 1 ? '<button class="plain" type="button" data-cutdo="pvnext">' + (pi + 1 < n ? 'Next clip' : 'First clip') + '</button>' : '') + '</div>' +
+          (CUT.moved ? '<p class="msg" role="status" id="cutMoved">' + esc(CUT.moved) + '</p>' : '') + '</div>';
+      }
       html += busy;
       if (A.exp && A.exp.track) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(experimental: a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel)</small></span></label>' +
         '<div class="two"><label class="field" for="cutVoiceName">Voice<select id="cutVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
@@ -2808,10 +2812,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (CUT.msg) html += '<p class="msg bad">' + esc(CUT.msg) + '</p>' + (CUT.stage === 'work' ? '<div class="actions"><button class="plain" type="button" data-cutdo="retry">Back</button></div>' : '');
     $('cutBody').innerHTML = html;
     var pvEl = $('cutPrev');
-    if (pvEl) { // the preview starts where its clip starts, and stops where it ends
-      var a0 = +pvEl.getAttribute('data-start'), a1 = +pvEl.getAttribute('data-end');
-      pvEl.addEventListener('loadedmetadata', function () { try { pvEl.currentTime = a0; } catch (e) {} });
-      pvEl.addEventListener('timeupdate', function () { if (pvEl.currentTime >= a1) { pvEl.pause(); try { pvEl.currentTime = a0; } catch (e) {} } });
+    if (pvEl) { // the preview starts where its clip starts
+      var a0 = +pvEl.getAttribute('data-start');
+      pvEl.addEventListener('loadedmetadata', function () { try { pvEl.currentTime = a0; } catch (e) {} }); // (the rest of the video can still be dragged to)
     }
   }
   function fileSrc(path) { var C = window.Capacitor; try { return C && C.convertFileSrc ? C.convertFileSrc(path) : path; } catch (e) { return path; } } // a file on the phone, as the web view can play it
@@ -2883,11 +2886,16 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (act === 'drop2' && cam) { cutKeep(); cam.src2 = null; cam.sync2 = null; renderCut(); }
     else if (act === 'next') { cutKeep(); if (!CUT.cams.some(function (k) { return k.src; })) return; CUT.stage = 'sync'; CUT.msg = ''; renderCut(); }
     else if (act === 'cams') { cutKeep(); CUT.stage = 'cams'; CUT.msg = ''; renderCut(); }
-    else if (act === 'nudge') { // every clip earlier or later: kick-off is moved in every video by the same amount
-      cutKeep(); var by = +e.target.getAttribute('data-by') || 0, set = CUT.cams.filter(function (k) { return k.src && k.sync != null; });
-      if (!set.length) { CUT.msg = 'Enter where kick-off is in the video first, like 02:30.'; renderCut(); return; }
-      set.forEach(function (k) { k.sync = Math.max(0, k.sync + by); if (k.src2 && k.sync2 != null) k.sync2 = Math.max(0, k.sync2 + by); });
-      CUT.moved = (CUT.moved || 0) + by; CUT.msg = ''; renderCut();
+    else if (act === 'here') { // the moment is at this point in the video: this camera's kick-off is moved to match
+      cutKeep(); var pe = $('cutPrev'), hk = pe ? camById(+pe.getAttribute('data-cam')) : null, at = pe ? +pe.currentTime : NaN, was = pe ? +pe.getAttribute('data-t') : NaN;
+      if (!hk || !isFinite(at) || !isFinite(was)) return;
+      var two2 = pe.getAttribute('data-two') === '1', key = two2 ? 'sync2' : 'sync', by2 = Math.round(at - was);
+      if (hk[key] == null) { CUT.msg = 'Enter where kick-off is in the video first, like 02:30.'; renderCut(); return; }
+      if (hk[key] + by2 < 0) { CUT.msg = 'That would put kick-off before the video starts. Check you’ve found the right moment.'; renderCut(); return; }
+      hk[key] += by2; hk.auto = false; CUT.msg = '';
+      var whose = CUT.cams.filter(function (k) { return k.src; }).length > 1 ? 'Camera ' + camNo(hk) + (two2 ? '’s second-half clips' : '’s clips') : two2 ? 'The second-half clips' : 'The clips';
+      CUT.moved = !by2 ? whose + ' were already lined up.' : whose + ' moved ' + Math.abs(by2) + (Math.abs(by2) === 1 ? ' second ' : ' seconds ') + (by2 < 0 ? 'earlier' : 'later') + ', so each moment comes ' + (r.pre != null ? r.pre : 15) + ' seconds in.';
+      renderCut();
     }
     else if (act === 'pvnext') { cutKeep(); var tot = cutPlan(r, CUT.cams, CUT.swap).length; CUT.pv = tot ? ((CUT.pv || 0) + 1) % tot : 0; renderCut(); }
     else if (act === 'hear') { // a sample line in the chosen voice, played straight away

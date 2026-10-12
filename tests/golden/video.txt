@@ -4,7 +4,7 @@ view: v-cut
 cameras screen: SOP FC 1–1 DogWhere were the cameras?Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.DogSOP FCGoals come from the camera nearest the goal they went in. Saves come from the one nearest SOP FC’s goal, and other highlights from the one nearest Dog’s goal.Teams swapped ends at half time (the ends drawn are for the first half)Add a cameraThe cutting happe
 cancelled pick leaves 0 cameras | next button: false
 after a tap and a video: 1 camera | Camera 150 min, started <hh:mm>Change videoRemove
-sync screen: SOP FC 1–1 DogWhere is kick-off in the video?Worked out from when the recording started. Change it if the clips come out early or late.Kick-off atRecording stopped at half time? Add the second-half video too.Add a second-half videoCheck the timingClip 1 of 2: 1' Puxley SOP FC 1-0 Dog. It should start a few seconds before the mom | kick-off field: <mm:ss>
+sync screen: SOP FC 1–1 DogWhere is kick-off in the video?Worked out from when the recording started. Change it if the clips come out early or late.Kick-off atRecording stopped at half time? Add the second-half video too.Add a second-half videoLine up the clipsClip 1 of 2: 1' Puxley SOP FC 1-0 Dog.Play or drag the video to the moment it happ | kick-off field: <mm:ss>
 typed 0210 -> 02:10
 second video: kick-off kept 02:10 | second half at <mm:ss>
 commentary switch: true
