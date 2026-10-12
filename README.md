@@ -93,7 +93,7 @@ They also run on GitHub on every push, and a TestFlight build only goes ahead on
 | Phone and watch together | `tests/link.test.mjs` | Whole games between the real phone app and the real watch logic over a stand-in for the link: phone frozen in a pocket, watch out of reach, the watch app restarted, clocks apart. Checked second by second |
 | The phone's store of the watch's presses | `tests/plugin/main.swift` | The real plugin source built off-phone: every press kept on disk until the app has dealt with it, never twice, from several threads at once |
 | The phone running a game | `tests/match.test.mjs`, `tests/watchlink.test.mjs` | Clock, changes that wait to be confirmed, injuries, whistles; presses from the watch arriving late, twice or out of order |
-| Several phones on one team | `tests/sync.test.mjs` | Gaffer, followers and a second gaffer, no signal, the app closed with changes not yet uploaded, signing out |
+| Several phones on one team | `tests/sync.test.mjs`, `tests/join.test.mjs` | Gaffer, followers and a second gaffer, no signal, the app closed with changes not yet uploaded, signing out |
 | The database | `tests/db.test.mjs` | Every migration loaded into a real Postgres in memory, then the functions and security rules used as a gaffer, a player, a stranger and someone not signed in. Elo sums included |
 | App and database agree | `tests/contract.test.mjs` | Every function the app calls exists with those arguments; every row the app writes fits the real tables |
 | Walk-throughs of each screen | `tests/*.mjs` (no `.test`) | Print what they see; compared with `tests/golden/`. After an intended change: `node tests/run.mjs --update` and read the diff |

@@ -363,6 +363,7 @@ tr.past td { opacity: .45; }
 .jhead { width: 100%; min-height: 58px; border: 0; background: none; text-align: left; padding: 10px 18px; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .jhead:disabled { opacity: .5; }
 .jrow.open { outline: 2px solid var(--on); outline-offset: -2px; }
+.askrow { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line, rgba(128, 128, 128, .25)); } .askrow p { margin: 0; } .askrow .actions { margin: 0; }
 .jbody { display: flex; flex-direction: column; gap: 12px; padding: 4px 18px 18px; }
 .jbody .field input { background: var(--bg); }
 .toggle { display: flex; background: var(--fill); border-radius: var(--r-ctl); padding: 4px; }
@@ -641,7 +642,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="bar"><button class="back" type="button" data-go="welcome">&lsaquo; Back</button><h1>Which one are you?</h1></div>
   <div class="jteam"><img id="jCrest" alt="" hidden><div><h2 id="jName"></h2><p class="note" id="jSub"></p></div></div>
   <div class="jlist" id="joinList"></div>
-  <p class="note">Not on the list? Ask your gaffer to add you to the squad.</p>
   <div class="actions"><button class="plain" id="jFollow" type="button">Just follow the team</button></div>
   <p class="note">Following needs no account. You can pick your player later.</p>
 </div>
@@ -787,6 +787,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="hero"><img id="heroCrest" alt="" hidden><h1 id="heroName"></h1><p id="homeRecord"></p><p class="app-name">Gaffer</p></div>
   <div class="card" id="pendCard" hidden><h2 id="pendTitle"></h2><p class="note">Tap the link in the email we sent you, then sign in here to finish joining.</p>
     <div class="actions"><button class="plain primary" type="button" data-go="account">Sign in</button></div></div>
+  <div class="card" id="askCard" hidden></div>
   <div class="card" id="fxCard" hidden></div>
   <div class="menu" id="homeMenu">
     <button class="primary" id="mResume" type="button" hidden><span id="mResumeLbl">Resume game</span><small id="mResumeSub"></small></button>
@@ -1148,6 +1149,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var role = 'viewer', teamId = null, orgCode = null;
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
+  var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
   var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
@@ -1340,8 +1342,16 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (flipScore) { S.followersCanScore = true; save(); } // teams made before everyone could log goals: switched on once, and Options can switch it off
       if (wantGame === code) { wantGame = null; if (S.match) go('game'); }
       pushSetup(); if (CH.code !== code) chatPull(); if (RV.code !== code || S.view === 'games') rivalsPull();
+      joinPull(code, org);
       if (org) sb.rpc('team_push', { p_code: code }).then(function (r) { if (A.active !== code || !r || !Array.isArray(r.data)) return; pushPids = {}; r.data.forEach(function (id) { pushPids[id] = 1; }); pushFor = code; if (S.view === 'home') renderHome(); }, function () {});
     } catch (e) { setSync(navigator.onLine === false ? 'offline' : 'err'); }
+  }
+  // Requests to join: a gaffer's list of those waiting, or this person's own request if they aren't in the team.
+  function joinPull(code, org) {
+    if (!sb || !me) { myAsk = null; asks = []; return; }
+    if (org) sb.rpc('team_join_requests', { p_code: code }).then(function (r) { if (A.active !== code || !r || r.error) return; asks = Array.isArray(r.data) ? r.data : []; renderAsks(); }, function () {});
+    else if (myPid == null) sb.rpc('my_join_request', { p_code: code }).then(function (r) { if (A.active !== code || !r || r.error) return; myAsk = r.data || null; if (S.view === 'home') renderHome(); }, function () {});
+    else if (myAsk) { myAsk = null; }
   }
   function adopt(r) {
     var view = S.view;
@@ -1378,6 +1388,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function closeTeam() {
     if (chan && sb) { try { sb.removeChannel(chan); } catch (e) {} }
     chan = null; chanCode = null; teamId = null; orgCode = null; synced = null; dirty = false; clearTimeout(wt); clearInterval(pollT);
+    myAsk = null; asks = []; askMsg = '';
   }
   function listen(code) {
     if (!sb || chanCode === code) return;
@@ -1873,22 +1884,43 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         html += '<p class="msg" id="jMsg"></p></div>';
       }
       return html + '</div>';
-    }).join('');
+    }).join('') + askRow();
+  }
+  // Not in the squad list: the same details as claiming a player, plus a first name, sent to the gaffers to let in or turn down.
+  function askRow() {
+    var open = J.open === 'ask', html = '<div class="jrow' + (open ? ' open' : '') + '"><button class="jhead" type="button" data-ask="1" aria-expanded="' + open + '"><span>My name isn’t here</span><span class="badge">Ask to join</span></button>';
+    if (open) {
+      html += '<div class="jbody"><p class="note">Fill this in and your gaffer is asked to let you into the squad. You’ll follow the team in the meantime.</p>' +
+        '<label class="field" for="jFirst">First name, as the team knows you<input id="jFirst" type="text" maxlength="40" autocomplete="given-name"></label>' +
+        '<label class="field" for="jLast">Last name<input id="jLast" type="text" maxlength="40" autocomplete="family-name"></label>' +
+        '<label class="field" for="jNum">Shirt number, if you have one<input id="jNum" type="text" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="Optional"></label>' +
+        '<div class="field"><span>Where do you play?</span>' + posButtons(J.pos || null, 'data-pos') + '</div>';
+      if (me) html += '<div class="actions"><button class="plain primary" type="button" data-do="claim">Ask to join</button></div>';
+      else html += '<div class="toggle"><button type="button" data-mode="up" aria-pressed="' + (J.mode === 'up') + '">New account</button><button type="button" data-mode="in" aria-pressed="' + (J.mode === 'in') + '">I have an account</button></div>' +
+        '<label class="field" for="jEmail">Email<input id="jEmail" type="email" autocomplete="email" inputmode="email"></label>' +
+        '<label class="field" for="jPass">Password<input id="jPass" type="password" autocomplete="' + (J.mode === 'up' ? 'new-password' : 'current-password') + '" minlength="8"></label>' +
+        '<div class="actions"><button class="plain primary" type="button" data-do="' + J.mode + '">' + (J.mode === 'up' ? 'Create account and ask to join' : 'Sign in and ask to join') + '</button></div>';
+      html += '<p class="msg" id="jMsg"></p></div>';
+    }
+    return html + '</div>';
   }
   function jSay(t, bad) { var el = $('jMsg'); if (el) { el.textContent = t || ''; el.className = 'msg' + (bad ? ' bad' : ''); } }
   $('joinList').addEventListener('click', async function (e) {
     var b = e.target.closest('button'); if (!b || !J) return;
     var pid = b.getAttribute('data-pid'), mode = b.getAttribute('data-mode'), act = b.getAttribute('data-do'), ps = b.getAttribute('data-pos');
     if (ps) { J.pos = ps; Array.prototype.forEach.call(b.parentNode.children, function (x) { x.setAttribute('aria-pressed', x === b); }); return; }
+    if (b.getAttribute('data-ask')) { J.open = J.open === 'ask' ? null : 'ask'; J.pos = null; renderJoin(); if (J.open) { var ff = $('jFirst'); if (ff) ff.focus(); } return; }
     if (pid !== null) { J.open = J.open === +pid ? null : +pid; J.pos = null; renderJoin(); if (J.open != null) { var f = $('jLast'); if (f) f.focus(); } return; }
-    if (mode) { var keep = { l: $('jLast').value, n: $('jNum').value, e: $('jEmail').value, p: $('jPass').value }; J.mode = mode; renderJoin(); $('jLast').value = keep.l; $('jNum').value = keep.n; $('jEmail').value = keep.e; $('jPass').value = keep.p; return; }
+    if (mode) { var keep = { f: $('jFirst') ? $('jFirst').value : '', l: $('jLast').value, n: $('jNum').value, e: $('jEmail').value, p: $('jPass').value }; J.mode = mode; renderJoin(); if ($('jFirst')) $('jFirst').value = keep.f; $('jLast').value = keep.l; $('jNum').value = keep.n; $('jEmail').value = keep.e; $('jPass').value = keep.p; return; }
     if (!act) return;
-    var p = J.d.players.filter(function (x) { return x.pid === J.open; })[0]; if (!p) return;
+    var asking = J.open === 'ask', p = asking ? { pid: null, name: $('jFirst').value.replace(/\s+/g, ' ').trim().slice(0, 40), position: null } : J.d.players.filter(function (x) { return x.pid === J.open; })[0]; if (!p) return;
+    if (asking && !p.name) { jSay('Enter your first name.', true); return; }
     var pos = J.pos || p.position || null;
     if (!pos) { jSay('Pick where you play.', true); return; }
     var jn = ($('jNum').value || '').replace(/\D/g, '');
     var pend = { code: J.code, pid: p.pid, name: p.name, last: $('jLast').value.trim(), pos: pos, team: J.d.team.name, num: jn === '' ? null : +jn };
-    if (act === 'claim') { A.pending = pend; saveApp(); jSay('Joining…'); finishPending(); return; }
+    if (asking) pend.ask = true;
+    if (act === 'claim') { A.pending = pend; saveApp(); jSay(asking ? 'Sending…' : 'Joining…'); finishPending(); return; }
     var email = $('jEmail').value.trim(), pw = $('jPass').value;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { jSay('Enter your email address.', true); return; }
     if (pw.length < 8) { jSay('Passwords need at least 8 characters.', true); return; }
@@ -1909,6 +1941,20 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   async function finishPending() { // once signed in, link the account to the player that was picked
     var p = A.pending; if (!p || !me || !sb || pendBusy) return;
     pendBusy = true;
+    if (p.ask) { // not in the squad list: ask the gaffers
+      try {
+        var ar = await q(sb.rpc('request_join', { p_code: p.code, p_name: p.name, p_last_name: p.last || null, p_position: p.pos || 'mix', p_number: p.num == null ? null : p.num }));
+        var sent = ar.data === 'ok' || ar.data === 'pending';
+        A.pending = null;
+        A.notice = sent || ar.data === 'member' ? null : ar.data === 'denied' ? 'Your gaffer turned down a request to join not long ago. Have a word with them.'
+          : ar.data === 'full' ? 'This team has a lot of requests waiting. Ask your gaffer to go through them.' : ar.data === 'slow' ? 'You have several requests waiting already. Give the gaffers a chance to answer.' : 'That couldn’t be sent. Try again from Choose your player.';
+        saveApp(); myTeams = null; rememberTeam(p.code, p.team, null);
+        if (sent) myAsk = { status: 'pending', name: p.name };
+        openTeam(p.code, 'home');
+        if (ar.data === 'ok') { ping('changed'); if (sb.functions) { try { sb.functions.invoke('team-notify', { body: { code: p.code, kind: 'join' } }).then(function () {}, function () {}); } catch (e) {} } } // tells the gaffers
+      } catch (e) { jSay('Couldn’t send that. Check your signal and try again.', true); if (!A.active) go('welcome'); }
+      pendBusy = false; return;
+    }
     try {
       var res = await q(sb.rpc('claim_player', { p_code: p.code, p_pid: p.pid, p_last_name: p.last || null, p_position: p.pos || 'mix' }));
       if (res.data === 'ok' && p.num != null) { try { await q(sb.rpc('set_my_number', { p_code: p.code, p_number: p.num })); } catch (e2) {} }
@@ -1963,7 +2009,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     me = null; closeTeam();
     A.teams.slice().forEach(function (t) { forgetTeam(t.code); });
     A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; crest = null; J = null;
-    CH = { code: null, list: [], unread: 0 }; RV = { code: null, list: [], home: null, near: [], q: '', form: null, msg: '' }; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
+    CH = { code: null, list: [], unread: 0 }; RV = { code: null, list: [], home: null, near: [], q: '', form: null, msg: '' }; myAsk = null; asks = []; askMsg = ''; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
     saveApp(); applyTheme(); go('welcome');
   }
   $('aSignOut').addEventListener('click', async function () { await signOutAll(); aSay(''); });
@@ -2079,15 +2125,21 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (m) { var t = tally(m); $('mResumeSub').textContent = 'v ' + m.opp + ', ' + t.us + '–' + t.them; }
     // you
     var pend = A.pending && A.pending.code === A.active && !me ? A.pending : null, card = $('meCard'), html = '';
-    $('pendCard').hidden = !pend; if (pend) $('pendTitle').textContent = 'Confirm your email to join as ' + pend.name;
+    $('pendCard').hidden = !pend; if (pend) $('pendTitle').textContent = pend.ask ? 'Confirm your email to ask to join' : 'Confirm your email to join as ' + pend.name;
+    renderAsks();
     if (myPid != null && P(myPid)) {
       var st = statsOf(S.results, myPid), last = (roster[myPid] || {}).last;
       html = '<h2>Your stats</h2><p class="note">' + esc(nm(myPid)) + (last ? ' ' + esc(last) : '') + (posOf(myPid) ? ', ' + posName(posOf(myPid)).toLowerCase() : '') + (st.saves ? ', ' + st.saves + (st.saves === 1 ? ' save' : ' saves') + ' in goal' : '') + '</p>' + statGrid(st) +
         '<div class="field"><span>' + (posOf(myPid) ? 'Your position' : 'Where do you play? Pick one so the gaffer can place you.') + '</span>' + posButtons(posOf(myPid), 'data-mypos') + '</div>' +
         '<label class="field" for="myNum">Your shirt number<input id="myNum" type="text" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="None" value="' + (P(myPid).num != null ? P(myPid).num : '') + '"></label>' +
         '<div class="actions"><button class="link" type="button" data-me="release">This isn’t me</button></div>';
+    } else if (sb && !pend && myAsk && myAsk.status === 'pending') {
+      html = '<h2>You’ve asked to join</h2><p class="note">Your gaffer has been asked to let ' + esc(myAsk.name || 'you') + ' into the squad. This changes as soon as they answer; until then you’re following the team.</p>' +
+        '<div class="actions"><button class="link" type="button" data-me="pick">My name is in the squad now</button></div>';
     } else if (sb && !pend) {
-      html = '<h2>Which player are you?</h2><p class="note">' + (A.notice ? esc(A.notice) : 'Pick your name in the squad to see your own stats here.') + '</p>' +
+      if (myAsk && myAsk.status === 'denied' && !A.notice) html = '<h2>Not in the squad</h2><p class="note">Your gaffer turned down your request to join. If that’s a mistake, have a word with them: they can add you to the squad, and then you can pick your name.</p>' +
+        '<div class="actions"><button class="plain primary" type="button" data-me="pick">Choose your player</button></div>';
+      else html = '<h2>Which player are you?</h2><p class="note">' + (A.notice ? esc(A.notice) : 'Pick your name in the squad to see your own stats here.') + '</p>' +
         '<div class="actions"><button class="plain primary" type="button" data-me="pick">Choose your player</button></div>';
     }
     card.hidden = !html; card.innerHTML = html;
@@ -2442,6 +2494,35 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var a = e.target.getAttribute('data-me'); if (!a) return;
     if (a === 'pick') { A.notice = null; saveApp(); openJoin(A.active, function (t, bad) { if (bad) { $('lockMsg').textContent = t; } }); }
     else if (a === 'release' && sb) { try { await q(sb.rpc('release_player', { p_code: A.active })); myPid = null; pull(); } catch (err) {} }
+  });
+  // Gaffers: people who have asked to join, each with Let in and Turn down. Always on the home screen while any are waiting.
+  function renderAsks() {
+    var el = $('askCard'); if (!el) return;
+    var show = role === 'owner' && !!sb && (asks.length || askMsg);
+    el.hidden = !show; if (!show) { el.innerHTML = ''; return; }
+    el.innerHTML = (asks.length ? '<h2>' + (asks.length === 1 ? 'Someone wants to join' : asks.length + ' people want to join') + '</h2>' : '<h2>Requests to join</h2>') +
+      asks.map(function (a) {
+        var bits = [posName(a.position)]; if (a.number != null) bits.push('number ' + a.number);
+        return '<div class="askrow"><p><b>' + esc(a.name) + (a.last_name ? ' ' + esc(a.last_name) : '') + '</b><br><span class="note">' + esc(bits.filter(Boolean).join(', ')) + '</span></p>' +
+          '<div class="actions"><button class="plain primary" type="button" data-askyes="' + esc(a.id) + '">Let in</button><button class="plain" type="button" data-askno="' + esc(a.id) + '">Turn down</button></div></div>';
+      }).join('') + (askMsg ? '<p class="msg" role="status">' + esc(askMsg) + '</p>' : '') +
+      (asks.length ? '<p class="note">Letting someone in adds them to the squad with their profile already theirs.</p>' : '');
+  }
+  var askBusy = false;
+  $('askCard').addEventListener('click', async function (e) {
+    var b = e.target.closest('button'); if (!b || askBusy || role !== 'owner' || !sb) return;
+    var yes = b.getAttribute('data-askyes'), id = yes || b.getAttribute('data-askno'); if (!id) return;
+    var who = asks.filter(function (a) { return a.id === id; })[0], code = A.active; if (!who) return;
+    askBusy = true; askMsg = yes ? 'Letting ' + who.name + ' in…' : ''; renderAsks();
+    try {
+      if (dirty && !syncing) { clearTimeout(wt); await syncAll(); } // this phone's own changes to the squad go up first, so the new player lands on top of them
+      var r = await q(sb.rpc('decide_join', { p_code: code, p_id: id, p_allow: !!yes }));
+      asks = asks.filter(function (a) { return a.id !== id; });
+      askMsg = r.data === 'ok' ? (yes ? who.name + ' is in the squad.' : who.name + ' has been turned down.') : r.data === 'closed' ? 'Another gaffer has already answered that one.' : 'That request is no longer there.';
+      ping('changed'); await pull();
+    } catch (err) { askMsg = 'Couldn’t do that. Check your signal and try again.'; }
+    askBusy = false; renderAsks();
+    setTimeout(function () { if (!askBusy) { askMsg = ''; renderAsks(); } }, 6000);
   });
   $('mResume').addEventListener('click', function () { go('game'); });
   armed($('mNew'), 'Scrap the game in progress?', function () { if (role !== 'owner') return; if (S.match) { S.match = null; save(); } go('setup'); }, function () { return !!S.match; });

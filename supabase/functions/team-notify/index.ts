@@ -6,7 +6,9 @@
 // Anyone in the team's chat calls it with { code, kind: "chat", message: <id> } after posting; everyone else in the team is told.
 // A gaffer who has just sent, answered or agreed a challenge calls it with { code, kind: "challenge", challenge: <id> }:
 // the other team's gaffers are told, and once it is agreed everyone in both teams is.
-// The wording of those three is written here, not by the caller.
+// Someone who has just asked to join the team (their name wasn't in the squad) calls it with { code, kind: "join" }, which
+// tells the gaffers, once per request.
+// The wording of those four is written here, not by the caller.
 // Needs these secrets (Edge Functions > Secrets):
 //   APNS_KEY_P8   the contents of an Apple Push Notifications key (.p8)
 //   APNS_KEY_ID   that key's ID
@@ -31,7 +33,7 @@ async function apnsJwt(p8: string, keyId: string, teamId: string) {
   return head + "." + b64url(sig);
 }
 
-const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge"];
+const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge", "join"];
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
 Deno.serve(async (req: Request) => {
@@ -40,7 +42,7 @@ Deno.serve(async (req: Request) => {
     const input = await req.json();
     const kind = KINDS.includes(input.kind) ? input.kind : "kickoff";
     let title = clean(input.title, 80), text = clean(input.body, 180);
-    if (!["claimed", "chat", "challenge"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
+    if (!["claimed", "chat", "challenge", "join"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
@@ -101,6 +103,16 @@ Deno.serve(async (req: Request) => {
         : c.rounds > 0 ? `${mine} suggested changes` : `${mine} want ${game}`;
       const words = c.status === "proposed" ? `${when}. Open Gaffer to answer.` : `That was ${game} on ${when}.`;
       return json({ sent: await send(to, other.code, "challenge", heading, words) });
+    }
+
+    if (kind === "join") { // from someone not in the team yet: only if they really have a request waiting, and only once for it
+      const { data: ask } = await db.from("join_requests").select("id,name,status,notified_at").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
+      if (!ask || ask.status !== "pending") return json({ error: "No request waiting" }, 404);
+      if (ask.notified_at) return json({ sent: 0, reason: "already" });
+      await db.from("join_requests").update({ notified_at: new Date().toISOString() }).eq("id", ask.id);
+      if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
+      const to = (gaffers || []).map((g) => g.user_id as string);
+      return json({ sent: await send(to, team.code, "join", clean(team.name, 80), `${clean(ask.name, 40)} wants to join the squad. Open Gaffer to let them in or turn them down.`) });
     }
 
     let claimed: { name: string } | null = null;

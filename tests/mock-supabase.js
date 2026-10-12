@@ -2,7 +2,7 @@
 // Implements just what the app uses, with the same access rules as the real policies and functions.
 (function () {
   const KEY = '__mockdb';
-  const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips', 'messages', 'reports'];
+  const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips', 'messages', 'reports', 'join_requests'];
   // tests/lib.mjs gives every phone its own browser profile, like real devices; then the database lives with the test runner (window.__mockRemote).
   const REMOTE = window.__mockRemote || null;
   const xhr = (method, body) => { const x = new XMLHttpRequest(); x.open(method, REMOTE, false); x.send(body || null); return x.responseText; };
@@ -57,6 +57,38 @@
       p.user_id = uid(); p.last_name = a.p_last_name || null; p.position = a.p_position; store(d); return ok('ok');
     }
     if (name === 'release_player') { const t = d.teams.find((x) => x.code === a.p_code); d.players.forEach((x) => { if (t && x.team_id === t.id && x.user_id === uid()) x.user_id = null; }); store(d); return ok(true); }
+    if (['request_join', 'my_join_request', 'team_join_requests', 'decide_join'].includes(name)) { // asking to join when your name isn't in the squad
+      const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase());
+      const inTeam = (u) => !!t && !!u && (isOrg(d, t.id) && u === uid() || d.players.some((p) => p.team_id === t.id && p.user_id === u) || d.team_members.some((m) => m.team_id === t.id && m.user_id === u));
+      if (name === 'request_join') {
+        if (!uid()) return fail('Sign in first', '42501');
+        const nm = String(a.p_name || '').replace(/\s+/g, ' ').trim().slice(0, 40); if (!nm) return ok('name');
+        if (['fwd', 'def', 'mix', 'gk'].indexOf(a.p_position) < 0) return ok('position');
+        if (!t) return ok('missing'); if (inTeam(uid())) return ok('member');
+        const num = typeof a.p_number === 'number' && a.p_number >= 0 && a.p_number <= 99 ? a.p_number : null, row = { name: nm, last_name: String(a.p_last_name || '').trim().slice(0, 40) || null, position: a.p_position, shirt_number: num };
+        const r = d.join_requests.find((x) => x.team_id === t.id && x.user_id === uid());
+        if (r) {
+          if (r.status === 'pending') { Object.assign(r, row); store(d); return ok('pending'); }
+          if (r.status === 'denied' && Date.now() - r.decided_at < 7 * 86400000) return ok('denied');
+          Object.assign(r, row, { status: 'pending', pid: null, created_at: Date.now(), decided_at: null, notified_at: null }); store(d); return ok('ok');
+        }
+        if (d.join_requests.filter((x) => x.team_id === t.id && x.status === 'pending').length >= 30) return ok('full');
+        d.join_requests.push(Object.assign({ id: crypto.randomUUID(), team_id: t.id, user_id: uid(), status: 'pending', created_at: Date.now() }, row)); store(d); return ok('ok');
+      }
+      if (name === 'my_join_request') { const r = t && uid() && d.join_requests.find((x) => x.team_id === t.id && x.user_id === uid()); return ok(r ? { status: r.status, name: r.name } : null); }
+      if (name === 'team_join_requests') { if (!t || !isOrg(d, t.id)) return ok(null); return ok(d.join_requests.filter((x) => x.team_id === t.id && x.status === 'pending').sort((x, y) => x.created_at - y.created_at).map((r) => ({ id: r.id, name: r.name, last_name: r.last_name, position: r.position, number: r.shirt_number, at: r.created_at }))); }
+      if (!t || !isOrg(d, t.id)) return ok('not_gaffer');
+      const r = d.join_requests.find((x) => x.id === a.p_id && x.team_id === t.id); if (!r) return ok('missing'); if (r.status !== 'pending') return ok('closed');
+      r.decided_at = Date.now();
+      if (!a.p_allow) { r.status = 'denied'; store(d); return ok('ok'); }
+      const have = d.players.find((p) => p.team_id === t.id && p.user_id === r.user_id);
+      if (!have) {
+        const pid = Math.max(d.players.filter((p) => p.team_id === t.id).reduce((m, p) => Math.max(m, p.pid), 0) + 1, +((t.settings || {}).nextId) || 0);
+        d.players.push({ team_id: t.id, pid, name: r.name, position: r.position, shirt_number: r.shirt_number, user_id: r.user_id, last_name: r.last_name });
+        t.settings = Object.assign({}, t.settings, { nextId: pid + 1 }); r.pid = pid;
+      } else r.pid = have.pid;
+      r.status = 'approved'; store(d); return ok('ok');
+    }
     if (name === 'my_teams') return ok(!uid() ? [] : d.teams.filter((t) => isOrg(d, t.id) || d.players.some((p) => p.team_id === t.id && p.user_id === uid())).map((t) => ({ code: t.code, name: t.name, org: isOrg(d, t.id) })));
     if (name === 'set_my_number') { const t = d.teams.find((x) => x.code === a.p_code); const p = t && d.players.find((x) => x.team_id === t.id && x.user_id === uid()); if (!p) return ok(false); p.shirt_number = a.p_number; store(d); return ok(true); }
     if (name === 'set_my_position') { const t = d.teams.find((x) => x.code === a.p_code); const p = t && d.players.find((x) => x.team_id === t.id && x.user_id === uid()); if (!p) return ok(false); p.position = a.p_position; store(d); return ok(true); }

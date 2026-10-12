@@ -24,7 +24,7 @@ eq(await d.rpc(null, 'get_team', { p_code: 'ZZZZZZ' }), null, 'a wrong code open
 // ---------- nobody can go round the app and read or change tables directly
 for (const [who, label] of [[null, 'someone not signed in'], [sam, 'a signed-in stranger'], [jake, 'a signed-in stranger (later a player)']]) {
   const seen = [];
-  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage']) seen.push(await count(who, 'public.' + table));
+  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests']) seen.push(await count(who, 'public.' + table));
   check(seen.every((n) => n === 0 || n === 'denied'), `${label} reading the tables directly sees nothing (${seen.join(',')})`);
 }
 await d.as(sam, `update public.teams set name = 'Hacked FC'`).catch(() => {});
@@ -205,16 +205,69 @@ eq([await d.rpc(ethan, 'challenge_reply', { p_code: sop.code, p_id: open[0].id, 
 const closed = await d.admin(`select status from public.challenges where id in ('${open[0].id}', '${open[1].id}') order by status`);
 eq(closed.map((c) => c.status), ['cancelled', 'declined'], 'shown as cancelled and declined');
 
+// ---------- asking to join when your name isn't in the squad
+const woody = await d.user('woody@example.com'), josh = await d.user('josh@example.com'), pat = await d.user('pat@example.com');
+const ask = (who, extra = {}) => d.rpc(who, 'request_join', Object.assign({ p_code: sop.code, p_name: 'Woody', p_last_name: 'Wood', p_position: 'def', p_number: 14 }, extra));
+const squadSize = async () => (await d.rpc(null, 'get_team', { p_code: sop.code })).players.length;
+const size0 = await squadSize();
+check(/Sign in|permission denied/i.test(await d.fails(ask(null))), 'nobody can ask to join without signing in');
+eq([await ask(woody, { p_name: '   ' }), await ask(woody, { p_position: 'striker' }), await ask(woody, { p_code: 'ZZZZZZ' })], ['name', 'position', 'missing'], 'a request needs a name, a real position and a real team');
+eq([await ask(jake), await ask(ethan)], ['member', 'member'], 'someone already in the team (player or gaffer) has no need to ask');
+eq(await ask(woody, { p_code: ' ' + sop.code.toLowerCase(), p_name: '  Woody   ' }), 'ok', 'someone with the code and an account asks to join');
+let mineR = await d.rpc(woody, 'my_join_request', { p_code: sop.code });
+eq([mineR.status, mineR.name], ['pending', 'Woody'], 'and can see their request is waiting');
+eq(await ask(woody, { p_number: 15 }), 'pending', 'asking again while waiting just updates the details');
+eq([await d.rpc(jake, 'team_join_requests', { p_code: sop.code }), await d.rpc(sam, 'team_join_requests', { p_code: sop.code }), await count(woody, 'public.join_requests'), await count(jake, 'public.join_requests')], [null, null, 0, 0], 'players and strangers cannot see who has asked, by function or by reading the table');
+let waiting = await d.rpc(ethan, 'team_join_requests', { p_code: sop.code });
+eq(waiting.map((r) => [r.name, r.last_name, r.position, r.number]), [['Woody', 'Wood', 'def', 15]], 'the gaffer sees the request with the details given');
+eq([await d.rpc(jake, 'decide_join', { p_code: sop.code, p_id: waiting[0].id, p_allow: true }), await d.rpc(woody, 'decide_join', { p_code: sop.code, p_id: waiting[0].id, p_allow: true }),
+  await d.rpc(rival, 'decide_join', { p_code: ath.code, p_id: waiting[0].id, p_allow: true }), await squadSize()], ['not_gaffer', 'not_gaffer', 'missing', size0], 'a player, the person asking and another team\'s gaffer cannot let them in');
+eq([await d.rpc(ethan, 'decide_join', { p_code: sop.code, p_id: waiting[0].id, p_allow: true }), await d.rpc(third, 'decide_join', { p_code: sop.code, p_id: waiting[0].id, p_allow: false })], ['ok', 'closed'], 'the gaffer lets them in; a second answer changes nothing');
+t = await d.rpc(woody, 'get_team', { p_code: sop.code }); const wp = t.players.find((p) => p.name === 'Woody');
+eq([t.players.length, t.my_pid === wp.pid, wp.claimed, wp.position, wp.number, wp.last_name, wp.pid > 8, t.team.settings.nextId], [size0 + 1, true, true, 'def', 15, 'Wood', true, wp.pid + 1], 'they are in the squad with a profile that is already theirs, and the next new player gets the number after');
+eq([(await d.rpc(woody, 'my_join_request', { p_code: sop.code })).status, (await d.rpc(ethan, 'team_join_requests', { p_code: sop.code })).length, !!(await d.rpc(woody, 'chat_send', { p_code: sop.code, p_body: 'Evening all' }))], ['approved', 0, true], 'their request shows as accepted, nothing is left waiting, and they can use the team chat');
+// turned down
+eq(await ask(josh, { p_name: 'Josh', p_last_name: null, p_number: null }), 'ok', 'a second person asks');
+waiting = await d.rpc(third, 'team_join_requests', { p_code: sop.code });
+eq([await d.rpc(third, 'decide_join', { p_code: sop.code, p_id: waiting[0].id, p_allow: false }), (await d.rpc(josh, 'my_join_request', { p_code: sop.code })).status, await squadSize(), await ask(josh, { p_name: 'Josh' })], ['ok', 'denied', size0 + 1, 'denied'], 'the other gaffer turns them down: no player is added, and they cannot ask again straight away');
+await d.admin(`update public.join_requests set decided_at = now() - interval '8 days' where user_id = '${josh.id}'`);
+eq([await ask(josh, { p_name: 'Josh' }), (await d.rpc(ethan, 'team_join_requests', { p_code: sop.code })).length], ['ok', 1], 'a week later they can');
+// they claim a player the gaffer has added for them while the request is still waiting
+eq(await d.rpc(josh, 'claim_player', { p_code: sop.code, p_pid: 4, p_last_name: '', p_position: 'mix' }), 'ok', 'meanwhile they find their name in the squad and claim it');
+waiting = await d.rpc(ethan, 'team_join_requests', { p_code: sop.code });
+eq([await d.rpc(ethan, 'decide_join', { p_code: sop.code, p_id: waiting[0].id, p_allow: true }), await squadSize()], ['ok', size0 + 1], 'letting them in then adds no second player');
+// the squad list's own numbering is respected
+await d.as(ethan, `update public.teams set settings = settings || '{"nextId": 50}'::jsonb where id = '${sop.id}'`);
+await ask(pat, { p_name: 'Pat', p_last_name: null, p_number: 150 });
+waiting = await d.rpc(ethan, 'team_join_requests', { p_code: sop.code });
+eq(waiting.map((r) => [r.name, r.number ?? null]), [['Pat', null]], 'a shirt number that makes no sense is left blank');
+await d.rpc(ethan, 'decide_join', { p_code: sop.code, p_id: waiting[0].id, p_allow: true });
+t = await d.rpc(pat, 'get_team', { p_code: sop.code });
+eq([t.my_pid, t.team.settings.nextId, t.players.length], [50, 51, size0 + 2], 'a team whose own count of players is ahead (one being added on the gaffer\'s phone) gets the next number from that count');
+// taken off the squad later: they may ask again
+await d.rpc(woody, 'release_player', { p_code: sop.code });
+eq(await ask(woody), 'ok', 'someone let in who has since given up their profile can ask again');
+waiting = await d.rpc(ethan, 'team_join_requests', { p_code: sop.code });
+await d.rpc(ethan, 'decide_join', { p_code: sop.code, p_id: waiting[0].id, p_allow: false });
+// a flood
+let flood = ''; const crowd = [];
+for (let i = 0; i < 32 && flood !== 'full'; i++) { const u = await d.user(`crowd${i}@example.com`); crowd.push(u); flood = await ask(u, { p_name: 'Crowd ' + i }); }
+eq([flood, (await d.rpc(ethan, 'team_join_requests', { p_code: sop.code })).length], ['full', 30], 'a team can have 30 requests waiting and no more');
+await d.admin(`update public.join_requests set status = 'denied', decided_at = now() where team_id = '${sop.id}' and status = 'pending'`);
+const squadNow = await squadSize();
+
 // ---------- deleting an account
 eq(await d.rpc(jake, 'delete_my_account'), 0, 'a player deleting their account takes no team with it');
 t = await d.rpc(ethan, 'get_team', { p_code: sop.code });
-eq([t.players.find((p) => p.pid === 3).claimed, t.players.length], [false, 8], 'their profile is freed, and stays in the squad with its stats');
+eq([t.players.find((p) => p.pid === 3).claimed, t.players.length], [false, squadNow], 'their profile is freed, and stays in the squad with its stats');
 eq((await d.rpc(ethan, 'chat_list', { p_code: sop.code })).filter((m) => m.name === 'Chaplin').length > 0, true, 'their chat messages stay, under their first name');
 eq(await d.rpc(ethan, 'delete_my_account'), 0, 'one of two gaffers deleting their account leaves the team for the other');
 eq((await d.rpc(third, 'get_team', { p_code: sop.code })).team.name, 'Sons of Pitches', 'who still has it');
 eq(await d.rpc(third, 'delete_my_account'), 1, 'the last gaffer deleting their account deletes the team');
 eq([await d.rpc(null, 'get_team', { p_code: sop.code }), (await d.admin(`select count(*)::int as n from public.players where team_id = '${sop.id}'`))[0].n, (await d.admin(`select count(*)::int as n from public.challenges where from_team = '${sop.id}' or to_team = '${sop.id}'`))[0].n, (await d.admin(`select count(*)::int as n from public.messages where team_id = '${sop.id}'`))[0].n],
   [null, 0, 0, 0], 'and with it the squad, its challenges and its chat');
+
+eq((await d.admin(`select count(*)::int as n from public.join_requests where team_id = '${sop.id}'`))[0].n, 0, 'and every request to join it');
 
 await d.close();
 await done();

@@ -3,7 +3,7 @@ gaffer picker view: v-join
 gaffer claimed: v-home | Your statsEthan Davison-Pearce, up front1Games20Minutes0Goals1AssistsYour positionUp front | squad row: ReeceNot claimed0 G, 0 A
 player starts at: v-welcome
 wrong code: No team has that code. Check it with your gaffer.
-picker: v-join | Sons of Pitches FC | rows: Spice / Jake / Chaplin / Harrison / Puxley / Issac / Reece / EthanGafferTaken [disabled]
+picker: v-join | Sons of Pitches FC | rows: Spice / Jake / Chaplin / Harrison / Puxley / Issac / Reece / EthanGafferTaken [disabled] / My name isn’t hereAsk to join
 expanded stats: 1Games15Minutes1Goals0Assists
 short password: Pick where you play.
 no position: Pick where you play.
