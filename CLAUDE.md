@@ -126,6 +126,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 | `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
 | `MatchVisionPlugin` | Experimental player tracking (YOLOX-S onnx plus Vision, reading shirt numbers) |
+| `LiveCamPlugin` | "Film with this iPhone": `start({url,title})`, `show()`, `stop()`, `state()`, event `state`. Streams the iPhone's camera over RTMPS to the camera link (HaishinKit 2.2.5, 720p ~2.5 Mbps, adaptive) and records 1080p HEVC to Photos at the same time (`CamRecorder`, its own AVAssetWriter, stamped with the start time). Native full-screen `CamScreen`, laid out for a phone on its side (the app stays portrait; the screen turns its contents by the accelerometer) |
 
 **Identifiers:**
 - Bundle ID: `com.randomedp.aipoweredtactics`. That is also the APNs topic.
@@ -234,6 +235,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `team-notify` kind `live`; the server checks the lifecycle itself, words it and sends it once per stream
   (`team_streams.notified_at`, `0018`). Followers see the card only once the picture is through (`liveSeen`); gaffers
   from the moment it's ready (`liveShown`).
+- **Film with this iPhone** (`LiveCamPlugin`, only on the iPhone app): the sheet's first option. It gets the link ready, then
+  `LiveCam.start({url})` opens the native camera screen, which streams through the same link and records to Photos. The
+  recording doesn't depend on the stream (no signal, still recorded), and a file left by an app closed mid-game goes to
+  Photos on the next launch. Back to Gaffer leaves it filming (`filming()`, "Show the camera" on the game screen and
+  Home card). End on the camera screen sends `{state:'ended', by:'user'}` and JS calls `liveEnd()`; ending in Gaffer
+  (or finishing the game) calls `LiveCam.stop()` first. Tests: `livecam.test.mjs` (with a stand-in camera). The native
+  code can only be compiled on CI ("Check it builds").
 - If Quik says "We're having trouble connecting to your GoPro", that's Quik failing to reach the camera (pairing, Bluetooth,
   or the hotspot: Maximise Compatibility). The sheet says so. Test the link with Larix Broadcaster on an iPhone to tell
   a GoPro problem from a Gaffer one.
@@ -362,9 +370,10 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   - chat messages are silent while that chat is open;
   - the whistle plays for nudges, polls, goals and kick-off;
   - a reel cut from two different cameras (for example a GoPro and an iPhone) joins cleanly.
-- **Live streaming:** Ethan to make a Cloudflare account with Stream, an API token with Stream: Edit, and set the two
-  secrets. Then try it at a game: Stream this game → copy the link into GoPro Quik (Live stream → RTMP) or an
-  iPhone streaming app → Go live.
+- **Live streaming:** the Cloudflare side works (Ethan's secrets are set). His HERO13 Black couldn't get online through
+  Quik (it won't join his iPhone's hotspot). So Gaffer now films with the iPhone itself ("Film with this iPhone",
+  `LiveCamPlugin`): check on a real phone that it streams, the team sees it, End saves the recording to Photos, and a
+  reel can be cut from that recording.
 - **Action button** (Ethan has an Ultra): "Mark a highlight" is built. To check on the watch: Watch app on the iPhone →
   Action Button → Shortcut → Gaffer's "Mark a highlight"; pressing it mid-game should say "Highlight marked at m:ss…"
   and the highlight should appear on the phone. Not yet confirmed that App Shortcuts from the watch app show up there.
