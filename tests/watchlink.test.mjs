@@ -126,6 +126,14 @@ const finish = async (p) => { p.errs.forEach((e) => check(false, 'page error: ' 
   await p.click('#undo'); await p.click('#undo'); await p.run(9000);
   await p.fromWatch({ type: 'hl', id: id(), at: await p.now(), gid });
   eq((await p.match()).events[5].hl, true, 'a highlight from the watch is marked');
+  // the Action button sends a highlight two ways at once (straight across and by the watch's queue): the second copy can
+  // turn up after the first was dealt with, by either route (after a restart too: see "after another restart" below)
+  const hlTwice = id(); await p.fromWatch({ type: 'hl', id: hlTwice, at: await p.now(), gid });
+  const marked = (await p.match()).events.filter((e) => e.hl).length;
+  await p.fromWatch({ type: 'hl', id: hlTwice, at: await p.now() - 300, gid }, { kept: false });
+  await p.fromWatch({ type: 'hl', id: hlTwice, at: await p.now() - 600, gid });
+  eq((await p.match()).events.filter((e) => e.hl).length, marked, 'one highlight sent two ways is marked once, however late the second copy arrives');
+  await p.tap('#undo');
   // nonsense
   for (const bad of ['null', '[]', '{', '42', '"goal"', '{"type":"goal"}', '{"type":"nope","id":"zz"}', '{"type":"subs","change":"9-99","id":"yy"}', '']) await p.fromWatch(bad);
   await p.page.evaluate(() => { window.__t.watchCb(null); window.__t.watchCb({}); window.__t.watchCb({ event: 7 }); });

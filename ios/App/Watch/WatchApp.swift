@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct TacticsWatchApp: App {
-    @StateObject private var model = MatchModel()
+    @StateObject private var model = MatchModel.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {

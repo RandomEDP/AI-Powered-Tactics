@@ -102,7 +102,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `scripts/build-web.mjs` | Copies the web files into `www/` for Capacitor (`www/` isn't committed) |
 | `scripts/asc-certs.mjs` | CI helper: lists and revokes the dev certificate each signed build creates (Apple caps them) |
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources) |
-| `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue |
+| `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `supabase/migrations/` | `0001` … `0017`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
@@ -156,6 +156,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   - `WatchLinkPlugin` keeps every press on disk until the web app says it's been dealt with.
   - JS `watchKeep`/`watchDrain` apply presses in `at` order, never twice.
   - `watchFetch` runs on wake and every 5 s.
+- **Action button / Siri:** `MarkHighlightIntent` (`HighlightIntent.swift`) runs `MatchModel.shared.highlightFromButton()`, which can
+  run with the app closed: it waits up to 5 s for WatchConnectivity, presses through the same brain, and sends the press
+  both by `sendMessage` and `transferUserInfo`; the phone deals with each press id once (`watchSeen`, kept across restarts).
+  What it says back comes from `WatchBrain.highlightSaid` (tested in `tests/watch/main.swift`).
 - The watch buzzes for subs by its own clock. Changes wait for the gaffer to confirm (the subs pop-up on the phone and
   the watch).
 - This is the most safety-critical code in the app. Any change needs `node tests/run.mjs watch link plugin match
@@ -345,8 +349,9 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   - a reel cut from two different cameras (for example a GoPro and an iPhone) joins cleanly.
 - **Live streaming:** Ethan to make a Cloudflare account with Stream, an API token with Stream: Edit, and set the two
   secrets. Then try it at a game: Stream this game → copy the link into GoPro Quik (Live stream → RTMP) → Go live.
-- **Watch shortcut** (asked for, not built yet): mark a highlight from a button on the watch. Depends on the watch model:
-  Ultra's Action button can run a Shortcut / App Intent; Series 9+/Ultra 2 can use double tap (`handGestureShortcut`).
+- **Action button** (Ethan has an Ultra): "Mark a highlight" is built. To check on the watch: Watch app on the iPhone →
+  Action Button → Shortcut → Gaffer's "Mark a highlight"; pressing it mid-game should say "Highlight marked at m:ss…"
+  and the highlight should appear on the phone. Not yet confirmed that App Shortcuts from the watch app show up there.
 - **Voice:** Ethan is setting up the Google service account (Vertex AI User) and the `GOOGLE_SERVICE_ACCOUNT` secret.
   Then "Hear this voice" should say "Playing." rather than falling back to read-it-straight.
 - **Ideas he has raised but not built yet:**

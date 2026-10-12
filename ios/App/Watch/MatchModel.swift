@@ -6,6 +6,10 @@ import WatchKit
 /// The watch app's link to the phone and to the wrist. What the game *is* at any moment is decided in MatchLogic.swift (WatchBrain);
 /// this class delivers messages, buzzes, schedules notifications and keeps the app on screen.
 final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtendedRuntimeSessionDelegate, UNUserNotificationCenterDelegate {
+    /// The one model, shared by the app's screen and the "Mark a highlight" shortcut (HighlightIntent.swift), so a press from
+    /// the Action button goes through the same brain and link as a tap on the screen.
+    static let shared = MatchModel()
+
     @Published var state: MatchState?
     @Published var locked = false
     @Published var note = ""
@@ -310,6 +314,36 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
 
     func highlight() {
         press(brain.pressHighlight(now: Date()))
+    }
+
+    /// A highlight from the Action button, Siri or a shortcut, which can run with the app off screen or not even open.
+    /// It waits (a few seconds at most) for the link to the phone to be ready and the latest game to arrive, then sends the
+    /// press both ways: straight across if the iPhone is in reach, and by the queue that still delivers if the watch puts the
+    /// app straight back to sleep. The phone deals with each press once, however many times it arrives. Returns what to say.
+    @MainActor func highlightFromButton() async -> String {
+        let session: WCSession? = WCSession.isSupported() ? WCSession.default : nil
+        let deadline = Date().addingTimeInterval(5)
+        while let s = session, s.activationState != .activated, Date() < deadline { try? await Task.sleep(nanoseconds: 100_000_000) }
+        if let s = session, s.activationState == .activated {
+            take(s.receivedApplicationContext) // the game as the phone last described it
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        let now = Date()
+        let outcome = brain.pressHighlight(now: now)
+        let said = brain.highlightSaid(outcome, now: now)
+        guard !outcome.send.isEmpty else {
+            WKInterfaceDevice.current().play(.failure)
+            return said
+        }
+        WKInterfaceDevice.current().play(.success)
+        guard let s = session, s.activationState == .activated else { return said + " Open Gaffer on your watch if it doesn't reach your iPhone." }
+        for json in outcome.send {
+            let payload: [String: Any] = ["event": json]
+            if s.isReachable { s.sendMessage(payload, replyHandler: { [weak self] answer in self?.take(answer) }, errorHandler: nil) }
+            s.transferUserInfo(payload)
+        }
+        if WKApplication.shared().applicationState == .active { say(said) }
+        return said
     }
 
     /// Kick off, or start the second half, from the wrist. The clock starts here at once and the phone follows.

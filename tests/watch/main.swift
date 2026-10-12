@@ -474,6 +474,28 @@ do {
     check(kind(h.send.first ?? "") == "hl" && w.presses.isEmpty, "a highlight is sent once and not repeated")
 }
 
+// ---------- 22a. A highlight from the Action button (or Siri), with no screen: what the watch says back
+do {
+    var w = WatchBrain()
+    check(w.highlightSaid(w.pressHighlight(now: at(0)), now: at(0)) == "No game on, so nothing was marked.", "button: no game at all")
+    _ = w.receive(json: phone(phase: "pre", running: false), sent: ms(at(-5)), now: at(-5))
+    check(w.highlightSaid(w.pressHighlight(now: at(-1)), now: at(-1)) == "The game hasn't kicked off yet, so nothing was marked.", "button: before kick-off")
+    _ = w.receive(json: phone(), sent: ms(at(1)), now: at(1))
+    let h = w.pressHighlight(now: at(125))
+    check(w.highlightSaid(h, now: at(125)) == "Highlight marked at 2:05 in the first half." && kind(h.send.first ?? "") == "hl" && field(h.send.first ?? "", "gid") as? String == "game-1",
+          "button: marked, with when in the half, for this game (\(w.highlightSaid(h, now: at(125))))")
+    check(w.highlightSaid(w.pressHighlight(now: at(9)), now: at(9)) == "Highlight marked at 0:09 in the first half.", "button: seconds under ten get a leading nought")
+    _ = w.pressEnd(now: at(900))
+    check(w.highlightSaid(w.pressHighlight(now: at(910)), now: at(910)) == "It's half time, so nothing was marked.", "button: at half time")
+    _ = w.pressStart(now: at(1200))
+    check(w.highlightSaid(w.pressHighlight(now: at(1261)), now: at(1261)) == "Highlight marked at 1:01 in the second half.", "button: second half")
+    _ = w.pressEnd(now: at(2100))
+    check(w.highlightSaid(w.pressHighlight(now: at(2110)), now: at(2110)) == "The game's over, so nothing was marked.", "button: after full time")
+    var one = WatchBrain()
+    _ = one.receive(json: phone(periods: 1), sent: ms(at(1)), now: at(1))
+    check(one.highlightSaid(one.pressHighlight(now: at(61)), now: at(61)) == "Highlight marked at 1:01.", "button: a game with no half time doesn't mention halves")
+}
+
 // ---------- 22b. Goals and highlights only while a half is being played
 do {
     var w = WatchBrain()

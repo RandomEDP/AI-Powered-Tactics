@@ -338,6 +338,18 @@ struct WatchBrain: Codable {
         return Outcome(send: [event(["type": "hl"], id: UUID().uuidString, now: now)])
     }
 
+    /// What the watch says after a highlight is marked without the app on screen (the Action button, Siri or a shortcut),
+    /// where there's no screen to show it: when in the half it was marked, or why nothing was.
+    func highlightSaid(_ outcome: Outcome, now: Date) -> String {
+        guard !outcome.send.isEmpty, let game = state else {
+            guard let game = state, game.live else { return "No game on, so nothing was marked." }
+            return game.phase == "pre" ? "The game hasn't kicked off yet, so nothing was marked."
+                : game.phase == "ht" ? "It's half time, so nothing was marked." : "The game's over, so nothing was marked."
+        }
+        let s = game.seconds(at: now)
+        return "Highlight marked at \(s / 60):\(s % 60 < 10 ? "0" : "")\(s % 60)\(game.periods == 1 ? "" : game.phase == "h1" ? " in the first half" : " in the second half")."
+    }
+
     // MARK: Bookkeeping
 
     private mutating func forgetGame() {

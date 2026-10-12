@@ -21,6 +21,7 @@
 		AA57C0DE000000000000000C /* MatchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000003 /* MatchModel.swift */; };
 		AA57C0DE00000000000000F2 /* MatchLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA57C0DE00000000000000F1 /* MatchLogic.swift */; };
 		AA57C0DE000000000000000D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000004 /* ContentView.swift */; };
+		AA57C0DE00000000000000F6 /* HighlightIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA57C0DE00000000000000F5 /* HighlightIntent.swift */; };
 		AA57C0DE000000000000000E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000005 /* Assets.xcassets */; };
 		AA57C0DE000000000000000F /* Watch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000001 /* Watch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -67,6 +68,7 @@
 		AA57C0DE0000000000000003 /* MatchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchModel.swift; sourceTree = "<group>"; };
 		AA57C0DE00000000000000F1 /* MatchLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchLogic.swift; sourceTree = "<group>"; };
 		AA57C0DE0000000000000004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		AA57C0DE00000000000000F5 /* HighlightIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlightIntent.swift; sourceTree = "<group>"; };
 		AA57C0DE0000000000000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA57C0DE0000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -133,6 +135,7 @@
 				AA57C0DE0000000000000003 /* MatchModel.swift */,
 				AA57C0DE00000000000000F1 /* MatchLogic.swift */,
 				AA57C0DE0000000000000004 /* ContentView.swift */,
+				AA57C0DE00000000000000F5 /* HighlightIntent.swift */,
 				AA57C0DE0000000000000005 /* Assets.xcassets */,
 				AA57C0DE0000000000000006 /* Info.plist */,
 			);
@@ -266,6 +269,7 @@
 				AA57C0DE000000000000000C /* MatchModel.swift in Sources */,
 				AA57C0DE00000000000000F2 /* MatchLogic.swift in Sources */,
 				AA57C0DE000000000000000D /* ContentView.swift in Sources */,
+				AA57C0DE00000000000000F6 /* HighlightIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
