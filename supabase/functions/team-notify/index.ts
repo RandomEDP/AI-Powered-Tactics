@@ -62,7 +62,8 @@ Deno.serve(async (req: Request) => {
       const { data: phones } = await db.from("push_tokens").select("token").in("user_id", users);
       if (!phones?.length) return 0;
       if (!jwt) jwt = await apnsJwt(p8!, keyId!, teamId!);
-      const payload = JSON.stringify({ aps: { alert: { title: heading, body: words }, sound: "default" }, code, kind: as });
+      // a referee's whistle (bundled with the app; phones on an older version without it get the usual sound), except for chat
+      const payload = JSON.stringify({ aps: { alert: { title: heading, body: words }, sound: as === "chat" ? "default" : "whistle.wav" }, code, kind: as });
       let sent = 0; const dead: string[] = [];
       await Promise.all(phones.map(async (p) => {
         const res = await fetch(`https://api.push.apple.com/3/device/${p.token}`, { method: "POST", body: payload,

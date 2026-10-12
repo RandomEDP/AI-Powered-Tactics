@@ -2386,6 +2386,17 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var rn = own ? RV.list.filter(function (c) { return c.my_turn; }).length : 0; $('rivalsBadge').hidden = !rn; $('rivalsBadge').textContent = rn; $('rivalsOpen').hidden = !sb;
     $('tabBadge').hidden = !(todo + rn); $('tabBadge').textContent = todo + rn;
     $('chatBadge').hidden = !CH.unread || S.view === 'chat'; $('chatBadge').textContent = CH.unread > 9 ? '9+' : CH.unread;
+    chatQuiet();
+  }
+  // While a team's chat is on screen its messages arrive in front of you, so the phone shouldn't also ping and show a banner
+  // for them (the iOS app leaves those off; iOS only asks while the app is open, so a phone in a pocket still gets them)
+  var quietSent = null;
+  function chatQuiet() {
+    var code = S.view === 'chat' && A.active ? A.active : '';
+    if (code === quietSent) return;
+    var Q = plugin('ChatQuiet'); if (!Q) return;
+    quietSent = code;
+    try { Q.quiet(code ? { code: code } : {}).then(function () {}, function () {}); } catch (e) {}
   }
   $('tabs').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
@@ -3498,7 +3509,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (list.length) {
         var perm = await Notes.checkPermissions();
         if (perm.display !== 'granted') perm = await Notes.requestPermissions();
-        if (perm.display === 'granted') await Notes.schedule({ notifications: list.map(function (a, i) { return { id: 100 + i, title: a.title, body: a.body, schedule: { at: new Date(a.at), allowWhileIdle: true } }; }) });
+        if (perm.display === 'granted') await Notes.schedule({ notifications: list.map(function (a, i) { return { id: 100 + i, title: a.title, body: a.body, sound: 'whistle.wav', schedule: { at: new Date(a.at), allowWhileIdle: true } }; }) }); // the referee's whistle, bundled with the app
       }
     } catch (e) { alertKey = ''; }
     alertBusy = false;

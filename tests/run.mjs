@@ -43,6 +43,15 @@ else {
     if (build.status !== 0) note("phone's watch plugin", false, 'does not compile\n' + build.stderr);
     else { fs.mkdirSync(path.join(tmp, 'home'), { recursive: true }); const r = spawnSync(path.join(tmp, 'plugintests'), { encoding: 'utf8', env: Object.assign({}, process.env, { HOME: path.join(tmp, 'home') }) }); if (r.status !== 0) console.log(r.stdout + r.stderr); note("phone's watch plugin", r.status === 0, lastLine(r.stdout)); }
   }
+  if (want('plugin') || want('quiet')) {
+    // The plugin that keeps an open team chat's notifications quiet, built the same way against stand-ins.
+    const src = fs.readFileSync(path.join(ROOT, 'plugins/reel-cutter/ios/Sources/ReelCutterPlugin/ChatQuietPlugin.swift'), 'utf8')
+      .replace(/^import (Capacitor|UserNotifications)\n/gm, '').replace(/^@objc\([A-Za-z]+\)\n/gm, '').replace(/@objc public func/g, 'public func');
+    fs.writeFileSync(path.join(tmp, 'ChatQuietPlugin.swift'), src);
+    const build = spawnSync('swiftc', [path.join(HERE, 'plugin/quiet/stubs.swift'), path.join(tmp, 'ChatQuietPlugin.swift'), path.join(HERE, 'plugin/quiet/main.swift'), '-o', path.join(tmp, 'quiettests')], { encoding: 'utf8' });
+    if (build.status !== 0) note('quiet chat plugin', false, 'does not compile\n' + build.stderr);
+    else { const r = spawnSync(path.join(tmp, 'quiettests'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout + r.stderr); note('quiet chat plugin', r.status === 0, lastLine(r.stdout)); }
+  }
   const cli = spawnSync('swiftc', [logic, path.join(HERE, 'watch/cli/main.swift'), '-o', path.join(tmp, 'watchbrain')], { encoding: 'utf8' });
   if (cli.status !== 0) note('watch logic for the whole-game tests', false, 'does not compile\n' + cli.stderr); else env.WATCHBRAIN = path.join(tmp, 'watchbrain');
 }
