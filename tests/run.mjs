@@ -77,7 +77,7 @@ const tidy = (s) => s.split('\n').filter((l) => !l.startsWith('\u001b[2m')).map(
   .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, '<id>')
   .replace(/(FC|code: |code shown: )[A-HJ-NP-Z2-9]{6,10}\b/g, '$1<code>')
   .replace(/kick-off field: \d\d:\d\d/g, 'kick-off field: <mm:ss>').replace(/second half at \d\d:\d\d/g, 'second half at <mm:ss>').replace(/(\.mov",)\d+(,)/g, '$1<s>$2')
-  .replace(/translate\([-\d. ]+\)/g, 'translate(<x y>)').replace(/voice@[\d.]+/g, 'voice@<t>').replace(/"dur":[\d.]+/g, '"dur":<s>')
+  .replace(/started \d\d:\d\d/g, 'started <hh:mm>').replace(/translate\([-\d. ]+\)/g, 'translate(<x y>)').replace(/voice@[\d.]+/g, 'voice@<t>').replace(/"dur":[\d.]+/g, '"dur":<s>')
   .replace(/^(\s*(?:talk|coin|captain|pens): ).*$/, '$1<varies>')).join('\n').trim() + '\n';
 if (WALKS.length) {
   const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml' };

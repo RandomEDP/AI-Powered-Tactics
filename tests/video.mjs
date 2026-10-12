@@ -9,7 +9,8 @@ await ctx.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStora
 await ctx.addInitScript((base) => {
   window.__rc = [];
   const RC = { addListener: (n, cb) => { RC.cb = cb; return { remove() {} }; },
-    pickVideo: async (o) => { window.__rc.push('pick ' + o.slot); return o.slot === 2 ? { path: '/tmp/half2.mov', duration: 1500, created: Date.now() - 20000 } : { path: '/tmp/game.mov', duration: 3000, created: Date.now() - 120000 }; },
+    pickVideo: async (o) => { window.__rc.push('pick ' + o.slot); if (window.__cancelPick) { window.__cancelPick = false; return { cancelled: true }; }
+      return o.slot === 2 ? { path: '/tmp/half2.mov', duration: 1500, created: Date.now() - 20000 } : o.slot > 2 ? { path: '/tmp/cam' + o.slot + '.mov', duration: 1500, created: Date.now() - 120000 } : { path: '/tmp/game.mov', duration: 3000, created: Date.now() - 120000 }; },
     cut: async (o) => { window.__rc.push('cut ' + JSON.stringify(o)); RC.cb({ stage: 'cut', i: 0, n: o.clips.length, p: 0.5 });
       return { clips: o.clips.map((c) => ({ file: c.file, path: '/tmp/' + c.file })), reel: { path: '/tmp/' + o.reelFile } }; },
     share: async (o) => { window.__rc.push('share ' + o.path); }, cleanup: async () => { window.__rc.push('cleanup'); } };
@@ -38,13 +39,22 @@ await A.click('#mHighlights'); await wait(300);
 console.log('before:', (await A.textContent('#hlList')).replace(/\s+/g, ' ').slice(0, 260));
 await shot(A, 'hl-before');
 await A.click('#hlList [data-cut]'); console.log('view:', await view(A));
-await A.click('#cutBody [data-cutdo="pick"]'); await wait(400);
-console.log('sync screen:', (await A.textContent('#cutBody')).replace(/\s+/g, ' ').slice(0, 330), '| kick-off field:', await A.inputValue('#cutSync'));
+console.log('cameras screen:', (await A.textContent('#cutBody')).replace(/\s+/g, ' ').slice(0, 420));
+await shot(A, 'cut-cams-empty');
+// a tap on the drawing puts a camera there and asks for its video; giving up on the video takes the camera away again
+const tap = async (fx, fy) => { const bx = await A.locator('#camSvg').boundingBox(); await A.mouse.click(bx.x + bx.width * fx, bx.y + bx.height * fy); await wait(400); };
+await A.evaluate(() => { window.__cancelPick = true; }); await tap(0.08, 0.6);
+console.log('cancelled pick leaves', await A.locator('#camSvg [data-cam]').count(), 'cameras | next button:', await A.isVisible('[data-cutdo="next"]'));
+await tap(0.08, 0.6);
+console.log('after a tap and a video:', await A.locator('#camSvg [data-cam]').count(), 'camera |', (await A.textContent('.camlist')).replace(/\s+/g, ' '));
+await shot(A, 'cut-cams-one');
+await A.click('#cutBody [data-cutdo="next"]'); await wait(300);
+console.log('sync screen:', (await A.textContent('#cutBody')).replace(/\s+/g, ' ').slice(0, 330), '| kick-off field:', await A.inputValue('#cutSync-0'));
 await shot(A, 'cut-sync');
-await A.fill('#cutSync', ''); await A.type('#cutSync', '0210'); console.log('typed 0210 ->', await A.inputValue('#cutSync'));
-await A.click('#cutBody [data-cutdo="pick2"]'); await wait(400);
-console.log('second video: kick-off kept', await A.inputValue('#cutSync'), '| second half at', await A.inputValue('#cutSync2'));
-await A.fill('#cutSync2', ''); await A.type('#cutSync2', '0005'); await shot(A, 'cut-two');
+await A.fill('#cutSync-0', ''); await A.type('#cutSync-0', '0210'); console.log('typed 0210 ->', await A.inputValue('#cutSync-0'));
+await A.click('#cutBody [data-cutdo="vid2"]'); await wait(400);
+console.log('second video: kick-off kept', await A.inputValue('#cutSync-0'), '| second half at', await A.inputValue('#cutSync2-0'));
+await A.fill('#cutSync2-0', ''); await A.type('#cutSync2-0', '0005'); await shot(A, 'cut-two');
 console.log('commentary switch:', await A.isVisible('#cutVoice')); await A.check('#cutVoice');
 await A.click('#cutBody [data-cutdo="go"]'); await wait(2500);
 { const c = JSON.parse((await A.evaluate(() => window.__rc)).filter((x) => x.startsWith('cut ')).pop().slice(4)); const v = (await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).calls)).filter((x) => x.name === 'reel-voice').pop();
@@ -62,6 +72,24 @@ await shot(A, 'hl-by-game');
 await A.click('#hlToggle [data-by="player"]'); await wait(300);
 console.log('by player:', await A.$$eval('#hlList .hcard', (c) => c.filter((x) => x.querySelector('.vplayer')).map((x) => x.querySelector('h3').textContent + ': ' + [...x.querySelectorAll('[data-clip]')].map((y) => y.textContent).join(' | '))));
 await shot(A, 'hl-by-player');
+// cutting again with two cameras: the first one's spot is remembered; one goes behind Dog's goal
+await A.click('#hlToggle [data-by="game"]'); await wait(200);
+await A.evaluate(() => { window.__rc = []; }); await A.click('#hlList [data-cut]'); await wait(200);
+console.log('remembered:', await A.locator('#camSvg [data-cam]').count(), 'camera |', (await A.textContent('.camlist')).replace(/\s+/g, ' '));
+await A.click('#camSvg [data-cam="0"]', { force: true }); await wait(400); // a camera with no video yet: a tap asks for it
+await tap(0.5, 0.07); // behind their goal
+console.log('two cameras:', (await A.textContent('.camlist')).replace(/\s+/g, ' '), '| swap ends:', await A.isChecked('#camSwap'));
+await shot(A, 'cut-cams-two');
+await A.uncheck('#camSwap'); await A.click('#cutBody [data-cutdo="next"]'); await wait(300);
+console.log('same ends all game:', (await A.textContent('#cutBody .note:last-of-type')).replace(/\s+/g, ' '));
+await shot(A, 'cut-sync-two');
+await A.click('#cutBody [data-cutdo="cams"]'); await A.check('#camSwap'); await A.click('#cutBody [data-cutdo="next"]'); await wait(300);
+console.log('swapped at half time:', (await A.textContent('#cutBody .note:last-of-type')).replace(/\s+/g, ' '));
+// camera 2 started its kick-off late in a short video, so it hasn't got the second goal: that comes from camera 1 instead
+await A.fill('#cutSync-1', ''); await A.type('#cutSync-1', '2450'); await A.uncheck('#cutVoice'); await A.click('#cutBody [data-cutdo="go"]'); await wait(2500);
+{ const c = JSON.parse((await A.evaluate(() => window.__rc)).filter((x) => x.startsWith('cut ')).pop().slice(4)); console.log('two-camera cut:', JSON.stringify(c.clips.map((x) => [x.path, x.caption]))); }
+console.log('plugin calls:', (await A.evaluate(() => window.__rc)).map((x) => x.split(' {')[0]).join(', '));
+await A.click('#cutBody [data-cutdo="finish"]'); await wait(300);
 // a poll, and its calendar entry
 await A.click('.view:not([hidden]) [data-go="home"], .view:not([hidden]) .back'); await wait(300);
 await A.click('#fxCard [data-fx="new"]'); await A.fill('#pOpp', 'Athletico Pathetico'); await A.fill('#pDate', '2026-10-13'); await A.fill('#pTime', '19:30'); await A.fill('#pLoc', 'Powerleague Romford, pitch 4'); await A.fill('#pCost', '£5 each'); await A.click('#pSave'); await wait(700);

@@ -238,6 +238,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         let scale: CMTimeScale = 600
         var cursor = CMTime.zero
         var spans: [(at: Double, dur: Double, caption: String)] = []
+        var placed: [(at: CMTime, track: AVAssetTrack)] = [] // which camera's footage starts where, for fitting each into the frame
         for segment in segments {
             guard let sourceVideo = segment.asset.tracks(withMediaType: .video).first else {
                 throw CutError(message: "That file has no video in it")
@@ -252,6 +253,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 try? audio.insertTimeRange(range, of: sourceAudio, at: cursor)
             }
             spans.append((at: CMTimeGetSeconds(cursor), dur: dur, caption: segment.caption))
+            placed.append((at: cursor, track: sourceVideo))
             say(segment.voice, at: CMTimeGetSeconds(cursor) + segment.voiceAt, before: CMTimeGetSeconds(cursor) + dur)
             cursor = CMTimeAdd(cursor, range.duration)
         }
@@ -266,13 +268,29 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             let start = max(0, min(first.start, total - dur))
             let range = CMTimeRange(start: CMTime(seconds: start, preferredTimescale: scale), duration: CMTime(seconds: dur, preferredTimescale: scale))
             try video.insertTimeRange(range, of: sourceVideo, at: cursor)
+            placed.append((at: cursor, track: sourceVideo))
             outroAt = CMTimeGetSeconds(cursor)
             say(signOff, at: CMTimeGetSeconds(cursor) + 0.3, before: CMTimeGetSeconds(cursor) + dur)
             cursor = CMTimeAdd(cursor, range.duration)
         }
         if let speech = speech, speech.segments.isEmpty { composition.removeTrack(speech) }
 
+        // Footage from different cameras can differ in size and which way up it was filmed: then each stretch is turned
+        // upright and scaled to fit a frame the size of the first, instead of only the first camera's being right.
+        let mixed = placed.contains { $0.track.naturalSize != firstVideo.naturalSize || $0.track.preferredTransform != firstVideo.preferredTransform }
+        if mixed { video.preferredTransform = .identity }
         let videoComposition = AVMutableVideoComposition(propertiesOf: composition)
+        if mixed {
+            let upright = ReelCutterPlugin.upright(firstVideo)
+            let frame = CGSize(width: max(2, (abs(upright.width) / 2).rounded() * 2), height: max(2, (abs(upright.height) / 2).rounded() * 2))
+            videoComposition.renderSize = frame
+            let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: video)
+            for stretch in placed { layer.setTransform(ReelCutterPlugin.fit(stretch.track, in: frame), at: stretch.at) }
+            let instruction = AVMutableVideoCompositionInstruction()
+            instruction.timeRange = CMTimeRange(start: .zero, duration: composition.duration) // (must cover all of it, or the export is refused)
+            instruction.layerInstructions = [layer]
+            videoComposition.instructions = [instruction]
+        }
         // Phones record HDR by default; these three settings make the result ordinary video that plays anywhere.
         videoComposition.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
         videoComposition.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
@@ -360,6 +378,23 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             throw CutError(message: session.error?.localizedDescription ?? "The video couldn't be cut")
         }
         progress(1)
+    }
+
+    /// Where a track's frames land once turned the right way up (the rect can start off the origin).
+    private static func upright(_ track: AVAssetTrack) -> CGRect {
+        CGRect(origin: .zero, size: track.naturalSize).applying(track.preferredTransform)
+    }
+
+    /// Turns a track's frames the right way up and scales them to fit inside `frame`, centred (black bars if the shapes differ).
+    private static func fit(_ track: AVAssetTrack, in frame: CGSize) -> CGAffineTransform {
+        let box = upright(track)
+        let w = abs(box.width), h = abs(box.height)
+        guard w > 0, h > 0 else { return track.preferredTransform }
+        let scale = min(frame.width / w, frame.height / h)
+        return track.preferredTransform
+            .concatenating(CGAffineTransform(translationX: -box.minX, y: -box.minY))
+            .concatenating(CGAffineTransform(scaleX: scale, y: scale))
+            .concatenating(CGAffineTransform(translationX: (frame.width - w * scale) / 2, y: (frame.height - h * scale) / 2))
     }
 
     // MARK: - Drawing helpers

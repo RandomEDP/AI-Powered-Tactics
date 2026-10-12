@@ -1,6 +1,9 @@
 after finish: v-stats
 before: v Dog 1–110 Oct, 3 moments1’Goal: Puxley (1–0)1’Highlight16’Goal for Dog (1–1)No video for this game yet.Cut from a video on this phoneMake it on a computer
 view: v-cut
+cameras screen: SOP FC 1–1 DogWhere were the cameras?Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.DogSOP FCGoals come from the camera nearest the goal they went in. Saves come from the one nearest SOP FC’s goal, and other highlights from the one nearest Dog’s goal.Teams swapped ends at half time (the ends drawn are for the first half)Add a cameraThe cutting happe
+cancelled pick leaves 0 cameras | next button: false
+after a tap and a video: 1 camera | Camera 150 min, started <hh:mm>Change videoRemove
 sync screen: SOP FC 1–1 DogWhere is kick-off in the video?Worked out from when the recording started. Change it if the clips come out early or late.Kick-off atRecording stopped at half time? Add the second-half video too.Add a second-half videoAdd AI commentary (experimental: a commentator’s voice calls each moment by name, with an intro and | kick-off field: <mm:ss>
 typed 0210 -> 02:10
 second video: kick-off kept 02:10 | second half at <mm:ss>
@@ -11,12 +14,18 @@ done screen: SOP FC 1–1 Dog2 clips are now in Highlights for the whole team, w
 plugin asked for: [["/tmp/game.mov",<s>,"1' Puxley  SOP FC 1-0 Dog"],["/tmp/half2.mov",<s>,"16' Goal for Dog  SOP FC 1-1 Dog"]] {"title":"Sons of Pitches FC 1–1 Dog","sub":"Made with Gaffer","color":"#1f6b4a","ink":"#f7f5ec"}
 files: [{"bucket":"clips","path":"<id>/2026-10-10_dog/01.mp4","size":29589,"type":"video/mp4"},{"bucket":"clips","path":"<id>/2026-10-10_dog/02.mp4","size":29589,"type":"video/mp4"}] 
 clip rows: [{"seq":0,"path":"<team>/2026-10-10_dog/01.mp4","label":"1' Puxley  SOP FC 1-0 Dog","dur":<s>,"pids":[5]},{"seq":1,"path":"<team>/2026-10-10_dog/02.mp4","label":"16' Goal for Dog  SOP FC 1-1 Dog","dur":<s>,"pids":[]}]
-plugin calls: pick 1, pick 2, cut, share /tmp/reel.mp4, cleanup | view: v-highlights
+plugin calls: pick 1, pick 1, pick 2, cut, share /tmp/reel.mp4, cleanup | view: v-highlights
 commentary: [ 'Puxley finds the net! 1–0 to SOP FC.', 'Dog level it at 1–1.' ] | shown: Puxley finds the net! 1–0 to SOP FC.
 by game: [
   'https://kvefpqigpqprxfelesrb.supabase.co/storage/v1/object/public/clips/<team>/2026-10-10_dog/01.mp4'
 ] [ "1' Puxley  SOP FC 1-0 Dog", "16' Goal for Dog  SOP FC 1-1 Dog" ]
 by player: [ "Puxley: v Dog, 10 Oct: 1' Puxley  SOP FC 1-0 Dog" ]
+remembered: 1 camera | Camera 1No video yetChoose its videoRemove
+two cameras: Camera 150 min, started <hh:mm>Change videoRemoveCamera 225 min, started <hh:mm>Change videoRemove | swap ends: true
+same ends all game: 2 clips will be cut (1 from camera 1, 1 from camera 2), each with the app’s watermark, plus one joined reel with an outro card to share.
+swapped at half time: 2 clips will be cut (0 from camera 1, 2 from camera 2), each with the app’s watermark, plus one joined reel with an outro card to share.
+two-camera cut: [["/tmp/cam3.mov","1' Puxley  SOP FC 1-0 Dog"],["/tmp/game.mov","16' Goal for Dog  SOP FC 1-1 Dog"]]
+plugin calls: pick 1, pick 3, cut
 poll card: Next game: v Athletico PatheticoTue 13 Oct, 19:30 · 8 spaces leftPowerleague Romford, pitch 4, £5 each, 5-a-side, 2 × 15 | class: card fxc live
 calendar {"title":"Sons of Pitches FC vs Athletico Pathetico","start":1791916200000,"end":1791919800000,"location":"Powerleague Romford, pitch 4","notes":"Cost: £5 each"} | Added to your calendar.
 errors: []
