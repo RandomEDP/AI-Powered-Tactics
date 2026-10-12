@@ -81,10 +81,10 @@ await tap(0.5, 0.07); // behind their goal
 console.log('two cameras:', (await A.textContent('.camlist')).replace(/\s+/g, ' '), '| swap ends:', await A.isChecked('#camSwap'));
 await shot(A, 'cut-cams-two');
 await A.uncheck('#camSwap'); await A.click('#cutBody [data-cutdo="next"]'); await wait(300);
-console.log('same ends all game:', (await A.textContent('#cutBody .note:last-of-type')).replace(/\s+/g, ' '));
+console.log('same ends all game:', (await A.textContent('#cutCount')).replace(/\s+/g, ' '));
 await shot(A, 'cut-sync-two');
 await A.click('#cutBody [data-cutdo="cams"]'); await A.check('#camSwap'); await A.click('#cutBody [data-cutdo="next"]'); await wait(300);
-console.log('swapped at half time:', (await A.textContent('#cutBody .note:last-of-type')).replace(/\s+/g, ' '));
+console.log('swapped at half time:', (await A.textContent('#cutCount')).replace(/\s+/g, ' '));
 // camera 2 started its kick-off late in a short video, so it hasn't got the second goal: that comes from camera 1 instead
 await A.fill('#cutSync-1', ''); await A.type('#cutSync-1', '2450'); await A.uncheck('#cutVoice'); await A.click('#cutBody [data-cutdo="go"]'); await wait(2500);
 { const c = JSON.parse((await A.evaluate(() => window.__rc)).filter((x) => x.startsWith('cut ')).pop().slice(4)); console.log('two-camera cut:', JSON.stringify(c.clips.map((x) => [x.path, x.caption]))); }

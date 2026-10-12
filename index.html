@@ -426,6 +426,9 @@ tr.past td { opacity: .45; }
 #livePop { position: fixed; inset: 0; z-index: 46; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #livePop[hidden] { display: none; }
 .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; line-height: 1.4; }
+.cutprev { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 10px 12px; margin: 12px 0; }
+.cutprev h3 { margin: 0 0 4px; font-size: 16px; }
+.cutprev video { display: block; width: 100%; max-height: 240px; border-radius: 8px; background: #000; margin-top: 8px; }
 .camnow { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 10px 12px; margin: 10px 0; background: var(--bg); }
 .camnow p { margin: 0 0 8px; }
 .camnow .actions { margin-top: 0; }
@@ -2782,13 +2785,20 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
           '<div class="actions"><button class="plain" type="button" data-cutdo="drop2" data-cam="' + k.id + '">Remove the second video' + (many ? ' for camera ' + camNo(k) : '') + '</button></div>';
         else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button></div>';
       });
+      var pi = Math.min(CUT.pv || 0, Math.max(0, n - 1)), pv = plan[pi];
+      if (pv) html += '<div class="cutprev"><h3>Check the timing</h3><p class="note">Clip ' + (pi + 1) + ' of ' + n + (many ? ', from camera ' + pv.cam : '') + ': ' + esc(pv.labels.join(', ')) +
+        '. It should start a few seconds before the moment. If the moment has already happened when it starts, move the clips earlier.</p>' +
+        '<video id="cutPrev" playsinline controls preload="metadata" muted data-start="' + pv.start.toFixed(1) + '" data-end="' + pv.end.toFixed(1) + '" src="' + esc(fileSrc(pv.path)) + '"></video>' +
+        '<div class="actions"><button class="plain" type="button" data-cutdo="nudge" data-by="-5">5 seconds earlier</button><button class="plain" type="button" data-cutdo="nudge" data-by="5">5 seconds later</button>' +
+        (n > 1 ? '<button class="plain" type="button" data-cutdo="pvnext">' + (pi + 1 < n ? 'Next clip' : 'First clip') + '</button>' : '') + '</div>' +
+        (CUT.moved ? '<p class="msg" role="status" id="cutMoved">Every clip moved ' + Math.abs(CUT.moved) + ' seconds ' + (CUT.moved < 0 ? 'earlier' : 'later') + '.</p>' : '') + '</div>';
       html += busy;
       if (A.exp && A.exp.track) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(experimental: a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel)</small></span></label>' +
         '<div class="two"><label class="field" for="cutVoiceName">Voice<select id="cutVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
         '<label class="field" for="cutVoiceStyle">Delivery<select id="cutVoiceStyle"><option value="hype"' + (voicePick().style === 'hype' ? ' selected' : '') + '>Live commentator</option><option value="plain"' + (voicePick().style === 'plain' ? ' selected' : '') + '>Read it straight</option></select></label></div>' +
         '<div class="actions"><button class="plain" type="button" data-cutdo="hear">Hear this voice</button></div>' + (CUT.heard ? '<p class="msg" role="status">' + esc(CUT.heard) + '</p>' : '');
       var from = many ? live.map(function (k) { var c = plan.filter(function (x) { return x.cam === camNo(k); }).length; return c + ' from camera ' + camNo(k); }).join(', ') : '';
-      html += '<p class="note">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut' + (from ? ' (' + from + ')' : '') + ', each with the app’s watermark, plus one joined reel with an outro card to share.</p>' +
+      html += '<p class="note" id="cutCount">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut' + (from ? ' (' + from + ')' : '') + ', each with the app’s watermark, plus one joined reel with an outro card to share.</p>' +
         '<div class="actions"><button class="plain" type="button" data-cutdo="cams">Back to the cameras</button><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
     }
     else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p><p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>';
@@ -2797,7 +2807,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       '<p class="note">The full reel, with the outro card, is on this phone until you tap Done. Share it or save it to Photos first.</p>';
     if (CUT.msg) html += '<p class="msg bad">' + esc(CUT.msg) + '</p>' + (CUT.stage === 'work' ? '<div class="actions"><button class="plain" type="button" data-cutdo="retry">Back</button></div>' : '');
     $('cutBody').innerHTML = html;
+    var pvEl = $('cutPrev');
+    if (pvEl) { // the preview starts where its clip starts, and stops where it ends
+      var a0 = +pvEl.getAttribute('data-start'), a1 = +pvEl.getAttribute('data-end');
+      pvEl.addEventListener('loadedmetadata', function () { try { pvEl.currentTime = a0; } catch (e) {} });
+      pvEl.addEventListener('timeupdate', function () { if (pvEl.currentTime >= a1) { pvEl.pause(); try { pvEl.currentTime = a0; } catch (e) {} } });
+    }
   }
+  function fileSrc(path) { var C = window.Capacitor; try { return C && C.convertFileSrc ? C.convertFileSrc(path) : path; } catch (e) { return path; } } // a file on the phone, as the web view can play it
   function cutKeep() { // remember what's typed before the screen is redrawn
     if (!CUT) return;
     Array.prototype.forEach.call($('cutBody').querySelectorAll('[data-sync],[data-sync2]'), function (el) {
@@ -2866,6 +2883,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (act === 'drop2' && cam) { cutKeep(); cam.src2 = null; cam.sync2 = null; renderCut(); }
     else if (act === 'next') { cutKeep(); if (!CUT.cams.some(function (k) { return k.src; })) return; CUT.stage = 'sync'; CUT.msg = ''; renderCut(); }
     else if (act === 'cams') { cutKeep(); CUT.stage = 'cams'; CUT.msg = ''; renderCut(); }
+    else if (act === 'nudge') { // every clip earlier or later: kick-off is moved in every video by the same amount
+      cutKeep(); var by = +e.target.getAttribute('data-by') || 0, set = CUT.cams.filter(function (k) { return k.src && k.sync != null; });
+      if (!set.length) { CUT.msg = 'Enter where kick-off is in the video first, like 02:30.'; renderCut(); return; }
+      set.forEach(function (k) { k.sync = Math.max(0, k.sync + by); if (k.src2 && k.sync2 != null) k.sync2 = Math.max(0, k.sync2 + by); });
+      CUT.moved = (CUT.moved || 0) + by; CUT.msg = ''; renderCut();
+    }
+    else if (act === 'pvnext') { cutKeep(); var tot = cutPlan(r, CUT.cams, CUT.swap).length; CUT.pv = tot ? ((CUT.pv || 0) + 1) % tot : 0; renderCut(); }
     else if (act === 'hear') { // a sample line in the chosen voice, played straight away
       cutKeep(); CUT.heard = 'Fetching the voice…'; renderCut();
       try {
