@@ -109,7 +109,8 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
 | `.github/workflows/watch-shots.yml` | Takes Apple Watch App Store screenshots in a simulator (run by hand) |
-| `store/`, `shots/` | App Store listing material and screenshots |
+| `store/` | App Store pictures, in the folders App Store Connect wants. `node store/capture.mjs` takes real app screens (402×874 @3×) through the test harness, then `node store/compose.mjs` lays them out in the purple style; `store/src/` holds the tracking still, the icon and the earlier slides that are kept as they are |
+| `shots/` | Raw screenshots from `tests/shots.mjs`, for checking the design |
 | `tests/` | Section 9 |
 
 The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
