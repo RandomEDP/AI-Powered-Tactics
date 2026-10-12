@@ -39,7 +39,7 @@ else {
     const src = fs.readFileSync(path.join(ROOT, 'plugins/reel-cutter/ios/Sources/ReelCutterPlugin/WatchLinkPlugin.swift'), 'utf8')
       .replace(/^import (Capacitor|WatchConnectivity)\n/gm, '').replace(/^@objc\([A-Za-z]+\)\n/gm, '').replace(/@objc public func/g, 'public func');
     fs.writeFileSync(path.join(tmp, 'WatchLinkPlugin.swift'), src);
-    const build = spawnSync('swiftc', [path.join(HERE, 'plugin/stubs.swift'), path.join(tmp, 'WatchLinkPlugin.swift'), path.join(HERE, 'plugin/main.swift'), '-o', path.join(tmp, 'plugintests')], { encoding: 'utf8' });
+    const build = spawnSync('swiftc', [path.join(HERE, 'plugin/stubs.swift'), path.join(tmp, 'WatchLinkPlugin.swift'), path.join(ROOT, 'ios/App/App/PhoneHighlight.swift'), path.join(HERE, 'plugin/main.swift'), '-o', path.join(tmp, 'plugintests')], { encoding: 'utf8' });
     if (build.status !== 0) note("phone's watch plugin", false, 'does not compile\n' + build.stderr);
     else { fs.mkdirSync(path.join(tmp, 'home'), { recursive: true }); const r = spawnSync(path.join(tmp, 'plugintests'), { encoding: 'utf8', env: Object.assign({}, process.env, { HOME: path.join(tmp, 'home') }) }); if (r.status !== 0) console.log(r.stdout + r.stderr); note("phone's watch plugin", r.status === 0, lastLine(r.stdout)); }
   }

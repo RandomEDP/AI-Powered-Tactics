@@ -87,5 +87,39 @@ check(Set(left).count == left.count && left.count <= 400, "and what is left is c
 phone = opened()
 check(ids(phone) == left, "and it is exactly what a restart finds on disk")
 
+// ---------- "Mark a highlight" run on the iPhone (Siri, Shortcuts, or the Action button on Apple Watch Ultra, which runs it here)
+let at = Date(timeIntervalSince1970: 1_791_660_600)
+let game = { (phase: String, running: Bool) in "{\"live\":true,\"gid\":\"game-9\",\"phase\":\"\(phase)\",\"running\":\(running),\"base\":60000,\"t0\":\((at.timeIntervalSince1970 - 125) * 1000),\"periods\":2}" }
+var made = PhoneHighlight.press(state: game("h1", true), now: at, id: "ph-1")
+let madeFields = ((try? JSONSerialization.jsonObject(with: Data((made.event ?? "").utf8))) as? [String: Any]) ?? [:]
+check(madeFields["type"] as? String == "hl" && madeFields["id"] as? String == "ph-1" && madeFields["gid"] as? String == "game-9" && madeFields["at"] as? Double == at.timeIntervalSince1970 * 1000,
+      "it makes the same press as the watch's Highlight button, for the game on (\(made.event ?? "none"))")
+check(made.said == "Highlight marked at 3:05 in the first half.", "and says when in the half (\(made.said))")
+check(PhoneHighlight.press(state: game("h2", false), now: at).said == "Highlight marked at 1:00 in the second half.", "with the clock stopped, the time it stopped at")
+for (phase, said) in [("pre", "The game hasn't kicked off yet, so nothing was marked."), ("ht", "It's half time, so nothing was marked."), ("ft", "The game's over, so nothing was marked.")] {
+    let r = PhoneHighlight.press(state: game(phase, false), now: at)
+    check(r.event == nil && r.said == said, "\(phase): nothing marked, and it says why (\(r.said))")
+}
+for state in [nil, "{\"live\":false}", "not json"] as [String?] {
+    let r = PhoneHighlight.press(state: state, now: at)
+    check(r.event == nil && r.said == "No game on in Gaffer, so nothing was marked.", "no game: nothing marked (\(state ?? "nil"))")
+}
+// with the app running, the watch link takes it there and then, and the web app is told
+phone = opened(); phone.push(CAPPluginCall(["state": "{}", "seen": ids(phone)]))
+let toldBefore = phone.told.count
+made = PhoneHighlight.press(state: game("h1", true), now: at, id: "ph-live")
+check(PhoneHighlight.deliver(made.event!, now: at) && ids(phone) == ["ph-live"] && phone.told.count == toldBefore + 1, "with the app running, the press goes straight to the watch link and the web app is told")
+check(!PhoneHighlight.deliver(made.event!, now: at) || ids(phone) == ["ph-live"], "the same press twice is kept once")
+phone.push(CAPPluginCall(["state": "{}", "seen": ["ph-live"]]))
+// with the app not running (started only to run the shortcut), it goes into the store on disk and is there when the app opens
+phone = opened(); phone.push(CAPPluginCall(["state": "{}", "seen": ids(phone)]))
+weak var gone = phone; phone = WatchLinkPlugin() // (a plugin that hasn't loaded: nobody is listening)
+check(gone == nil, "the running watch link is gone")
+made = PhoneHighlight.press(state: game("h2", true), now: at, id: "ph-cold")
+check(!PhoneHighlight.deliver(made.event!, now: Date()), "with nothing listening, it isn't taken there and then")
+PhoneHighlight.deliver(made.event!, now: Date())
+phone = opened()
+check(ids(phone) == ["ph-cold"], "but it's kept on disk, once, and the app finds it when it opens (\(ids(phone)))")
+
 print(failures == 0 ? "phone's watch plugin: all \(checks) checks passed" : "phone's watch plugin: \(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

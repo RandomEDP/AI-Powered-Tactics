@@ -64,8 +64,8 @@ goes in it, this file included.
 - **Footage wording:** say "GoPro or iPhone footage". Recommend one continuous video, or at least one per half.
 - **Every time GoPro is mentioned, say an iPhone works too** (Ethan's rule), in the app, the store pictures, the pages and
   messages to him. `tests/wording.test.mjs` checks the app, the store text and the pages for it. Streaming from an iPhone
-  is through a free RTMP app such as Larix Broadcaster with the same camera link; Gaffer doesn't stream from the
-  iPhone's own camera yet.
+  is through a free RTMP app such as Larix Broadcaster with the same camera link; Gaffer also streams from the
+  iPhone's own camera ("Film with this iPhone").
 - Keep replies to him short: what changed, what to check on his phone, and that the TestFlight build was kicked off.
 - When he reports a bug from a screenshot, reproduce it in a test first, then fix it.
 
@@ -105,7 +105,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `vendor/` | Bundled Supabase JS and fonts, so the app works with no signal |
 | `scripts/build-web.mjs` | Copies the web files into `www/` for Capacitor (`www/` isn't committed) |
 | `scripts/asc-certs.mjs` | CI helper: lists and revokes the dev certificate each signed build creates (Apple caps them) |
-| `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources) |
+| `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `supabase/migrations/` | `0001` … `0018`, **all applied to the live project**. New ones are numbered on from there |
@@ -166,6 +166,14 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   run with the app closed: it waits up to 5 s for WatchConnectivity, presses through the same brain, and sends the press
   both by `sendMessage` and `transferUserInfo`; the phone deals with each press id once (`watchSeen`, kept across restarts).
   What it says back comes from `WatchBrain.highlightSaid` (tested in `tests/watch/main.swift`).
+- **The iPhone has "Mark a highlight" too** (`ios/App/App/PhoneHighlightIntent.swift`, logic in `PhoneHighlight.swift`).
+  The Action button's Shortcut list only offers shortcuts from the user's Shortcuts library, and those are made on the
+  iPhone from iPhone apps' actions, so a watch-only intent never shows there (Ethan found this). Run from the watch, iOS
+  runs it on the iPhone. It makes the same `hl` press from `watchlink.latest` (the last state sent to the watch) and posts
+  `gaffer.phonePress`; `WatchLinkPlugin` takes it like a watch press, or, if the app was started just for the shortcut,
+  it goes straight into `watchlink.inbox`. Tested in `tests/plugin/main.swift`.
+  Setting it up: Shortcuts app → Gaffer → "Mark a highlight" → add it to My Shortcuts, with "Show on Apple Watch" on;
+  then Watch app → Action Button → Shortcut → pick it.
 - The watch buzzes for subs by its own clock. Changes wait for the gaffer to confirm (the subs pop-up on the phone and
   the watch).
 - This is the most safety-critical code in the app. Any change needs `node tests/run.mjs watch link plugin match
@@ -305,7 +313,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   - 88: ask to join.
   - 95: whistle and quiet chat.
   - 97: multi-camera highlights.
-  - Next: live streaming.
+  - 112: live streaming, with "Film with this iPhone" (streams and records to Photos).
   - All recent runs passed.
 - **Watch app install problems:** the TestFlight job prints the watch app's Info.plist and architectures from the
   archive. Look there first.
@@ -374,9 +382,9 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   Quik (it won't join his iPhone's hotspot). So Gaffer now films with the iPhone itself ("Film with this iPhone",
   `LiveCamPlugin`): check on a real phone that it streams, the team sees it, End saves the recording to Photos, and a
   reel can be cut from that recording.
-- **Action button** (Ethan has an Ultra): "Mark a highlight" is built. To check on the watch: Watch app on the iPhone →
-  Action Button → Shortcut → Gaffer's "Mark a highlight"; pressing it mid-game should say "Highlight marked at m:ss…"
-  and the highlight should appear on the phone. Not yet confirmed that App Shortcuts from the watch app show up there.
+- **Action button** (Ethan has an Ultra): the watch app's shortcut didn't show in the Action button list (it only offers
+  your own Shortcuts library). Builds after 112 have "Mark a highlight" in the iPhone's Shortcuts app; check it can be
+  added, shows on the watch, and marks a highlight mid-game (see Phone ↔ Apple Watch).
 - **Voice:** Ethan is setting up the Google service account (Vertex AI User) and the `GOOGLE_SERVICE_ACCOUNT` secret.
   Then "Hear this voice" should say "Playing." rather than falling back to read-it-straight.
 - **Ideas he has raised but not built yet:**

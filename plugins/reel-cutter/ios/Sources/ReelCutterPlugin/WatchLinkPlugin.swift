@@ -31,6 +31,9 @@ public class WatchLinkPlugin: CAPPlugin, CAPBridgedPlugin, WCSessionDelegate {
     private let savedInbox = "watchlink.inbox"
     private static let keepFor: Double = 12 * 60 * 60 * 1000   // a press nobody has dealt with after half a day is dropped
     private static let keepMost = 400
+    private var phonePresses: NSObjectProtocol?
+
+    deinit { if let o = phonePresses { NotificationCenter.default.removeObserver(o) } }
 
     override public func load() {
         let store = UserDefaults.standard
@@ -41,6 +44,15 @@ public class WatchLinkPlugin: CAPPlugin, CAPBridgedPlugin, WCSessionDelegate {
             if let state = store.string(forKey: saved) { latest = ["state": state, "sent": store.double(forKey: saved + ".sent")] }
             let kept = (store.array(forKey: savedInbox) as? [[String: Any]]) ?? []
             inbox = kept.filter { ($0["id"] as? String) != nil && ($0["event"] as? String) != nil && now - (($0["got"] as? Double) ?? 0) < WatchLinkPlugin.keepFor }
+        }
+        // "Mark a highlight" run on the iPhone itself (Siri, the Shortcuts app, or the Action button on Apple Watch Ultra,
+        // which runs it here): the same press as the watch's, taken in the same way (ios/App/App/PhoneHighlight.swift)
+        if phonePresses == nil {
+            phonePresses = NotificationCenter.default.addObserver(forName: Notification.Name("gaffer.phonePress"), object: nil, queue: nil) { [weak self] note in
+                guard let self = self, let box = note.object as? NSMutableDictionary, let event = box["event"] as? String else { return }
+                self.received(["event": event])
+                box["handled"] = true
+            }
         }
         guard WCSession.isSupported() else { return }
         WCSession.default.delegate = self
