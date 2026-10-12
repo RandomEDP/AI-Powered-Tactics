@@ -61,7 +61,11 @@ goes in it, this file included.
   - No jargon in user-facing text.
   - Say exactly what went wrong and what to do. For example, an early voice error said "the key isn't allowed to use
     it", which hid the real cause; he wanted the specific reason.
-- **Footage wording:** say "GoPro or phone footage". Recommend one continuous video, or at least one per half.
+- **Footage wording:** say "GoPro or iPhone footage". Recommend one continuous video, or at least one per half.
+- **Every time GoPro is mentioned, say an iPhone works too** (Ethan's rule), in the app, the store pictures, the pages and
+  messages to him. `tests/wording.test.mjs` checks the app, the store text and the pages for it. Streaming from an iPhone
+  is through a free RTMP app such as Larix Broadcaster with the same camera link; Gaffer doesn't stream from the
+  iPhone's own camera yet.
 - Keep replies to him short: what changed, what to check on his phone, and that the TestFlight build was kicked off.
 - When he reports a bug from a screenshot, reproduce it in a test first, then fix it.
 
@@ -213,7 +217,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - On a computer, the same screen writes an ffmpeg script instead (`reelScript`). That path is single-video.
 
 ### Live streaming (Gaffer tier; behind the experimental switch for gaffers) (`0017_live_streams.sql`, `live-stream`)
-- The GoPro streams over RTMPS through GoPro Quik straight to **Cloudflare Stream**. The app never handles the video
+- The GoPro (through GoPro Quik) or an iPhone (through a streaming app such as Larix Broadcaster) streams over RTMPS
+  straight to **Cloudflare Stream**. The app never handles the video
   going up; it only plays it.
 - Each team has one Cloudflare live input (its "camera link"), made the first time a gaffer asks for it and kept, so it's
   pasted into Quik once. It is **switched off except while the team is live**, so a leaked link can't put anything in front
@@ -349,7 +354,8 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   - the whistle plays for nudges, polls, goals and kick-off;
   - a reel cut from two different cameras (for example a GoPro and an iPhone) joins cleanly.
 - **Live streaming:** Ethan to make a Cloudflare account with Stream, an API token with Stream: Edit, and set the two
-  secrets. Then try it at a game: Stream this game → copy the link into GoPro Quik (Live stream → RTMP) → Go live.
+  secrets. Then try it at a game: Stream this game → copy the link into GoPro Quik (Live stream → RTMP) or an
+  iPhone streaming app → Go live.
 - **Action button** (Ethan has an Ultra): "Mark a highlight" is built. To check on the watch: Watch app on the iPhone →
   Action Button → Shortcut → Gaffer's "Mark a highlight"; pressing it mid-game should say "Highlight marked at m:ss…"
   and the highlight should appear on the phone. Not yet confirmed that App Shortcuts from the watch app show up there.

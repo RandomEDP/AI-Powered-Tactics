@@ -79,16 +79,16 @@ const banner = (x, y, w, s) => `<div class="banner" style="left:${x}px;top:${y}p
   <div style="font-size:${33 * s}px;line-height:1.25"><b>SOP FC v Borussia Teeth is live</b><span>Tap to watch the game.</span></div>
   <small style="right:${30 * s}px;top:${24 * s}px;font-size:${27 * s}px">now</small></div>`;
 const CHIPS = [['#f5b83b', 'Finds every player', 'Reads shirt numbers from the footage'], ['#c17ef0', 'Draws every run', 'Where each player went, on a pitch map'],
-  ['#3fb4ee', 'Heat maps and distance', 'For each player, every game'], ['#3dd07f', 'Your own camera', 'GoPro or phone footage from behind a goal']];
+  ['#3fb4ee', 'Heat maps and distance', 'For each player, every game'], ['#3dd07f', 'Your own camera', 'GoPro or iPhone footage from behind a goal']];
 const chips = (x, y, w, cols, s, list = CHIPS) => `<div class="chips" style="left:${x}px;top:${y}px;width:${w}px;grid-template-columns:repeat(${cols},1fr);gap:${26 * s}px">` +
   list.map(([c, t, d]) => `<div class="chip" style="gap:${30 * s}px;padding:${30 * s}px ${36 * s}px;border-radius:${40 * s}px"><i style="width:${30 * s}px;height:${30 * s}px;background:${c};box-shadow:0 0 0 ${9 * s}px ${c}33"></i>
     <div><b style="font-size:${44 * s}px">${t}</b><span style="font-size:${34 * s}px">${d}</span></div></div>`).join('') + '</div>';
 
 // ---------- the slides: what each says, and what's on its phone
 const SLIDES = [
-  { n: 2, key: 'live', title: 'Stream your<br>games live', sub: 'Your GoPro sends the game to the squad’s phones, with the score on screen.', img: raw('live-home'), extra: 'banner' },
-  { n: 3, key: 'highlights', title: 'Highlights,<br>cut for you', sub: 'Log the goals as they go in. Each one is cut from the best camera’s GoPro or phone footage.', img: raw('cut') },
-  { n: 4, key: 'tracking', title: 'Track every<br>player', sub: 'Runs, heat maps and distance from your GoPro or phone footage.', tracking: true },
+  { n: 2, key: 'live', title: 'Stream your<br>games live', sub: 'Your GoPro or any iPhone sends the game to the squad’s phones, with the score on screen.', img: raw('live-home'), extra: 'banner' },
+  { n: 3, key: 'highlights', title: 'Highlights,<br>cut for you', sub: 'Log the goals as they go in. Each one is cut from the best camera’s GoPro or iPhone footage.', img: raw('cut') },
+  { n: 4, key: 'tracking', title: 'Track every<br>player', sub: 'Runs, heat maps and distance from your GoPro or iPhone footage.', tracking: true },
   { n: 5, key: 'gaffer', title: 'Do more with<br>the Gaffer tier', sub: 'Live streams, a highlight reel every game, AI commentary and your team’s Elo.', img: raw('plans') },
 ];
 const KEPT = [[1, 'game'], [6, 'poll'], [7, 'mins'], [8, 'stats']];

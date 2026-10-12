@@ -1,4 +1,4 @@
-// Streaming a game live, on the phones: the gaffer's Go live sheet with the camera link for GoPro Quik, one "we're live"
+// Streaming a game live, on the phones: the gaffer's Go live sheet with the camera link for GoPro Quik or an iPhone streaming app, one "we're live"
 // notification once the camera gets through, the Home card and the stream for followers with the score held back to match
 // the picture (so it never gives a goal away), goal banners kept quiet while watching, and the stream ending with the game.
 import { world, suite } from './lib.mjs';
@@ -34,9 +34,9 @@ eq(await A.page.evaluate(() => /Stream your games live/.test(document.querySelec
 await A.click('#streamBtn'); await A.run(500);
 const link = await A.page.inputValue('#liveLink');
 eq([await A.visible('#livePop'), await A.text('#liveTitle'), /^rtmps:\/\/live\.cloudflare\.com:443\/live\/key[0-9a-f]{8}$/.test(link), stream() && stream().started_at], [true, 'Stream this game', true, null], 'the sheet explains what to do in GoPro Quik and shows the camera link; nothing is live yet');
-check(/GoPro Quik/.test(await A.text('#liveBody')) && /RTMP/.test(await A.text('#liveBody')), 'with the steps in GoPro Quik');
+check(/GoPro Quik/.test(await A.text('#liveBody')) && /RTMP/.test(await A.text('#liveBody')) && /iPhone: in a free streaming app such as Larix Broadcaster/.test(await A.text('#liveBody')), 'with the steps for a GoPro (in GoPro Quik) and for an iPhone (in a streaming app)');
 await A.click('#liveCopy'); await A.run(300);
-eq([await A.text('#liveMsg'), await A.page.evaluate(() => navigator.clipboard.readText())], ['Copied. Paste it into GoPro Quik.', link], 'Copy puts the link on the clipboard');
+eq([await A.text('#liveMsg'), await A.page.evaluate(() => navigator.clipboard.readText())], ['Copied. Paste it into GoPro Quik or your iPhone’s streaming app.', link], 'Copy puts the link on the clipboard');
 check(!(await B.visible('#liveCard')), 'the follower sees nothing yet');
 
 // ---------- going live

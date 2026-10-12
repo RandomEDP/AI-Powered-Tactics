@@ -626,7 +626,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         <p>Film the whole game and the app works out which bits to keep. No scrubbing through footage afterwards.</p>
       </div>
       <ol class="howto">
-        <li><div><b>Film it</b><span>Mount a GoPro or prop up a phone and leave it rolling. One continuous video of the whole game works best; one per half is fine too.</span></div></li>
+        <li><div><b>Film it</b><span>Mount a GoPro or prop up any iPhone and leave it rolling. One continuous video of the whole game works best; one per half is fine too.</span></div></li>
         <li><div><b>Tap as it happens</b><span>Every goal, assist and keeper save is timestamped the moment you log it. Mark anything else worth keeping with one tap, or from your Apple Watch.</span></div></li>
         <li><div><b>Line it up once</b><span>After the game, tell the app when kick-off appears in the video. That one number places every clip.</span></div></li>
         <li><div><b>Cut it on your phone</b><span>Pick the video in the iPhone app. It cuts each moment, adds the scorer and the score, and joins the clips into one reel to share.</span></div></li>
@@ -712,12 +712,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <h2 id="planTitle">Free to use. Gaffer tier on the way.</h2>
   <div class="tier"><h3>Free</h3><ul>
     <li>Fair subs, live scores, polls, stats, insights, the tactics board and the Apple Watch app</li>
-    <li><b>One highlight reel to try.</b> Log the goals as they go in, point it at your GoPro or phone footage, and it cuts every goal into a reel with the score, your badge and an outro, ready to share</li>
+    <li><b>One highlight reel to try.</b> Log the goals as they go in, point it at your GoPro or iPhone footage, and it cuts every goal into a reel with the score, your badge and an outro, ready to share</li>
     <li>Ads (not switched on yet)</li></ul></div>
   <div class="tier pro"><h3>Gaffer <b>£4.99</b> a month<small>COMING SOON</small></h3><ul>
     <li>Everything in Free, with no ads</li>
     <li>Highlight reels for every game</li>
-    <li><b>Stream your games live.</b> Your GoPro sends the game to the squad’s phones, with the score on screen</li>
+    <li><b>Stream your games live.</b> Your GoPro or any iPhone sends the game to the squad’s phones, with the score on screen</li>
     <li>AI voiceovers on your reels, AI match reports, and new features as they land</li>
     <li><b>Team Elo rating and leaderboard.</b> Play teams in your area and find out where you rank</li>
     <li>Supports the developer</li></ul></div>
@@ -1004,7 +1004,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <p class="note" id="reelCount"></p>
   <section>
     <h2>Line it up with the video</h2>
-    <p class="note">Play the GoPro or phone footage, find the moment of kick-off, and enter the time shown on the video. The script needs one continuous recording of the whole game. If the camera split it into several files, count from the start of the first one.</p>
+    <p class="note">Play the GoPro or iPhone footage, find the moment of kick-off, and enter the time shown on the video. The script needs one continuous recording of the whole game. If the camera split it into several files, count from the start of the first one.</p>
     <div class="three">
       <label class="field" for="syncIn">Kick-off at<input id="syncIn" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off"></label>
       <label class="field" for="preIn">Seconds before<input id="preIn" type="number" inputmode="numeric" min="0" max="120"></label>
@@ -1024,7 +1024,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <section>
     <h2>Make the reel</h2>
     <ol class="steps">
-      <li>Copy the GoPro or phone footage into a folder named <code id="reelFolder"></code>. Using that exact name lets the season reels find this game later.</li>
+      <li>Copy the GoPro or iPhone footage into a folder named <code id="reelFolder"></code>. Using that exact name lets the season reels find this game later.</li>
       <li>Copy the script below and save it in that folder as <code>highlights.sh</code>.</li>
       <li>In a terminal in that folder, run <code>bash highlights.sh GX01*.MP4 GX02*.MP4</code> with your files in order. It needs ffmpeg installed.</li>
     </ol>
@@ -4165,13 +4165,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
   });
   // ================= end of playing other teams
-  // ================= live streaming: a gaffer's GoPro streams the game through Cloudflare (the live-stream edge function
+  // ================= live streaming: a gaffer's GoPro or iPhone streams the game through Cloudflare (the live-stream edge function
   // makes the camera link and switches it on and off); everyone following the team watches it here, with the score held
-  // back to match the picture. The stream itself never touches this app: GoPro Quik sends it, Cloudflare plays it.
+  // back to match the picture. The stream itself never touches this app: GoPro Quik (or a streaming app on an iPhone) sends it, Cloudflare plays it.
   function hasGaffer() { return true; } // the Gaffer tier. Early access: everyone has it. When the subscription arrives, this is the check to change.
   function canStream() { return role === 'owner' && !!sb && !!me && !!(A.exp && A.exp.track) && hasGaffer(); }
   // s: the stream that's on (from team_stream: hls, gid, started, on_air), or null. cam: the camera is getting through right
-  // now (the gaffer's phone checks). link: the camera link for GoPro Quik (gaffers only, never saved on the phone).
+  // now (the gaffer's phone checks). link: the camera link for GoPro Quik or an iPhone streaming app (gaffers only, never saved on the phone).
   var LV = { code: null, s: null, cam: false, link: null, msg: '', busy: false, statT: null, arm: null };
   var LAG = 15000; // how far the picture runs behind real life, when the player can't say
   function liveOn() { return !!LV.s && LV.code === A.active; }
@@ -4221,9 +4221,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var box = $('liveBody'); if (!box || $('livePop').hidden) return;
     var on = liveOn(), html;
     html = (on ? '<span class="onair">' + (LV.cam ? 'LIVE' : 'ON') + '</span>' : '') + '<h2 id="liveTitle">' + (!on ? 'Stream this game' : LV.cam ? 'You’re live' : 'Waiting for the camera') + '</h2>';
-    if (!on) html += '<p>Your GoPro sends the game to everyone following ' + esc(teamShort()) + '. They watch it in Gaffer, with the score on screen.</p>';
-    html += '<ol class="steps"><li>In the GoPro Quik app, connect to your GoPro and choose <b>Live stream</b>.</li><li>Pick <b>RTMP</b> and paste the camera link below. Quik remembers it for next time.</li>' +
-      '<li>' + (on ? 'Start the stream in Quik.' : 'Tap <b>Go live</b> here, then start the stream in Quik. The link only works while you’re live.') + '</li></ol>';
+    if (!on) html += '<p>Your GoPro or any iPhone sends the game to everyone following ' + esc(teamShort()) + '. They watch it in Gaffer, with the score on screen.</p>';
+    html += '<ol class="steps"><li><b>GoPro:</b> in the GoPro Quik app, connect to your GoPro, choose <b>Live stream</b>, pick <b>RTMP</b> and paste the camera link below.</li>' + '<li><b>iPhone:</b> in a free streaming app such as Larix Broadcaster, add a connection and paste the camera link below.</li>' +
+      '<li>' + (on ? 'Start streaming. Both apps remember the link for next time.' : 'Tap <b>Go live</b> here, then start streaming. The link only works while you’re live, and both apps remember it for next time.') + '</li></ol>';
     html += LV.link ? '<label class="field" for="liveLink">Camera link<textarea id="liveLink" class="livelink" rows="2" readonly spellcheck="false" autocapitalize="off">' + esc(LV.link.url) + '</textarea></label><div class="actions"><button class="plain" type="button" id="liveCopy">Copy camera link</button></div>'
       : '<p class="note">' + (LV.busy ? 'Getting your camera link…' : '') + '</p>';
     if (on) html += '<p class="note">' + (LV.cam ? 'The camera is getting through. Everyone following the team can watch, and they’ve been sent a notification.' : 'Nothing from the camera yet. This changes as soon as it gets through.') + '</p>';
@@ -4231,7 +4231,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     html += '<div class="actions">' + (on ? '<button class="plain" type="button" id="liveEnd"' + (LV.busy ? ' disabled' : '') + '>' + armedLabel('liveEnd', 'End stream', 'Tap again to end it') + '</button>'
       : '<button class="plain primary" type="button" id="liveGo"' + (S.match && !LV.busy ? '' : ' disabled') + '>Go live</button>') + '<button class="plain" type="button" id="liveClose">Close</button></div>';
     if (!on && LV.link) html += '<div class="actions"><button class="link" type="button" id="liveNew"' + (LV.busy ? ' disabled' : '') + '>' + armedLabel('liveNew', 'Camera link got out? Make a new one', 'Tap again: the old link stops working') + '</button></div>';
-    html += '<p class="note">Part of the Gaffer tier, free during early access. The GoPro uses the data of the phone it’s connected to: roughly 1 GB an hour. Each stream is recorded and kept for 30 days.</p>';
+    html += '<p class="note">Part of the Gaffer tier, free during early access. Streaming uses roughly 1 GB of mobile data an hour, from the iPhone doing it or the one your GoPro is connected to. Each stream is recorded and kept for 30 days.</p>';
     box.innerHTML = html;
   }
   $('livePop').addEventListener('click', function (e) {
@@ -4249,7 +4249,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('watchBtn').addEventListener('click', function () { go('live'); });
   function liveCopy() {
     var el = $('liveLink'); if (!el || !LV.link) return;
-    var ok = function () { LV.msg = 'Copied. Paste it into GoPro Quik.'; renderLivePop(); };
+    var ok = function () { LV.msg = 'Copied. Paste it into GoPro Quik or your iPhone’s streaming app.'; renderLivePop(); };
     var by = function () { // the older way, for when the clipboard can't be written to directly
       try { el.focus(); el.select(); el.setSelectionRange(0, 9999); if (document.execCommand('copy')) { ok(); return; } } catch (e) {}
       LV.msg = 'Couldn’t copy it. Press and hold the link, then Select All and Copy.'; renderLivePop();
@@ -4265,7 +4265,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (!r || r.error) { LV.msg = r ? r.error : ''; renderLivePop(); return; }
     if (r.url) LV.link = { url: r.url };
     LV.code = A.active; LV.s = { hls: r.hls, gid: m.gid || null, started: Date.now(), on_air: null }; LV.cam = false;
-    LV.msg = 'You’re live. Now start the stream in GoPro Quik.';
+    LV.msg = 'You’re live. Now start streaming from your GoPro or iPhone.';
     ping('live'); liveChanged(); liveCheck();
   }
   async function liveEnd() {
@@ -4280,7 +4280,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     LV.busy = true; renderLivePop();
     var r = await liveCall('renew');
     LV.busy = false;
-    if (r && r.url) { LV.link = { url: r.url }; LV.msg = 'New camera link made. Paste it into GoPro Quik: the old one no longer works.'; }
+    if (r && r.url) { LV.link = { url: r.url }; LV.msg = 'New camera link made. Paste it into GoPro Quik or your iPhone’s streaming app: the old one no longer works.'; }
     else if (r) LV.msg = r.error;
     renderLivePop();
   }
@@ -4785,15 +4785,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var L = [], pad = function (n) { return ('0' + n).slice(-2); }, clean = function (s) { return String(s).replace(/[\r\n]+/g, ' '); };
     L.push('#!/usr/bin/env bash');
     L.push('# ' + clean(teamName()) + ' v ' + clean(r.opp) + ' (' + r.us + '-' + r.them + ') highlights, made by Gaffer.');
-    L.push('# Run it with the GoPro files in recording order:  bash highlights.sh GX010001.MP4 GX020001.MP4');
+    L.push('# Run it with the GoPro or iPhone video files in recording order:  bash highlights.sh GX010001.MP4 GX020001.MP4');
     L.push('set -euo pipefail');
-    L.push('[ "$#" -ge 1 ] || { echo "Give the GoPro files in order, e.g. bash highlights.sh GX01*.MP4 GX02*.MP4"; exit 1; }');
+    L.push('[ "$#" -ge 1 ] || { echo "Give the GoPro or iPhone video files in order, e.g. bash highlights.sh GX01*.MP4 GX02*.MP4 (or IMG_1234.MOV)"; exit 1; }');
     L.push('CAPTIONS=' + (captions ? 1 : 0) + '   # set to 0 if ffmpeg complains about drawtext');
     L.push('W=sop_work; mkdir -p "$W"');
     L.push('if [ "$#" -gt 1 ]; then');
     L.push('  : > "$W/in.txt"');
     L.push('  for f in "$@"; do printf "file \'%s\'\\n" "$(cd "$(dirname "$f")" && pwd)/$(basename "$f")" >> "$W/in.txt"; done');
-    L.push('  echo "Joining the GoPro chapters..."');
+    L.push('  echo "Joining the video files (GoPro chapters or iPhone clips)..."');
     L.push('  ffmpeg -y -loglevel error -stats -f concat -safe 0 -i "$W/in.txt" -map 0:v:0 -map "0:a:0?" -c copy "$W/full.mp4"');
     L.push('  SRC="$W/full.mp4"');
     L.push('else SRC="$1"; fi');
@@ -4918,15 +4918,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     L.push('set -euo pipefail');
     L.push('CAPTIONS=1   # set to 0 if ffmpeg complains about drawtext');
     L.push('W=sop_work; mkdir -p "$W"; rm -f "$W"/*_list.txt');
-    L.push('src() { # game folder -> one video file for that game (GoPro chapters joined once, then reused)');
+    L.push('src() { # game folder -> one video file for that game (GoPro chapters or iPhone clips joined once, then reused)');
     L.push('  local d="$1" files=()');
     L.push('  [ -d "$d" ] || return 1');
-    L.push('  for f in "$d"/*.[mM][pP]4; do [ -f "$f" ] && files+=("$f"); done');
+    L.push('  for f in "$d"/*.[mM][pP]4 "$d"/*.[mM][oO][vV]; do [ -f "$f" ] && files+=("$f"); done');
     L.push('  [ "${#files[@]}" -ge 1 ] || return 1');
     L.push('  if [ "${#files[@]}" -eq 1 ]; then printf "%s" "${files[0]}"; return 0; fi');
     L.push('  if [ ! -f "$W/$d.mp4" ]; then');
     L.push('    : > "$W/$d.txt"; for f in "${files[@]}"; do printf "file \'%s\'\\n" "$(pwd)/$f" >> "$W/$d.txt"; done');
-    L.push('    echo "Joining the GoPro chapters for $d..." >&2');
+    L.push('    echo "Joining the video files for $d (GoPro chapters or iPhone clips)..." >&2');
     L.push('    ffmpeg -y -loglevel error -f concat -safe 0 -i "$W/$d.txt" -map 0:v:0 -map "0:a:0?" -c copy "$W/$d.mp4" >&2');
     L.push('  fi');
     L.push('  printf "%s" "$W/$d.mp4"');
