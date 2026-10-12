@@ -62,9 +62,11 @@
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
 	<string>Add your team's games to your calendar.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Take a photo of your team crest.</string>
+	<string>Take a photo of your team crest, or film your games to stream them live and record them.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record the sound of the game when this iPhone films it.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Save your highlight reel to your photos.</string>
+	<string>Save your highlight reels and the games this iPhone films to your photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose your team crest or a match recording from your photos.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
