@@ -17,7 +17,12 @@ const code = await A.text('#codeBig'); await A.click('#v-code [data-go="home"]')
 const B = await w.phone({ db: true, native: true, label: 'follower' });
 await B.page.fill('#joinCode', code); await B.click('#joinBtn'); await B.run(500); await B.click('#jFollow'); await B.run(800);
 // Cloudflare's player, as far as these phones can reach it (stands in for the real thing; nothing leaves the test)
-const cloudflare = (P) => P.ctx.route('https://customer-test.cloudflarestream.com/**', (r) => r.fulfill({ contentType: 'text/html', body: '<p>the stream</p>' }));
+const cloudflare = async (P) => {
+  await P.ctx.route('https://customer-test.cloudflarestream.com/**', (r) => r.fulfill({ contentType: 'text/html', body: '<p>the stream</p>' }));
+  await P.ctx.route('https://customer-test.cloudflarestream.com/*/lifecycle', (r) => { // Cloudflare's public word on whether the picture is getting through
+    const st = (w.db().team_streams || [])[0]; r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ isInput: true, live: !!(w.db().camera && st && st.enabled) }) });
+  });
+};
 await cloudflare(B);
 // this follower's browser can't play the stream's format itself (newer Chromes can: phone C below covers that way)
 await B.page.evaluate(() => { HTMLMediaElement.prototype.canPlayType = function (t) { return /mpegurl/.test(t) ? '' : 'maybe'; }; });
@@ -30,25 +35,26 @@ await A.click('#v-game .back'); await A.click('#tabs [data-tab="options"]'); awa
 eq([await A.visible('#streamBtn'), await A.text('#streamBtn'), await A.visible('#watchBtn')], [true, 'Stream this game', false], 'switched on: the gaffer can stream the game');
 eq(await A.page.evaluate(() => /Stream your games live/.test(document.querySelector('#planPop .pro').textContent)), true, 'and it is listed in the Gaffer tier');
 
-// ---------- the sheet and the camera link
-await A.click('#streamBtn'); await A.run(500);
+// ---------- the sheet: opening it gets the camera link ready for this game, so there's nothing else to remember
+// before starting the camera (a separate Go live was easy to miss, and the GoPro was turned away)
+const gid = (await A.match()).gid;
+await A.click('#streamBtn'); await w.run(1500);
 const link = await A.page.inputValue('#liveLink');
-eq([await A.visible('#livePop'), await A.text('#liveTitle'), /^rtmps:\/\/live\.cloudflare\.com:443\/live\/key[0-9a-f]{8}$/.test(link), stream() && stream().started_at], [true, 'Stream this game', true, null], 'the sheet explains what to do in GoPro Quik and shows the camera link; nothing is live yet');
+eq([await A.visible('#livePop'), await A.text('#liveTitle'), /^rtmps:\/\/live\.cloudflare\.com:443\/live\/key[0-9a-f]{8}$/.test(link), stream().gid, typeof stream().started_at, await A.visible('#liveEnd'), await A.visible('#liveGo'), calls('live').length],
+  [true, 'Ready for your camera', true, gid, 'number', true, false, 0], 'opening "Stream this game" gets the camera link ready for this game straight away, with no Go live to remember; nobody is told yet');
+check(/GoPro Quik says it can’t connect\? Check the GoPro is switched on and paired with this iPhone/.test(await A.text('#liveBody')), 'until the camera gets through, it says what to check if GoPro Quik can\'t connect');
 check(/GoPro Quik/.test(await A.text('#liveBody')) && /RTMP/.test(await A.text('#liveBody')) && /iPhone: in a free streaming app such as Larix Broadcaster/.test(await A.text('#liveBody')), 'with the steps for a GoPro (in GoPro Quik) and for an iPhone (in a streaming app)');
 await A.click('#liveCopy'); await A.run(300);
 eq([await A.text('#liveMsg'), await A.page.evaluate(() => navigator.clipboard.readText())], ['Copied. Paste it into GoPro Quik or your iPhone’s streaming app.', link], 'Copy puts the link on the clipboard');
-check(!(await B.visible('#liveCard')), 'the follower sees nothing yet');
+await w.run(3000);
+check(!(await B.visible('#liveCard')), 'the team sees nothing until the picture gets through');
 
-// ---------- going live
-const gid = (await A.match()).gid;
-await A.click('#liveGo'); await w.run(1500);
-eq([stream().gid, typeof stream().started_at, await A.text('#liveTitle'), await A.visible('#liveEnd'), calls('live').length], [gid, 'number', 'Waiting for the camera', true, 0], 'Go live: the stream is on for this game, waiting for the camera; nobody is told yet');
-eq([await B.visible('#liveCard'), /LIVE/.test(await B.text('#liveCard')), /SOP FC v Dog/.test(await B.text('#liveCard')), /about to start/.test(await B.text('#liveCard'))], [true, true, true, true], 'the follower\'s Home shows the stream is about to start, straight away');
+// ---------- the camera gets through
 setDb({ camera: true }); await w.run(6000);
-let sent = calls('live');
-eq([sent.length, sent[0] && sent[0].body.title, sent[0] && sent[0].body.body, await A.text('#liveTitle')], [1, 'SOP FC v Dog is live', 'Tap to watch the game.', 'You’re live'], 'the camera gets through: within 5 seconds the team is told, once');
+eq([w.db().livePushes, calls('live').length >= 1, await A.text('#liveTitle'), /can’t connect/.test(await A.text('#liveBody'))], [1, true, 'You’re live', false], 'the camera gets through: within 5 seconds the team is told, once');
+eq([await B.visible('#liveCard'), /LIVE/.test(await B.text('#liveCard')), /SOP FC v Dog/.test(await B.text('#liveCard'))], [true, true, true], 'and the follower\'s Home shows the stream');
 await w.run(70000);
-eq(calls('live').length, 1, 'and never again for this stream, however long the gaffer\'s phone keeps checking');
+eq(w.db().livePushes, 1, 'and never again for this stream, however long the phones keep checking');
 check(/being streamed now/.test(await B.text('#liveCard')), 'the follower\'s card says it is on now');
 await A.click('#liveClose');
 eq([await A.visible('#watchBtn'), await A.text('#streamBtn')], [true, 'Stream settings'], 'the gaffer\'s game screen can watch it too, and get back to the settings');
@@ -87,22 +93,32 @@ const link2 = await A.page.inputValue('#liveLink');
 check(link2 !== link && /^rtmps:/.test(link2) && /old one no longer works/.test(await A.text('#liveMsg')), 'Make a new link: a different link, and the gaffer is told the old one stops working');
 setDb({ streamOff: true }); await A.click('#liveGo'); await A.run(500);
 eq([await A.text('#liveMsg'), stream().started_at], ["Live streaming isn't set up on Gaffer's server yet.", null], 'if the server isn\'t ready, the gaffer is told exactly that and nothing goes live');
-setDb({ streamOff: false }); await A.click('#liveGo'); await w.run(1500);
+setDb({ streamOff: false }); await A.click('#liveGo'); await w.run(6000);
 check(typeof stream().started_at === 'number' && await B.visible('#liveCard'), 'live again');
 await A.click('#liveClose'); await A.click('#finish'); await A.click('#finish'); await w.run(2000);
 eq([stream().started_at, await B.visible('#liveCard')], [null, false], 'finishing the game ends its stream');
 
-// ---------- the iPhone plays the stream itself, and keeps trying until the camera gets through
+// ---------- a new link while one is ready; and the iPhone plays the stream itself, trying again if the picture drops
 const C = await w.phone({ db: true, label: 'iPhone follower' });
 await C.page.addInitScript(() => { HTMLMediaElement.prototype.canPlayType = function (t) { return /mpegurl/.test(t) ? 'maybe' : ''; }; });
 await C.page.reload(); await C.run(500);
 await C.page.fill('#joinCode', code); await C.click('#joinBtn'); await C.run(500); await C.click('#jFollow'); await C.run(800);
 await cloudflare(C); setDb({ camera: false });
-await A.click('#v-stats .back'); await A.newGame('Cat'); await A.click('#streamBtn'); await A.click('#liveGo'); await w.run(2000);
+await A.click('#v-stats .back'); await A.newGame('Cat'); await A.click('#streamBtn'); await w.run(2000);
+const ready = await A.page.inputValue('#liveLink');
+await A.click('#liveNew'); await A.click('#liveNew'); await w.run(1500);
+eq([(await A.page.inputValue('#liveLink')) !== ready, typeof stream().started_at, await A.text('#liveTitle'), /old one no longer works/.test(await A.text('#liveMsg'))], [true, 'number', 'Ready for your camera', true],
+  'a new link can be made while one is ready and the camera hasn\'t got through: it comes back ready to use');
+// the gaffer's phone is away in GoPro Quik (or an iPhone streaming app) when the camera gets through
+const pushed = w.db().livePushes || 0;
+A.freeze(); setDb({ camera: true }); await w.run(6000);
+eq([await C.visible('#liveCard'), /being streamed now/.test(await C.text('#liveCard')), w.db().livePushes || 0], [true, true, pushed], 'with the gaffer\'s phone away, followers\' phones see the picture get through by themselves');
+await A.thaw(); await w.run(6000);
+eq(w.db().livePushes, pushed + 1, 'and the team is told as soon as a team member\'s phone sees it (here the gaffer\'s, back from GoPro Quik)');
 await C.click('#liveCard [data-go="live"]'); await C.run(300);
 eq([await C.page.evaluate(() => document.querySelector('#lvVideo').src), await C.visible('#lvVideo'), await C.visible('#lvFrame')], [stream().hls, true, false], 'on an iPhone the stream plays in the app\'s own video player');
 await C.run(2000);
-check(/Waiting for the camera|Loading/.test(await C.text('#lvWait')), `until it plays, it says what it is waiting for (${await C.text('#lvWait')})`);
+check(/Waiting for the camera|Loading|dropped/.test(await C.text('#lvWait')), `until it plays, it says what it is waiting for (${await C.text('#lvWait')})`);
 await C.click('#v-live .back');
 eq(await C.page.evaluate(() => document.querySelector('#lvVideo').getAttribute('src')), null, 'and stops when left');
 

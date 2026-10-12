@@ -10,13 +10,13 @@ import crypto from 'crypto';
 const { check, eq, done } = suite('streaming a game live');
 
 // ---------- stand-ins
-const ENV = {}, DB = {}, USERS = { 'tok-ethan': 'u-ethan', 'tok-dan': 'u-dan', 'tok-jake': 'u-jake' };
+const ENV = {}, DB = {}, USERS = { 'tok-ethan': 'u-ethan', 'tok-dan': 'u-dan', 'tok-jake': 'u-jake', 'tok-chaplin': 'u-chaplin', 'tok-rival': 'u-rival' };
 const reset = () => Object.assign(DB, {
-  teams: [{ id: 't-sop', code: 'SOPFC1', name: 'Sons of Pitches FC' }, { id: 't-ath', code: 'ATHLET', name: 'Athletico' }],
+  teams: [{ id: 't-sop', code: 'SOPFC1', name: 'Sons of Pitches FC', short: 'SOP FC' }, { id: 't-ath', code: 'ATHLET', name: 'Athletico', short: '' }],
   team_members: [{ team_id: 't-sop', user_id: 'u-ethan' }, { team_id: 't-sop', user_id: 'u-dan' }, { team_id: 't-ath', user_id: 'u-rival' }],
   players: [{ team_id: 't-sop', pid: 1, user_id: 'u-jake' }, { team_id: 't-sop', pid: 2, user_id: 'u-chaplin' }, { team_id: 't-sop', pid: 3, user_id: null }],
   push_tokens: [{ user_id: 'u-jake', token: 'phone-jake' }, { user_id: 'u-chaplin', token: 'phone-chaplin' }, { user_id: 'u-dan', token: 'phone-dan' }, { user_id: 'u-ethan', token: 'phone-ethan' }],
-  team_streams: [] });
+  team_streams: [], live_matches: [{ team_id: 't-sop', state: { opp: 'Dog & Bone', phase: 'h1' } }] });
 reset();
 function from(table) {
   let op = 'select', body = null, back = false; const where = [];
@@ -161,17 +161,30 @@ r = await S('tok-ethan', 'link');
 eq([r.status, /^Cloudflare couldn't do that just now \(Authentication error\)\. Try again in a minute\.$/.test(r.error)], [502, true], 'anything else: Cloudflare\'s reason and to try again');
 CF.refuse = 0;
 
-// ---------- team-notify: "we're live" goes to the whole team, with the whistle
+// ---------- team-notify: "we're live", sent by the server once per stream, from whichever phone on the team sees it first
+// (the gaffer's own phone may be in GoPro Quik or an iPhone streaming app at the time)
 const { privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
 Object.assign(ENV, { APNS_KEY_P8: privateKey.export({ type: 'pkcs8', format: 'pem' }), APNS_KEY_ID: 'KEY123', APPLE_TEAM_ID: 'TEAM123' });
 const notify = await load('team-notify');
-r = await notify('tok-ethan', { code: 'SOPFC1', kind: 'live', title: 'SOP FC v Dog & Bone is live', body: 'Tap to watch the game.' });
-eq([r.sent, r.people, APNS.map((a) => a.to).sort()], [3, 3, ['phone-chaplin', 'phone-dan', 'phone-jake']], 'a gaffer\'s "we\'re live" goes to every player and the other gaffer, not back to themselves');
-const p0 = APNS[0].payload;
-eq([p0.kind, p0.code, p0.aps.sound, p0.aps.alert.title, p0.aps.alert.body], ['live', 'SOPFC1', 'whistle.wav', 'SOP FC v Dog & Bone is live', 'Tap to watch the game.'], 'it says the game is live, with the whistle, and tapping it knows to open the stream');
+const tell = (who) => notify(who, { code: 'SOPFC1', kind: 'live' });
+await S('tok-ethan', 'start', { gid: 'game-4' });
+const uid4 = row().input_uid; camera(uid4, false);
+eq([(await tell('tok-jake')).reason, APNS.length, row().notified_at], ['not_live', 0, null], 'nobody is told while the picture isn\'t getting through, whoever asks');
+camera(uid4, true);
+eq([(await tell('tok-rival')).status, APNS.length, row().notified_at], [403, 0, null], 'someone outside the team can\'t set it off');
+const asked = await Promise.all([tell('tok-jake'), tell('tok-chaplin'), tell('tok-ethan')]);
+eq([asked.filter((x) => x.sent > 0).length, asked.filter((x) => x.reason === 'already').length], [1, 2], 'three phones seeing it at once (a gaffer\'s and two players\'): it is sent once');
+const by = asked.findIndex((x) => x.sent > 0), byPhone = ['phone-jake', 'phone-chaplin', 'phone-ethan'][by];
+const to = APNS.map((a) => a.to).sort(), p0 = APNS[0].payload;
+eq([to.length, to.includes(byPhone), new Set(to).size], [3, false, 3], 'to everyone in the team except the phone that saw it, each phone once');
+eq([p0.kind, p0.code, p0.aps.sound, p0.aps.alert.title, p0.aps.alert.body], ['live', 'SOPFC1', 'whistle.wav', 'SOP FC v Dog & Bone is live', 'Tap to watch the game.'], 'worded by the server, with the whistle, and tapping it opens the stream');
+eq([typeof row().notified_at, typeof row().on_air_at], ['string', 'string'], 'and the stream is marked as on air');
 APNS.length = 0;
-r = await notify('tok-jake', { code: 'SOPFC1', kind: 'live', title: 'Fake', body: 'Not really' });
-eq([r.status, APNS.length], [403, 0], 'a player can\'t send it');
+eq([(await tell('tok-dan')).reason, APNS.length], ['already', 0], 'a phone asking later doesn\'t send it again');
+await S('tok-ethan', 'stop'); await S('tok-ethan', 'start', { gid: 'game-5' }); camera(row().input_uid, true);
+eq([row().notified_at, (await tell('tok-chaplin')).sent], [null, 3], 'the next game\'s stream gets its own');
+APNS.length = 0; await S('tok-ethan', 'stop');
+eq([(await tell('tok-jake')).reason, APNS.length], ['not_live', 0], 'and nothing once the stream has ended');
 
 globalThis.fetch = realFetch;
 await done();

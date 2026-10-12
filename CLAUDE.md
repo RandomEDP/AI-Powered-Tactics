@@ -108,7 +108,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0017`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0018`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -175,7 +175,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `APPLE_TEAM_ID`.
 - **Kinds:** kickoff, goal, poll, highlights, nudge (only to players who haven't answered the poll), claimed, chat,
   challenge, join, live.
-  - The function writes the wording for claimed, chat, challenge and join itself; the others come from the caller.
+  - The function writes the wording for claimed, chat, challenge, join and live itself; the others come from the caller.
 - **Sound:** the payload uses `whistle.wav` (a synthesised referee's pea whistle bundled in the app) for everything
   except chat, which uses `default`. Phones on builds without the file fall back to the default sound.
   - Lock-screen game alerts (`syncAlerts`, LocalNotifications) also use `whistle.wav`.
@@ -223,11 +223,20 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - Each team has one Cloudflare live input (its "camera link"), made the first time a gaffer asks for it and kept, so it's
   pasted into Quik once. It is **switched off except while the team is live**, so a leaked link can't put anything in front
   of the team. "Make a new link" replaces it.
+- **Opening "Stream this game" gets the link ready** (calls `start` for the game) — there's no separate Go live to
+  remember before starting the camera (Ethan's first try failed because the camera was started first).
 - `live-stream` actions (gaffers only): `link`, `start {gid}`, `status`, `stop`, `renew`. It writes `team_streams`
   (service role); the stream key is never stored in the database. Everyone reads `team_stream(code)` (anon allowed):
   `{hls, gid, started, on_air}` or null. A stream nobody ended counts as over after 4 hours.
-- The gaffer's phone polls `status` (5 s until the camera gets through, then 30 s). The server hands `first: true` to
-  exactly one caller, which sends `team-notify` kind `live` and pings `live` on the team channel.
+- **Every phone checks** whether the picture has got through (5 s until it has, then 30 s): gaffers through `status`,
+  everyone else straight from Cloudflare's public `<hls>/lifecycle` (CORS open). The gaffer's phone is often away in
+  GoPro Quik or an iPhone streaming app, so it can't be the only one. The first team member's phone to see it calls
+  `team-notify` kind `live`; the server checks the lifecycle itself, words it and sends it once per stream
+  (`team_streams.notified_at`, `0018`). Followers see the card only once the picture is through (`liveSeen`); gaffers
+  from the moment it's ready (`liveShown`).
+- If Quik says "We're having trouble connecting to your GoPro", that's Quik failing to reach the camera (pairing, Bluetooth,
+  or the hotspot: Maximise Compatibility). The sheet says so. Test the link with Larix Broadcaster on an iPhone to tell
+  a GoPro problem from a Gaffer one.
 - Viewers: Home card (`#liveCard`) and the `live` view. On the iPhone the HLS plays in the app's `<video>`; elsewhere in
   Cloudflare's iframe player. **The score overlay is held back** by the picture's delay (from the stream's own clock when
   the player knows it, else 15 s; `seenGame`), and goal banners are quiet while watching (`ChatQuietPlugin`).
@@ -254,7 +263,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0017` are applied live. Add new ones as `supabase/migrations/0018_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0018` are applied live. Add new ones as `supabase/migrations/0019_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
@@ -263,8 +272,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Edge functions:** all four are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
-  - Deployed now: `team-notify` v13 (adds kind `live`; same as the repo), `live-stream` v1, `reel-voice` v7,
-    `game-started` v6 (old).
+  - Deployed now: `team-notify` v17 (kind `live` from any team member, sent once; same as the repo), `live-stream` v5,
+    `reel-voice` v10, `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,

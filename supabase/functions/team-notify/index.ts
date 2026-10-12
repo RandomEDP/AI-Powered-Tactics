@@ -1,6 +1,6 @@
 // Sends a notification to the phones of a team's signed-in players and gaffers.
 // Called by a gaffer's app with { code, kind, title, body, fixture? }:
-//   kickoff, goal, poll, highlights, live  go to everyone on the team except the sender (live: the game is being streamed)
+//   kickoff, goal, poll, highlights  go to everyone on the team except the sender
 //   nudge                      goes only to players who haven't answered the poll named by `fixture`
 // A player who has just claimed their profile calls it with { code, kind: "claimed" }, which tells the gaffers.
 // Anyone in the team's chat calls it with { code, kind: "chat", message: <id> } after posting; everyone else in the team is told.
@@ -8,7 +8,10 @@
 // the other team's gaffers are told, and once it is agreed everyone in both teams is.
 // Someone who has just asked to join the team (their name wasn't in the squad) calls it with { code, kind: "join" }, which
 // tells the gaffers, once per request.
-// The wording of those four is written here, not by the caller.
+// Anyone in the team (a gaffer or a player) whose phone sees the team's live stream getting through calls it with
+// { code, kind: "live" }: the server checks with Cloudflare that the picture really is getting through, then tells
+// everyone else, once per stream however many phones ask.
+// The wording of those five is written here, not by the caller.
 // Needs these secrets (Edge Functions > Secrets):
 //   APNS_KEY_P8   the contents of an Apple Push Notifications key (.p8)
 //   APNS_KEY_ID   that key's ID
@@ -42,13 +45,13 @@ Deno.serve(async (req: Request) => {
     const input = await req.json();
     const kind = KINDS.includes(input.kind) ? input.kind : "kickoff";
     let title = clean(input.title, 80), text = clean(input.body, 180);
-    if (!["claimed", "chat", "challenge", "join"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
+    if (!["claimed", "chat", "challenge", "join", "live"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
     if (!who?.user) return json({ error: "Sign in first" }, 401);
 
-    const { data: team } = await db.from("teams").select("id,code,name").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
+    const { data: team } = await db.from("teams").select("id,code,name,short").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
     if (!team) return json({ error: "No such team" }, 404);
     const { data: gaffers } = await db.from("team_members").select("user_id").eq("team_id", team.id);
     const isGaffer = (gaffers || []).some((g) => g.user_id === who.user.id);
@@ -114,6 +117,29 @@ Deno.serve(async (req: Request) => {
       if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
       const to = (gaffers || []).map((g) => g.user_id as string);
       return json({ sent: await send(to, team.code, "join", clean(team.name, 80), `${clean(ask.name, 40)} wants to join the squad. Open Gaffer to let them in or turn them down.`) });
+    }
+
+    if (kind === "live") {
+      const { data: me } = await db.from("players").select("pid").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
+      if (!isGaffer && !me) return json({ error: "Only someone in the team can do that" }, 403);
+      const { data: st } = await db.from("team_streams").select("hls,started_at,on_air_at,notified_at").eq("team_id", team.id).maybeSingle();
+      if (!st?.started_at || Date.now() - new Date(st.started_at).getTime() > 4 * 3600000) return json({ sent: 0, reason: "not_live" });
+      if (st.notified_at) return json({ sent: 0, reason: "already" });
+      let live = false;
+      try { // Cloudflare's own word that the picture is getting through
+        const res = await fetch(String(st.hls).replace(/\/manifest\/.*$/, "/lifecycle"));
+        live = res.ok && (await res.json()).live === true;
+      } catch (_e) { live = false; }
+      if (!live) return json({ sent: 0, reason: "not_live" });
+      const at = new Date().toISOString(); // only the first phone to get here sends it
+      const { data: got } = await db.from("team_streams").update({ notified_at: at, on_air_at: st.on_air_at || at, updated_at: at })
+        .eq("team_id", team.id).is("notified_at", null).not("started_at", "is", null).select("team_id");
+      if (!got || !got.length) return json({ sent: 0, reason: "already" });
+      if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
+      const { data: lm } = await db.from("live_matches").select("state").eq("team_id", team.id).maybeSingle();
+      const opp = clean((lm?.state as { opp?: string } | null)?.opp, 50), us = clean(team.short || team.name, 50);
+      const people = await everyone(team.id);
+      return json({ sent: await send(people, team.code, "live", `${us}${opp ? ` v ${opp}` : ""} is live`, "Tap to watch the game."), people: new Set(people.filter((u) => u && u !== who.user.id)).size });
     }
 
     let claimed: { name: string } | null = null;

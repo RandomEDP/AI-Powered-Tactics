@@ -215,17 +215,22 @@
     if (d.streamOff) return no(503, "Live streaming isn't set up on Gaffer's server yet.");
     let st = d.team_streams.find((x) => x.team_id === t.id); const on = !!st && !!st.started_at && Date.now() - st.started_at < 4 * 3600000;
     const make = () => { const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), (x) => x.toString(16).padStart(2, '0')).join('');
-      st = { team_id: t.id, input_uid: id, hls: 'https://customer-test.cloudflarestream.com/' + id + '/manifest/video.m3u8', gid: null, started_at: null, on_air_at: null, enabled: false };
+      st = { team_id: t.id, input_uid: id, hls: 'https://customer-test.cloudflarestream.com/' + id + '/manifest/video.m3u8', gid: null, started_at: null, on_air_at: null, notified_at: null, enabled: false };
       d.team_streams = d.team_streams.filter((x) => x.team_id !== t.id).concat([st]); };
     const link = () => ({ url: 'rtmps://live.cloudflare.com:443/live/key' + st.input_uid.slice(0, 8), server: 'rtmps://live.cloudflare.com:443/live/', key: 'key' + st.input_uid.slice(0, 8) });
     if (b.action === 'link') { if (!st) make(); return yes(Object.assign(link(), { on })); }
-    if (b.action === 'start') { if (!st) make(); st.enabled = true; if (!(on && st.gid === (b.gid || null))) Object.assign(st, { gid: b.gid || null, started_at: Date.now(), on_air_at: null }); return yes(Object.assign(link(), { on: true, hls: st.hls })); }
+    if (b.action === 'start') { if (!st) make(); st.enabled = true; if (!(on && st.gid === (b.gid || null))) Object.assign(st, { gid: b.gid || null, started_at: Date.now(), on_air_at: null, notified_at: null }); return yes(Object.assign(link(), { on: true, hls: st.hls })); }
     if (b.action === 'status') { if (!on) return yes({ on: false, on_air: false, first: false }); const live = !!d.camera && st.enabled; let first = false; if (live && !st.on_air_at) { st.on_air_at = Date.now(); first = true; } return yes({ on: true, on_air: live, first }); }
     if (b.action === 'stop') { if (st) Object.assign(st, { gid: null, started_at: null, on_air_at: null, enabled: false }); return yes({ on: false }); }
     if (b.action === 'renew') { if (on) return no(409, 'End the stream first, then make a new link.'); make(); return yes(Object.assign(link(), { on: false })); }
     return no(400, 'Nothing to do');
   }
   const functions = { invoke: async (name, o) => { if (name === 'live-stream' && window.__offline) return { data: null, error: { message: 'Failed to send a request to the Edge Function' } };
-    const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); if (name === 'live-stream') return liveStream(d, o.body); if (name === 'reel-voice') return { data: { audio: o.body.lines.map((l) => l ? 'QUJD' : null) }, error: null }; return { data: { sent: o.body.kind === 'nudge' ? 2 : 0, people: 2 }, error: null }; } };
+    const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); if (name === 'live-stream') return liveStream(d, o.body);
+    if (name === 'team-notify' && o.body.kind === 'live') { // sent once per stream, and only when the picture is really getting through (as the real one checks with Cloudflare)
+      const t = d.teams.find((x) => x.code === String(o.body.code || '').trim().toUpperCase()), st = t && d.team_streams.find((x) => x.team_id === t.id);
+      if (!st || !st.started_at || st.notified_at || !(d.camera && st.enabled)) return { data: { sent: 0 }, error: null };
+      st.notified_at = Date.now(); st.on_air_at = st.on_air_at || st.notified_at; d.livePushes = (d.livePushes || 0) + 1; store(d); return { data: { sent: 2, people: 2 }, error: null };
+    } if (name === 'reel-voice') return { data: { audio: o.body.lines.map((l) => l ? 'QUJD' : null) }, error: null }; return { data: { sent: o.body.kind === 'nudge' ? 2 : 0, people: 2 }, error: null }; } };
   window.supabase = { createClient: () => ({ rpc, from, auth, channel, storage, functions, removeChannel() {} }) };
 })();

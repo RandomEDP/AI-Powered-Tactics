@@ -1,12 +1,13 @@
-// Streams a game live from the team's GoPro (or anything else that can send RTMPS) through Cloudflare Stream, for
+// Streams a game live from the team's GoPro or an iPhone (anything that can send RTMPS) through Cloudflare Stream, for
 // everyone following the team to watch in the app. Each team has one camera link, made the first time it's asked for and
-// kept by Cloudflare, so the gaffer pastes it into GoPro Quik once. The link only takes a stream while a gaffer has the
+// kept by Cloudflare, so the gaffer pastes it into GoPro Quik or an iPhone streaming app once. It only takes a stream while a gaffer has the
 // team live, so a link that gets out can't be used to put something else in front of the team.
 // Called by a gaffer's app with { code, action }:
-//   link     the camera link to paste into GoPro Quik: { url, server, key, on }
-//   start    { gid } go live for this game: the link starts taking the stream, and the team can see a stream is on
-//   status   { on, on_air, first }: is the camera getting through? `first` is true once per stream, for the one caller
-//            that should then tell the team
+//   link     the camera link to paste into GoPro Quik or an iPhone streaming app: { url, server, key, on }
+//   start    { gid } get the link ready for this game: it starts taking a stream (the app does this as soon as the gaffer
+//            opens "Stream this game"); the team sees the stream once the picture gets through
+//   status   { on, on_air, first }: is the camera getting through? ("We're live" is sent by team-notify, kind live, from
+//            whichever phone on the team sees it first)
 //   stop     the stream is over: the link stops taking it (Cloudflare keeps the recording for 30 days)
 //   renew    a new camera link, for when the old one has got out; the old one stops working at once
 // Everyone else reads whether a stream is on, and where it plays from, through the database function team_stream.
@@ -78,7 +79,7 @@ Deno.serve(async (req: Request) => {
       const li = await cf("", "POST", settings(false));
       const hls = String(li?.playback?.hls || "");
       if (!li?.uid || !/^https:\/\/[a-z0-9.-]+\.cloudflarestream\.com\//.test(hls)) throw new Said("Cloudflare made the camera link but didn't say where it plays from. Try again.");
-      const { error } = await db.from("team_streams").upsert({ team_id: team.id, input_uid: li.uid, hls, gid: null, started_at: null, on_air_at: null, updated_at: now() });
+      const { error } = await db.from("team_streams").upsert({ team_id: team.id, input_uid: li.uid, hls, gid: null, started_at: null, on_air_at: null, notified_at: null, updated_at: now() });
       if (error) throw new Error(error.message);
       return li;
     };
@@ -90,7 +91,7 @@ Deno.serve(async (req: Request) => {
       const gid = clean(body.gid, 64) || null, li = await current();
       if (li.enabled !== true) await cf(`/${li.uid}`, "PUT", settings(true));
       const same = on && row && row.input_uid === li.uid && row.gid === gid; // pressed again for the same game: it's already on
-      if (!same) await db.from("team_streams").update({ gid, started_at: now(), on_air_at: null, updated_at: now() }).eq("team_id", team.id);
+      if (!same) await db.from("team_streams").update({ gid, started_at: now(), on_air_at: null, notified_at: null, updated_at: now() }).eq("team_id", team.id);
       const { data: s } = await db.from("team_streams").select("hls").eq("team_id", team.id).maybeSingle();
       return json({ ...link(li), on: true, hls: s?.hls || null });
     }

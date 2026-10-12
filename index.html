@@ -2434,7 +2434,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var quietSent = null;
   // Watching the stream is the same for goals: the picture runs behind, so a goal banner would give the goal away.
   function chatQuiet() {
-    var code = S.view === 'chat' && A.active ? A.active : '', live = S.view === 'live' && A.active && liveOn() ? A.active : '', key = code + '|' + live;
+    var code = S.view === 'chat' && A.active ? A.active : '', live = S.view === 'live' && A.active && liveShown() ? A.active : '', key = code + '|' + live;
     if (key === quietSent) return;
     var Q = plugin('ChatQuiet'); if (!Q) return;
     quietSent = key;
@@ -4172,16 +4172,18 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function canStream() { return role === 'owner' && !!sb && !!me && !!(A.exp && A.exp.track) && hasGaffer(); }
   // s: the stream that's on (from team_stream: hls, gid, started, on_air), or null. cam: the camera is getting through right
   // now (the gaffer's phone checks). link: the camera link for GoPro Quik or an iPhone streaming app (gaffers only, never saved on the phone).
-  var LV = { code: null, s: null, cam: false, link: null, msg: '', busy: false, statT: null, arm: null };
+  var LV = { code: null, s: null, cam: false, link: null, msg: '', busy: false, statT: null, arm: null, told: null };
   var LAG = 15000; // how far the picture runs behind real life, when the player can't say
-  function liveOn() { return !!LV.s && LV.code === A.active; }
+  function liveOn() { return !!LV.s && LV.code === A.active; } // a stream is ready (or on) for the open team
+  function liveSeen() { return liveOn() && (!!LV.s.on_air || LV.cam); } // and its picture has got through
+  function liveShown() { return liveSeen() || (liveOn() && role === 'owner'); } // the team sees it once the picture is through; its gaffers from the start
   function liveGame() { var m = S.match; return m && liveOn() && (!LV.s.gid || !m.gid || m.gid === LV.s.gid) ? m : null; }
   function streamPull() {
     var code = A.active; if (!sb || !code) return;
     sb.rpc('team_stream', { p_code: code }).then(function (r) {
       if (A.active !== code || !r || r.error) return;
-      var was = LV.code === code ? JSON.stringify(LV.s) : null; LV.code = code; LV.s = r.data || null;
-      if (!LV.s) LV.cam = false;
+      var was = LV.code === code ? JSON.stringify(LV.s) : null, before = LV.s; LV.code = code; LV.s = r.data || null;
+      if (!LV.s || !before || before.started !== LV.s.started) LV.cam = false; // a new stream starts unseen
       if (was !== JSON.stringify(LV.s)) liveChanged();
     }, function () {});
   }
@@ -4207,30 +4209,32 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // ---- the gaffer: Go live, the camera link, End stream
   function renderLiveRow() {
     if (!$('liveRow')) return;
-    var own = canStream() && !!S.match, on = liveOn();
+    var own = canStream() && !!S.match, on = liveShown();
     $('liveRow').hidden = !(own || on); $('watchBtn').hidden = !on; $('streamBtn').hidden = !own;
-    $('streamBtn').textContent = on ? 'Stream settings' : 'Stream this game';
+    $('streamBtn').textContent = liveOn() ? 'Stream settings' : 'Stream this game';
   }
   function openLivePop() {
     if (!canStream()) return;
     LV.msg = ''; LV.arm = null; $('livePop').hidden = false; renderLivePop();
+    if (S.match && !liveOn() && !LV.busy) { liveGo(); return; } // opening it gets the link ready for this game: there's no Go live to remember before starting the camera
     if (!LV.link && !LV.busy) { LV.busy = true; renderLivePop(); liveCall('link').then(function (r) { LV.busy = false; if (r && r.url) LV.link = { url: r.url }; else if (r) LV.msg = r.error; renderLivePop(); }); }
   }
   function armedLabel(id, label, sure) { return LV.arm && LV.arm.id === id && Date.now() < LV.arm.until ? sure : label; }
   function renderLivePop() {
     var box = $('liveBody'); if (!box || $('livePop').hidden) return;
     var on = liveOn(), html;
-    html = (on ? '<span class="onair">' + (LV.cam ? 'LIVE' : 'ON') + '</span>' : '') + '<h2 id="liveTitle">' + (!on ? 'Stream this game' : LV.cam ? 'You’re live' : 'Waiting for the camera') + '</h2>';
+    html = (on ? '<span class="onair">' + (LV.cam ? 'LIVE' : 'ON') + '</span>' : '') + '<h2 id="liveTitle">' + (!on ? 'Stream this game' : LV.cam ? 'You’re live' : 'Ready for your camera') + '</h2>';
     if (!on) html += '<p>Your GoPro or any iPhone sends the game to everyone following ' + esc(teamShort()) + '. They watch it in Gaffer, with the score on screen.</p>';
     html += '<ol class="steps"><li><b>GoPro:</b> in the GoPro Quik app, connect to your GoPro, choose <b>Live stream</b>, pick <b>RTMP</b> and paste the camera link below.</li>' + '<li><b>iPhone:</b> in a free streaming app such as Larix Broadcaster, add a connection and paste the camera link below.</li>' +
-      '<li>' + (on ? 'Start streaming. Both apps remember the link for next time.' : 'Tap <b>Go live</b> here, then start streaming. The link only works while you’re live, and both apps remember it for next time.') + '</li></ol>';
+      '<li>Start streaming. ' + (on ? 'The team is told the moment the picture gets through. ' : '') + 'Both apps remember the link for next time.</li></ol>';
     html += LV.link ? '<label class="field" for="liveLink">Camera link<textarea id="liveLink" class="livelink" rows="2" readonly spellcheck="false" autocapitalize="off">' + esc(LV.link.url) + '</textarea></label><div class="actions"><button class="plain" type="button" id="liveCopy">Copy camera link</button></div>'
       : '<p class="note">' + (LV.busy ? 'Getting your camera link…' : '') + '</p>';
     if (on) html += '<p class="note">' + (LV.cam ? 'The camera is getting through. Everyone following the team can watch, and they’ve been sent a notification.' : 'Nothing from the camera yet. This changes as soon as it gets through.') + '</p>';
+    if (on && !LV.cam) html += '<p class="note"><b>GoPro Quik says it can’t connect?</b> Check the GoPro is switched on and paired with this iPhone. If it streams through your iPhone’s hotspot, turn on Maximise Compatibility (Settings, Personal Hotspot) and keep that screen open while the GoPro joins.</p>';
     html += '<p class="msg" id="liveMsg" role="status">' + esc(LV.msg) + '</p>';
     html += '<div class="actions">' + (on ? '<button class="plain" type="button" id="liveEnd"' + (LV.busy ? ' disabled' : '') + '>' + armedLabel('liveEnd', 'End stream', 'Tap again to end it') + '</button>'
-      : '<button class="plain primary" type="button" id="liveGo"' + (S.match && !LV.busy ? '' : ' disabled') + '>Go live</button>') + '<button class="plain" type="button" id="liveClose">Close</button></div>';
-    if (!on && LV.link) html += '<div class="actions"><button class="link" type="button" id="liveNew"' + (LV.busy ? ' disabled' : '') + '>' + armedLabel('liveNew', 'Camera link got out? Make a new one', 'Tap again: the old link stops working') + '</button></div>';
+      : (S.match ? '<button class="plain primary" type="button" id="liveGo"' + (LV.busy ? ' disabled' : '') + '>Stream again</button>' : '')) + '<button class="plain" type="button" id="liveClose">Close</button></div>';
+    if (LV.link && !LV.cam) html += '<div class="actions"><button class="link" type="button" id="liveNew"' + (LV.busy ? ' disabled' : '') + '>' + armedLabel('liveNew', 'Camera link got out? Make a new one', 'Tap again: the old link stops working') + '</button></div>';
     html += '<p class="note">Part of the Gaffer tier, free during early access. Streaming uses roughly 1 GB of mobile data an hour, from the iPhone doing it or the one your GoPro is connected to. Each stream is recorded and kept for 30 days.</p>';
     box.innerHTML = html;
   }
@@ -4259,13 +4263,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   async function liveGo() {
     var m = S.match; if (!m || LV.busy) return;
-    LV.busy = true; LV.msg = 'Going live…'; renderLivePop();
+    LV.busy = true; LV.msg = 'Getting your camera link ready…'; renderLivePop();
     var r = await liveCall('start', { gid: m.gid || null });
     LV.busy = false;
     if (!r || r.error) { LV.msg = r ? r.error : ''; renderLivePop(); return; }
     if (r.url) LV.link = { url: r.url };
     LV.code = A.active; LV.s = { hls: r.hls, gid: m.gid || null, started: Date.now(), on_air: null }; LV.cam = false;
-    LV.msg = 'You’re live. Now start streaming from your GoPro or iPhone.';
+    LV.msg = '';
     ping('live'); liveChanged(); liveCheck();
   }
   async function liveEnd() {
@@ -4276,43 +4280,56 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     LV.s = null; LV.cam = false; LV.msg = 'Stream ended. The recording is kept for 30 days.';
     ping('live'); liveChanged();
   }
-  async function liveNew() {
-    LV.busy = true; renderLivePop();
+  async function liveNew() { // (the server only makes a new link with nothing streaming, so a link that's ready is put away first, then got ready again)
+    var was = liveOn(); LV.busy = true; renderLivePop();
+    if (was) { var off = await liveCall('stop'); if (!off || off.error) { LV.busy = false; LV.msg = off ? off.error : ''; renderLivePop(); return; } LV.s = null; LV.cam = false; }
     var r = await liveCall('renew');
     LV.busy = false;
-    if (r && r.url) { LV.link = { url: r.url }; LV.msg = 'New camera link made. Paste it into GoPro Quik or your iPhone’s streaming app: the old one no longer works.'; }
+    if (r && r.url) { LV.link = { url: r.url }; LV.msg = ''; }
     else if (r) LV.msg = r.error;
-    renderLivePop();
+    if (r && r.url && was && S.match) await liveGo();
+    if (r && r.url) LV.msg = 'New camera link made. Paste it into GoPro Quik or your iPhone’s streaming app: the old one no longer works.';
+    liveChanged();
   }
-  // The gaffer's phone asks whether the camera has got through: every 5 seconds until it has, then every 30. The first
-  // phone to see it tells the team (the server makes sure only one does).
+  // Every phone with the team open checks whether the camera has got through: every 5 seconds until it has, then every 30.
+  // A gaffer's phone asks the server; everyone else asks Cloudflare, which says so to anyone. The gaffer's own phone may
+  // be in GoPro Quik or an iPhone streaming app at the time, so any phone on the team can be the one to tell the team.
   function liveLoop() {
     clearTimeout(LV.statT); LV.statT = null;
-    if (!liveOn() || !canStream()) return;
+    if (!liveOn()) return;
     LV.statT = setTimeout(liveCheck, LV.cam ? 30000 : 5000);
   }
   async function liveCheck() {
     clearTimeout(LV.statT); LV.statT = null;
-    if (!liveOn() || !canStream()) return;
+    if (!liveOn()) return;
     if (!document.hidden) {
-      var r = await liveCall('status');
-      if (!liveOn()) return;
-      if (r && !r.error) {
-        if (!r.on) { LV.s = null; LV.cam = false; liveChanged(); return; }
-        var was = LV.cam; LV.cam = !!r.on_air; if (r.on_air && !LV.s.on_air) LV.s.on_air = Date.now();
-        if (r.first) { var m = liveGame(); notifyTeam('live', teamShort() + (m ? ' v ' + m.opp : '') + ' is live', 'Tap to watch the game.'); ping('live'); }
-        if (was !== LV.cam) liveChanged();
+      var s0 = LV.s, was = LV.cam, cam = null;
+      if (canStream()) {
+        var r = await liveCall('status');
+        if (r && !r.error) { if (!r.on) { if (LV.s === s0) { LV.s = null; LV.cam = false; liveChanged(); } return; } cam = !!r.on_air; }
+      } else {
+        try { var res = await fetch(s0.hls.replace(/\/manifest\/.*$/, '/lifecycle')), j = res.ok ? await res.json() : null; if (j) cam = j.live === true; } catch (e) {}
       }
+      if (LV.s !== s0 || !liveOn()) return;
+      if (cam !== null) { LV.cam = cam; if (cam && !LV.s.on_air) LV.s.on_air = Date.now(); }
+      if (LV.cam) liveTell();
+      if (was !== LV.cam) liveChanged();
     }
     liveLoop();
+  }
+  function liveTell() { // "we're live" to the team, from the first phone in the team to see it: the server checks, words it and sends it once
+    if (!LV.s || LV.told === LV.s.started) return;
+    LV.told = LV.s.started; ping('live');
+    if (!sb || !sb.functions || !me || (role !== 'owner' && myPid == null)) return;
+    try { sb.functions.invoke('team-notify', { body: { code: A.active, kind: 'live' } }).then(function () {}, function () {}); } catch (e) {}
   }
 
   // ---- everyone: the card on Home and the stream itself
   function renderLiveCard() {
     var c = $('liveCard'); if (!c) return;
-    c.hidden = !liveOn(); if (c.hidden) { c.innerHTML = ''; return; }
-    var m = liveGame();
-    c.innerHTML = '<span class="onair">LIVE</span><h2>' + esc(teamShort()) + (m ? ' v ' + esc(m.opp) : '') + '</h2><p class="note">' + (LV.s.on_air ? 'The game is being streamed now.' : 'The stream is about to start.') + '</p>' +
+    c.hidden = !liveShown(); if (c.hidden) { c.innerHTML = ''; return; }
+    var m = liveGame(), seen = liveSeen();
+    c.innerHTML = '<span class="onair">' + (seen ? 'LIVE' : 'READY') + '</span><h2>' + esc(teamShort()) + (m ? ' v ' + esc(m.opp) : '') + '</h2><p class="note">' + (seen ? 'The game is being streamed now.' : 'Ready for your GoPro or iPhone. The team sees the stream as soon as the picture gets through.') + '</p>' +
       '<div class="actions"><button class="plain primary" type="button" data-go="live">Watch live</button></div>';
   }
   var lvSrc = null, lvRetry = null, lvTick = null;
@@ -4343,8 +4360,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function renderLive() {
     $('lvOwn').hidden = !canStream();
     chatQuiet();
-    if (!liveOn()) {
-      livePlayer(null); liveWait('No stream on right now. When the gaffer goes live, it plays here.');
+    if (!liveShown()) {
+      livePlayer(null); liveWait('No stream on right now. When the gaffer streams a game, it plays here.');
       $('lvScore').hidden = true; $('lvEvents').innerHTML = ''; $('lvNote').textContent = ''; $('lvTitle').textContent = 'Live';
       return;
     }
