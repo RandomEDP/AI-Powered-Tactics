@@ -227,7 +227,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   - The code is `cutPlan`, `camOrder` and `camSeg` in `index.html`.
 - **Slots:** camera `id` uses `pickVideo` slots `id*2+1` (main) and `id*2+2` (second half).
 - **Output:** one clip per moment, uploaded to the `clips` bucket and the `clips` table, plus a joined reel with an
-  outro card that stays on the phone for sharing.
+  outro card that stays on the phone for sharing. The reel is joined from the finished clips (their watermark, captions
+  and commentary already in; `Segment.voiced`), not cut again from the game's video, which was slow enough to look stuck.
+  An export that makes no progress for 3 minutes is stopped; if the reel fails the clips are still uploaded and the done
+  screen says why (`reelError`).
+- **Reading the video:** with full Photos access (asked once, before the picker) the picked video is used where it is in
+  the library (`inPlace`, `PHImageManager`, the version as it looks in Photos, else the original), so nothing is copied;
+  otherwise it's copied into the working folder as before.
 - On a computer, the same screen writes an ffmpeg script instead (`reelScript`). That path is single-video.
 
 ### Live streaming (Gaffer tier; behind the experimental switch for gaffers) (`0017_live_streams.sql`, `live-stream`)

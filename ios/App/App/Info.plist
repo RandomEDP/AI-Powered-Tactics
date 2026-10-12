@@ -68,7 +68,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save your highlight reels and the games this iPhone films to your photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Choose your team crest or a match recording from your photos.</string>
+	<string>Choose your team crest, or a match recording to cut highlights from (read straight from your library, without copying it).</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

@@ -38,6 +38,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         let caption: String
         var voice: AVURLAsset? = nil   // a spoken line to lay over this stretch
         var voiceAt: Double = 0        // seconds into the stretch at which it should start
+        var voiced = false             // the line is already in the footage's own sound (a finished clip), so it isn't laid again
     }
 
     private struct CutError: LocalizedError {
@@ -60,6 +61,16 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     @objc public func pickVideo(_ call: CAPPluginCall) {
         pickCall = call
         pickSlot = call.getInt("slot") ?? 1 // 1 = the game (or its first half), 2 = a separate second-half video
+        // With full access to Photos the video is used where it is, instead of being copied first (a whole game can be many
+        // gigabytes, and copying it took minutes). iOS asks once; without it, the video is copied as before.
+        if PHPhotoLibrary.authorizationStatus(for: .readWrite) == .notDetermined {
+            PHPhotoLibrary.requestAuthorization(for: .readWrite) { _ in self.presentPicker(call) }
+        } else {
+            presentPicker(call)
+        }
+    }
+
+    private func presentPicker(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             // (from the photo library itself, so each pick carries its Photos id: the way in when the file itself can't be had)
             var config = PHPickerConfiguration(photoLibrary: .shared())
@@ -98,7 +109,39 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             return
         }
         notifyListeners("progress", data: ["stage": "copy", "p": 0])
-        load(provider, kinds, 0, assetId: picked.assetIdentifier, slot: slot, call: call, lastError: nil)
+        let copy = { self.load(provider, kinds, 0, assetId: picked.assetIdentifier, slot: slot, call: call, lastError: nil) }
+        if let id = picked.assetIdentifier, PHPhotoLibrary.authorizationStatus(for: .readWrite) == .authorized {
+            inPlace(id, call: call) { used in if !used { copy() } }
+        } else {
+            copy()
+        }
+    }
+
+    /// The video straight from the photo library, without copying it: the file Photos keeps (fetched from iCloud first if
+    /// that's where it is). The version as it looks in Photos (trimmed, if it was), or the original if that has no file
+    /// of its own (a slow-motion video). `done(false)` if it can't be had this way.
+    private func inPlace(_ assetId: String, call: CAPPluginCall, done: @escaping (Bool) -> Void) {
+        guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil).firstObject else { done(false); return }
+        func ask(_ version: PHVideoRequestOptionsVersion, then: @escaping (AVURLAsset?) -> Void) {
+            let options = PHVideoRequestOptions()
+            options.isNetworkAccessAllowed = true
+            options.deliveryMode = .highQualityFormat
+            options.version = version
+            options.progressHandler = { [weak self] p, _, _, _ in self?.notifyListeners("progress", data: ["stage": "copy", "p": p]) }
+            PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { video, _, _ in then(video as? AVURLAsset) }
+        }
+        let use: (AVURLAsset) -> Void = { video in
+            var result: [String: Any] = ["path": video.url.path, "duration": CMTimeGetSeconds(video.duration), "inPlace": true]
+            if let made = video.creationDate?.dateValue ?? asset.creationDate { result["created"] = made.timeIntervalSince1970 * 1000 }
+            call.resolve(result)
+            done(true)
+        }
+        ask(.current) { video in
+            if let video = video, FileManager.default.isReadableFile(atPath: video.url.path) { use(video); return }
+            ask(.original) { video in
+                if let video = video, FileManager.default.isReadableFile(atPath: video.url.path) { use(video) } else { done(false) }
+            }
+        }
     }
 
     /// Tries each kind of file in turn; if Photos won't hand any of them over, fetches the video from the library instead.
@@ -195,7 +238,12 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         let outro = call.options["outro"] as? [String: Any]
         let reelFile = call.getString("reelFile")
 
+        var spare: UIBackgroundTaskIdentifier = .invalid
+        let begin = { spare = UIApplication.shared.beginBackgroundTask(withName: "Cutting highlights") { UIApplication.shared.endBackgroundTask(spare) } }
+        if Thread.isMainThread { begin() } else { DispatchQueue.main.sync(execute: begin) } // (a little time to finish if the phone is locked mid-cut)
+        let finished = { DispatchQueue.main.async { if spare != .invalid { UIApplication.shared.endBackgroundTask(spare); spare = .invalid } } }
         queue.async {
+            defer { finished() }
             do {
                 let dir = try self.ensureWorkDir()
                 // Each clip can name its own video, for games filmed as one file per half.
@@ -238,11 +286,25 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
 
                 var result: [String: Any] = ["clips": made]
                 if let reelFile = reelFile {
-                    let out = dir.appendingPathComponent(reelFile)
-                    try self.export(segments: segments, watermark: watermark, outro: outro, to: out, intro: intro, signOff: signOff) { fraction in
-                        self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction])
+                    // The reel is joined from the clips just made (small, with their watermark, captions and commentary
+                    // already in), not cut again from the whole game's video, which was slow enough to look stuck.
+                    var pieces: [Segment] = []
+                    for (index, segment) in segments.enumerated() {
+                        let clip = AVURLAsset(url: URL(fileURLWithPath: made[index]["path"] as? String ?? ""))
+                        let length = CMTimeGetSeconds(clip.duration)
+                        guard length.isFinite, length > 0.5 else { continue }
+                        pieces.append(Segment(asset: clip, start: 0, dur: length, caption: "", voice: segment.voice, voiceAt: segment.voiceAt, voiced: true))
                     }
-                    result["reel"] = ["path": out.path, "size": self.fileSize(out)]
+                    let out = dir.appendingPathComponent(reelFile)
+                    do {
+                        guard !pieces.isEmpty else { throw CutError(message: "none of the clips could be read back") }
+                        try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: intro, signOff: signOff) { fraction in
+                            self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction])
+                        }
+                        result["reel"] = ["path": out.path, "size": self.fileSize(out)]
+                    } catch {
+                        result["reelError"] = error.localizedDescription // the clips are fine: they're still uploaded
+                    }
                 }
                 call.resolve(result)
             } catch {
@@ -311,7 +373,8 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             }
             spans.append((at: CMTimeGetSeconds(cursor), dur: dur, caption: segment.caption))
             placed.append((at: cursor, track: sourceVideo))
-            say(segment.voice, at: CMTimeGetSeconds(cursor) + segment.voiceAt, before: CMTimeGetSeconds(cursor) + dur)
+            if !segment.voiced { say(segment.voice, at: CMTimeGetSeconds(cursor) + segment.voiceAt, before: CMTimeGetSeconds(cursor) + dur) }
+            else if segment.voice != nil { speechEnd = max(speechEnd, CMTimeGetSeconds(cursor) + segment.voiceAt + length(segment.voice) + 0.15) } // (keep the sign-off clear of it)
             cursor = CMTimeAdd(cursor, range.duration)
         }
         if let audio = audio, audio.segments.isEmpty { composition.removeTrack(audio) }
@@ -428,10 +491,18 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
 
         let done = DispatchSemaphore(value: 0)
         session.exportAsynchronously { done.signal() }
+        var best: Float = -1, movedAt = Date()
         while done.wait(timeout: .now() + 0.3) == .timedOut {
             progress(Double(session.progress))
+            if session.progress > best + 0.001 { best = session.progress; movedAt = Date() }
+            else if Date().timeIntervalSince(movedAt) > 180 { // three minutes without getting anywhere: it isn't going to
+                session.cancelExport()
+                _ = done.wait(timeout: .now() + 10)
+                throw CutError(message: "It stopped making progress, so it was stopped. Keep Gaffer open on screen while it works, and try again.")
+            }
         }
         guard session.status == .completed else {
+            if session.status == .cancelled { throw CutError(message: "It was stopped before it finished. Keep Gaffer open on screen while it works.") }
             throw CutError(message: session.error?.localizedDescription ?? "The video couldn't be cut")
         }
         progress(1)

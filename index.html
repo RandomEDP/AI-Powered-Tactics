@@ -2807,6 +2807,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p><p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>';
     else if (CUT.stage === 'done') html += '<p class="msg">' + CUT.n + (CUT.n === 1 ? ' clip is' : ' clips are') + ' now in Highlights for the whole team' + (CUT.voiced === true ? ', with commentary' : '') + '.</p>' + (CUT.voiced && CUT.voiced !== true ? '<p class="msg bad">The commentary couldn’t be added: ' + esc(CUT.voiced) + ' The clips were cut without it.</p>' : '') +
+      (CUT.reelErr ? '<p class="msg bad">The full reel couldn’t be joined: ' + esc(CUT.reelErr) + ' The clips are all in Highlights; cut again to try the reel once more.</p>' : '') +
       '<div class="actions">' + (CUT.reel ? '<button class="plain primary" type="button" data-cutdo="share">Share the full reel</button>' : '') + '<button class="plain" type="button" data-cutdo="finish">Done</button></div>' +
       '<p class="note">The full reel, with the outro card, is on this phone until you tap Done. Share it or save it to Photos first.</p>';
     if (CUT.msg) html += '<p class="msg bad">' + esc(CUT.msg) + '</p>' + (CUT.stage === 'work' ? '<div class="actions"><button class="plain" type="button" data-cutdo="retry">Back</button></div>' : '');
@@ -2956,7 +2957,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         await q(sb.from('clips').delete().eq('game_id', r.id));
         await q(sb.from('clips').insert(rows));
         ping('changed'); await pull();
-        CUT.stage = 'done'; CUT.n = rows.length; CUT.reel = res.reel ? res.reel.path : null;
+        CUT.stage = 'done'; CUT.n = rows.length; CUT.reel = res.reel ? res.reel.path : null; CUT.reelErr = res.reel ? null : res.reelError || null;
         notifyTeam('highlights', teamShort() + ' ' + r.us + '–' + r.them + ' ' + r.opp, 'The highlights are ready to watch.');
       } catch (err) { CUT.msg = (err && err.message) || 'Something went wrong while cutting.'; }
       renderCut();

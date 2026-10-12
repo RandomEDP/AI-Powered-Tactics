@@ -12,9 +12,11 @@ const cutter = () => { // the native ReelCutter, as the web app sees it: the rec
   window.Capacitor.Plugins.ReelCutter = {
     addListener: () => ({ remove() {} }),
     pickVideo: async (o) => { window.__rc.push(['pick', o.slot]); return { path: '/phone/game' + o.slot + '.mov', duration: 3000, created: Date.now() - 600000 }; },
-    cut: async (o) => { window.__rc.push(['cut', o]); return { clips: o.clips.map((c) => ({ file: c.file, path: '/phone/' + c.file })), reel: { path: '/phone/' + o.reelFile } }; },
+    cut: async (o) => { window.__rc.push(['cut', o]); const clips = o.clips.map((c) => ({ file: c.file, path: '/phone/' + c.file }));
+      return window.__reelFail ? { clips, reelError: window.__reelFail } : { clips, reel: { path: '/phone/' + o.reelFile } }; },
     share: async () => ({}), cleanup: async () => ({}),
   };
+  window.Capacitor.convertFileSrc = (path) => location.origin + '/_capacitor_file_' + path; // (a file on the phone, as the web view reads it)
 };
 const A = await w.phone({ db: true, native: true, label: 'gaffer' });
 await A.ctx.addInitScript(cutter); await A.page.reload(); await A.run(500);
@@ -34,10 +36,10 @@ await A.click('#cutBody [data-cutdo="next"]');
 
 // ---------- the kick-off step shows the first clip from the video
 const kick = await A.page.inputValue('#cutSync-0');
-const prev = () => A.page.evaluate(() => { const v = document.getElementById('cutPrev'); return v ? { src: v.getAttribute('src'), start: +v.getAttribute('data-start'), t: +v.getAttribute('data-t') } : null; });
+const prev = () => A.page.evaluate(() => { const v = document.getElementById('cutPrev'); return v ? { src: v.getAttribute('src').replace(location.origin, ''), start: +v.getAttribute('data-start'), t: +v.getAttribute('data-t') } : null; });
 const p0 = await prev();
 check(/^0[5-9]:\d\d$/.test(kick), `kick-off is worked out from when the recording started (${kick})`);
-eq([!!p0, p0 && p0.src, /Line up the clips/.test(await A.text('#cutBody')), /Clip 1 of 2: .*Jake/.test(await A.text('#cutBody'))], [true, '/phone/game1.mov', true, true],
+eq([!!p0, p0 && p0.src, /Line up the clips/.test(await A.text('#cutBody')), /Clip 1 of 2: .*Jake/.test(await A.text('#cutBody'))], [true, '/_capacitor_file_/phone/game1.mov', true, true],
   'the kick-off step shows the first clip, from the video picked, with what it is');
 check(/drag the video to the moment it happens, then tap It happens here\. Every clip is lined up from it, so each moment comes 15 seconds in, after the build-up/.test(await A.text('#cutBody')), 'and says what to do');
 const secs = (s) => { const [m, x] = s.split(':').map(Number); return m * 60 + x; };
@@ -64,11 +66,16 @@ await A.click('#cutBody [data-cutdo="pvnext"]');
 check(/Clip 1 of 2/.test(await A.text('#cutBody')), 'and round to the first again');
 eq(secs(await A.page.inputValue('#cutSync-0')), secs(kick1) + 3, 'the kick-off box keeps the lined-up time across redraws');
 
-// ---------- the cut uses the lined-up timing
+// ---------- the cut uses the lined-up timing (and this time the full reel can't be joined)
+await A.page.evaluate(() => { window.__reelFail = 'It stopped making progress, so it was stopped. Keep Gaffer open on screen while it works, and try again.'; });
 await A.click('#cutBody [data-cutdo="go"]'); await A.run(3000);
 const cut = await A.page.evaluate(() => (window.__rc.filter((x) => x[0] === 'cut').pop() || [])[1]);
 check(!!cut && cut.clips.length === 2, 'the highlights are cut');
 check(cut && Math.abs(cut.clips[0].start - (p2t - 15)) < 1 && Math.round(p0.start - cut.clips[0].start) === 19, `the first clip starts 15 seconds before where the goal was found (${cut && cut.clips[0].start}; the goal at ${p2t})`);
+
+eq([/2 clips are now in Highlights/.test(await A.text('#cutBody')), (w.db().clips || []).length, await A.text('#cutBody .msg.bad'), await A.visible('#cutBody [data-cutdo="share"]')],
+  [true, 2, 'The full reel couldn’t be joined: It stopped making progress, so it was stopped. Keep Gaffer open on screen while it works, and try again. The clips are all in Highlights; cut again to try the reel once more.', false],
+  'if the full reel can\'t be joined, the clips are still uploaded, and it says why the reel is missing');
 
 for (const e of A.errs) check(false, 'page error: ' + e);
 await w.close();
