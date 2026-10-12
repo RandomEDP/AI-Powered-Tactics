@@ -423,6 +423,22 @@ tr.past td { opacity: .45; }
 .tier ul { margin: 0; padding-left: 18px; font-size: 14.5px; line-height: 1.4; display: flex; flex-direction: column; gap: 3px; }
 .tier.pro { background: linear-gradient(135deg, #2a1263, #5a2be2 60%, #8f4bff); color: #fff; }
 @media (prefers-reduced-motion: reduce) { #planPop, .planbox { animation: none; } }
+#livePop { position: fixed; inset: 0; z-index: 46; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#livePop[hidden] { display: none; }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; line-height: 1.4; }
+.livelink { font: inherit; font-size: 14px; width: 100%; border: 1px solid var(--line); border-radius: var(--r-ctl); background: var(--bg); color: var(--ink); padding: 10px 12px; margin-top: 4px; text-align: left; resize: none; word-break: break-all; line-height: 1.35; }
+.onair { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; background: #d9432f; color: #fff; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 800; letter-spacing: .06em; }
+.onair::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: blink 1.2s infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+.lvwrap { position: relative; background: #000; border-radius: var(--r-card); overflow: hidden; aspect-ratio: 16 / 9; }
+.lvwrap video, .lvwrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.lvwrap video[hidden], .lvwrap iframe[hidden] { display: none; }
+.lvscore { position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, .72); color: #fff; border-radius: 10px; padding: 6px 10px; font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.lvscore small { font-weight: 650; opacity: .85; margin-left: 8px; font-size: 13px; }
+.lvscore[hidden] { display: none; }
+.lvwait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; color: #fff; padding: 20px; font-weight: 700; background: rgba(0, 0, 0, .55); pointer-events: none; }
+.lvwait[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { #livePop { animation: none; } .onair::before { animation: none; } }
 .kickbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); }
 .kickbox p { font-size: 20px; font-weight: 750; }
 #tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); box-shadow: 0 -1px 0 var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
@@ -701,6 +717,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="tier pro"><h3>Gaffer <b>£4.99</b> a month<small>COMING SOON</small></h3><ul>
     <li>Everything in Free, with no ads</li>
     <li>Highlight reels for every game</li>
+    <li><b>Stream your games live.</b> Your GoPro sends the game to the squad’s phones, with the score on screen</li>
     <li>AI voiceovers on your reels, AI match reports, and new features as they land</li>
     <li><b>Team Elo rating and leaderboard.</b> Play teams in your area and find out where you rank</li>
     <li>Supports the developer</li></ul></div>
@@ -716,6 +733,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <li><b>Squad chat and nudges</b> from your gaffer</li></ul></div>
   <p>Your iPhone will ask next. You can change this any time in Settings.</p>
   <div class="actions"><button class="plain primary" id="pushYes" type="button">Turn on notifications</button><button class="plain" id="pushNo" type="button">Not now</button></div></div></div>
+<div id="livePop" role="dialog" aria-labelledby="liveTitle" hidden><div class="planbox" id="liveBody"></div></div>
 <div id="subPop" role="alertdialog" aria-labelledby="subPopTitle" hidden><div class="kickbox"><button class="subx" id="subPopLater" type="button" aria-label="Not yet">&times;</button><p id="subPopTitle">Time for subs</p><div id="subPopBody"></div>
   <div class="actions"><button class="plain primary" id="subPopDone" type="button">Subs done</button></div><p class="note">Close this if something’s happening on the pitch. The change waits until you tap Subs done.</p></div></div>
 <div id="askPop" role="alertdialog" aria-labelledby="askText" hidden><div class="kickbox"><p id="askText"></p>
@@ -789,11 +807,22 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <p class="note">These aren’t in the app yet. The examples above are illustrations.</p>
 </div>
 
+<div class="view" id="v-live" hidden>
+  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1 id="lvTitle">Live</h1></div>
+  <div class="lvwrap"><video id="lvVideo" playsinline webkit-playsinline controls preload="none"></video><iframe id="lvFrame" title="Live stream" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen hidden></iframe>
+    <div class="lvscore" id="lvScore" hidden></div><div class="lvwait" id="lvWait" hidden></div></div>
+  <p class="note" id="lvNote"></p>
+  <ul class="events" id="lvEvents"></ul>
+  <p class="note">Watching uses mobile data (roughly 1 GB an hour), so Wi-Fi is best if there is any.</p>
+  <div class="actions" id="lvOwn" hidden><button class="plain" type="button" id="lvManage">Stream settings</button></div>
+</div>
+
 <div class="view" id="v-home">
   <div class="hero"><img id="heroCrest" alt="" hidden><h1 id="heroName"></h1><p id="homeRecord"></p><p class="app-name">Gaffer</p></div>
   <div class="card" id="pendCard" hidden><h2 id="pendTitle"></h2><p class="note">Tap the link in the email we sent you, then sign in here to finish joining.</p>
     <div class="actions"><button class="plain primary" type="button" data-go="account">Sign in</button></div></div>
   <div class="card" id="askCard" hidden></div>
+  <div class="card" id="liveCard" hidden></div>
   <div class="card" id="fxCard" hidden></div>
   <div class="menu" id="homeMenu">
     <button class="primary" id="mResume" type="button" hidden><span id="mResumeLbl">Resume game</span><small id="mResumeSub"></small></button>
@@ -896,6 +925,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       <button class="ghost" id="reset" type="button">Reset</button>
     </div>
   </div>
+
+  <div class="actions" id="liveRow" hidden><button class="plain primary" id="watchBtn" type="button" hidden>Watch the stream</button><button class="plain" id="streamBtn" type="button" hidden>Stream this game</button></div>
 
   <div class="swap notice" id="notice" hidden><p class="msg" id="noticeText"></p><div class="actions own"><button class="plain" id="noticeOk" type="button">Got it</button></div></div>
 
@@ -1156,7 +1187,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'reel', 'season'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'reel', 'season', 'live'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1348,7 +1379,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (flipScore) { S.followersCanScore = true; save(); } // teams made before everyone could log goals: switched on once, and Options can switch it off
       if (wantGame === code) { wantGame = null; if (S.match) go('game'); }
       pushSetup(); if (CH.code !== code) chatPull(); if (RV.code !== code || S.view === 'games') rivalsPull();
-      joinPull(code, org);
+      joinPull(code, org); streamPull();
       if (org) sb.rpc('team_push', { p_code: code }).then(function (r) { if (A.active !== code || !r || !Array.isArray(r.data)) return; pushPids = {}; r.data.forEach(function (id) { pushPids[id] = 1; }); pushFor = code; if (S.view === 'home') renderHome(); }, function () {});
     } catch (e) { setSync(navigator.onLine === false ? 'offline' : 'err'); }
   }
@@ -1395,6 +1426,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (chan && sb) { try { sb.removeChannel(chan); } catch (e) {} }
     chan = null; chanCode = null; teamId = null; orgCode = null; synced = null; dirty = false; clearTimeout(wt); clearInterval(pollT);
     myAsk = null; asks = []; askMsg = '';
+    if (LV) { clearTimeout(LV.statT); LV.statT = null; LV.code = null; LV.s = null; LV.link = null; LV.msg = ''; LV.cam = false; LV.arm = null; livePlayer(null); }
   }
   function listen(code) {
     if (!sb || chanCode === code) return;
@@ -1404,10 +1436,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       .on('broadcast', { event: 'changed' }, function (m) { if (!m.payload || m.payload.by !== SESSION) refetch(); })
       .on('broadcast', { event: 'kickoff' }, function (m) { gameStarted(m.payload || {}); })
       .on('broadcast', { event: 'chat' }, function () { chatPull(); })
+      .on('broadcast', { event: 'live' }, function () { streamPull(); })
       .on('broadcast', { event: 'goal' }, function (m) { lockScore(m.payload || {}); if (role === 'owner') pullGoals(); })
       .subscribe();
     clearInterval(pollT); // a slow safety net in case a broadcast is missed
-    pollT = setInterval(function () { if (document.hidden) return; if (role !== 'owner' && S.match) refetch(); else if (role === 'owner' && stale && !dirty && !syncing) pull(); else if (role === 'owner' && S.match) pullGoals(); }, 20000);
+    pollT = setInterval(function () { if (document.hidden) return; if (S.match || liveOn()) streamPull(); if (role !== 'owner' && S.match) refetch(); else if (role === 'owner' && stale && !dirty && !syncing) pull(); else if (role === 'owner' && S.match) pullGoals(); }, 20000);
   }
   // Open a team: show this device's copy straight away, then catch up with the database and follow it live.
   function openTeam(code, view) {
@@ -1452,7 +1485,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // ---- "game started": a pop-up for everyone with the team open, and a notification for everyone else
   var wantGame = null, pushOn = false, pushSaved = null, pushToken = null, pushPids = {}, pushFor = null; // pushPids: claimed players with notifications on, as far as a gaffer is told
   function gameStarted(g) {
-    if (role === 'owner' || S.view === 'game') { refetch(); return; }
+    if (role === 'owner' || S.view === 'game' || S.view === 'live') { refetch(); return; } // (watching the stream: the picture shows the kick-off soon enough)
     $('kickPopText').textContent = 'Game started' + (g.opp ? ' v ' + g.opp : '') + '. Watch along.';
     $('kickPop').hidden = false; refetch();
   }
@@ -1478,11 +1511,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         var uid = me.id, on = function () { sb.rpc('register_push', { p_token: t.value }).then(function (r) { if (!r || !r.error) { pushSaved = uid; pushGone = null; } }, function () {}); };
         try { P.checkPermissions().then(function (r) { if (r && r.receive === 'denied') pushOff(P); else on(); }, on); } catch (e) { on(); }
       });
-      P.addListener('pushNotificationReceived', function (n) { var d = n && n.data; if (!d || d.code !== A.active) return; if (d.kind === 'chat') chatPull(); else if (d.kind === 'challenge') rivalsPull(); else refetch(); }); // arrived with the app open
+      P.addListener('pushNotificationReceived', function (n) { var d = n && n.data; if (!d || d.code !== A.active) return; if (d.kind === 'chat') chatPull(); else if (d.kind === 'challenge') rivalsPull(); else if (d.kind === 'live') { streamPull(); refetch(); } else refetch(); }); // arrived with the app open
       P.addListener('pushNotificationActionPerformed', function (a) {
         var code = a && a.notification && a.notification.data && a.notification.data.code; if (!code || !teamMeta(code)) return;
         var kind = a.notification.data.kind || 'kickoff';
-        if (kind !== 'kickoff' && kind !== 'goal') { var to = kind === 'highlights' ? 'highlights' : kind === 'chat' ? 'chat' : kind === 'challenge' ? 'rivals' : kind === 'poll' || kind === 'nudge' ? 'games' : 'home'; if (A.active === code) { go(to); refetch(); } else openTeam(code, to); return; }
+        if (kind !== 'kickoff' && kind !== 'goal') { var to = kind === 'live' ? 'live' : kind === 'highlights' ? 'highlights' : kind === 'chat' ? 'chat' : kind === 'challenge' ? 'rivals' : kind === 'poll' || kind === 'nudge' ? 'games' : 'home'; if (A.active === code) { go(to); refetch(); } else openTeam(code, to); return; }
         if (S.match && A.active === code) { go('game'); return; }
         wantGame = code; openTeam(code, 'home');
       });
@@ -1701,7 +1734,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options', 'live'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1709,6 +1742,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (view === 'cut' && !CUT) view = 'highlights';
     if (pick && view !== 'game') { pick = null; $('picker').innerHTML = ''; }
     if (view !== 'game') $('subPop').hidden = true;
+    if (view !== 'live') livePlayer(null); // stop the picture (and its data) once the stream is off screen
     if (view === 'soon' && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome';
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
     if (!A.active && ['intro', 'welcome', 'join', 'create', 'account'].indexOf(view) < 0) view = 'welcome';
@@ -1750,6 +1784,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'insights') renderInsights();
     else if (S.view === 'reel') renderReel();
     else if (S.view === 'season') renderSeason();
+    else if (S.view === 'live') renderLive();
     else renderOptions();
     if (S.view !== 'game') syncAlerts();
   }
@@ -2132,7 +2167,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     // you
     var pend = A.pending && A.pending.code === A.active && !me ? A.pending : null, card = $('meCard'), html = '';
     $('pendCard').hidden = !pend; if (pend) $('pendTitle').textContent = pend.ask ? 'Confirm your email to ask to join' : 'Confirm your email to join as ' + pend.name;
-    renderAsks();
+    renderAsks(); renderLiveCard();
     if (myPid != null && P(myPid)) {
       var st = statsOf(S.results, myPid), last = (roster[myPid] || {}).last;
       html = '<h2>Your stats</h2><p class="note">' + esc(nm(myPid)) + (last ? ' ' + esc(last) : '') + (posOf(myPid) ? ', ' + posName(posOf(myPid)).toLowerCase() : '') + (st.saves ? ', ' + st.saves + (st.saves === 1 ? ' save' : ' saves') + ' in goal' : '') + '</p>' + statGrid(st) +
@@ -2397,12 +2432,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // While a team's chat is on screen its messages arrive in front of you, so the phone shouldn't also ping and show a banner
   // for them (the iOS app leaves those off; iOS only asks while the app is open, so a phone in a pocket still gets them)
   var quietSent = null;
+  // Watching the stream is the same for goals: the picture runs behind, so a goal banner would give the goal away.
   function chatQuiet() {
-    var code = S.view === 'chat' && A.active ? A.active : '';
-    if (code === quietSent) return;
+    var code = S.view === 'chat' && A.active ? A.active : '', live = S.view === 'live' && A.active && liveOn() ? A.active : '', key = code + '|' + live;
+    if (key === quietSent) return;
     var Q = plugin('ChatQuiet'); if (!Q) return;
-    quietSent = code;
-    try { Q.quiet(code ? { code: code } : {}).then(function () {}, function () {}); } catch (e) {}
+    quietSent = key;
+    var o = {}; if (code) o.code = code; if (live) o.live = live;
+    try { Q.quiet(o).then(function () {}, function () {}); } catch (e) {}
   }
   $('tabs').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
@@ -2542,7 +2579,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     setTimeout(function () { if (!askBusy) { askMsg = ''; renderAsks(); } }, 6000);
   });
   $('mResume').addEventListener('click', function () { go('game'); });
-  armed($('mNew'), 'Scrap the game in progress?', function () { if (role !== 'owner') return; if (S.match) { S.match = null; save(); } go('setup'); }, function () { return !!S.match; });
+  armed($('mNew'), 'Scrap the game in progress?', function () { if (role !== 'owner') return; if (S.match) { if (liveOn()) liveEnd(); S.match = null; save(); } go('setup'); }, function () { return !!S.match; });
   $('mStats').addEventListener('click', function () { go('stats'); });
   $('mHighlights').addEventListener('click', function () { go('highlights'); });
   $('mInsights').addEventListener('click', function () { go('insights'); });
@@ -3245,7 +3282,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('rota').innerHTML = html;
     var gm = gameMins(m), ids = (m.squad || []).slice().sort(function (x, y) { return gm[y] - gm[x]; });
     $('minsNote').textContent = ids.length ? 'Minutes today: ' + ids.map(function (id) { return nm(id) + ' ' + gm[id] + (m.gone.indexOf(id) >= 0 ? ' (out)' : ''); }).join(', ') + '.' : '';
-    renderOut(); renderEdit(); renderQuick(); renderScore(); renderClock(); renderSubPop(); syncAlerts();
+    renderOut(); renderEdit(); renderQuick(); renderScore(); renderClock(); renderSubPop(); syncAlerts(); renderLiveRow();
   }
   $('swapBody').addEventListener('click', function (e) { if (e.target.id === 'subsDoneBtn') subsDone(); });
   $('subPopDone').addEventListener('click', subsDone);
@@ -3740,6 +3777,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
     var played = m.fx ? RV.list.filter(function (c) { return c.fixture === m.fx; })[0] : null; // a game against another team on the app: tell them our score
     if (played && sb) sb.rpc('challenge_result', { p_code: A.active, p_id: played.id, p_us: t.us, p_them: t.them }).then(function () { rivalsPull(); }, function () {});
+    if (liveOn()) liveEnd(); // the game's over, so is its stream
     S.match = null; pick = null; outPick = null; ed = null; lockUntil = 0; lockNote = ''; save(); go('stats'); // (the 8-second lock after a goal belongs to the game just finished)
   });
 
@@ -4127,6 +4165,224 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
   });
   // ================= end of playing other teams
+  // ================= live streaming: a gaffer's GoPro streams the game through Cloudflare (the live-stream edge function
+  // makes the camera link and switches it on and off); everyone following the team watches it here, with the score held
+  // back to match the picture. The stream itself never touches this app: GoPro Quik sends it, Cloudflare plays it.
+  function hasGaffer() { return true; } // the Gaffer tier. Early access: everyone has it. When the subscription arrives, this is the check to change.
+  function canStream() { return role === 'owner' && !!sb && !!me && !!(A.exp && A.exp.track) && hasGaffer(); }
+  // s: the stream that's on (from team_stream: hls, gid, started, on_air), or null. cam: the camera is getting through right
+  // now (the gaffer's phone checks). link: the camera link for GoPro Quik (gaffers only, never saved on the phone).
+  var LV = { code: null, s: null, cam: false, link: null, msg: '', busy: false, statT: null, arm: null };
+  var LAG = 15000; // how far the picture runs behind real life, when the player can't say
+  function liveOn() { return !!LV.s && LV.code === A.active; }
+  function liveGame() { var m = S.match; return m && liveOn() && (!LV.s.gid || !m.gid || m.gid === LV.s.gid) ? m : null; }
+  function streamPull() {
+    var code = A.active; if (!sb || !code) return;
+    sb.rpc('team_stream', { p_code: code }).then(function (r) {
+      if (A.active !== code || !r || r.error) return;
+      var was = LV.code === code ? JSON.stringify(LV.s) : null; LV.code = code; LV.s = r.data || null;
+      if (!LV.s) LV.cam = false;
+      if (was !== JSON.stringify(LV.s)) liveChanged();
+    }, function () {});
+  }
+  function liveChanged() {
+    if (S.view === 'home') renderLiveCard();
+    if (S.view === 'game') renderLiveRow();
+    if (S.view === 'live') renderLive();
+    renderLivePop();
+    if (!LV.statT) liveLoop();
+  }
+  async function liveCall(action, extra) { // the live-stream edge function; { error } in plain words if it can't
+    var code = A.active, none = 'Couldn’t reach Gaffer’s server. Check your signal and try again.';
+    if (!sb || !sb.functions || !code) return { error: none };
+    try {
+      var res = await sb.functions.invoke('live-stream', { body: Object.assign({ code: code, action: action }, extra || {}) });
+      if (A.active !== code) return null;
+      if (res && res.data && !res.error) return res.data;
+      var said = null; try { if (res && res.error && res.error.context && typeof res.error.context.json === 'function') said = (await res.error.context.json()).error; } catch (e) {}
+      return { error: said || none };
+    } catch (e) { return { error: none }; }
+  }
+
+  // ---- the gaffer: Go live, the camera link, End stream
+  function renderLiveRow() {
+    if (!$('liveRow')) return;
+    var own = canStream() && !!S.match, on = liveOn();
+    $('liveRow').hidden = !(own || on); $('watchBtn').hidden = !on; $('streamBtn').hidden = !own;
+    $('streamBtn').textContent = on ? 'Stream settings' : 'Stream this game';
+  }
+  function openLivePop() {
+    if (!canStream()) return;
+    LV.msg = ''; LV.arm = null; $('livePop').hidden = false; renderLivePop();
+    if (!LV.link && !LV.busy) { LV.busy = true; renderLivePop(); liveCall('link').then(function (r) { LV.busy = false; if (r && r.url) LV.link = { url: r.url }; else if (r) LV.msg = r.error; renderLivePop(); }); }
+  }
+  function armedLabel(id, label, sure) { return LV.arm && LV.arm.id === id && Date.now() < LV.arm.until ? sure : label; }
+  function renderLivePop() {
+    var box = $('liveBody'); if (!box || $('livePop').hidden) return;
+    var on = liveOn(), html;
+    html = (on ? '<span class="onair">' + (LV.cam ? 'LIVE' : 'ON') + '</span>' : '') + '<h2 id="liveTitle">' + (!on ? 'Stream this game' : LV.cam ? 'You’re live' : 'Waiting for the camera') + '</h2>';
+    if (!on) html += '<p>Your GoPro sends the game to everyone following ' + esc(teamShort()) + '. They watch it in Gaffer, with the score on screen.</p>';
+    html += '<ol class="steps"><li>In the GoPro Quik app, connect to your GoPro and choose <b>Live stream</b>.</li><li>Pick <b>RTMP</b> and paste the camera link below. Quik remembers it for next time.</li>' +
+      '<li>' + (on ? 'Start the stream in Quik.' : 'Tap <b>Go live</b> here, then start the stream in Quik. The link only works while you’re live.') + '</li></ol>';
+    html += LV.link ? '<label class="field" for="liveLink">Camera link<textarea id="liveLink" class="livelink" rows="2" readonly spellcheck="false" autocapitalize="off">' + esc(LV.link.url) + '</textarea></label><div class="actions"><button class="plain" type="button" id="liveCopy">Copy camera link</button></div>'
+      : '<p class="note">' + (LV.busy ? 'Getting your camera link…' : '') + '</p>';
+    if (on) html += '<p class="note">' + (LV.cam ? 'The camera is getting through. Everyone following the team can watch, and they’ve been sent a notification.' : 'Nothing from the camera yet. This changes as soon as it gets through.') + '</p>';
+    html += '<p class="msg" id="liveMsg" role="status">' + esc(LV.msg) + '</p>';
+    html += '<div class="actions">' + (on ? '<button class="plain" type="button" id="liveEnd"' + (LV.busy ? ' disabled' : '') + '>' + armedLabel('liveEnd', 'End stream', 'Tap again to end it') + '</button>'
+      : '<button class="plain primary" type="button" id="liveGo"' + (S.match && !LV.busy ? '' : ' disabled') + '>Go live</button>') + '<button class="plain" type="button" id="liveClose">Close</button></div>';
+    if (!on && LV.link) html += '<div class="actions"><button class="link" type="button" id="liveNew"' + (LV.busy ? ' disabled' : '') + '>' + armedLabel('liveNew', 'Camera link got out? Make a new one', 'Tap again: the old link stops working') + '</button></div>';
+    html += '<p class="note">Part of the Gaffer tier, free during early access. The GoPro uses the data of the phone it’s connected to: roughly 1 GB an hour. Each stream is recorded and kept for 30 days.</p>';
+    box.innerHTML = html;
+  }
+  $('livePop').addEventListener('click', function (e) {
+    if (e.target === $('livePop')) { $('livePop').hidden = true; return; }
+    var b = e.target.closest('button'); if (!b || b.disabled) return;
+    var twice = function () { if (LV.arm && LV.arm.id === b.id && Date.now() < LV.arm.until) { LV.arm = null; return true; } LV.arm = { id: b.id, until: Date.now() + 3000 }; renderLivePop(); setTimeout(renderLivePop, 3100); return false; };
+    if (b.id === 'liveClose') $('livePop').hidden = true;
+    else if (b.id === 'liveCopy') liveCopy();
+    else if (b.id === 'liveGo') liveGo();
+    else if (b.id === 'liveEnd') { if (twice()) liveEnd(); }
+    else if (b.id === 'liveNew') { if (twice()) liveNew(); }
+  });
+  $('streamBtn').addEventListener('click', openLivePop);
+  $('lvManage').addEventListener('click', openLivePop);
+  $('watchBtn').addEventListener('click', function () { go('live'); });
+  function liveCopy() {
+    var el = $('liveLink'); if (!el || !LV.link) return;
+    var ok = function () { LV.msg = 'Copied. Paste it into GoPro Quik.'; renderLivePop(); };
+    var by = function () { // the older way, for when the clipboard can't be written to directly
+      try { el.focus(); el.select(); el.setSelectionRange(0, 9999); if (document.execCommand('copy')) { ok(); return; } } catch (e) {}
+      LV.msg = 'Couldn’t copy it. Press and hold the link, then Select All and Copy.'; renderLivePop();
+    };
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(LV.link.url).then(ok, by); return; } } catch (e) {}
+    by();
+  }
+  async function liveGo() {
+    var m = S.match; if (!m || LV.busy) return;
+    LV.busy = true; LV.msg = 'Going live…'; renderLivePop();
+    var r = await liveCall('start', { gid: m.gid || null });
+    LV.busy = false;
+    if (!r || r.error) { LV.msg = r ? r.error : ''; renderLivePop(); return; }
+    if (r.url) LV.link = { url: r.url };
+    LV.code = A.active; LV.s = { hls: r.hls, gid: m.gid || null, started: Date.now(), on_air: null }; LV.cam = false;
+    LV.msg = 'You’re live. Now start the stream in GoPro Quik.';
+    ping('live'); liveChanged(); liveCheck();
+  }
+  async function liveEnd() {
+    LV.busy = true; renderLivePop();
+    var r = await liveCall('stop');
+    LV.busy = false;
+    if (!r || r.error) { LV.msg = r ? 'Couldn’t end the stream. ' + r.error : ''; renderLivePop(); return; }
+    LV.s = null; LV.cam = false; LV.msg = 'Stream ended. The recording is kept for 30 days.';
+    ping('live'); liveChanged();
+  }
+  async function liveNew() {
+    LV.busy = true; renderLivePop();
+    var r = await liveCall('renew');
+    LV.busy = false;
+    if (r && r.url) { LV.link = { url: r.url }; LV.msg = 'New camera link made. Paste it into GoPro Quik: the old one no longer works.'; }
+    else if (r) LV.msg = r.error;
+    renderLivePop();
+  }
+  // The gaffer's phone asks whether the camera has got through: every 5 seconds until it has, then every 30. The first
+  // phone to see it tells the team (the server makes sure only one does).
+  function liveLoop() {
+    clearTimeout(LV.statT); LV.statT = null;
+    if (!liveOn() || !canStream()) return;
+    LV.statT = setTimeout(liveCheck, LV.cam ? 30000 : 5000);
+  }
+  async function liveCheck() {
+    clearTimeout(LV.statT); LV.statT = null;
+    if (!liveOn() || !canStream()) return;
+    if (!document.hidden) {
+      var r = await liveCall('status');
+      if (!liveOn()) return;
+      if (r && !r.error) {
+        if (!r.on) { LV.s = null; LV.cam = false; liveChanged(); return; }
+        var was = LV.cam; LV.cam = !!r.on_air; if (r.on_air && !LV.s.on_air) LV.s.on_air = Date.now();
+        if (r.first) { var m = liveGame(); notifyTeam('live', teamShort() + (m ? ' v ' + m.opp : '') + ' is live', 'Tap to watch the game.'); ping('live'); }
+        if (was !== LV.cam) liveChanged();
+      }
+    }
+    liveLoop();
+  }
+
+  // ---- everyone: the card on Home and the stream itself
+  function renderLiveCard() {
+    var c = $('liveCard'); if (!c) return;
+    c.hidden = !liveOn(); if (c.hidden) { c.innerHTML = ''; return; }
+    var m = liveGame();
+    c.innerHTML = '<span class="onair">LIVE</span><h2>' + esc(teamShort()) + (m ? ' v ' + esc(m.opp) : '') + '</h2><p class="note">' + (LV.s.on_air ? 'The game is being streamed now.' : 'The stream is about to start.') + '</p>' +
+      '<div class="actions"><button class="plain primary" type="button" data-go="live">Watch live</button></div>';
+  }
+  var lvSrc = null, lvRetry = null, lvTick = null;
+  function livePlayer(hls) { // plays `hls` (null: stops). The iPhone plays the stream itself; elsewhere, Cloudflare's own player does.
+    var v = $('lvVideo'), f = $('lvFrame');
+    if (!v || hls === lvSrc) return;
+    lvSrc = hls; clearTimeout(lvRetry); clearInterval(lvTick); lvTick = null;
+    if (!hls) { try { v.pause(); } catch (e) {} v.removeAttribute('src'); try { v.load(); } catch (e) {} f.removeAttribute('src'); f.hidden = true; v.hidden = false; return; }
+    var own = !!(v.canPlayType && v.canPlayType('application/vnd.apple.mpegurl'));
+    v.hidden = !own; f.hidden = own;
+    if (own) { liveWait(LV.s && LV.s.on_air ? 'Loading the stream…' : 'Waiting for the camera…'); v.src = hls; livePlay(); }
+    else { $('lvWait').hidden = true; f.src = hls.replace(/\/manifest\/video\.m3u8.*$/, '/iframe') + '?autoplay=true'; }
+    lvTick = setInterval(liveTick, 1000);
+  }
+  function liveWait(t) { $('lvWait').textContent = t; $('lvWait').hidden = !t; }
+  function livePlay() {
+    var v = $('lvVideo');
+    try { var p = v.play(); if (p && p.catch) p.catch(function (e) { if (e && e.name === 'NotAllowedError' && !v.muted) { v.muted = true; v.play().catch(function () {}); } }); } catch (e) {} // (sound waits for a tap if the phone won't start it by itself)
+  }
+  function liveAgain(why) { // the picture stopped or never started: try again shortly, for as long as the stream is on screen
+    if (!lvSrc) return;
+    liveWait(why); clearTimeout(lvRetry);
+    lvRetry = setTimeout(function () { if (!lvSrc || S.view !== 'live') return; var v = $('lvVideo'); v.src = lvSrc; livePlay(); }, 5000);
+  }
+  $('lvVideo').addEventListener('playing', function () { liveWait(''); });
+  $('lvVideo').addEventListener('error', function () { liveAgain(LV.s && LV.s.on_air ? 'The picture has dropped. Trying again…' : 'Waiting for the camera…'); });
+  $('lvVideo').addEventListener('ended', function () { liveAgain('The stream has stopped. Waiting in case it comes back…'); });
+  function renderLive() {
+    $('lvOwn').hidden = !canStream();
+    chatQuiet();
+    if (!liveOn()) {
+      livePlayer(null); liveWait('No stream on right now. When the gaffer goes live, it plays here.');
+      $('lvScore').hidden = true; $('lvEvents').innerHTML = ''; $('lvNote').textContent = ''; $('lvTitle').textContent = 'Live';
+      return;
+    }
+    var m = liveGame(); $('lvTitle').textContent = m ? 'v ' + m.opp : 'Live';
+    livePlayer(LV.s.hls); liveTick();
+  }
+  function liveLag() { // how far behind the picture is: from the stream's own clock when the player knows it
+    var v = $('lvVideo');
+    try { var sd = v.getStartDate && v.getStartDate(), t = sd && sd.getTime(); if (t && isFinite(t) && v.currentTime > 0) { var lag = Date.now() - (t + v.currentTime * 1000); if (lag > 1000 && lag < 90000) return lag; } } catch (e) {}
+    return LAG;
+  }
+  function seenGame(m, t) { // the game as it stood at time `t`, which is what the picture is showing now
+    var goals = m.events.filter(function (e) { return !e.hl && typeof e.at === 'number' && e.at <= t; }), us = 0, them = 0, clock = '';
+    goals.forEach(function (e) { if (e.us) us++; else them++; });
+    var one = m.periods === 1, has = function (k) { return typeof m[k] === 'number' && t >= m[k]; };
+    if (has('ftAt')) clock = 'Full time';
+    else if (has('h2At') || (has('koAt') && !(has('htAt') && !one))) {
+      var second = has('h2At'), ms;
+      if (m.running && m.phase === (second ? 'h2' : 'h1')) { asOf = Math.max(t, m.t0); try { ms = elapsed(m); } finally { asOf = 0; } } // this half's own clock, stoppages and all
+      else ms = t - m[second ? 'h2At' : 'koAt'];
+      clock = (one ? '' : second ? '2nd half ' : '1st half ') + fmt2(Math.max(0, ms));
+    } else if (has('htAt')) clock = 'Half time';
+    else clock = 'Before kick-off';
+    return { us: us, them: them, goals: goals, clock: clock };
+  }
+  function liveTick() {
+    if (S.view !== 'live' || !liveOn()) return;
+    var m = liveGame(), sc = $('lvScore');
+    if (!m) { sc.hidden = true; $('lvEvents').innerHTML = ''; $('lvNote').textContent = 'The score shows here while the game is on.'; return; }
+    var lag = liveLag(), g = seenGame(m, Date.now() - lag);
+    sc.hidden = false; sc.innerHTML = esc(teamShort()) + ' ' + g.us + '–' + g.them + ' ' + esc(m.opp) + ' <small>' + esc(g.clock) + '</small>';
+    $('lvEvents').innerHTML = g.goals.slice().reverse().map(function (e) {
+      var who = !e.us ? '<span class="ag">Goal for ' + esc(m.opp) + '</span>' : (e.p != null ? esc(nm(e.p)) : 'Goal for ' + esc(teamShort())) + (e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '');
+      return '<li><span class="t">' + ml(e) + '</span><span>' + who + '</span></li>';
+    }).join('');
+    $('lvNote').textContent = 'The score is held back about ' + Math.round(lag / 1000) + ' seconds to match the picture, so it never gives a goal away.';
+  }
+  // ================= end of live streaming
   // ================= squad chat: one conversation per team, for its signed-in players and gaffers
   var CH = { code: null, list: [], unread: 0 }, chOpen = null, chAnim = 0, chBusy = false;
   function chStore(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(TKEY + A.active + ':chat' + k)); localStorage.setItem(TKEY + A.active + ':chat' + k, JSON.stringify(v)); } catch (e) {} return null; }

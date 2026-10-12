@@ -24,7 +24,7 @@ eq(await d.rpc(null, 'get_team', { p_code: 'ZZZZZZ' }), null, 'a wrong code open
 // ---------- nobody can go round the app and read or change tables directly
 for (const [who, label] of [[null, 'someone not signed in'], [sam, 'a signed-in stranger'], [jake, 'a signed-in stranger (later a player)']]) {
   const seen = [];
-  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests']) seen.push(await count(who, 'public.' + table));
+  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests', 'team_streams']) seen.push(await count(who, 'public.' + table));
   check(seen.every((n) => n === 0 || n === 'denied'), `${label} reading the tables directly sees nothing (${seen.join(',')})`);
 }
 await d.as(sam, `update public.teams set name = 'Hacked FC'`).catch(() => {});
@@ -254,6 +254,29 @@ let flood = ''; const crowd = [];
 for (let i = 0; i < 32 && flood !== 'full'; i++) { const u = await d.user(`crowd${i}@example.com`); crowd.push(u); flood = await ask(u, { p_name: 'Crowd ' + i }); }
 eq([flood, (await d.rpc(ethan, 'team_join_requests', { p_code: sop.code })).length], ['full', 30], 'a team can have 30 requests waiting and no more');
 await d.admin(`update public.join_requests set status = 'denied', decided_at = now() where team_id = '${sop.id}' and status = 'pending'`);
+
+// ---------- streaming a game live (the live-stream edge function writes the row, with the service role)
+eq([await d.rpc(null, 'team_stream', { p_code: sop.code }), await d.rpc(jake, 'team_stream', { p_code: sop.code })], [null, null], 'before any stream, there is nothing to watch');
+const cfHls = 'https://customer-abc123.cloudflarestream.com/0123456789abcdef0123456789abcdef/manifest/video.m3u8';
+await d.admin(`insert into public.team_streams (team_id, input_uid, hls) values ('${sop.id}', '0123456789abcdef0123456789abcdef', '${cfHls}')`);
+eq(await d.rpc(ethan, 'team_stream', { p_code: sop.code }), null, 'a team with a camera link but no stream on shows nothing');
+await d.admin(`update public.team_streams set started_at = now(), gid = 'g-live-1' where team_id = '${sop.id}'`);
+let st = await d.rpc(null, 'team_stream', { p_code: sop.code.toLowerCase() });
+eq([st.hls, st.gid, typeof st.started, st.on_air], [cfHls, 'g-live-1', 'number', null], 'once a gaffer goes live, anyone with the code (no account needed) sees where it plays from');
+eq(Object.keys(st).sort(), ['gid', 'hls', 'on_air', 'started'], 'and nothing else: never the camera link or its key');
+await d.admin(`update public.team_streams set on_air_at = now() where team_id = '${sop.id}'`);
+eq(typeof (await d.rpc(jake, 'team_stream', { p_code: sop.code })).on_air, 'number', 'when the camera gets through, that shows too');
+eq(await d.rpc(null, 'team_stream', { p_code: 'ZZZZZZ' }), null, 'a wrong code shows nothing');
+for (const [who, label] of [[null, 'someone not signed in'], [sam, 'a stranger'], [ethan, 'even the gaffer']]) {
+  await d.as(who, `update public.team_streams set hls = 'https://evil.example.com/x' where true`).catch(() => {});
+  await d.as(who, `insert into public.team_streams (team_id, input_uid, hls) values ('${sop.id}', 'abc', 'https://x.cloudflarestream.com/y')`).catch(() => {});
+  const seen = await count(who, 'public.team_streams');
+  eq([seen === 0 || seen === 'denied', (await d.rpc(null, 'team_stream', { p_code: sop.code })).hls], [true, cfHls], `${label} cannot read or change the stream row directly`);
+}
+check(/violates check constraint/.test(await d.fails(d.admin(`update public.team_streams set hls = 'https://evil.example.com/x' where team_id = '${sop.id}'`))), 'the database only takes Cloudflare addresses for where a stream plays from');
+await d.admin(`update public.team_streams set started_at = now() - interval '5 hours' where team_id = '${sop.id}'`);
+eq(await d.rpc(null, 'team_stream', { p_code: sop.code }), null, 'a stream nobody ended is over after four hours');
+await d.admin(`update public.team_streams set started_at = now() where team_id = '${sop.id}'`);
 const squadNow = await squadSize();
 
 // ---------- deleting an account
@@ -268,6 +291,7 @@ eq([await d.rpc(null, 'get_team', { p_code: sop.code }), (await d.admin(`select 
   [null, 0, 0, 0], 'and with it the squad, its challenges and its chat');
 
 eq((await d.admin(`select count(*)::int as n from public.join_requests where team_id = '${sop.id}'`))[0].n, 0, 'and every request to join it');
+eq((await d.admin(`select count(*)::int as n from public.team_streams where team_id = '${sop.id}'`))[0].n, 0, 'and its stream');
 
 await d.close();
 await done();

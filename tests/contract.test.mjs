@@ -23,7 +23,7 @@ for (const [name, uses] of Object.entries(calls)) {
   check(defs.some((p) => p.authed), `${name} can be called by a signed-in person`);
   for (const keys of uses) check(defs.some((p) => keys.every((k) => (p.proargnames || []).includes(k))), `${name} takes the arguments the app passes (${keys.join(', ') || 'none'})`);
 }
-for (const name of ['get_team', 'queue_goal']) check(procs.filter((p) => p.proname === name).some((p) => p.anon), `${name} works without an account, as following a team does`);
+for (const name of ['get_team', 'queue_goal', 'team_stream']) check(procs.filter((p) => p.proname === name).some((p) => p.anon), `${name} works without an account, as following a team does`);
 for (const name of ['create_team', 'claim_player', 'chat_send', 'chat_list', 'vote_fixture', 'challenge_send', 'challenge_reply', 'challenge_result', 'set_home', 'register_push', 'delete_my_account', 'team_push', 'my_challenges', 'find_teams'])
   check(procs.filter((p) => p.proname === name).every((p) => !p.anon), `${name} cannot be called without signing in`);
 

@@ -104,8 +104,8 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0016`, **all applied to the live project**. New ones are numbered on from there |
-| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
+| `supabase/migrations/` | `0001` … `0017`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
 | `.github/workflows/watch-shots.yml` | Takes Apple Watch App Store screenshots in a simulator (run by hand) |
@@ -118,7 +118,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 |---|---|
 | `ReelCutterPlugin` | `pickVideo({slot})`, `cut({clips:[{path,start,dur,caption,file,voice,voiceAt}], …})`, `share`, `cleanup`. Uses AVFoundation, a watermark, captions and an outro card. Footage from different cameras is turned upright and fitted to one frame |
 | `WatchLinkPlugin` | The phone side of the watch link. It keeps a durable inbox of watch presses (UserDefaults `watchlink.inbox`), `push({state, seen})` and `pending()` |
-| `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound. JS calls it as `ChatQuiet.quiet({code})` from `renderTabs()` via `chatQuiet()` |
+| `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
 | `MatchVisionPlugin` | Experimental player tracking (YOLOX-S onnx plus Vision, reading shirt numbers) |
 
@@ -165,7 +165,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - They are sent by the `team-notify` edge function using an APNs JWT. Secrets: `APNS_KEY_P8`, `APNS_KEY_ID`,
   `APPLE_TEAM_ID`.
 - **Kinds:** kickoff, goal, poll, highlights, nudge (only to players who haven't answered the poll), claimed, chat,
-  challenge, join.
+  challenge, join, live.
   - The function writes the wording for claimed, chat, challenge and join itself; the others come from the caller.
 - **Sound:** the payload uses `whistle.wav` (a synthesised referee's pea whistle bundled in the app) for everything
   except chat, which uses `default`. Phones on builds without the file fall back to the default sound.
@@ -177,7 +177,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Chat:** while a team's chat is open on screen, its chat pushes are silent (`ChatQuietPlugin`). The app still
   receives them and pulls the message in.
 - **Tapping a notification** routes by kind: chat → chat, challenge → rivals, poll/nudge → games, highlights →
-  highlights, join → home.
+  highlights, join → home, live → the stream.
 
 ### Ask to join (`0016_join_requests.sql`)
 - Someone with the team code whose name isn't in the squad still makes an account and fills in their details.
@@ -207,6 +207,25 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   outro card that stays on the phone for sharing.
 - On a computer, the same screen writes an ffmpeg script instead (`reelScript`). That path is single-video.
 
+### Live streaming (Gaffer tier; behind the experimental switch for gaffers) (`0017_live_streams.sql`, `live-stream`)
+- The GoPro streams over RTMPS through GoPro Quik straight to **Cloudflare Stream**. The app never handles the video
+  going up; it only plays it.
+- Each team has one Cloudflare live input (its "camera link"), made the first time a gaffer asks for it and kept, so it's
+  pasted into Quik once. It is **switched off except while the team is live**, so a leaked link can't put anything in front
+  of the team. "Make a new link" replaces it.
+- `live-stream` actions (gaffers only): `link`, `start {gid}`, `status`, `stop`, `renew`. It writes `team_streams`
+  (service role); the stream key is never stored in the database. Everyone reads `team_stream(code)` (anon allowed):
+  `{hls, gid, started, on_air}` or null. A stream nobody ended counts as over after 4 hours.
+- The gaffer's phone polls `status` (5 s until the camera gets through, then 30 s). The server hands `first: true` to
+  exactly one caller, which sends `team-notify` kind `live` and pings `live` on the team channel.
+- Viewers: Home card (`#liveCard`) and the `live` view. On the iPhone the HLS plays in the app's `<video>`; elsewhere in
+  Cloudflare's iframe player. **The score overlay is held back** by the picture's delay (from the stream's own clock when
+  the player knows it, else 15 s; `seenGame`), and goal banners are quiet while watching (`ChatQuietPlugin`).
+- Finishing or scrapping the game ends its stream. Recordings are kept 30 days (`deleteRecordingAfterDays`).
+- `hasGaffer()` is the one check for the paid tier; it returns true during early access.
+- Secrets (Ethan sets them): `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN` (API token with Stream: Edit).
+  Until they're set the app says "Live streaming isn't set up on Gaffer's server yet."
+
 ### AI commentary (experimental, behind the experimental switch `A.exp.track`)
 - `reel-voice` edge function. Each team has a monthly character allowance in `voice_usage` (40,000).
 - **Engines:**
@@ -225,20 +244,22 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0016` are applied live. Add new ones as `supabase/migrations/0017_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0017` are applied live. Add new ones as `supabase/migrations/0018_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
   - Functions are `security definer` with `set search_path = ''`, and their grants are revoked from public and anon.
     Follow the patterns in the existing files.
-- **Edge functions:** all three are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
+- **Edge functions:** all four are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
-  - Deployed now: `team-notify` v12 (whistle sound; same as the repo), `reel-voice` v7, `game-started` v6 (old).
+  - Deployed now: `team-notify` v13 (adds kind `live`; same as the repo), `live-stream` v1, `reel-voice` v7,
+    `game-started` v6 (old).
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
-  `GOOGLE_SERVICE_ACCOUNT` (Ethan is setting this one up).
+  `GOOGLE_SERVICE_ACCOUNT` (Ethan is setting this one up), `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_STREAM_TOKEN`
+  (Ethan to set up for live streaming).
 - **GitHub repository secrets:** `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`.
 - **Auth:** email and password. Site URL and redirect go to the GitHub Pages address.
 - **Any Google API key used by `reel-voice`** is server-side. Don't give it an iOS-app restriction (requests come from
@@ -257,6 +278,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   - 88: ask to join.
   - 95: whistle and quiet chat.
   - 97: multi-camera highlights.
+  - Next: live streaming.
   - All recent runs passed.
 - **Watch app install problems:** the TestFlight job prints the watch app's Info.plist and architectures from the
   archive. Look there first.
@@ -277,14 +299,17 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
        `tests/plugin/stubs.swift`.
      - `tests/plugin/quiet/` does the same for `ChatQuietPlugin.swift`.
   2. `*.test.mjs` suites that check as they go:
-     - `link` (phone + watch whole games over a bad link), `sync`, `db`, `contract`, `join`, `match`, `watchlink`.
+     - `link` (phone + watch whole games over a bad link), `sync`, `db`, `contract`, `join`, `match`, `watchlink`,
+       `live` (streaming on the phones), `stream` (the real `live-stream` and `team-notify` source run under Node with
+       stand-ins for Deno, the database, Cloudflare and APNs; Node 22 runs the TypeScript directly).
      - `db.test.mjs` loads every migration into PGlite (real Postgres in memory) via `tests/pg.mjs`.
      - `contract.test.mjs` checks that every RPC and insert the app makes matches the real schema.
   3. Walk-throughs (`tests/*.mjs` without `.test`) print what they see and are compared with `tests/golden/*.txt`.
      - `tests/pinned.mjs` freezes the clock at 2026-10-10 17:00 London.
      - `run.mjs` masks times and ids before comparing.
 - **Swift:** the Swift parts need `swiftc` (5.9+). On a machine without it they are skipped loudly; set
-  `ALLOW_NO_SWIFT=1` to not fail the run. CI (ubuntu) always runs them.
+  `ALLOW_NO_SWIFT=1` to not fail the run. CI (ubuntu) always runs them. In a cloud session you can install it: download
+  `swift-6.0.3-RELEASE-ubuntu24.04.tar.gz` from download.swift.org, unpack, and put its `usr/bin` on `PATH`.
 - **Chromium:** the tests use `/opt/pw-browsers/chromium` if it exists, otherwise Playwright's own Chromium, or the
   `CHROMIUM` env var.
 - **Supabase mock:** `tests/mock-supabase.js` stands in for supabase-js in the walk-throughs. When you add an RPC, add it
@@ -318,6 +343,10 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   - chat messages are silent while that chat is open;
   - the whistle plays for nudges, polls, goals and kick-off;
   - a reel cut from two different cameras (for example a GoPro and an iPhone) joins cleanly.
+- **Live streaming:** Ethan to make a Cloudflare account with Stream, an API token with Stream: Edit, and set the two
+  secrets. Then try it at a game: Stream this game → copy the link into GoPro Quik (Live stream → RTMP) → Go live.
+- **Watch shortcut** (asked for, not built yet): mark a highlight from a button on the watch. Depends on the watch model:
+  Ultra's Action button can run a Shortcut / App Intent; Series 9+/Ultra 2 can use double tap (`handGestureShortcut`).
 - **Voice:** Ethan is setting up the Google service account (Vertex AI User) and the `GOOGLE_SERVICE_ACCOUNT` secret.
   Then "Hear this voice" should say "Playing." rather than falling back to read-it-straight.
 - **Ideas he has raised but not built yet:**

@@ -2,7 +2,7 @@
 // Implements just what the app uses, with the same access rules as the real policies and functions.
 (function () {
   const KEY = '__mockdb';
-  const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips', 'messages', 'reports', 'join_requests'];
+  const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips', 'messages', 'reports', 'join_requests', 'team_streams'];
   // tests/lib.mjs gives every phone its own browser profile, like real devices; then the database lives with the test runner (window.__mockRemote).
   const REMOTE = window.__mockRemote || null;
   const xhr = (method, body) => { const x = new XMLHttpRequest(); x.open(method, REMOTE, false); x.send(body || null); return x.responseText; };
@@ -88,6 +88,11 @@
         t.settings = Object.assign({}, t.settings, { nextId: pid + 1 }); r.pid = pid;
       } else r.pid = have.pid;
       r.status = 'approved'; store(d); return ok('ok');
+    }
+    if (name === 'team_stream') { // anyone with the code: the stream that's on now (never the camera link)
+      const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()), st = t && d.team_streams.find((x) => x.team_id === t.id);
+      if (!st || !st.started_at || Date.now() - st.started_at > 4 * 3600000) return ok(null);
+      return ok({ hls: st.hls, gid: st.gid, started: st.started_at, on_air: st.on_air_at || null });
     }
     if (name === 'my_teams') return ok(!uid() ? [] : d.teams.filter((t) => isOrg(d, t.id) || d.players.some((p) => p.team_id === t.id && p.user_id === uid())).map((t) => ({ code: t.code, name: t.name, org: isOrg(d, t.id) })));
     if (name === 'set_my_number') { const t = d.teams.find((x) => x.code === a.p_code); const p = t && d.players.find((x) => x.team_id === t.id && x.user_id === uid()); if (!p) return ok(false); p.shirt_number = a.p_number; store(d); return ok(true); }
@@ -199,6 +204,28 @@
   const storage = { from: (bucket) => ({ upload: async (path, blob) => { const d = load(); const team = d.teams.find((t) => t.id === path.split('/')[0]);
     if (!team || !isOrg(d, team.id)) return { data: null, error: { message: 'new row violates row-level security policy' } };
     d.files = d.files || []; d.files.push({ bucket, path, size: blob.size, type: blob.type }); store(d); return { data: { path }, error: null }; } }) };
-  const functions = { invoke: async (name, o) => { const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); if (name === 'reel-voice') return { data: { audio: o.body.lines.map((l) => l ? 'QUJD' : null) }, error: null }; return { data: { sent: o.body.kind === 'nudge' ? 2 : 0, people: 2 }, error: null }; } };
+  // The live-stream edge function (tests/stream.test.mjs runs the real one): the team's camera link, on only while live.
+  // A test plugs the GoPro in with d.camera = true, and makes the server unready with d.streamOff.
+  function liveStream(d, b) {
+    const no = (status, error) => ({ data: null, error: { message: 'Edge Function returned a non-2xx status code', context: new Response(JSON.stringify({ error }), { status }) } });
+    const yes = (data) => { store(d); return { data, error: null }; };
+    const t = d.teams.find((x) => x.code === String(b.code || '').trim().toUpperCase());
+    if (!uid()) return no(401, 'Sign in first'); if (!t) return no(404, 'No such team');
+    if (!isOrg(d, t.id)) return no(403, "Only a gaffer can stream the team's games");
+    if (d.streamOff) return no(503, "Live streaming isn't set up on Gaffer's server yet.");
+    let st = d.team_streams.find((x) => x.team_id === t.id); const on = !!st && !!st.started_at && Date.now() - st.started_at < 4 * 3600000;
+    const make = () => { const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), (x) => x.toString(16).padStart(2, '0')).join('');
+      st = { team_id: t.id, input_uid: id, hls: 'https://customer-test.cloudflarestream.com/' + id + '/manifest/video.m3u8', gid: null, started_at: null, on_air_at: null, enabled: false };
+      d.team_streams = d.team_streams.filter((x) => x.team_id !== t.id).concat([st]); };
+    const link = () => ({ url: 'rtmps://live.cloudflare.com:443/live/key' + st.input_uid.slice(0, 8), server: 'rtmps://live.cloudflare.com:443/live/', key: 'key' + st.input_uid.slice(0, 8) });
+    if (b.action === 'link') { if (!st) make(); return yes(Object.assign(link(), { on })); }
+    if (b.action === 'start') { if (!st) make(); st.enabled = true; if (!(on && st.gid === (b.gid || null))) Object.assign(st, { gid: b.gid || null, started_at: Date.now(), on_air_at: null }); return yes(Object.assign(link(), { on: true, hls: st.hls })); }
+    if (b.action === 'status') { if (!on) return yes({ on: false, on_air: false, first: false }); const live = !!d.camera && st.enabled; let first = false; if (live && !st.on_air_at) { st.on_air_at = Date.now(); first = true; } return yes({ on: true, on_air: live, first }); }
+    if (b.action === 'stop') { if (st) Object.assign(st, { gid: null, started_at: null, on_air_at: null, enabled: false }); return yes({ on: false }); }
+    if (b.action === 'renew') { if (on) return no(409, 'End the stream first, then make a new link.'); make(); return yes(Object.assign(link(), { on: false })); }
+    return no(400, 'Nothing to do');
+  }
+  const functions = { invoke: async (name, o) => { if (name === 'live-stream' && window.__offline) return { data: null, error: { message: 'Failed to send a request to the Edge Function' } };
+    const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); if (name === 'live-stream') return liveStream(d, o.body); if (name === 'reel-voice') return { data: { audio: o.body.lines.map((l) => l ? 'QUJD' : null) }, error: null }; return { data: { sent: o.body.kind === 'nudge' ? 2 : 0, people: 2 }, error: null }; } };
   window.supabase = { createClient: () => ({ rpc, from, auth, channel, storage, functions, removeChannel() {} }) };
 })();

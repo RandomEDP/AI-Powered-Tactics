@@ -1,6 +1,6 @@
 // Offline support: keep the app shell on the phone so it opens with no signal at the pitch.
 // Team data is stored by the app itself and syncs with Supabase when there's a connection.
-const CACHE = 'apt-v43';
+const CACHE = 'apt-v44';
 const SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'vendor/supabase.js', 'vendor/fonts.css', 'vendor/fonts/BricolageGrotesque.woff2', 'privacy.html'];
 
