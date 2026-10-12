@@ -1,6 +1,7 @@
 import AVFoundation
 import Capacitor
 import Foundation
+import Photos
 import PhotosUI
 import UIKit
 import UniformTypeIdentifiers
@@ -60,7 +61,8 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         pickCall = call
         pickSlot = call.getInt("slot") ?? 1 // 1 = the game (or its first half), 2 = a separate second-half video
         DispatchQueue.main.async {
-            var config = PHPickerConfiguration()
+            // (from the photo library itself, so each pick carries its Photos id: the way in when the file itself can't be had)
+            var config = PHPickerConfiguration(photoLibrary: .shared())
             config.filter = .videos
             config.selectionLimit = 1
             config.preferredAssetRepresentationMode = .current // hand over the original file, without re-encoding it first
@@ -80,49 +82,104 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         guard let call = pickCall else { return }
         pickCall = nil
         let slot = pickSlot
-        guard let provider = results.first?.itemProvider,
-              provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) else {
+        guard let picked = results.first else {
             call.resolve(["cancelled": true])
             return
         }
+        let provider = picked.itemProvider
+        // Every kind of video the item says it can be, the most particular first (a QuickTime or MPEG-4 movie), then plain
+        // "movie". Photos sometimes won't hand a video over as a plain movie but will as what it really is.
+        var kinds = provider.registeredTypeIdentifiers.filter { UTType($0)?.conforms(to: .movie) == true }
+        for extra in [UTType.quickTimeMovie.identifier, UTType.mpeg4Movie.identifier, UTType.movie.identifier] where !kinds.contains(extra) {
+            if provider.hasItemConformingToTypeIdentifier(extra) { kinds.append(extra) }
+        }
+        guard !kinds.isEmpty || picked.assetIdentifier != nil else {
+            call.reject("That doesn't look like a video. Choose the game's recording from your videos.")
+            return
+        }
         notifyListeners("progress", data: ["stage": "copy", "p": 0])
-        let progress = provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, error in
+        load(provider, kinds, 0, assetId: picked.assetIdentifier, slot: slot, call: call, lastError: nil)
+    }
+
+    /// Tries each kind of file in turn; if Photos won't hand any of them over, fetches the video from the library instead.
+    private func load(_ provider: NSItemProvider, _ kinds: [String], _ i: Int, assetId: String?, slot: Int, call: CAPPluginCall, lastError: Error?) {
+        guard i < kinds.count else {
+            fromLibrary(assetId, slot: slot, call: call, lastError: lastError)
+            return
+        }
+        let progress = provider.loadFileRepresentation(forTypeIdentifier: kinds[i]) { [weak self] url, error in
             guard let self = self else { return }
             self.copyObservation = nil
             guard let url = url else {
-                call.reject(error?.localizedDescription ?? "Couldn't read that video")
+                self.load(provider, kinds, i + 1, assetId: assetId, slot: slot, call: call, lastError: error ?? lastError)
                 return
             }
-            do {
-                // The file we are handed is deleted when this block returns, so move it somewhere of our own.
-                let dir = try self.ensureWorkDir()
-                let ext = url.pathExtension.isEmpty ? "mov" : url.pathExtension
-                for old in (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
-                where old.lastPathComponent.hasPrefix("source\(slot).") {
-                    try? FileManager.default.removeItem(at: old)
-                }
-                let dest = dir.appendingPathComponent("source\(slot)." + ext)
-                try? FileManager.default.removeItem(at: dest)
-                do {
-                    try FileManager.default.moveItem(at: url, to: dest)
-                } catch {
-                    try FileManager.default.copyItem(at: url, to: dest)
-                }
-                let asset = AVURLAsset(url: dest)
-                var result: [String: Any] = [
-                    "path": dest.path,
-                    "duration": CMTimeGetSeconds(asset.duration)
-                ]
-                if let made = asset.creationDate?.dateValue {
-                    result["created"] = made.timeIntervalSince1970 * 1000
-                }
-                call.resolve(result)
-            } catch {
-                call.reject("There isn't enough free space on this phone to read that video")
-            }
+            // The file we are handed is deleted when this block returns, so it's moved somewhere of our own first.
+            self.keep(url, slot: slot, move: true, created: nil, call: call)
         }
         copyObservation = progress.observe(\.fractionCompleted) { [weak self] value, _ in
             self?.notifyListeners("progress", data: ["stage": "copy", "p": value.fractionCompleted])
+        }
+    }
+
+    /// The video straight from the photo library (downloading it from iCloud if that's where it is), by its Photos id.
+    private func fromLibrary(_ assetId: String?, slot: Int, call: CAPPluginCall, lastError: Error?) {
+        let why = lastError.map { " (\($0.localizedDescription))" } ?? ""
+        let failed = "Couldn't read that video from Photos\(why). If it's kept in iCloud, check you have signal, open it in the Photos app so it downloads, then choose it again."
+        guard let assetId = assetId else { call.reject(failed); return }
+        PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
+            guard status == .authorized || status == .limited else {
+                call.reject("Photos wouldn't hand that video over\(why), and Gaffer isn't allowed to read it from your library. Turn on Settings, Gaffer, Photos (Full Access), then choose it again.")
+                return
+            }
+            guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [assetId], options: nil).firstObject else {
+                call.reject("Photos wouldn't hand that video over\(why), and Gaffer can't see it in your library. In Settings, Gaffer, Photos, choose Full Access (or add this video to the ones Gaffer can see), then choose it again.")
+                return
+            }
+            let options = PHVideoRequestOptions()
+            options.isNetworkAccessAllowed = true   // fetch it from iCloud if it isn't on the phone
+            options.deliveryMode = .highQualityFormat
+            options.version = .original              // the file as recorded (a slow-motion video's edits aren't wanted)
+            options.progressHandler = { [weak self] p, _, _, _ in
+                self?.notifyListeners("progress", data: ["stage": "copy", "p": p])
+            }
+            PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { [weak self] video, _, info in
+                guard let self = self else { return }
+                guard let file = (video as? AVURLAsset)?.url else {
+                    let said = (info?[PHImageErrorKey] as? Error).map { " (\($0.localizedDescription))" } ?? why
+                    call.reject("Couldn't read that video from Photos\(said). If it's kept in iCloud, check you have signal, open it in the Photos app so it downloads, then choose it again.")
+                    return
+                }
+                self.keep(file, slot: slot, move: false, created: asset.creationDate, call: call)
+            }
+        }
+    }
+
+    /// Puts the picked video in Gaffer's working folder as this slot's source, and tells the web app about it.
+    private func keep(_ url: URL, slot: Int, move: Bool, created: Date?, call: CAPPluginCall) {
+        do {
+            let dir = try ensureWorkDir()
+            let ext = url.pathExtension.isEmpty ? "mov" : url.pathExtension
+            for old in (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+            where old.lastPathComponent.hasPrefix("source\(slot).") {
+                try? FileManager.default.removeItem(at: old)
+            }
+            let dest = dir.appendingPathComponent("source\(slot)." + ext)
+            try? FileManager.default.removeItem(at: dest)
+            var moved = false
+            if move { moved = (try? FileManager.default.moveItem(at: url, to: dest)) != nil }
+            if !moved { try FileManager.default.copyItem(at: url, to: dest) } // (the library's own file is only ever copied)
+            let asset = AVURLAsset(url: dest)
+            var result: [String: Any] = [
+                "path": dest.path,
+                "duration": CMTimeGetSeconds(asset.duration)
+            ]
+            if let made = asset.creationDate?.dateValue ?? created {
+                result["created"] = made.timeIntervalSince1970 * 1000
+            }
+            call.resolve(result)
+        } catch {
+            call.reject("There isn't enough free space on this phone to read that video")
         }
     }
 

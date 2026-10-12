@@ -369,6 +369,10 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   - all segments go into one composition track;
   - when the cameras differ, `ReelCutterPlugin.export` sets per-segment layer transforms (`fit`, `upright`);
   - the video composition instruction must cover the whole composition duration.
+- Picking a video: Photos can refuse a video as a plain "movie" ("Cannot load representation of type public.movie"),
+  for example one kept in iCloud or one written by Gaffer's own camera. `pickVideo` tries each video type the item
+  offers (most particular first), then fetches it from the library by its Photos id (`PHImageManager`, downloading from
+  iCloud), which needs Photos read access; each failure is worded for the gaffer.
 - The Linux test environment can't compile anything that imports UIKit or AVFoundation. The only compile check for that
   is CI's "Check it builds" step, so read its output after pushing native changes.
 
