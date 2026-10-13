@@ -429,6 +429,9 @@ tr.past td { opacity: .45; }
 .prres .wl { font-weight: 800; color: var(--muted); } .prres .W { color: var(--on); } .prres small { display: block; color: var(--muted); font-size: 13px; }
 .pins label { display: flex; gap: 10px; align-items: flex-start; padding-block: 8px; border-bottom: 1px solid var(--line); } .pins input { width: 22px; height: 22px; flex: none; }
 .feedcard .badge.new { background: #ffc83d; color: #2a2100; }
+.prteams button { border: 0; border-radius: 999px; padding: 6px 12px; font: inherit; font-weight: 700; font-size: 14px; }
+.tdot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
+.tvcrest { width: 64px; height: 64px; object-fit: contain; border-radius: 12px; }
 #pplQ { text-transform: none; letter-spacing: normal; font-family: inherit; font-weight: 500; font-size: 17px; }
 #pplBody > section { margin-top: 18px; } #pplBody > section > h2 { margin-bottom: 10px; } #pplBody details summary { font-weight: 700; cursor: pointer; }
 #pushPop { position: fixed; inset: 0; z-index: 47; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
@@ -794,6 +797,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div id="prBody"></div>
 </div>
 
+<div class="view" id="v-teamview" hidden>
+  <div class="bar"><button class="back" type="button" id="tvBack">&lsaquo; Back</button><h1 id="tvTitle">Team</h1></div>
+  <div id="tvBody"></div>
+</div>
+
 <div id="unamePop" role="dialog" aria-labelledby="unTitle" hidden><div class="planbox">
   <h2 id="unTitle">Pick a username</h2>
   <p id="unWhy">Gaffer has profiles now. Pick a username so team-mates can find and follow you.</p>
@@ -1124,6 +1132,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       <div class="codeline"><span>Gaffer code</span><b id="orgCode"></b><button class="plain" id="orgCopy" type="button">Copy</button><button class="plain" id="orgNew" type="button">New code</button></div>
       <p class="note">Only give this to people who should run games. They sign in, then enter it under Gaffer account.</p>
     </div>
+    <label class="check" for="oFind"><input id="oFind" type="checkbox"><span>Let people find this team <small>(by name, in People. They see the squad, results and highlights, never the team code: to follow or join they still need it from you)</small></span></label>
     <label class="check" for="oScore"><input id="oScore" type="checkbox"><span>Everyone on the team can log goals <small>(theirs show in the game tagged as logged by a teammate)</small></span></label>
     <label class="field" for="oName">Team name<input id="oName" type="text" maxlength="40" autocomplete="off"></label>
     <label class="field" for="oShort">Short name for the scoreboard<input id="oShort" type="text" maxlength="10" autocomplete="off"></label>
@@ -1241,7 +1250,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'people', 'profile', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1272,7 +1281,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function fromRemote(d) {
     var t = d.team, st = t.settings || {}, s = blankTeam();
-    s.name = t.name; s.short = t.short || ''; s.color = t.color; s.followersCanScore = !!t.followers_can_score;
+    s.name = t.name; s.short = t.short || ''; s.color = t.color; s.followersCanScore = !!t.followers_can_score; s.listed = t.listed !== false;
     ['half', 'sub', 'pitch', 'tactic', 'lastKeeper', 'me', 'nextId', 'poll', 'fmt'].forEach(function (k) { if (st[k] != null) s[k] = st[k]; });
     s.players = (d.players || []).map(function (p) { return stripNull({ id: p.pid, name: p.name, pos: p.position || null, num: typeof p.number === 'number' ? p.number : null }); });
     var maxId = s.players.reduce(function (m, p) { return Math.max(m, p.id); }, 0);
@@ -1296,7 +1305,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function teamRow() {
     return { name: (S.name || '').trim() || 'Team', short: (S.short || '').trim().slice(0, 12), color: /^#[0-9a-f]{6}$/i.test(S.color || '') ? S.color : DEFAULT_COLOR,
-      followers_can_score: !!S.followersCanScore,
+      followers_can_score: !!S.followersCanScore, listed: S.listed !== false,
       settings: { half: S.half, sub: S.sub, pitch: S.pitch, tactic: nn(S.tactic), lastKeeper: nn(S.lastKeeper), me: nn(S.me), nextId: S.nextId, poll: nn(S.poll), fmt: nn(S.fmt) } };
   }
   // The database keeps times, minutes and ids as whole numbers and turns the whole row down if one isn't (a time from an
@@ -1795,7 +1804,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'people', 'profile', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1807,14 +1816,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (view !== 'live') livePlayer(null); // stop the picture (and its data) once the stream is off screen
     if (view === 'soon' && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome';
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
-    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'people', 'profile'].indexOf(view) < 0) view = 'welcome';
+    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'people', 'profile', 'teamview'].indexOf(view) < 0) view = 'welcome';
     if (view === 'create' && S.view !== 'create') resetCreate();
     if (view === 'game' && !S.match) view = 'home';
     if (view === 'mins' && !D) view = 'home';
     if (view === 'setup' && !(keep && D)) newDraft();
     S.view = view; saveLocal();
     if (view === 'join') applyTheme(J.d.team.color);
-    else if (view === 'intro' || view === 'welcome' || view === 'account' || view === 'people' || view === 'profile') applyTheme(DEFAULT_COLOR); else if (view !== 'create') applyTheme();
+    else if (view === 'intro' || view === 'welcome' || view === 'account' || view === 'people' || view === 'profile') applyTheme(DEFAULT_COLOR); else if (view === 'teamview') applyTheme(TV && TV.d && TV.d.team.color || DEFAULT_COLOR); else if (view !== 'create') applyTheme();
     var fresh = $('v-' + view).hidden;
     VIEWS.forEach(function (v) { $('v-' + v).hidden = v !== view; });
     if (view === 'intro' && fresh) { $('introTrack').scrollLeft = 0; introPaint(); }
@@ -1832,6 +1841,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'account') renderAccount();
     else if (S.view === 'people') renderPeople();
     else if (S.view === 'profile') renderProfile();
+    else if (S.view === 'teamview') renderTeamView();
     else if (S.view === 'create') renderCreate();
     else if (S.view === 'code') renderCode();
     else if (S.view === 'home') renderHome();
@@ -2075,7 +2085,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // public, or only to followers they've accepted if private. The feed is games played by people you follow, leaving out
   // teams you're in or follow already (you've seen those).
   var MYP, profAsked = null, unPriv = false, unT = null, unFirst = false;
-  var PPL = { q: '', found: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false };
+  var PPL = { q: '', found: null, teams: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false };
   var PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' };
   var UN_SAY = { invalid: 'Usernames are 3 to 20 letters, numbers or _, with no spaces.', taken: 'Someone already has that username. Try another.', reserved: 'That username is kept back. Try another.' };
   async function unameProblem(u) { // why this username can't be had, or '' (if the server can't be asked, it's checked again later)
@@ -2166,8 +2176,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         '<div class="actions"><button class="plain primary" type="button" data-prof="' + esc(MYP.username) + '">My profile</button><button class="plain" type="button" data-pp="pick">Edit</button></div></div>';
       var f = PPL.follows;
       if (f && f.requests.length) html += '<section><h2>Asking to follow you</h2><div class="card">' + f.requests.map(function (x) { return personRow(x, '<button class="plain primary" type="button" data-acc="' + esc(x.username) + '">Accept</button><button class="plain" type="button" data-dec="' + esc(x.username) + '">Decline</button>'); }).join('') + '</div></section>';
-      html += '<section><h2>Find people</h2><div class="joinrow"><input id="pplQ" type="search" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Name or username" aria-label="Find people" value="' + esc(PPL.q) + '"><button class="plain primary" id="pplGo" type="button">Search</button></div>';
-      if (PPL.found) html += '<div class="card" id="pplFound">' + (PPL.found.length ? PPL.found.map(function (x) { return personRow(x, folBtn(x)); }).join('') : '<p class="note">Nobody found by that name.</p>') + '</div>';
+      html += '<section><h2>Find people and teams</h2><div class="joinrow"><input id="pplQ" type="search" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Name, username or team" aria-label="Find people and teams" value="' + esc(PPL.q) + '"><button class="plain primary" id="pplGo" type="button">Search</button></div>';
+      if (PPL.found) html += '<div class="card" id="pplFound">' + (PPL.found.length ? '<h3>People</h3>' + PPL.found.map(function (x) { return personRow(x, folBtn(x)); }).join('') : '<p class="note">Nobody found by that name.</p>') + '</div>';
+      if (PPL.teams) html += '<div class="card" id="pplTeams">' + (PPL.teams.length ? '<h3>Teams</h3>' + PPL.teams.map(function (t) {
+        return '<div class="prow"><button class="who" type="button" data-team="' + esc(t.id) + '"><b><span class="tdot" style="background:' + teamCol(t.color) + '"></span>' + esc(t.name) + '</b><small>' + t.players + (t.players === 1 ? ' player' : ' players') + ' · ' + t.games + (t.games === 1 ? ' game' : ' games') + '</small></button><button class="plain" type="button" data-team="' + esc(t.id) + '">Look</button></div>';
+      }).join('') : '<p class="note">No teams found by that name.</p>') + '</div>';
       html += '</section><section><h2>From people you follow</h2>';
       if (!PPL.feed) html += '<p class="note">Loading…</p>';
       else if (!PPL.feed.length) html += '<p class="note">When people you follow play for teams you don’t follow, their games and clips show here.</p>';
@@ -2189,8 +2202,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   async function pplSearch() {
     var t = ($('pplQ') && $('pplQ').value || '').trim(); PPL.q = t;
-    if (t.replace(/^@/, '').length < 2) { PPL.found = null; PPL.msg = 'Type at least two letters.'; renderPeople(); return; }
-    try { PPL.found = (await q(sb.rpc('find_people', { p_query: t.replace(/^@/, '') }))).data || []; PPL.msg = ''; } catch (e) { PPL.msg = 'Couldn’t search. Check your signal.'; }
+    if (t.replace(/^@/, '').length < 2) { PPL.found = PPL.teams = null; PPL.msg = 'Type at least two letters.'; renderPeople(); return; }
+    try {
+      var r = await Promise.all([q(sb.rpc('find_people', { p_query: t.replace(/^@/, '') })), q(sb.rpc('search_teams', { p_query: t.replace(/^@/, '') }))]);
+      PPL.found = r[0].data || []; PPL.teams = r[1].data || []; PPL.msg = '';
+    } catch (e) { PPL.msg = 'Couldn’t search. Check your signal.'; }
     renderPeople();
   }
   async function followTap(u, state) { // Follow, or tap again to stop
@@ -2216,9 +2232,49 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (g('data-pp') === 'signin') { A.after = 'people'; go('account'); }
     else if (g('data-pp') === 'pick') unameOpen(false);
     else if (g('data-prof')) openProfile(g('data-prof'), 'people');
+    else if (g('data-team')) openTeamView(g('data-team'));
     else if (g('data-fol')) followTap(g('data-fol'), b.textContent === 'Following' || b.textContent === 'Requested');
     else if (g('data-acc') || g('data-dec')) { try { await q(sb.rpc('answer_follow', { p_username: g('data-acc') || g('data-dec'), p_accept: !!g('data-acc') })); } catch (err) { PPL.msg = 'That didn’t work. Check your signal.'; } PPL.follows = null; pplLoad(); }
     else if (g('data-unblock')) { try { await q(sb.rpc('block_user', { p_username: g('data-unblock'), p_block: false })); } catch (err) {} PPL.follows = null; pplLoad(); }
+  });
+
+  // ---- looking at a team found in search or on a profile: squad, results, highlights. Never its code: to follow or join,
+  // people still need the code from the team's gaffer.
+  var TV = { id: null, d: null, loaded: false, msg: '', back: 'people' };
+  function openTeamView(id) { TV = { id: id, d: null, loaded: false, msg: '', back: S.view === 'profile' ? 'profile' : 'people' }; go('teamview'); }
+  $('tvBack').addEventListener('click', function () { go(TV.back); });
+  async function tvLoad() {
+    try { TV.d = (await q(sb.rpc('view_team', { p_team: TV.id }))).data; } catch (e) { TV.msg = 'Couldn’t load that team. Check your signal.'; }
+    TV.loaded = true; if (S.view === 'teamview') { applyTheme(TV.d && TV.d.team.color || DEFAULT_COLOR); renderTeamView(); }
+  }
+  function renderTeamView() {
+    var d = TV.d, html = '';
+    $('tvTitle').textContent = d ? d.team.name : 'Team';
+    if (!me || !sb) html = '<p class="note">Sign in to look at teams.</p>';
+    else if (!TV.loaded) { html = '<p class="note">Loading…</p>'; tvLoad(); }
+    else if (!d) html = '<div class="card"><p class="note">' + esc(TV.msg || 'That team can’t be looked at. Its gaffer has taken it out of search.') + '</p></div>';
+    else {
+      var nm2 = {}; d.players.forEach(function (p) { nm2[p.pid] = p.name; });
+      var W = 0, Dr = 0, L = 0; d.games.forEach(function (g) { if (g.house) return; if (g.us > g.them) W++; else if (g.us < g.them) L++; else Dr++; });
+      var cr = /^data:image\//.test(d.team.crest || '') ? '<img class="tvcrest" src="' + esc(d.team.crest) + '" alt="">' : '';
+      html += '<div class="card"><div class="prhead">' + cr + '<h2>' + esc(d.team.name) + '</h2><span class="counts">' + d.players.length + ' players · ' + W + ' won, ' + Dr + ' drawn, ' + L + ' lost</span></div>' +
+        '<p class="note">' + (d.mine ? 'This is your team.' : 'To follow or join ' + esc(d.team.name) + ', ask their gaffer for the team’s code.') + '</p></div>';
+      if (d.clips.length) html += '<div class="card"><h3>Highlights</h3>' + clipPlayer(d.clips.map(function (c) { var g = d.games.filter(function (x) { return x.id === c.game_id; })[0]; return Object.assign({}, c, { title: (g ? (g.house ? '' : 'v ' + g.opp + ': ') : '') + c.label }); })) + '</div>';
+      html += '<div class="card"><h3>Results</h3>' + (d.games.length ? '<ul class="prres">' + d.games.map(function (g) {
+        var won = g.us > g.them, lost = g.us < g.them, k = g.house ? '·' : won ? 'W' : lost ? 'L' : 'D';
+        return '<li><span class="wl ' + (g.house ? 'H' : k) + '">' + k + '</span><span>' + esc(g.house ? scoreText(g) : d.team.short || d.team.name) + (g.house ? '' : ' ' + g.us + '–' + g.them + ' ' + esc(g.opp)) + '<small>' +
+          esc([dayText(g.when), g.house ? 'among the squad' : g.tournament || (g.friendly ? 'friendly' : ''), g.scorers.map(function (x) { return (nm2[x.pid] || 'Player') + (x.goals > 1 ? ' ' + x.goals : ''); }).join(', ')].filter(Boolean).join(' · ')) + '</small></span></li>';
+      }).join('') + '</ul>' : '<p class="note">No games yet.</p>') + '</div>';
+      html += '<div class="card"><h3>Squad</h3>' + d.players.slice().sort(function (a, b) { return (b.goals - a.goals) || (b.games - a.games); }).map(function (p) {
+        var line = p.games + (p.games === 1 ? ' game' : ' games') + ', ' + p.goals + (p.goals === 1 ? ' goal' : ' goals') + ', ' + p.assists + (p.assists === 1 ? ' assist' : ' assists');
+        return p.username ? personRow({ username: p.username, name: p.name }, '<span class="note">' + esc(line) + '</span>') : '<div class="prow"><span class="who"><b>' + esc(p.name) + '</b><small>' + esc(line) + '</small></span></div>';
+      }).join('') + '</div>';
+    }
+    $('tvBody').innerHTML = html;
+  }
+  $('tvBody').addEventListener('click', function (e) {
+    if (clipTap(e)) return;
+    var b = e.target.closest('[data-prof]'); if (b) openProfile(b.getAttribute('data-prof'), 'teamview');
   });
 
   // ---- a profile
@@ -2240,7 +2296,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (!d.can_see) html += '<div class="card"><p class="note">' + (d.follow === 'pending' ? 'Waiting for @' + esc(d.username) + ' to accept. Their teams, results and clips show once they do.' : '@' + esc(d.username) + '’s profile is private. Ask to follow to see their teams, results and clips.') + '</p></div>';
       else {
         var st = d.stats || {};
-        html += '<div class="card"><h3>Teams</h3><div class="prteams">' + ((d.teams || []).map(function (t) { return '<span style="background:' + teamCol(t.color) + ';color:' + inkFor(teamCol(t.color)) + '">' + esc(t.name) + '</span>'; }).join('') || '<span class="note">Not in a squad yet.</span>') + '</div>' +
+        html += '<div class="card"><h3>Teams</h3><div class="prteams">' + ((d.teams || []).map(function (t) { var st = ' style="background:' + teamCol(t.color) + ';color:' + inkFor(teamCol(t.color)) + '"'; return t.id ? '<button type="button" data-team="' + esc(t.id) + '"' + st + '>' + esc(t.name) + ' ›</button>' : '<span' + st + '>' + esc(t.name) + '</span>'; }).join('') || '<span class="note">Not in a squad yet.</span>') + '</div>' +
           '<div class="prstats"><div><b>' + (st.games || 0) + '</b><small>Games</small></div><div><b>' + (st.wins || 0) + '</b><small>Wins</small></div><div><b>' + (st.goals || 0) + '</b><small>Goals</small></div><div><b>' + (st.assists || 0) + '</b><small>Assists</small></div></div></div>';
         html += '<div class="card"><h3>Clips</h3>';
         if (PF.pins) html += pinPicker();
@@ -2280,6 +2336,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (clipTap(e)) return;
     var b = e.target.closest('button'); if (!b || !PF.d) return; var act = b.getAttribute('data-pr'), u = PF.d.username;
     if (b.getAttribute('data-fol')) { followTap(u, !!PF.d.follow); return; }
+    if (b.getAttribute('data-team')) { openTeamView(b.getAttribute('data-team')); return; }
     if (b.getAttribute('data-why')) { try { await q(sb.rpc('report_user', { p_username: u, p_reason: b.getAttribute('data-why') })); PF.msg = 'Thanks. Gaffer will look at @' + u + '’s profile. Block them too if you’d rather not see them.'; } catch (err) { PF.msg = 'Couldn’t send that. Check your signal.'; } PF.report = false; renderProfile(); return; }
     if (act === 'edit') unameOpen(false);
     else if (act === 'accept') { try { await q(sb.rpc('answer_follow', { p_username: u, p_accept: true })); } catch (err) {} prLoad(); }
@@ -2344,7 +2401,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     me = null; closeTeam();
     A.teams.slice().forEach(function (t) { forgetTeam(t.code); });
     A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; crest = null; J = null;
-    MYP = undefined; profAsked = null; PPL = { q: '', found: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; $('unamePop').hidden = true; pplBadges();
+    MYP = undefined; profAsked = null; PPL = { q: '', found: null, teams: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; $('unamePop').hidden = true; pplBadges();
     CH = { code: null, list: [], unread: 0 }; RV = { code: null, list: [], home: null, near: [], q: '', form: null, msg: '' }; myAsk = null; asks = []; askMsg = ''; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
     saveApp(); applyTheme(); go('welcome');
   }
@@ -5762,7 +5819,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var f = document.activeElement;
     if (f !== $('oName')) $('oName').value = S.name || '';
     if (f !== $('oShort')) $('oShort').value = S.short || '';
-    $('oScore').checked = !!S.followersCanScore;
+    $('oScore').checked = !!S.followersCanScore; $('oFind').checked = S.listed !== false;
     swatches($('oColors'), S.color, function (c, fromPicker) { S.color = c; applyTheme(); save(); if (!fromPicker) renderTeamOpts(); });
     renderCrest();
   }
@@ -5770,6 +5827,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('oName').addEventListener('input', function (e) { S.name = e.target.value; if (A.active) rememberTeam(A.active, S.name.trim() || A.active); save(); });
   $('oShort').addEventListener('input', function (e) { S.short = e.target.value; save(); });
   $('oScore').addEventListener('change', function (e) { S.followersCanScore = e.target.checked; save(); });
+  $('oFind').addEventListener('change', function (e) { S.listed = e.target.checked; save(); });
   $('oCrest').addEventListener('change', function (e) {
     readCrest(e.target.files[0]).then(function (u) { oSay(''); setCrest(u); e.target.value = ''; }, function (err) { e.target.value = ''; oSay(err.message); });
   });

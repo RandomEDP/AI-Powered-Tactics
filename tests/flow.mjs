@@ -30,7 +30,7 @@ console.log('A home:', await A.textContent('#heroName'), '| sync:', await A.text
 
 // --- a game: line-up, slider, kick-off, goal, highlight, finish
 await A.click('#mNew'); await A.fill('#opp', 'Dog'); await A.click('#startGame'); await A.click('#kick'); await A.click('#go');
-await A.click('#goalUs'); await A.click('#picker button[data-p]'); await A.click('#picker button[data-p="x"]'); await A.click('#hlBtn');
+await A.click('#goalUs'); await A.click('#picker button[data-p]'); await A.click('#picker button[data-p="x"]'); await A.click('#hlBtn'); await A.click('#picker [data-p="x"]');
 await wait(900); console.log('live in db during game:', !!(await db(A)).live_matches.length, '| events:', (await db(A)).live_matches[0]?.state.events.length);
 
 // --- follower B (new device): follows by code and sees the live game

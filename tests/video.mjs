@@ -30,7 +30,7 @@ await A.fill('#tName', 'Sons of Pitches FC'); await A.fill('#tShort', 'SOP FC');
 await A.click('#v-code [data-go="home"]'); await wait(300);
 await A.click('#mNew'); await A.fill('#opp', 'Dog'); await A.click('#startGame'); await A.click('#kick'); await A.click('#go'); await wait(300);
 await A.click('#goalUs'); await A.click('#picker button[data-p]'); await A.click('#picker button[data-p="x"]'); await wait(1200);
-await A.click('#hlBtn'); await wait(300);
+await A.click('#hlBtn'); await A.click('#picker [data-p="x"]'); await wait(300); // (whose highlight: No one)
 await A.click('#endHalf'); await A.click('#endHalf'); await wait(24000); await A.click('#go'); await wait(500); // a half-time long enough that the two goals are separate clips
 await A.click('#goalThem'); await wait(600);
 await A.click('#finish'); await A.click('#finish'); await wait(1500);

@@ -108,7 +108,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0023`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0024`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -319,6 +319,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   everywhere and ends following both ways; `my_blocks` lists them to unblock. `report_user` stores one report per person
   with a reason in `profile_reports`, for Ethan to read in the dashboard.
 - The team's own Highlights stay per team (Ethan: "when you're selected on a team only show that team's clips").
+- **Finding teams** (`0024_finding_teams.sql`): the People search also finds teams (`search_teams`), and a team on a
+  profile is a link while it's listed. Either opens `v-teamview` (`renderTeamView`, RPC `view_team(id)`): record, last
+  20 results with scorers, the squad with totals (tap a player with a profile), the latest 12 clips. **Never the team's
+  code** (Ethan: to join you still need it from the gaffer), nor upcoming games, chat, the live game or guests' names.
+  `teams.listed` (default true) is the gaffer's switch in Options, "Let people find this team" (`#oFind`, `S.listed`,
+  written with the team row); an unlisted team only opens for its own squad and gaffers.
 - Tests: `people.test.mjs` (47 checks) and `db.test.mjs`. The mock has all of it (`tests/mock-supabase.js`, `PEOPLE`).
 - Applying it live: the Supabase MCP `apply_migration` times out (asking for a confirmation nobody sees) on anything
   containing `delete`, so `unfollow`, `answer_follow` and `block_user` went in through the SQL editor.
@@ -401,7 +407,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0023` are applied live. Add new ones as `supabase/migrations/0024_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0024` are applied live. Add new ones as `supabase/migrations/0025_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.

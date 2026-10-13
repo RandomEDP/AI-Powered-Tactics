@@ -58,7 +58,7 @@
       p.user_id = uid(); p.last_name = a.p_last_name || null; p.position = a.p_position; store(d); return ok('ok');
     }
     // ---------- profiles and following (0023), as the real functions behave
-    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user'];
+    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team'];
     if (PEOPLE.includes(name)) {
       const RESERVED = d.reserved_usernames || ['edp', 'ethan', 'ethandp', 'e_d_p_1', 'gaffer', 'admin', 'support', 'official'].map((h) => ({ handle: h, user_id: null }));
       const prof = (u) => d.profiles.find((p) => p.user_id === u), byName = (n) => d.profiles.find((p) => p.username.toLowerCase() === String(n || '').trim().toLowerCase());
@@ -97,12 +97,23 @@
         const won = (r) => !r.g.house ? r.g.us > r.g.them : (r.g.house.side || {})[r.gp.pid] === 'b' ? r.g.them > r.g.us : r.g.us > r.g.them;
         const cl = clipsOf(p.user_id), pins = p.pins || [];
         return ok(Object.assign(out, {
-          teams: pls.map((pl) => d.teams.find((x) => x.id === pl.team_id)).filter(Boolean).map((t) => ({ name: t.name, short: t.short, color: t.color, crest: t.crest || null })),
+          teams: pls.map((pl) => d.teams.find((x) => x.id === pl.team_id)).filter(Boolean).map((t) => ({ id: t.listed !== false ? t.id : null, name: t.name, short: t.short, color: t.color, crest: t.crest || null })),
           stats: { games: rows.length, goals: rows.reduce((n, r) => n + (r.gp.goals || 0), 0), assists: rows.reduce((n, r) => n + (r.gp.assists || 0), 0), wins: rows.filter(won).length },
           results: rows.sort((x, y) => when(y.g) - when(x.g)).slice(0, 10).map((r) => ({ team: r.t.short, team_name: r.t.name, opp: r.g.opp, us: r.g.us, them: r.g.them, friendly: !!r.g.friendly, house: houseOf(r.g, r.gp.pid), goals: r.gp.goals || 0, assists: r.gp.assists || 0, when: when(r.g) })),
           clips: pins.map((v) => cl.find((c) => c.game_id === v.g && c.at === v.at)).filter(Boolean) }));
       }
       if (name === 'my_clips') return ok(clipsOf(uid()));
+      if (name === 'search_teams') { const t = String(a.p_query || '').trim().toLowerCase(); if (t.length < 2) return ok([]);
+        return ok(d.teams.filter((x) => x.listed !== false && (x.name.toLowerCase().includes(t) || (x.short || '').toLowerCase().includes(t))).slice(0, 20)
+          .map((x) => ({ id: x.id, name: x.name, short: x.short, color: x.color, crest: x.crest || null, players: d.players.filter((p) => p.team_id === x.id).length, games: d.games.filter((g) => g.team_id === x.id).length }))); }
+      if (name === 'view_team') { const t = d.teams.find((x) => x.id === a.p_team); if (!t || !(t.listed !== false || inTeam(t.id))) return ok(null);
+        const gps = (pid) => d.game_players.filter((gp) => gp.pid === pid && d.games.some((g) => g.id === gp.game_id && g.team_id === t.id));
+        return ok({ team: { id: t.id, name: t.name, short: t.short, color: t.color, crest: t.crest || null }, mine: inTeam(t.id),
+          players: d.players.filter((p) => p.team_id === t.id).sort((x, y) => x.pid - y.pid).map((p) => { const pr = p.user_id && prof(p.user_id); return { pid: p.pid, name: p.name, number: p.shirt_number ?? null, position: p.position || null,
+            username: pr && !blocked(uid(), p.user_id) ? pr.username : null, games: gps(p.pid).length, goals: gps(p.pid).reduce((n, x) => n + (x.goals || 0), 0), assists: gps(p.pid).reduce((n, x) => n + (x.assists || 0), 0) }; }),
+          games: d.games.filter((g) => g.team_id === t.id).sort((x, y) => when(y) - when(x)).slice(0, 20).map((g) => ({ id: g.id, opp: g.opp, us: g.us, them: g.them, friendly: !!g.friendly, tournament: g.tournament || null,
+            house: g.house ? { a: g.house.a, b: g.house.b } : null, when: when(g), scorers: d.game_players.filter((gp) => gp.game_id === g.id && gp.goals > 0).sort((x, y) => y.goals - x.goals || x.pid - y.pid).map((gp) => ({ pid: gp.pid, goals: gp.goals })) })),
+          clips: d.clips.filter((c) => c.team_id === t.id && c.at != null).sort((x, y) => y.at - x.at).slice(0, 12).map((c) => ({ game_id: c.game_id, at: c.at, path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur })) }); }
       if (name === 'set_pins') { if (!mine) return ok('no_profile'); const list = a.p_pins || []; if (list.length > 3) return ok('too_many'); const cl = clipsOf(uid());
         if (!list.every((v) => cl.some((c) => c.game_id === v.g && c.at === +v.at))) return ok('not_yours'); mine.pins = list.map((v) => ({ g: v.g, at: +v.at })); store(d); return ok('ok'); }
       if (name === 'follow') { if (!mine) return ok('no_profile'); const p = byName(a.p_username); if (!p || blocked(uid(), p.user_id)) return ok('missing'); if (p.user_id === uid()) return ok('self');

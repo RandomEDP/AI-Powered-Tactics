@@ -370,6 +370,27 @@ eq(await d.rpc(sam, 'report_user', { p_username: 'chappers', p_reason: 'Rude cli
 eq((await d.admin(`select count(*)::int as n, max(reason) as r from public.profile_reports`))[0], { n: 1, r: 'Rude clip, again' }, 'once per person');
 for (const t of ['profiles', 'follows', 'blocks', 'profile_reports', 'reserved_usernames']) eq(await count(sam, 'public.' + t), 0, `nobody reads ${t} directly`);
 
+// ---------- finding teams (0024): search by name, look at a team from search or a profile, never its code
+let found = await d.rpc(sam, 'search_teams', { p_query: 'pitch' });
+eq(found.map((t) => [t.id === sop.id, t.name, t.players, t.games]), [[true, 'Sons of Pitches', squadNow, 1]], 'anyone signed in can find a team by name');
+check(!JSON.stringify(found).includes(sop.code), 'without its code');
+eq(await d.rpc(sam, 'search_teams', { p_query: 'p' }), [], 'with at least two letters');
+check(/Sign in|permission denied/i.test(await d.fails(d.rpc(null, 'search_teams', { p_query: 'pitch' }))), 'and only signed in');
+let tv = await d.rpc(sam, 'view_team', { p_team: sop.id });
+eq([tv.team.name, tv.mine, tv.games.map((g) => [g.opp, g.us, g.them, g.scorers]), tv.clips.length], ['Sons of Pitches', false, [['Dog Squad', 3, 1, [{ pid: 3, goals: 2 }, { pid: 2, goals: 1 }]]], 1], 'looking at a team shows its results, scorers and highlights');
+const chap = tv.players.find((p) => p.pid === 3);
+eq([chap.username, chap.games, chap.goals, chap.assists], ['Chappers', 1, 2, 1], 'its squad with each player\'s totals, and the username of anyone with a profile');
+check(!JSON.stringify(tv).includes(sop.code) && !JSON.stringify(tv).includes('organiser'), 'and never the team code, so joining still needs the code from the gaffer');
+check(!('fixtures' in tv) && !('live' in tv) && !('messages' in tv), 'nor upcoming games, the live game or the chat');
+eq((await d.rpc(sam, 'get_profile', { p_username: 'chappers' })).teams.map((t) => t.id === sop.id), [true], 'a team on a profile can be tapped through to');
+await d.admin(`update public.teams set listed = false where id = '${sop.id}'`);
+eq([await d.rpc(sam, 'search_teams', { p_query: 'pitch' }), await d.rpc(sam, 'view_team', { p_team: sop.id }), (await d.rpc(sam, 'get_profile', { p_username: 'chappers' })).teams.map((t) => t.id)], [[], null, [null]],
+  'a team its gaffer has taken out of search can\'t be found, looked at or tapped through to');
+eq((await d.rpc(ethan, 'view_team', { p_team: sop.id })).mine, true, 'except by its own squad and gaffers');
+eq((await d.rpc(ethan, 'get_team', { p_code: sop.code })).team.listed, false, 'and the team says so, for the switch in Options');
+await d.admin(`update public.teams set listed = true where id = '${sop.id}'`);
+eq((await d.admin(`select column_default from information_schema.columns where table_name = 'teams' and column_name = 'listed'`))[0].column_default, 'true', 'every team starts listed');
+
 // ---------- deleting an account
 eq(await d.rpc(jake, 'delete_my_account'), 0, 'a player deleting their account takes no team with it');
 t = await d.rpc(ethan, 'get_team', { p_code: sop.code });

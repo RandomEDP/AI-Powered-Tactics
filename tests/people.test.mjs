@@ -150,6 +150,37 @@ eq(await S.text('#pplBody [data-fol="Chappers"]'), 'Follow', 'someone public jus
 await S.click('#pplBody [data-fol="Chappers"]'); await S.run(800);
 eq(w.db().follows.find((f) => f.follower !== 'u-jake' && f.followee === 'u-jake' && w.db().users.find((u) => u.id === f.follower).email === 'sam@example.com').status, 'accepted', 'and is followed straight away');
 
+// ---------- finding teams, and looking at one: never its code
+await S.page.fill('#pplQ', 'pitches'); await S.click('#pplGo'); await S.run(500);
+eq(await S.page.$$eval('#pplTeams .who b', (b) => b.map((x) => x.textContent)), ['Sons of Pitches FC'], 'teams are found by name');
+await S.click('#pplTeams [data-team].plain'); await S.run(1000);
+const tv = await S.text('#tvBody');
+eq([await S.view(), await S.text('#tvTitle')], ['teamview', 'Sons of Pitches FC'], 'and can be looked at');
+check(/SOP FC 1–0 Dog Squad/.test(tv) && /Jake/.test(tv) && /Highlights/.test(tv) && /1 won, 0 drawn, 0 lost/.test(tv), `its results, record, squad and highlights (${tv.slice(0, 200)})`);
+check(!tv.includes(code) && !(await S.page.content()).includes(code), 'never its code, anywhere on the page');
+check(/ask their gaffer for the team’s code/.test(tv), 'it says how to follow or join: ask the gaffer for the code');
+check(!/Next game|poll|Kick-off/i.test(tv), 'and no upcoming games');
+await shot(S, 'team-view');
+await S.click('#tvBody [data-prof="Chappers"]'); await S.run(1000);
+eq(await S.view(), 'profile', 'a player with a profile can be tapped through to');
+await S.click('#prBody .prteams [data-team]'); await S.run(1000);
+eq([await S.view(), await S.text('#tvTitle')], ['teamview', 'Sons of Pitches FC'], 'and a team on someone\'s profile can be tapped through to');
+await S.tap('#tvBack'); await S.run(500);
+// the gaffer takes the team out of search
+await home(A); await A.run(300); if (await A.view() !== 'home') { await A.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) .back'); if (b) b.click(); }); await A.run(300); }
+await A.click('#tabs [data-tab="options"]'); await A.run(300);
+eq(await A.page.isChecked('#oFind'), true, 'every team starts findable');
+await A.page.uncheck('#oFind'); await A.run(2500);
+eq(w.db().teams[0].listed, false, 'a gaffer can take their team out of search');
+await S.page.reload(); await S.run(1500);
+if (await S.view() !== 'profile') { if (await S.view() !== 'people') await S.click('#pplBtn'); await S.run(500); await prof(S, 'Chappers'); }
+await S.run(800);
+eq(await S.page.$$eval('#prBody .prteams [data-team]', (b) => b.length), 0, 'then it isn\'t a link on profiles');
+await S.tap('#v-profile .back'); await S.run(800);
+await S.page.fill('#pplQ', 'pitches'); await S.click('#pplGo'); await S.run(500);
+check(/No teams found/.test(await S.text('#pplTeams')), 'or found in search');
+await A.page.check('#oFind'); await A.run(2500);
+
 // ---------- signed out, People asks you to sign in
 const N = await w.phone({ db: true, label: 'nobody' });
 await N.click('#pplBtn'); await N.run(300);
