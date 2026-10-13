@@ -27,6 +27,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "joinReel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "shareText", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readable", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cleanup", returnType: CAPPluginReturnPromise)
     ]
 
@@ -34,6 +35,9 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     private var pickSlot = 1
     private var copyObservation: NSKeyValueObservation?
     private let queue = DispatchQueue(label: "reelcutter.work", qos: .userInitiated)
+    /// Videos used where they are in Photos, by path. iOS only lets the app read such a file while Photos' own handle on it
+    /// (this asset) is kept: let go of it and opening the path again finds no video in it. Only touched on `queue`.
+    private var picked: [String: AVURLAsset] = [:]
 
     private struct Segment {
         let asset: AVAsset
@@ -137,6 +141,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { video, _, _ in then(video as? AVURLAsset) }
         }
         let use: (AVURLAsset) -> Void = { video in
+            self.queue.sync { self.picked[video.url.path] = video } // (kept, or the file can't be read again later)
             var result: [String: Any] = ["path": video.url.path, "duration": CMTimeGetSeconds(video.duration), "inPlace": true]
             if let made = video.creationDate?.dateValue ?? asset.creationDate { result["created"] = made.timeIntervalSince1970 * 1000 }
             call.resolve(result)
@@ -257,7 +262,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 var assets: [String: AVURLAsset] = [:]
                 func asset(_ file: String) -> AVURLAsset {
                     if let known = assets[file] { return known }
-                    let made = AVURLAsset(url: URL(fileURLWithPath: file))
+                    let made = self.picked[file] ?? AVURLAsset(url: URL(fileURLWithPath: file))
                     assets[file] = made
                     return made
                 }
@@ -486,7 +491,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     private func export(segments: [Segment], watermark: String, outro: [String: Any]?, to out: URL, intro: AVURLAsset? = nil, signOff: AVURLAsset? = nil,
                         look: ReelLook? = nil, progress: @escaping (Double) -> Void) throws {
         guard let firstAsset = segments.first?.asset, let firstVideo = firstAsset.tracks(withMediaType: .video).first else {
-            throw CutError(message: "That file has no video in it")
+            throw CutError(message: ReelCutterPlugin.unreadable)
         }
 
         let composition = AVMutableComposition()
@@ -523,7 +528,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         var placed: [(at: CMTime, track: AVAssetTrack)] = [] // which camera's footage starts where, for fitting each into the frame
         for segment in segments {
             guard let sourceVideo = segment.asset.tracks(withMediaType: .video).first else {
-                throw CutError(message: "That file has no video in it")
+                throw CutError(message: ReelCutterPlugin.unreadable)
             }
             let total = CMTimeGetSeconds(segment.asset.duration)
             guard total.isFinite, total > 1 else { throw CutError(message: "That video is too short to cut") }
@@ -752,6 +757,20 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 call.resolve(["completed": completed])
             }
             host.present(sheet, animated: true)
+        }
+    }
+
+    static let unreadable = "Gaffer can't open that video any more. Go back to the cameras, choose it again with Change video, and cut straight away. If it still won't open, check it plays in the Photos app."
+
+    /// Which of these videos can't be opened (so it's found out before any commentary is recorded): { bad: [path] }.
+    @objc public func readable(_ call: CAPPluginCall) {
+        let paths = call.getArray("paths", String.self) ?? []
+        queue.async {
+            let bad = paths.filter { path in
+                let video = self.picked[path] ?? AVURLAsset(url: URL(fileURLWithPath: path))
+                return video.tracks(withMediaType: .video).isEmpty
+            }
+            call.resolve(["bad": bad])
         }
     }
 

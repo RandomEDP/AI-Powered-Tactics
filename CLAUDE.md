@@ -241,6 +241,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Reading the video:** with full Photos access (asked once, before the picker) the picked video is used where it is in
   the library (`inPlace`, `PHImageManager`, the version as it looks in Photos, else the original), so nothing is copied;
   otherwise it's copied into the working folder as before.
+  iOS only lets the app read such a file while Photos' own `AVURLAsset` for it is kept, so the plugin keeps it
+  (`picked`, by path) and the cut uses that asset. Letting go of it gave Ethan "That file has no video in it" after the
+  commentary had been recorded (build 128). Before cutting, JS asks `readable({paths})` and, if a video can't be opened,
+  says to choose it again (Change video keeps the marks when it's the same video, `sameVideo`) without recording anything.
 - **Timing:** each clip runs from `PRE` (8 s) before its moment to `POST` (6 s) after (Ethan cut it from 15 s before).
 - **Size:** every clip is re-encoded to about 2 Mbps H.264 after export (`shrink`), because the `clips` bucket is on the
   Supabase free plan (1 GB; 417 MB was used by about 30 clips at the old ~14 MB each).

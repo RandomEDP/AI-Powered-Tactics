@@ -14,6 +14,7 @@ const cutter = () => { // the native ReelCutter, as the web app sees it; the vid
     pickVideo: async (o) => { window.__rc.push(['pick', o.slot]); return { path: '/phone/game' + o.slot + '.mov', duration: 5400 }; },
     cut: async (o) => { window.__rc.push(['cut', o]); const clips = o.clips.map((c) => ({ file: c.file, path: '/phone/' + c.file }));
       return window.__reelFail ? { clips, reelError: window.__reelFail } : { clips, reel: { path: '/phone/' + o.reelFile } }; },
+    readable: async (o) => { window.__rc.push(['readable', o.paths]); return { bad: window.__unreadable ? o.paths : [] }; },
     share: async () => ({}), cleanup: async () => ({}),
   };
   window.Capacitor.convertFileSrc = (path) => location.origin + '/_capacitor_file_' + path; // (a file on the phone, as the web view reads it)
@@ -73,6 +74,18 @@ await pick(/Dog Squad/); await here(g2 + 400);
 check(/That’s \d+ min from where the other marks put it: check it’s the right moment\./.test(await A.text('#cutMoved')), `a mark far from where the others put it is questioned (${await A.text('#cutMoved')})`);
 await A.click(`#cutBody [data-cutdo="unmark"][data-key="${(await row(/Dog Squad/)).key}"]`);
 eq([secs((await row(/Dog Squad/)).when), /^About/.test((await row(/Dog Squad/)).when)], [g2 + 10, true], 'Clear takes the mark away again');
+
+// ---------- the video can't be opened any more (Ethan's 15–2 game: "That file has no video in it", after the commentary was
+// recorded). Now it's found out first, before anything is recorded, and choosing the same video again keeps the marks.
+const marked = JSON.stringify(await rows());
+await A.page.evaluate(() => { window.__unreadable = true; });
+await A.click('#cutBody [data-cutdo="go"]'); await A.run(1500);
+eq([await A.text('#cutBody .msg.bad'), await A.visible('#cutPrev'), await A.page.evaluate(() => window.__rc.filter((x) => x[0] === 'cut').length)],
+  ['Gaffer can’t open the video any more. Tap Back to the cameras, choose it again with Change video (your marks stay), and cut straight away. If it still won’t open, check it plays in the Photos app.', true, 0],
+  'a video that can no longer be opened is found out before cutting starts, and it says what to do');
+await A.page.evaluate(() => { window.__unreadable = false; });
+await A.click('#cutBody [data-cutdo="cams"]'); await A.click('#cutBody [data-cutdo="vid"][data-cam="0"]'); await A.run(500); await A.click('#cutBody [data-cutdo="next"]');
+eq(JSON.stringify(await rows()).replace(/"on":(true|false)/g, ''), marked.replace(/"on":(true|false)/g, ''), 'choosing the same video again keeps every mark');
 
 // ---------- the cut uses all of it (and this time the full reel can't be joined)
 await A.page.evaluate(() => { window.__reelFail = 'It stopped making progress, so it was stopped. Keep Gaffer open on screen while it works, and try again.'; });

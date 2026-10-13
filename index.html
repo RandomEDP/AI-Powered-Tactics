@@ -3054,7 +3054,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       html += '<p class="note" id="cutCount">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut' + (from ? ' (' + from + ')' : '') + ', plus one joined reel that ends on the full-time card, to share.</p>' +
         '<div class="actions"><button class="plain" type="button" data-cutdo="cams">Back to the cameras</button><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
     }
-    else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p><p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>';
+    else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p>' + (CUT.msg ? '' : '<p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>'); // (stopped by a problem: no spinner)
     else if (CUT.stage === 'done') html += '<p class="msg">' + CUT.n + (CUT.n === 1 ? ' clip is' : ' clips are') + ' now in Highlights for the whole team' + (CUT.voiced === true ? ', with commentary' : '') + '.</p>' + (CUT.voiced && CUT.voiced !== true ? '<p class="msg bad">The commentary couldn’t be added: ' + esc(CUT.voiced) + ' The clips were cut without it.</p>' : '') +
       (CUT.reelErr ? '<p class="msg bad">The full reel couldn’t be joined: ' + esc(CUT.reelErr) + ' The clips are all in Highlights; cut again to try the reel once more.</p>' : '') +
       '<div class="actions">' + (CUT.reel ? '<button class="plain primary" type="button" data-cutdo="share">Share the full reel</button>' : '') + '<button class="plain" type="button" data-cutdo="finish">Done</button></div>' +
@@ -3082,6 +3082,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       (end.sub ? '<span class="lk-sub">' + esc(end.sub) + '</span>' : '') + '<i class="lk-rule"></i>' + img('icons/icon-192.png', 'lk-icon') + '<b class="lk-app">Gaffer: 5-a-Side Team Manager</b><span class="lk-badge">' + APPLE + '<span><small>Download on the</small>App Store</span></span></div></div>' +
       '<label class="check" for="cutBug"><input id="cutBug" type="checkbox"' + (CUT.bug !== false ? ' checked' : '') + '><span>Score, clock and crest on every clip <small>(the clock ticks, and the score changes as the ball goes in)</small></span></label></section>';
   }
+  function sameVideo(a, b) { return !!(a && b) && Math.abs((a.duration || 0) - (b.duration || 0)) < 0.5 && a.created === b.created && (a.created != null || a.path === b.path); }
   function fileSrc(path) { var C = window.Capacitor; try { return C && C.convertFileSrc ? C.convertFileSrc(path) : path; } catch (e) { return path; } } // a file on the phone, as the web view can play it
   function cutKeep() { // remember what's typed before the screen is redrawn
     if (!CUT) return;
@@ -3102,7 +3103,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var src = await rc.pickVideo({ slot: k.id * 2 + (second ? 2 : 1) }); // each camera has two slots: its video, and a separate second half
       CUT.prog = '';
       if (!src || src.cancelled) drop();
-      else if (second) { k.src2 = src; k.sync2 = cutGuess(src, r.h2At); camForget(r, k, true); }
+      else if (second) { var same2 = sameVideo(k.src2, src); k.src2 = src; if (!same2) { k.sync2 = cutGuess(src, r.h2At); camForget(r, k, true); } }
+      else if (sameVideo(k.src, src)) k.src = src; // the same video chosen again (to open it afresh): its marks still stand
       else {
         k.src = src; camForget(r, k, false); var guess = cutGuess(src, r.koAt);
         k.auto = guess != null; k.sync = k.auto ? guess : (typeof r.sync === 'number' && CUT.cams.filter(function (x) { return x.src; }).length === 1 ? r.sync : null);
@@ -3189,6 +3191,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (bad) { cutKeep(); CUT.msg = bad; renderCut(); return; }
       var list = cutPlan(r, CUT.cams, CUT.swap);
       if (!list.length) { CUT.msg = 'No timed moments were logged in this game.'; renderCut(); return; }
+      // Can every video still be opened? Found out now, before any commentary is recorded (iOS can stop Gaffer reading a
+      // video from Photos some time after it was chosen, and a damaged recording can't be read at all).
+      var paths = []; live.forEach(function (k) { paths.push(k.src.path); if (k.src2) paths.push(k.src2.path); });
+      var unread = []; try { var rd = await rc.readable({ paths: paths }); unread = (rd && rd.bad) || []; } catch (e) {} // (a phone without the check just carries on)
+      var lost = live.filter(function (k) { return unread.indexOf(k.src.path) >= 0 || (k.src2 && unread.indexOf(k.src2.path) >= 0); });
+      if (lost.length) {
+        cutKeep(); CUT.msg = 'Gaffer can’t open ' + (many ? listAnd(lost.map(function (k) { return 'camera ' + camNo(k) + '’s video'; })) : 'the video') + ' any more. Tap Back to the cameras, choose it again with Change video (your marks stay), and cut straight away. If it still won’t open, check it plays in the Photos app.';
+        renderCut(); return;
+      }
       CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; renderCut();
       try {
         var b0 = camBase(r, live[0], false, false); if (b0 != null) r.sync = Math.max(0, Math.round(b0)); save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
