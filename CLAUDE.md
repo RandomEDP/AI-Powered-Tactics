@@ -336,6 +336,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     function performs them with its `SWEARY` prompt (a foul-mouthed pub commentator). Off unless chosen; the choice is
     kept per phone (`apt-voice`). The App Store age rating has to allow for it (Ethan's to set in App Store Connect).
   - If the performed line fails, the function falls back to Chirp and returns a plain-English `note` saying why.
+  - Google's project has a small per-minute limit for `gemini-2.5-flash-tts` ("Quota exceeded ... per_minute_per_project_per_base_model",
+    seen in the function logs). The function asks one line at a time and, when told to slow down, waits and retries
+    (about 90 s in all; the rest are read straight). Ethan can raise the limit: Google Cloud, IAM & Admin, Quotas,
+    gemini-2.5-flash-tts.
 - Ethan funds the Google usage himself.
 
 ### Other features (all in `index.html`)
@@ -357,7 +361,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v17 (kind `live` from any team member, sent once; same as the repo), `live-stream` v5,
-    `reel-voice` v12 (players allowed too; Sweary delivery), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v13 (players allowed too; Sweary delivery; paced for Google's per-minute limit), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
@@ -462,8 +466,8 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
 - **Action button** (Ethan has an Ultra): the watch app's shortcut didn't show in the Action button list (it only offers
   your own Shortcuts library). Builds after 112 have "Mark a highlight" in the iPhone's Shortcuts app; check it can be
   added, shows on the watch, and marks a highlight mid-game (see Phone ↔ Apple Watch).
-- **Voice:** Ethan is setting up the Google service account (Vertex AI User) and the `GOOGLE_SERVICE_ACCOUNT` secret.
-  Then "Hear this voice" should say "Playing." rather than falling back to read-it-straight.
+- **Voice:** the `GOOGLE_SERVICE_ACCOUNT` secret is set and works; the commentator voice was being refused by Google's
+  per-minute limit. Ethan to ask Google for a higher limit (see AI commentary); then check "Hear this voice" says Playing.
 - **Ideas he has raised but not built yet:**
   - ads in the free tier and the £4.99 Gaffer subscription (in-app purchase);
   - MOTM and ratings from video;
