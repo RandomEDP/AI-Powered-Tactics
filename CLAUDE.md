@@ -299,6 +299,14 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   to `reel_at`), and otherwise every clip back to back (`ended` loads the next), so games cut before reels were kept
   (SOP's 15–2 v Dog Squad) still get it. The inline reel or clips are folded under it (`details.allclips`, kept open
   across redraws in `HLOPEN`). Test: `reels.test.mjs`.
+- **One video for games without one** (Ethan: "play the whole 6 mins in one video"): when a gaffer's iPhone opens the
+  whole-match player on a game with no reel, it makes one (`mhMake`, `MK`): `joinReel` of the clips with the full-time
+  card and `shrink: true` (the plugin shrinks it like the cut's reel), without commentary and with it if any clip has
+  it, uploads both to the game's folder (`clip-store` upload links, or the old storage), writes `games.reel` and each
+  clip's `reel_at`, and switches the player to it. Until then the clips play one after another (a follower is told the
+  gaffer's phone will make it). **Save or share** in the player (`mhExport`, `EX`): the one video fetched onto the phone
+  (`joinReel` of the reel's address, no extra card), or the clips joined, then the share sheet; a second tap reuses it.
+  On the web it opens the reel's address. Test: `reels.test.mjs`.
 - **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies) and its reel,
   to cut again from scratch.
 - **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each

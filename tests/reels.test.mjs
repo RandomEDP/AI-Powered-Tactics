@@ -88,22 +88,10 @@ await shot(A, 'reel-in-highlights');
 await A.click('#hlList [data-say]');
 eq(await A.page.$eval('#hlList .hcard:first-child .reelp video', (v) => v.getAttribute('src').replace(/^.*\//, '')), 'reel.mp4', 'Commentary off plays the reel without it');
 await A.click('#hlList [data-say]');
-// a game whose reel didn't upload still plays its clips one by one, as before
-const savedReel = w.db().games[0].reel; let dbx = w.db(); dbx.games[0].reel = null; w.setDb(dbx); await A.page.reload(); await A.run(1500);
+// a game whose reel didn't upload (cut before reels were kept): its clips one by one inline
+const savedReel = w.db().games[0].reel; let dbx = w.db(); dbx.games[0].reel = null; dbx.clips.forEach((c) => { c.reel_at = null; }); w.setDb(dbx); await A.page.reload(); await A.run(1500);
 if (await A.view() !== 'highlights') { await A.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]') || document.querySelector('.view:not([hidden]) .back'); if (b) b.click(); }); await A.run(300); await A.click('#mHighlights'); }
 await A.run(500);
-await A.page.evaluate(() => { HTMLMediaElement.prototype.play = function () { this.__played = (this.__played || 0) + 1; return Promise.resolve(); }; });
-eq(await A.page.$$eval('#hlList .hcard:first-child .mhbtn', (b) => b.length), 1, 'a game whose reel didn\'t upload (cut before reels were kept) still has the whole-match button');
-await A.click('#hlList .hcard:first-child .mhbtn'); await A.run(300);
-const mhsrc = () => A.page.$eval('#mhVideo', (v) => v.getAttribute('src').replace(/^.*\//, ''));
-eq([await mhsrc(), await A.text('#mhNow')], ['01v.mp4', 'Moment 1 of 3 · 0:42 in all'], 'which plays the clips back to back');
-await A.page.evaluate(() => document.getElementById('mhVideo').dispatchEvent(new Event('ended'))); await A.run(100);
-eq([await mhsrc(), await A.text('#mhNow'), await A.page.$eval('#mhVideo', (v) => v.__played || 0)], ['02v.mp4', 'Moment 2 of 3 · 0:42 in all', 2], 'each one straight after the last');
-await A.click('#mhList [data-mhi="2"]');
-eq(await mhsrc(), '03v.mp4', 'and any moment can be picked');
-await A.page.evaluate(() => document.getElementById('mhVideo').dispatchEvent(new Event('ended'))); await A.run(100);
-eq(await mhsrc(), '03v.mp4', 'stopping after the last');
-await A.click('#mhClose'); await A.run(200);
 await A.page.evaluate(() => document.querySelectorAll('#hlList details.allclips').forEach((d) => { d.open = true; d.dispatchEvent(new Event('toggle')); }));
 eq([await A.page.$$eval('#hlList .reelp', (x) => x.length), await A.page.$$eval('#hlList .hcard:first-child [data-clip]', (b) => b.length)], [0, 3], 'without a reel, the clips play one by one as before');
 
@@ -116,13 +104,52 @@ eq([await A.text('#hlList [data-say]'), await srcs(), await vsrc()], ['Commentar
 check(await A.page.evaluate(() => localStorage.getItem('apt-say') === '0'), 'the choice is remembered on this phone');
 await A.click('#hlList [data-say]');
 check(await A.page.evaluate(() => !document.querySelector('#hlList .say') && !document.querySelector('[data-line]')), 'no spoken-by-the-phone commentary is left to talk over the video');
-dbx = w.db(); dbx.games[0].reel = savedReel; w.setDb(dbx); await A.page.reload(); await A.run(1500); // (the reel back for the rest)
+
+// ---------- the gaffer opens the whole match's highlights on such a game: their phone makes it one video, for everyone
+await A.page.evaluate(() => { HTMLMediaElement.prototype.play = function () { this.__played = (this.__played || 0) + 1; return Promise.resolve(); }; });
+const mhsrc = (P) => P.page.$eval('#mhVideo', (v) => v.getAttribute('src').replace(/^.*\//, ''));
+const joinsBefore = (await calls(A, 'join')).length;
+await A.click('#hlList .hcard:first-child .mhbtn'); await A.run(3000);
+const mk = (await calls(A, 'join')).slice(joinsBefore);
+eq(mk.map((o) => [o.items.map((x) => tail(x.url)), o.shrink, !!o.outro, /reelv?\.mp4$/.test(o.file)]), [[['01.mp4', '02.mp4', '03.mp4'], true, true, true], [['01v.mp4', '02v.mp4', '03v.mp4'], true, true, true]],
+  'the gaffer\'s phone joins the clips into one video (shrunk, with the full-time card), without commentary and with it');
+const g1 = w.db().games[0];
+eq([tail(g1.reel && g1.reel.path), tail(g1.reel && g1.reel.vpath), g1.reel && g1.reel.store, w.db().clips.slice().sort((a, b) => a.seq - b.seq).map((c) => c.reel_at)], ['reel.mp4', 'reelv.mp4', 'r2', [0, 14.04, 28.08]],
+  'uploads it and keeps it as the game\'s video, with where each moment starts');
+eq([await mhsrc(A), await A.text('#mhMsg')], ['reelv.mp4', 'It’s one video now, for everyone in the team.'], 'and the player switches to the one video');
+await shot(A, 'match-one-video');
+// Save or share: the one video, fetched to the phone, then the share sheet
+await A.click('#mhTools [data-mhsave]'); await A.run(1000);
+const ex = (await calls(A, 'join')).pop();
+eq([ex.items.map((x) => tail(x.url)), !!ex.outro, (await calls(A, 'share')).pop()], [['reelv.mp4'], false, '/phone/' + ex.file], 'Save or share gets the one video onto the phone and opens the share sheet');
+const jn = (await calls(A, 'join')).length, sh = (await calls(A, 'share')).length;
+await A.click('#mhTools [data-mhsave]'); await A.run(300);
+eq([(await calls(A, 'join')).length - jn, (await calls(A, 'share')).length - sh], [0, 1], 'a second tap shares the same file again, without fetching it twice');
+await A.click('#mhClose'); await A.run(200);
+dbx = w.db(); dbx.games[0].reel = savedReel; w.setDb(dbx); await A.page.reload(); await A.run(1500); // (the reel the cut made back for the rest)
 
 // ---------- a follower downloads the game's reel
 const F = await w.phone({ db: true, native: true, label: 'follower' });
 await F.ctx.addInitScript(cutter); await F.page.reload(); await F.run(500);
 await F.page.fill('#joinCode', code); await F.click('#joinBtn'); await F.run(500); await F.click('#jFollow'); await F.run(800);
 await F.click('#mHighlights'); await F.run(300);
+// without one video (and on a phone that can't make it: not a gaffer's), the whole match's clips play back to back
+dbx = w.db(); const keepReel = dbx.games[0].reel; dbx.games[0].reel = null; w.setDb(dbx); await F.page.reload(); await F.run(1500);
+if (await F.view() !== 'highlights') { await home(F); await F.run(300); await F.click('#mHighlights'); await F.run(300); }
+await F.page.evaluate(() => { HTMLMediaElement.prototype.play = function () { this.__played = (this.__played || 0) + 1; return Promise.resolve(); }; });
+const fjoins = (await calls(F, 'join')).length;
+await F.click('#hlList .hcard:first-child .mhbtn'); await F.run(300);
+eq([await mhsrc(F), await F.text('#mhNow'), (await calls(F, 'join')).length - fjoins], ['01v.mp4', 'Moment 1 of 3 · 0:42 in all', 0], 'a follower without one video gets the clips back to back (only a gaffer\'s phone makes it)');
+check(/gaffer’s phone makes them one video/.test(await F.text('#mhMsg')), 'and is told why');
+await F.page.evaluate(() => document.getElementById('mhVideo').dispatchEvent(new Event('ended'))); await F.run(100);
+eq([await mhsrc(F), await F.text('#mhNow'), await F.page.$eval('#mhVideo', (v) => v.__played || 0)], ['02v.mp4', 'Moment 2 of 3 · 0:42 in all', 2], 'each one straight after the last');
+await F.click('#mhList [data-mhi="2"]');
+eq(await mhsrc(F), '03v.mp4', 'and any moment can be picked');
+await F.page.evaluate(() => document.getElementById('mhVideo').dispatchEvent(new Event('ended'))); await F.run(100);
+eq(await mhsrc(F), '03v.mp4', 'stopping after the last');
+await F.click('#mhClose'); await F.run(200);
+dbx = w.db(); dbx.games[0].reel = keepReel; w.setDb(dbx); await F.page.reload(); await F.run(1500);
+if (await F.view() !== 'highlights') { await home(F); await F.run(300); await F.click('#mHighlights'); await F.run(300); }
 eq([await F.visible('#hlList [data-dl]'), await F.visible('#hlList [data-cut]'), await F.visible('#hlList [data-hldel]')], [true, false, false], 'anyone in the team can download the reel (only gaffers cut or delete)');
 await F.click('#hlList [data-dl]'); await F.run(1000);
 let join = (await calls(F, 'join')).pop();

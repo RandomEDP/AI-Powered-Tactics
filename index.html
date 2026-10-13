@@ -468,12 +468,12 @@ tr.past td { opacity: .45; }
 .snd { position: absolute; right: 10px; bottom: 10px; border: 0; border-radius: 999px; background: rgba(0, 0, 0, .6); color: #fff; font: inherit; font-size: 13px; font-weight: 700; padding: 6px 10px; min-height: 0; }
 #mhPop { position: fixed; inset: 0; z-index: 49; background: #000; color: #fff; overflow-y: auto; padding: calc(10px + env(safe-area-inset-top, 0px)) 0 calc(16px + env(safe-area-inset-bottom, 0px)); }
 #mhPop[hidden] { display: none; }
-#mhPop .plain { background: rgba(255, 255, 255, .16); color: #fff; } #mhPop .plain[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
+#mhPop .plain { background: rgba(255, 255, 255, .16); color: #fff; } #mhPop .plain.primary { background: var(--on); color: var(--on-ink); } #mhPop .plain[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
 .mhbox { max-width: 720px; margin: 0 auto; }
 .mhbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 16px 10px; }
 .mhbar b { display: block; font-size: 18px; } .mhbar small { color: rgba(255, 255, 255, .7); font-size: 14px; }
 #mhVideo { display: block; width: 100%; background: #000; aspect-ratio: 16 / 9; }
-.mhtools { padding: 8px 16px 0; } #mhPop .cliplist { padding: 8px 16px; } #mhPop .cliplist button { color: #fff; background: rgba(255, 255, 255, .08); }
+.mhtools { padding: 8px 16px 0; display: flex; gap: 8px; flex-wrap: wrap; } .mhmsg { padding: 6px 16px 0; margin: 0; color: rgba(255, 255, 255, .8); font-size: 14px; } .mhmsg.bad { color: #ff9a8a; } #mhPop .cliplist { padding: 8px 16px; } #mhPop .cliplist button { color: #fff; background: rgba(255, 255, 255, .08); }
 #mhPop .cliplist button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
 .mhbtn { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: 16px; padding: 16px; margin: 6px 0 10px; background: var(--on); color: var(--on-ink); font: inherit; }
 .mhbtn b { display: block; font-size: 17px; } .mhbtn small { display: block; opacity: .85; font-size: 14px; margin-top: 2px; }
@@ -868,6 +868,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="mhbar"><div><b id="mhTitle">Match highlights</b><small id="mhNow"></small></div><button class="plain" id="mhClose" type="button">Close</button></div>
   <video id="mhVideo" controls playsinline preload="auto"></video>
   <div class="mhtools" id="mhTools"></div>
+  <p class="mhmsg" id="mhMsg" role="status" hidden></p>
   <ol class="cliplist" id="mhList"></ol>
 </div></div>
 
@@ -3381,6 +3382,56 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     MH = { gi: gi, r: r, list: list, reel: hasReel(r, list), i: 0 };
     $('mhTitle').textContent = vs(r) + ' ' + r.us + '–' + r.them;
     $('mhPop').hidden = false; mhLoad(0, true); mhDraw();
+    if (!MH.reel && role === 'owner' && RCp() && sb && teamId && !MK.busy) mhMake(r); // (no one video yet: this phone makes it, for everyone)
+  }
+  // ---- a game's clips joined into one video, once, on a gaffer's phone, and kept for everyone (games cut before the cut
+  // uploaded its reel, or whose reel didn't make it). The same reel the cut makes: shrunk, with and without commentary.
+  var MK = { gid: null, busy: false, prog: '', msg: '', bad: false, part: '' };
+  async function mhMake(r) {
+    var rc = RCp(); if (!rc || MK.busy || !r) return;
+    var list = clips.filter(function (c) { return c.game_id === r.id; }).sort(function (a, b) { return a.seq - b.seq; }); if (!list.length) return;
+    var parts = [{ file: 'reel.mp4', v: false }].concat(list.some(function (c) { return c.vpath; }) ? [{ file: 'reelv.mp4', v: true }] : []);
+    MK = { gid: r.id, busy: true, prog: 'Starting…', msg: '', bad: false, part: '' }; mhDraw();
+    try {
+      var made = [], marks = null;
+      for (var i = 0; i < parts.length; i++) {
+        MK.part = parts.length > 1 ? ' (' + (i + 1) + ' of 2)' : '';
+        var res = await rc.joinReel({ items: list.map(function (c) { return { url: clipSrc(c, parts[i].v) }; }), file: folderOf(r) + '-' + parts[i].file, outro: endCard(r), shrink: true });
+        if (!res || !res.path) throw new Error('the clips couldn’t be joined.');
+        made.push({ file: parts[i].file, path: res.path, v: parts[i].v }); if (!parts[i].v) marks = res.marks || null;
+      }
+      MK.prog = 'Uploading it for the team…'; mhDraw();
+      var keys = made.map(function (m) { return teamId + '/' + folderOf(r) + '/' + m.file; }), links = {}, r2 = !!CFG.clipsUrl;
+      if (r2) { var got = await clipCall('upload', { paths: keys }); if (got && got.urls) keys.forEach(function (k, j) { links[k] = got.urls[j]; }); else if (got && got.reason === 'not_configured') r2 = false; else throw new Error((got && got.error) || 'no answer from Gaffer’s server.'); }
+      var stored = [];
+      for (var j = 0; j < made.length; j++) {
+        var blob = await (await fetch(window.Capacitor.convertFileSrc(made[j].path))).blob(); blob = blob.slice(0, blob.size, 'video/mp4');
+        var put = null; if (r2) { try { put = await fetch(links[keys[j]], { method: 'PUT', body: blob, headers: { 'Content-Type': 'video/mp4' } }); } catch (e) {} }
+        if (put && put.ok) stored.push('r2'); else { await q(sb.storage.from('clips').upload(keys[j], blob, { contentType: 'video/mp4', upsert: true })); stored.push(null); }
+      }
+      var row = { path: keys[0], store: stored[0] }; if (keys[1] && stored[1] === stored[0]) row.vpath = keys[1];
+      await q(sb.from('games').update({ reel: row }).eq('id', r.id)); r.reel = row;
+      for (var k = 0; k < list.length; k++) { var t = marks && marks[k]; if (typeof t === 'number' && isFinite(t)) { list[k].reel_at = Math.round(t * 100) / 100; try { await q(sb.from('clips').update({ reel_at: list[k].reel_at }).eq('game_id', r.id).eq('seq', list[k].seq)); } catch (e) {} } }
+      MK = { gid: r.id, busy: false, prog: '', msg: 'It’s one video now, for everyone in the team.', bad: false, part: '' }; ping('changed');
+      if (MH && MH.r.id === r.id) { var at = MH.list[MH.i] && MH.list[MH.i].reel_at; MH.reel = hasReel(r, MH.list); mhLoad(0, true); if (typeof at === 'number') try { $('mhVideo').currentTime = at; } catch (e) {} }
+    } catch (e) { MK = { gid: r.id, busy: false, prog: '', msg: 'Couldn’t make it one video: ' + ((e && e.message) || 'something went wrong') + ' The clips still play one after another.', bad: true, part: '' }; }
+    mhDraw(); if (S.view === 'highlights') renderHighlights();
+  }
+  // Save or share the whole match's highlights: the one video (fetched to this phone), or the clips joined here
+  var EX = { busy: false, path: null, gid: null };
+  async function mhExport() {
+    if (!MH) return; var r = MH.r, rc = RCp();
+    if (!rc) { if (MH.reel) window.open(clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }), '_blank'); else { MK.msg = 'Open the iPhone app to save these highlights.'; mhDraw(); } return; }
+    if (EX.busy) return;
+    if (EX.path && EX.gid === r.id + ':' + sayOn) { rc.share({ path: EX.path }).catch(function () {}); return; }
+    EX = { busy: true, path: null, gid: r.id + ':' + sayOn }; MK.msg = 'Getting the video ready to save…'; MK.bad = false; mhDraw();
+    try {
+      var items = MH.reel ? [{ url: clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }) }] : MH.list.map(function (c) { return { url: clipSrc(c, sayOn) }; });
+      var res = await rc.joinReel(MH.reel ? { items: items, file: folderOf(r) + '-highlights.mp4' } : { items: items, file: folderOf(r) + '-highlights.mp4', outro: endCard(r) });
+      EX.path = res && res.path; MK.msg = '';
+      if (EX.path) rc.share({ path: EX.path }).catch(function () {});
+    } catch (e) { MK.msg = 'Couldn’t get it ready: ' + ((e && e.message) || 'something went wrong.'); MK.bad = true; }
+    EX.busy = false; mhDraw();
   }
   function mhSrc() {
     if (MH.reel) { var rl = MH.r.reel; return clipUrl({ path: sayOn && rl.vpath ? rl.vpath : rl.path, store: rl.store }); }
@@ -3397,7 +3448,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('mhList').innerHTML = list.map(function (c, i) { return '<li><button type="button" data-mhi="' + i + '"' + (MH.reel ? ' data-mht="' + c.reel_at + '"' : '') + ' aria-pressed="' + (i === cur) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('');
     $('mhNow').textContent = 'Moment ' + (cur + 1) + ' of ' + list.length + ' · ' + mhTime(mhLength(MH.list)) + ' in all';
     var voiced = MH.reel ? !!MH.r.reel.vpath : MH.list.some(function (c) { return c.vpath; });
-    $('mhTools').innerHTML = voiced ? '<button class="plain saybtn" type="button" data-mhsay="1" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '';
+    $('mhTools').innerHTML = '<button class="plain primary" type="button" data-mhsave="1"' + (EX.busy ? ' disabled' : '') + '>' + (EX.busy ? 'Getting it ready…' : 'Save or share') + '</button>' +
+      (voiced ? '<button class="plain saybtn" type="button" data-mhsay="1" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '');
+    var mine = MK.gid === MH.r.id, say = mine && MK.busy ? 'Making this one video for everyone' + MK.part + ': ' + MK.prog + ' The clips play one after another until then.'
+      : mine && MK.msg ? MK.msg : !MH.reel && role !== 'owner' ? 'Playing the clips one after another. Your gaffer’s phone makes them one video next time they open this.' : '';
+    $('mhMsg').hidden = !say; $('mhMsg').textContent = say; $('mhMsg').classList.toggle('bad', mine && MK.bad);
   }
   function mhClose() { MH = null; var v = $('mhVideo'); try { v.pause(); } catch (e) {} v.removeAttribute('src'); try { v.load(); } catch (e) {} $('mhPop').hidden = true; }
   $('mhVideo').addEventListener('ended', function () { if (MH && !MH.reel && MH.i < MH.list.length - 1) { mhLoad(MH.i + 1, true); mhDraw(); } }); // the next clip straight after
@@ -3409,6 +3464,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('mhPop').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b || !MH) return;
     if (b.id === 'mhClose') { mhClose(); return; }
+    if (b.hasAttribute('data-mhsave')) { mhExport(); return; }
     if (b.hasAttribute('data-mhsay')) { var v = $('mhVideo'), at = v.currentTime || 0; sayOn = !sayOn; try { localStorage.setItem('apt-say', sayOn ? '1' : '0'); } catch (err) {} mhLoad(MH.i, false); try { v.currentTime = at; } catch (err) {} try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {} mhDraw(); return; }
     var i = b.getAttribute('data-mhi'); if (i === null) return;
     if (MH.reel) { MH.cur = +i; var rv = $('mhVideo'); try { rv.currentTime = +b.getAttribute('data-mht') + 0.05; var p2 = rv.play(); if (p2 && p2.catch) p2.catch(function () {}); } catch (err) {} }
@@ -3722,6 +3778,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var pct = Math.round((d.p || 0) * 100);
     if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
     if (DL.busy) { DL.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var dm = $('dlMsg'); if (dm) dm.textContent = DL.prog; }
+    if (MK.busy) { MK.prog = d.stage === 'fetch' ? 'fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'joining, ' + pct + '%.'; var mm = $('mhMsg'); if (mm && MH && MK.gid === MH.r.id) mm.textContent = 'Making this one video for everyone' + MK.part + ': ' + MK.prog + ' The clips play one after another until then.'; }
     if (RB.busy) { RB.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var rm = $('rbProg'); if (rm) rm.textContent = RB.prog; }
     if (!CUT) return;
     CUT.prog = d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';

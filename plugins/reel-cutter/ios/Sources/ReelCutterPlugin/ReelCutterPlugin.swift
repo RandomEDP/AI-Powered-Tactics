@@ -476,6 +476,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: voice(call.options["introVoice"]), signOff: voice(call.options["outroVoice"])) { fraction in
                     self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction])
                 }
+                if call.getBool("shrink") ?? false { self.shrink(out) } // (one that's uploaded for the team to watch, like the cut's reel)
                 call.resolve(["path": out.path, "size": self.fileSize(out), "marks": marks])
             } catch {
                 call.reject(error.localizedDescription)
