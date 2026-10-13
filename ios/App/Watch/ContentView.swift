@@ -68,6 +68,7 @@ struct MatchView: View {
     let state: MatchState
     @Binding var path: [Step]
     @State private var confirmThem = false
+    @State private var confirmUs = false
     @State private var confirmEnd = false
 
     var body: some View {
@@ -159,7 +160,7 @@ struct MatchView: View {
 
                 VStack(spacing: 8) {
                     Button {
-                        path = [.scorer]
+                        if state.asksScorer { path = [.scorer] } else { confirmUs = true }
                     } label: {
                         Text("Goal \(state.team)").frame(maxWidth: .infinity)
                     }
@@ -219,6 +220,10 @@ struct MatchView: View {
         }
         .confirmationDialog(state.lastHalf ? "Blow for full time?" : "Blow for half time?", isPresented: $confirmEnd, titleVisibility: .visible) {
             Button(state.lastHalf ? "Full time" : "Half time") { model.endHalf() }
+            Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog("Goal for \(state.team)?", isPresented: $confirmUs, titleVisibility: .visible) {
+            Button("Log the goal") { model.goal(us: true, scorer: nil, assist: nil) }
             Button("Cancel", role: .cancel) {}
         }
         .confirmationDialog("Goal for \(state.opp)?", isPresented: $confirmThem, titleVisibility: .visible) {

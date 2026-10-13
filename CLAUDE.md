@@ -398,6 +398,17 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   page is live), make an account, join or start a team. The link uses the 6-character follow code, never the organiser code.
 - Test: `house.test.mjs`. Guests' names are covered on the privacy page.
 
+### A game of just me (Ethan asked, for playing on his own)
+- New game → "Just me" (`#gKind` `data-kind="solo"`, `D.solo`, `renderSolo`, `soloKick`): an optional opponent (else
+  "Them"), the length and one or two halves, then straight to kick-off. `m.solo = true`, `order: []`, no keeper, one
+  segment per half, `friendly: true` (never in the record, no `game_players`).
+- The game screen hides the line-up, subs card, rota and Save (`#nowSec`, `#swapCard`, `#rotaSec`, `#svBtn`); Goal for us
+  logs straight away (no scorer picker); a highlight never asks whose. No kick-off or goal notifications or pings
+  (`announceGame`, `addGoal`), so the team isn't told about it.
+- The watch gets `players: []` and `changes: []`: no subs buzzes, Highlight logs at once, and Goal for us asks only
+  "Goal for …? Log the goal" (`MatchState.asksScorer`, `confirmUs` in `ContentView.swift`) instead of who scored.
+- Tests: `solo.test.mjs` (phone, watch presses, no notifications, kept out of the record), `tests/watch/main.swift` (25).
+
 ### Live streaming (Gaffer tier; behind the experimental switch for gaffers) (`0017_live_streams.sql`, `live-stream`)
 - The GoPro (through GoPro Quik) or an iPhone (through a streaming app such as Larix Broadcaster) streams over RTMPS
   straight to **Cloudflare Stream**. The app never handles the video

@@ -583,5 +583,32 @@ do {
     check(w.state?.us == 0, "an update the phone sent earlier than one already taken in is still ignored")
 }
 
+// ---------- 25. Just me: a game with no players and no subs (Ethan's ask). Goal logs straight away, nobody to pick
+do {
+    func solo(phase: String = "h1", running: Bool = true, base: Double = 0, us: Int = 0, them: Int = 0, acks: [String] = []) -> String {
+        let acked = acks.map { "\"\($0)\"" }.joined(separator: ",")
+        return "{\"live\":true,\"gid\":\"solo-1\",\"acks\":[\(acked)],\"due\":false,\"team\":\"SOP FC\",\"opp\":\"Them\",\"us\":\(us),\"them\":\(them),\"phase\":\"\(phase)\",\"running\":\(running),\"base\":\(base),\"t0\":\(ms(kickoff)),\"half\":12,\"periods\":2,\"lockUntil\":0,\"changes\":[],\"players\":[]}"
+    }
+    var w = WatchBrain()
+    _ = w.receive(json: solo(phase: "pre", running: false), sent: ms(at(-30)), now: at(-30))
+    check(w.state?.live == true && w.state?.asksScorer == false && w.state?.highlightPlayers.isEmpty == true, "a game of just me shows, with nobody to ask who scored or whose highlight")
+    let ko = w.pressStart(now: at(0))
+    check(kind(ko.send.first ?? "") == "start" && w.state?.running == true, "kick-off from the watch starts the clock")
+    var r = run(&w, from: 1, to: 300)
+    check(r.subs.isEmpty, "no subs: the watch never buzzes for a change")
+    let g = w.pressGoal(us: true, scorer: nil, assist: nil, now: at(301))
+    check(kind(g.send.first ?? "") == "goal" && field(g.send.first ?? "", "us") as? Bool == true && field(g.send.first ?? "", "p") == nil, "Goal for us goes to the phone with no scorer")
+    check(w.state?.us == 1, "and shows on the watch straight away")
+    _ = w.receive(json: solo(us: 1, acks: [id(g.send.first ?? ""), id(ko.send.first ?? "")]), sent: ms(at(305)), now: at(305))
+    let a = w.pressGoal(us: false, scorer: nil, assist: nil, now: at(320))
+    check(kind(a.send.first ?? "") == "goal" && field(a.send.first ?? "", "us") as? Bool == false && w.state?.them == 1, "a goal against too")
+    _ = w.receive(json: solo(us: 1, them: 1, acks: [id(g.send.first ?? ""), id(ko.send.first ?? ""), id(a.send.first ?? "")]), sent: ms(at(325)), now: at(325))
+    r = run(&w, from: 326, to: 730)
+    check(r.time == [720] && r.subs.isEmpty, "time's up at 12:00 by the watch's own clock, still no subs (\(r.time))")
+    check(w.state?.us == 1 && w.state?.them == 1 && w.state?.seconds(at: at(700)) == 700, "the score and the time played are kept")
+}
+// a normal game still asks who scored
+do { var w = WatchBrain(); _ = w.receive(json: phone(), sent: ms(at(1)), now: at(1)); check(w.state?.asksScorer == true, "a game with a squad still asks who scored") }
+
 print(failures == 0 ? "watch logic: all \(checks) checks passed" : "watch logic: \(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

@@ -1046,7 +1046,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
 <div class="view" id="v-setup" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>New game</h1></div>
-  <div class="toggle" id="gKind" role="group" aria-label="Who’s playing"><button type="button" data-kind="opp" aria-pressed="true">Another team</button><button type="button" data-kind="house" aria-pressed="false">Among ourselves</button></div>
+  <div class="toggle" id="gKind" role="group" aria-label="Who’s playing"><button type="button" data-kind="opp" aria-pressed="true">Another team</button><button type="button" data-kind="house" aria-pressed="false">Among ourselves</button><button type="button" data-kind="solo" aria-pressed="false">Just me</button></div>
   <div id="oppSetup">
   <label class="field" for="oppPick" id="oppPickWrap" hidden>Played them before?<select id="oppPick"></select></label>
   <label class="field" for="opp" id="oppWrap">Who are you playing?<input id="opp" type="text" placeholder="Opponent's name" autocomplete="off" maxlength="40"></label>
@@ -1067,6 +1067,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   </section>
   </div>
   <div id="houseBox" hidden></div>
+  <div id="soloBox" hidden></div>
 </div>
 
 <div class="view" id="v-mins" hidden>
@@ -1129,7 +1130,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <ul class="events" id="events"></ul>
   </section>
 
-  <section>
+  <section id="nowSec">
     <h2 id="nowTitle">Right now</h2>
     <div class="swap-rows">
       <div class="tag on" id="pitchTag">Pitch</div><div class="chips" id="pitchNow"></div>
@@ -1151,7 +1152,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
   <section class="own">
     <div class="actions"><button class="plain primary" id="finish" type="button">Finish game</button></div>
-    <p class="note">Finish game saves the result, goals, assists and minutes to your stats.</p>
+    <p class="note" id="finNote">Finish game saves the result, goals, assists and minutes to your stats.</p>
   </section>
 </div>
 
@@ -1591,7 +1592,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   async function addGoal(ev, at) { // `at`: when it really went in, for a goal pressed on the watch that has only just reached this phone
     var m = S.match; if (!m) return;
     if (!at && Date.now() < lockUntil) return;
-    if (role === 'owner') { ev.at = at || Date.now(); putEvent(m, ev); save(); lockScore({ us: !!ev.us, mine: true, at: ev.at }); if (!hush) { ping('goal', { us: !!ev.us }); goalPush(m, ev); } return; }
+    if (role === 'owner') { ev.at = at || Date.now(); putEvent(m, ev); save(); lockScore({ us: !!ev.us, mine: true, at: ev.at }); if (!hush && !m.solo) { ping('goal', { us: !!ev.us }); goalPush(m, ev); } return; }
     if (!sb || !A.active) return;
     var say = function (t) { goalMsg = t; clearTimeout(goalT); goalT = setTimeout(function () { goalMsg = ''; renderScore(); }, 8000); renderScore(); };
     ev.ts = Date.now(); say('Sending the goal…');
@@ -1622,7 +1623,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     try { var res = await sb.functions.invoke('team-notify', { body: Object.assign({ code: A.active, kind: kind, title: title, body: body }, extra || {}) }); return res && res.data ? res.data : null; } catch (e) { return null; }
   }
   async function announceGame(m) { // the gaffer's phone tells everyone once the game is in the database
-    if (hush) return; // kicked off on the watch a while ago and only now heard about: "game started" would be old news
+    if (hush || m.solo) return; // kicked off on the watch a while ago and only now heard about: "game started" would be old news (and a game of just me is nobody else's business)
     ping('kickoff', { opp: m.opp });
     if (!sb || !A.active || !me) return;
     try { clearTimeout(wt); await syncAll(); ping('kickoff', { opp: m.opp }); } catch (e) {}
@@ -4110,9 +4111,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function renderSetup() {
     if (!D) newDraft();
-    var house = D.kind === 'house' && !D.tour && !D.fx;
-    Array.prototype.forEach.call($('gKind').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-kind') === (house ? 'house' : 'opp')); });
-    $('gKind').hidden = !!(D.tour || D.fx); $('oppSetup').hidden = house; $('houseBox').hidden = !house;
+    var kind = D.tour || D.fx ? 'opp' : D.kind === 'house' || D.kind === 'solo' ? D.kind : 'opp', house = kind === 'house';
+    Array.prototype.forEach.call($('gKind').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-kind') === kind); });
+    $('gKind').hidden = !!(D.tour || D.fx); $('oppSetup').hidden = kind !== 'opp'; $('houseBox').hidden = !house; $('soloBox').hidden = kind !== 'solo';
+    if (kind === 'solo') { $('houseBox').innerHTML = ''; renderSolo(); return; }
+    $('soloBox').innerHTML = '';
     if (house) { if (!$('hList')) renderHouse(); else renderHouseList(); return; }
     $('houseBox').innerHTML = '';
     FM.g = D.fmt; fmtShow('g');
@@ -4226,8 +4229,33 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('gKind').addEventListener('click', function (e) {
     var b = e.target.closest('[data-kind]'); if (!b || !D) return;
     D.kind = b.getAttribute('data-kind'); if (D.kind === 'house' && !D.house) D.house = houseDraft();
+    if (D.kind === 'solo' && !D.solo) { var f = fmtDefault('game', defSide()); D.solo = { opp: '', half: f.half, two: f.periods !== 1 }; }
     renderSetup();
   });
+  // ---- just me: a game with no line-up and no subs. Goals for and against, the clock and highlights, on the phone and the
+  // watch. Kept out of the team's record, and nobody is sent a notification about it.
+  function renderSolo() {
+    var o = D.solo;
+    $('soloBox').innerHTML = '<section><h2>Just you</h2><p class="note">No line-up and no subs. Log goals for and against, and keep the time, here or on your Apple Watch. It’s kept out of the team’s record, and nobody gets a notification about it.</p>' +
+      '<label class="field" for="sOpp">Who are you playing? <small>(optional)</small><input id="sOpp" type="text" maxlength="40" autocomplete="off" placeholder="Them" value="' + esc(o.opp) + '"></label>' +
+      '<div class="two"><label class="field" for="sHalf"><span id="sHalfLbl">' + (o.two ? 'Minutes each half' : 'Game length (min)') + '</span><input id="sHalf" type="number" min="1" max="60" inputmode="numeric" value="' + o.half + '"></label>' +
+      '<label class="check" for="sTwo"><input id="sTwo" type="checkbox"' + (o.two ? ' checked' : '') + '><span>Two halves</span></label></div>' +
+      '<div class="actions"><button class="plain primary" id="sKick" type="button">Go to kick-off</button></div></section>';
+  }
+  function soloKick() {
+    var o = D.solo, half = Math.max(1, Math.min(60, Math.round(+$('sHalf').value) || o.half || 15)), periods = $('sTwo').checked ? 2 : 1;
+    var opp = ($('sOpp').value || '').trim().replace(/\s+/g, ' ').slice(0, 40) || 'Them';
+    S.match = { opp: opp, friendly: true, solo: true, order: [], keeper: null, segs: mkSegs([], [], null, half, half, periods),
+                squad: [], gone: [], half: half, sub: half, pitch: 0, periods: periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
+    D = null; lastBlock = -1; pick = null; save(); go('game');
+  }
+  $('soloBox').addEventListener('click', function (e) { if (D && D.solo && e.target.id === 'sKick') soloKick(); });
+  $('soloBox').addEventListener('input', function (e) {
+    if (!D || !D.solo) return;
+    if (e.target.id === 'sOpp') D.solo.opp = e.target.value;
+    else if (e.target.id === 'sHalf') { var v = Math.round(+e.target.value); if (v >= 1) D.solo.half = Math.min(60, v); }
+  });
+  $('soloBox').addEventListener('change', function (e) { if (D && D.solo && e.target.id === 'sTwo') { D.solo.two = e.target.checked; $('sHalfLbl').textContent = D.solo.two ? 'Minutes each half' : 'Game length (min)'; } });
   $('houseBox').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b || !D || !D.house) return;
     var h = D.house, id = +b.getAttribute('data-id'), v = b.getAttribute('data-hside');
@@ -4440,7 +4468,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function renderGame() {
     var m = S.match; if (!m) return;
     var cb = curSeg(m), n = m.segs.length, html = '', i;
-    $('gameTitle').textContent = vs(m) + (m.friendly && !m.house ? ' (friendly)' : '');
+    $('gameTitle').textContent = vs(m) + (m.solo ? ' (just me)' : m.friendly && !m.house ? ' (friendly)' : '');
     for (i = 0; i < n; i++) {
       if (i > 0 && m.segs[i].h !== m.segs[i - 1].h) html += '<span class="gap"></span>';
       html += '<span style="flex:' + (m.segs[i].to - m.segs[i].from) + '" class="' + ((m.phase === 'ft' || i < cb) ? 'done' : (i === cb && m.phase !== 'pre' && m.phase !== 'ht') ? 'now' : '') + '"></span>';
@@ -4450,7 +4478,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('pitchTag').textContent = hs ? hs.a : 'Pitch'; $('benchTag').textContent = hs ? hs.b : 'Bench';
     $('pitchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'a'; }) : onPitch(m, cb), 'on');
     $('benchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'b'; }) : m.segs[cb].bench, 'off');
-    $('swapCard').hidden = $('rotaSec').hidden = !!hs;
+    $('swapCard').hidden = $('rotaSec').hidden = !!hs || !!m.solo; $('nowSec').hidden = !!m.solo; // (just me: no line-up at all)
+    $('finNote').textContent = m.solo ? 'Finish game saves the result. It’s kept out of the team’s record.' : 'Finish game saves the result, goals, assists and minutes to your stats.';
     $('goneTag').hidden = $('goneNow').hidden = !m.gone.length;
     $('goneNow').innerHTML = m.gone.map(function (id) { return '<span class="chip gone">' + esc(nm(id)) + '</span>'; }).join('');
     $('nowTitle').textContent = hs ? 'The sides' : m.phase === 'pre' ? 'Starting line-up' : m.phase === 'ht' ? 'Second half line-up' : 'Right now';
@@ -4686,7 +4715,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     });
     $('usN').textContent = t.us; $('themN').textContent = t.them; $('themLbl').textContent = m.opp;
     $('usLbl').textContent = usOf(m); $('goalUs').textContent = 'Goal for ' + usOf(m); $('goalThem').textContent = m.house ? 'Goal for ' + m.opp : 'Goal against';
-    $('svBtn').hidden = !!m.house; // (no fixed keeper)
+    $('svBtn').hidden = !!m.house || !!m.solo; // (no fixed keeper)
     $('undo').disabled = !m.events.length; $('hlBtn').disabled = m.phase === 'pre' || m.phase === 'ft';
     $('svBtn').disabled = $('hlBtn').disabled || m.segs[curSeg(m)].gk == null;
     var locked = Date.now() < lockUntil; if (locked && pick && pick.step !== 'hl') pick = null;
@@ -4705,7 +4734,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     html = '';
     m.events.slice().reverse().forEach(function (e) {
       var setUp = e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '';
-      var who = e.hl ? (e.k === 'save' ? '<span class="note">Save by ' + esc(nm(e.p)) + '</span>' : role === 'owner' && typeof e.at === 'number' ? '<button class="link hlwho" type="button" data-hlwho="' + e.at + '">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked: whose?') + '</button>'
+      var who = e.hl ? (e.k === 'save' ? '<span class="note">Save by ' + esc(nm(e.p)) + '</span>' : role === 'owner' && typeof e.at === 'number' && !m.solo ? '<button class="link hlwho" type="button" data-hlwho="' + e.at + '">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked: whose?') + '</button>'
         : '<span class="note">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked') + '</span>') : !e.us ? (m.house && e.p != null ? '<span class="ag">' + esc(nm(e.p)) + ' for ' + esc(m.opp) + '</span>' + setUp : '<span class="ag">Goal for ' + esc(m.opp) + '</span>') :
         (e.p != null ? esc(nm(e.p)) + (m.house ? ' <span class="note">for ' + esc(usOf(m)) + '</span>' : '') : 'Goal for ' + esc(usOf(m))) + setUp;
       if (e.by) who += ' <span class="tagf">Logged by a teammate</span>';
@@ -4715,7 +4744,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   $('kickWatch').addEventListener('click', function () { $('kickPop').hidden = true; if (S.match) go('game'); else { wantGame = A.active; pull(); } });
   $('kickLater').addEventListener('click', function () { $('kickPop').hidden = true; });
-  $('goalUs').addEventListener('click', function () { pick = { step: 'scorer', side: 'a' }; renderScore(); });
+  $('goalUs').addEventListener('click', function () { var m = S.match; if (m && m.solo) { pick = null; addGoal(stamped(m, { us: true })); return; } pick = { step: 'scorer', side: 'a' }; renderScore(); }); // (just me: nobody to ask)
   $('hlBtn').addEventListener('click', function () { // marked this second (the clip is cut around it), then: whose was it?
     var m = S.match; if (!m || role !== 'owner') return;
     var e = stamped(m, { hl: true, at: Date.now() }); while (hlFind(m, e.at)) e.at++;

@@ -80,6 +80,8 @@ struct MatchState: Codable, Equatable {
     var halfIndex: Int { phase == "h2" || phase == "ft" ? 1 : 0 }
     /// Who a highlight can be for: the outfield players on the pitch now.
     var highlightPlayers: [Player] { players.filter { $0.on && !$0.gk } }
+    /// A game of just one person ("Just me" on the phone) has no players: Goal logs straight away, nobody to ask who scored.
+    var asksScorer: Bool { !players.isEmpty }
     var inPlay: Bool { phase == "h1" || phase == "h2" }
     var playing: Bool { live && running && inPlay }
     /// The whistle that ends this half is the final one.
