@@ -98,6 +98,7 @@ They also run on GitHub on every push, and a TestFlight build only goes ahead on
 | Several phones on one team | `tests/sync.test.mjs`, `tests/join.test.mjs` | Gaffer, followers and a second gaffer, no signal, the app closed with changes not yet uploaded, signing out |
 | The database | `tests/db.test.mjs` | Every migration loaded into a real Postgres in memory, then the functions and security rules used as a gaffer, a player, a stranger and someone not signed in. Elo sums included |
 | Highlights | `tests/cuttiming.test.mjs`, `tests/reels.test.mjs` | Lining the video up from marked moments, the score box, clock and captions sent to the phone's video maker, commentary copies, reels anyone can make |
+| Clips in Cloudflare R2 | `tests/r2.test.mjs` | The real clip-store function: upload links signed as S3 checks them (Amazon's worked example), gaffers only and only the team's folder, old clips moved across with both copies before the old files go |
 | Games among the squad | `tests/house.test.mjs` | Two sides with guests, goals for either side from the gaffer's and a teammate's phone, what's saved, the guests' link and what it opens |
 | App and database agree | `tests/contract.test.mjs` | Every function the app calls exists with those arguments; every row the app writes fits the real tables |
 | Walk-throughs of each screen | `tests/*.mjs` (no `.test`) | Print what they see; compared with `tests/golden/`. After an intended change: `node tests/run.mjs --update` and read the diff |

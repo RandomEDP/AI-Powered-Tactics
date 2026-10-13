@@ -53,8 +53,9 @@ const cut = (await calls(A, 'cut')).pop();
 eq(cut.clips.map((c) => !!c.voice), [true, true, true], 'each clip is cut with a commentary line');
 const rows = () => (w.db().clips || []).slice().sort((a, b) => a.seq - b.seq);
 eq(rows().map((c) => [tail(c.path), tail(c.vpath)]), [['01.mp4', '01v.mp4'], ['02.mp4', '02v.mp4'], ['03.mp4', '03v.mp4']], 'each clip is kept twice: without commentary (path) and with it (vpath)');
-const files = () => (w.db().files || []).filter((f) => f.bucket === 'clips').length;
-eq(files(), 6, 'both copies are uploaded');
+const files = () => (w.db().files || []).filter((f) => f.bucket === 'r2').length;
+eq([files(), (w.db().files || []).filter((f) => f.bucket === 'clips').length, rows().map((c) => c.store)], [6, 0, ['r2', 'r2', 'r2']], 'both copies are uploaded, straight to Cloudflare R2 (none to the old storage)');
+check((w.db().files || []).every((f) => f.type === 'video/mp4'), 'as videos, so they play in any browser');
 check(/with commentary/.test(await A.text('#cutBody')), 'the done screen says the clips have commentary');
 await A.click('#cutBody [data-cutdo="finish"]'); await A.run(500);
 

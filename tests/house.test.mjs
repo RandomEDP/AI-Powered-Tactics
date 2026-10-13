@@ -143,11 +143,15 @@ await A.click('#cutBody [data-cutdo="next"]');
 await A.page.evaluate(() => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => 100, set: () => {} }); });
 await A.click('#cutBody [data-cutdo="here"]');
 check((await A.text('#lkClip')).includes('BIBS') && (await A.text('#lkClip')).includes('SHIRTS'), 'the preview of the clips shows Bibs v Shirts');
+await A.page.evaluate(() => { window.__r2Fail = true; }); // (and this time Cloudflare R2 refuses the uploads)
 await A.click('#cutBody [data-cutdo="go"]'); await A.run(3000);
 const cut = (await A.page.evaluate(() => window.__rc.filter((x) => x[0] === 'cut'))).pop()[1];
 eq([cut.look.home, cut.look.away], ['BIBS', 'SHIRTS'], 'the score box says BIBS v SHIRTS');
 eq(cut.clips.map((c) => [c.lower.title, c.lower.sub.replace(/^\d+’ · /, '')]), [['Tom', 'Set up by Chaplin · for Bibs'], ['Dave', 'for Shirts'], ['Jake', 'for Shirts']], 'each goal names its scorer and side, guests too');
 eq([cut.outro.title, cut.outro.crest], ['Bibs 1–2 Shirts', null], 'the full-time card has the sides\' names (and not the team\'s crest)');
+const kept = w.db().files.filter((f) => f.path.includes('bibs-v-shirts'));
+eq([kept.map((f) => f.bucket), w.db().clips.map((c) => c.store || null), (w.db().clips || []).length], [['clips', 'clips', 'clips'], [null, null, null], 3], 'R2 refusing the uploads doesn\'t stop the cut: the clips go to the old storage');
+check((await A.text('#cutBody')).includes('The new clip storage didn’t take them (it answered 500), so they were saved to the old storage.'), 'and the done screen says so');
 
 await w.close();
 await done(A, F, G);

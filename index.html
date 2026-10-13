@@ -1358,7 +1358,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (!d) { forgetTeam(code); closeTeam(); S = blankTeam(); S.view = 'welcome'; go('welcome'); setSync('gone'); return; }
       teamId = d.team.id; orgCode = d.team.organiser_code || null; stale = false;
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
-      myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || [];
+      myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; setTimeout(clipsMove, 1500);
       if (S.view === 'home' || S.view === 'games') renderFixture();
       renderTabs();
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips })); } catch (e) {}
@@ -2615,11 +2615,38 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     });
   }
   function novid(text, btn) { return '<div class="novid"><span>' + text + '</span>' + (btn || '') + '</div>'; }
-  var clipUrl = function (c) { return (CFG.url || '') + '/storage/v1/object/public/clips/' + String(c.path).split('/').map(encodeURIComponent).join('/'); };
+  // Where a clip plays from: Cloudflare R2 (store 'r2', the bucket's public address in config.js), or the old Supabase bucket.
+  var clipUrl = function (c) { var p = String(c.path).split('/').map(encodeURIComponent).join('/'); return c.store === 'r2' && CFG.clipsUrl ? String(CFG.clipsUrl).replace(/\/+$/, '') + '/' + p : (CFG.url || '') + '/storage/v1/object/public/clips/' + p; };
+  async function clipCall(action, extra) { // the clip-store edge function: data, or { error, reason } in plain words
+    var none = 'Couldn’t reach Gaffer’s server. Check your signal and try again.';
+    if (!sb || !sb.functions || !A.active) return { error: none };
+    try {
+      var res = await sb.functions.invoke('clip-store', { body: Object.assign({ code: A.active, action: action }, extra || {}) });
+      if (res && res.data && !res.error) return res.data;
+      var said = null; try { if (res && res.error && res.error.context && typeof res.error.context.json === 'function') said = await res.error.context.json(); } catch (e) {}
+      return { error: (said && said.error) || none, reason: said && said.reason };
+    } catch (e) { return { error: none }; }
+  }
+  // The clips cut before R2 move across from the old storage, one at a time, the next time a gaffer has the app open.
+  var moving = false, moved = {};
+  async function clipsMove() {
+    if (moving || role !== 'owner' || !CFG.clipsUrl || !sb || !A.active || CUT) return;
+    var todo = clips.filter(function (c) { return !c.store && !moved[c.game_id + ':' + c.seq]; }); if (!todo.length) return;
+    moving = true; var team = A.active, n = 0;
+    try {
+      for (var i = 0; i < todo.length && A.active === team; i++) {
+        var res = await clipCall('adopt', { game_id: todo[i].game_id, seq: todo[i].seq });
+        moved[todo[i].game_id + ':' + todo[i].seq] = true; // (tried once a session, moved or not)
+        if (res && res.error) break; // tried again next time the app opens
+        if (res && res.moved) n++;
+      }
+    } finally { moving = false; }
+    if (n && A.active === team) { ping('changed'); pull(); }
+  }
   // A clip cut with AI commentary is kept twice, with it (vpath) and without (path): an iPhone won't play a voice over the
   // video as a second sound, so "Commentary on" plays the other copy instead of speaking over it.
   var sayOn = true; try { sayOn = localStorage.getItem('apt-say') !== '0'; } catch (e) {}
-  function clipSrc(c, voiced) { return clipUrl(voiced && c.vpath ? { path: c.vpath } : c); }
+  function clipSrc(c, voiced) { return clipUrl(voiced && c.vpath ? { path: c.vpath, store: c.store } : c); }
   function clipPlayer(list) { // one video that plays a list of clips back to back
     var voiced = list.some(function (c) { return c.vpath; }), on = voiced && sayOn;
     return '<div class="vplayer"><video controls playsinline preload="metadata" src="' + esc(clipSrc(list[0], on)) + '"></video>' +
@@ -2709,10 +2736,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   async function hlDelete(r, i) { // so a game's highlights can be cut again from scratch
     if (!sb || !r.id || role !== 'owner') return;
     HLDEL.busy = true; HLDEL.msg = 'Deleting…'; renderHighlights();
-    var paths = []; clips.forEach(function (c) { if (c.game_id === r.id) { paths.push(c.path); if (c.vpath) paths.push(c.vpath); } });
+    var paths = [], inR2 = []; clips.forEach(function (c) { if (c.game_id === r.id) { var to = c.store === 'r2' ? inR2 : paths; to.push(c.path); if (c.vpath) to.push(c.vpath); } });
     try {
       await q(sb.from('clips').delete().eq('game_id', r.id));
       try { if (paths.length) await q(sb.storage.from('clips').remove(paths)); } catch (e) {} // (a file left behind is never shown: the rows are what list them)
+      if (inR2.length) await clipCall('remove', { paths: inR2 });
       HLDEL = { i: i, until: 0, msg: 'Deleted. Cut them again from a video whenever you like.', busy: false };
       ping('changed'); await pull();
     } catch (e) { HLDEL = { i: i, until: 0, msg: 'Couldn’t delete them. Check your signal and try again.', busy: false }; }
@@ -3056,7 +3084,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p>' + (CUT.msg ? '' : '<p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>'); // (stopped by a problem: no spinner)
     else if (CUT.stage === 'done') html += '<p class="msg">' + CUT.n + (CUT.n === 1 ? ' clip is' : ' clips are') + ' now in Highlights for the whole team' + (CUT.voiced === true ? ', with commentary' : '') + '.</p>' + (CUT.voiced && CUT.voiced !== true ? '<p class="msg bad">The commentary couldn’t be added: ' + esc(CUT.voiced) + ' The clips were cut without it.</p>' : '') +
-      (CUT.reelErr ? '<p class="msg bad">The full reel couldn’t be joined: ' + esc(CUT.reelErr) + ' The clips are all in Highlights; cut again to try the reel once more.</p>' : '') +
+      (CUT.storeNote ? '<p class="note">' + esc(CUT.storeNote) + '</p>' : '') + (CUT.reelErr ? '<p class="msg bad">The full reel couldn’t be joined: ' + esc(CUT.reelErr) + ' The clips are all in Highlights; cut again to try the reel once more.</p>' : '') +
       '<div class="actions">' + (CUT.reel ? '<button class="plain primary" type="button" data-cutdo="share">Share the full reel</button>' : '') + '<button class="plain" type="button" data-cutdo="finish">Done</button></div>' +
       '<p class="note">The full reel, with the outro card, is on this phone until you tap Done. Share it or save it to Photos first.</p>';
     if (CUT.msg) html += '<p class="msg bad">' + esc(CUT.msg) + '</p>' + (CUT.stage === 'work' ? '<div class="actions"><button class="plain" type="button" data-cutdo="retry">Back</button></div>' : '');
@@ -3221,23 +3249,43 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
             else CUT.voiced = (vd && vd.error) || (vr && vr.error && vr.error.message) || 'the voice service didn’t answer.';
           } catch (ve) { CUT.voiced = 'the voice service couldn’t be reached.'; }
         }
-        var bugs = CUT.bug !== false;
+        var bugs = CUT.bug !== false; CUT.storeNote = null;
         var res = await rc.cut({ path: list[0].path, watermark: 'Gaffer', reelFile: 'reel.mp4', introVoice: said ? said[0] : null, outroVoice: said ? said[said.length - 1] : null, look: bugs ? lookFor(r) : null,
           clips: list.map(function (c, i) { var lk = clipLook(r, c); return { path: c.path, start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4', voice: said ? said[i + 1] : null, voiceAt: Math.max(0, c.t - c.start) + 0.7, bug: bugs ? lk.bug : null, lower: lk.lower }; }),
           outro: endCard(r) });
-        var rows = [];
+        var rows = [], keyOf = function (made) { return teamId + '/' + folderOf(r) + '/' + made.file; }, links = {}, r2 = !!CFG.clipsUrl;
+        if (r2) { // one upload link per file, from Gaffer's server (the clips go to R2 with them)
+          var keys = []; res.clips.forEach(function (made) { keys.push(keyOf(made)); if (made.voiced) keys.push(keyOf(made.voiced)); });
+          var got = await clipCall('upload', { paths: keys });
+          if (got && got.urls) keys.forEach(function (k, j) { links[k] = got.urls[j]; });
+          else if (got && got.reason === 'not_configured') r2 = false; // (not set up: the old storage, as before)
+          else throw new Error('Couldn’t get ready to upload the clips: ' + ((got && got.error) || 'no answer from Gaffer’s server.'));
+        }
+        var up = async function (made) { // a clip file from the phone to the team's storage
+          var blob = await (await fetch(window.Capacitor.convertFileSrc(made.path))).blob();
+          blob = blob.slice(0, blob.size, 'video/mp4'); // the phone hands the file over untyped, and storage only accepts video
+          var to = keyOf(made);
+          if (r2 && links[to]) {
+            var put = null; try { put = await fetch(links[to], { method: 'PUT', body: blob, headers: { 'Content-Type': 'video/mp4' } }); } catch (e) {}
+            if (put && put.ok) return { key: to, r2: true };
+            CUT.storeNote = 'The new clip storage didn’t take them' + (put ? ' (it answered ' + put.status + ')' : '') + ', so they were saved to the old storage. They’ll move across by themselves once it does.';
+          }
+          await q(sb.storage.from('clips').upload(to, blob, { contentType: 'video/mp4', upsert: true })); // (the old storage: R2 not set up, or it said no)
+          return { key: to, r2: false };
+        };
         for (var i = 0; i < res.clips.length; i++) {
           CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; var el = $('cutProg'); if (el) el.textContent = CUT.prog;
-          var up = async function (made) { // a clip file from the phone to the team's storage
-            var blob = await (await fetch(window.Capacitor.convertFileSrc(made.path))).blob();
-            blob = blob.slice(0, blob.size, 'video/mp4'); // the phone hands the file over untyped, and storage only accepts video
-            var to = teamId + '/' + folderOf(r) + '/' + made.file;
-            await q(sb.storage.from('clips').upload(to, blob, { contentType: 'video/mp4', upsert: true }));
-            return to;
-          };
-          var path = await up(res.clips[i]), vpath = res.clips[i].voiced ? await up(res.clips[i].voiced) : null;
-          rows.push({ team_id: teamId, game_id: r.id, seq: i, path: path, vpath: vpath, label: list[i].labels.join(' / ').slice(0, 200), at: list[i].at || null, dur: list[i].end - list[i].start, pids: list[i].pids });
+          var a = await up(res.clips[i]), v = res.clips[i].voiced ? await up(res.clips[i].voiced) : null;
+          if (a.r2 && v && !v.r2) { try { await q(sb.storage.from('clips').upload(a.key, await (await fetch(window.Capacitor.convertFileSrc(res.clips[i].path))).blob(), { contentType: 'video/mp4', upsert: true })); } catch (e) {} a.r2 = false; } // (both copies of a clip in one place)
+          var path = a.key, vpath = v ? v.key : null;
+          rows.push({ team_id: teamId, game_id: r.id, seq: i, path: path, vpath: vpath, store: a.r2 ? 'r2' : null, label: list[i].labels.join(' / ').slice(0, 200), at: list[i].at || null, dur: list[i].end - list[i].start, pids: list[i].pids });
         }
+        var stale = [], keptOld = []; rows.forEach(function (x) { if (!x.store) { keptOld.push(x.path); if (x.vpath) keptOld.push(x.vpath); } });
+        clips.forEach(function (c) { if (c.game_id === r.id && !c.store) [c.path, c.vpath].forEach(function (k) { if (k && keptOld.indexOf(k) < 0) stale.push(k); }); }); // (cut again: the old storage's copies go)
+        if (stale.length) try { await q(sb.storage.from('clips').remove(stale)); } catch (e) {}
+        var kept = [], gone = []; rows.forEach(function (x) { kept.push(x.path); if (x.vpath) kept.push(x.vpath); });
+        clips.forEach(function (c) { if (c.game_id === r.id && c.store === 'r2') [c.path, c.vpath].forEach(function (k) { if (k && kept.indexOf(k) < 0) gone.push(k); }); });
+        if (gone.length) await clipCall('remove', { paths: gone }); // (fewer clips this time: the extra old ones go)
         await q(sb.from('clips').delete().eq('game_id', r.id));
         await q(sb.from('clips').insert(rows));
         ping('changed'); await pull();

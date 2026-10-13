@@ -206,6 +206,35 @@
     d.files = d.files || []; d.files.push({ bucket, path, size: blob.size, type: blob.type }); store(d); return { data: { path }, error: null }; },
     remove: async (paths) => { const d = load(); const mine = (paths || []).filter((p) => { const team = d.teams.find((t) => t.id === String(p).split('/')[0]); return team && isOrg(d, team.id); });
       d.files = (d.files || []).filter((f) => !(f.bucket === bucket && mine.includes(f.path))); store(d); return { data: mine.map((name) => ({ name })), error: null }; } }) };
+  // The clip-store edge function (tests/clips.test.mjs runs the real one): upload links into the R2 bucket (here, an address
+  // on this test server, PUT to by the app and caught below), deleting, and moving a clip from the old storage. Gaffers only.
+  function clipStore(d, b) {
+    const no = (status, error, reason) => ({ data: null, error: { message: 'Edge Function returned a non-2xx status code', context: new Response(JSON.stringify({ error, reason }), { status }) } });
+    const t = d.teams.find((x) => x.code === String(b.code || '').trim().toUpperCase());
+    if (!uid()) return no(401, 'Sign in first.'); if (!t) return no(404, 'No such team.'); if (!isOrg(d, t.id)) return no(403, 'Only a gaffer can change the team\'s highlights.');
+    if (d.r2Off) return no(503, 'Clip storage isn\'t set up on Gaffer\'s server yet.', 'not_configured');
+    const keys = b.paths || [];
+    if (b.action !== 'adopt' && (!keys.length || !keys.every((k) => String(k).startsWith(t.id + '/')))) return no(400, 'Those files aren\'t in this team\'s folder.');
+    if (b.action === 'upload') return { data: { urls: keys.map((k) => location.origin + '/__r2/' + k) }, error: null };
+    if (b.action === 'remove') { d.files = (d.files || []).filter((f) => !(f.bucket === 'r2' && keys.includes(f.path))); store(d); return { data: { removed: keys.length }, error: null }; }
+    if (b.action === 'adopt') {
+      const c = d.clips.find((x) => x.team_id === t.id && x.game_id === b.game_id && x.seq === b.seq); if (!c) return no(404, 'No such clip.');
+      if (c.store === 'r2') return { data: { moved: 0 }, error: null };
+      const files = [c.path, c.vpath].filter(Boolean); (d.files || []).forEach((f) => { if (f.bucket === 'clips' && files.includes(f.path)) f.bucket = 'r2'; });
+      c.store = 'r2'; store(d); return { data: { moved: files.length }, error: null };
+    }
+    return no(400, 'Unknown action.');
+  }
+  const realFetch = window.fetch.bind(window); // uploads to the R2 bucket: kept with the stand-in database's files
+  window.fetch = async (url, init) => {
+    const u = String(url && url.url || url);
+    if (u.includes('/__r2/') && init && init.method === 'PUT') {
+      if (window.__r2Fail) return new Response('', { status: 500 });
+      const key = decodeURIComponent(u.split('/__r2/')[1]), body = init.body, d = load(); d.files = (d.files || []).filter((f) => !(f.bucket === 'r2' && f.path === key));
+      d.files.push({ bucket: 'r2', path: key, size: body && body.size || 0, type: (init.headers || {})['Content-Type'] || '' }); store(d); return new Response('', { status: 200 });
+    }
+    return realFetch(url, init);
+  };
   // The live-stream edge function (tests/stream.test.mjs runs the real one): the team's camera link, on only while live.
   // A test plugs the GoPro in with d.camera = true, and makes the server unready with d.streamOff.
   function liveStream(d, b) {
@@ -229,6 +258,7 @@
   }
   const functions = { invoke: async (name, o) => { if (name === 'live-stream' && window.__offline) return { data: null, error: { message: 'Failed to send a request to the Edge Function' } };
     const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); if (name === 'live-stream') return liveStream(d, o.body);
+    if (name === 'clip-store') return clipStore(d, o.body);
     if (name === 'team-notify' && o.body.kind === 'live') { // sent once per stream, and only when the picture is really getting through (as the real one checks with Cloudflare)
       const t = d.teams.find((x) => x.code === String(o.body.code || '').trim().toUpperCase()), st = t && d.team_streams.find((x) => x.team_id === t.id);
       if (!st || !st.started_at || st.notified_at || !(d.camera && st.enabled)) return { data: { sent: 0 }, error: null };

@@ -88,6 +88,7 @@ await A.click('#cutBody [data-cutdo="cams"]'); await A.click('#cutBody [data-cut
 eq(JSON.stringify(await rows()).replace(/"on":(true|false)/g, ''), marked.replace(/"on":(true|false)/g, ''), 'choosing the same video again keeps every mark');
 
 // ---------- the cut uses all of it (and this time the full reel can't be joined)
+w.setDb(Object.assign(w.db(), { r2Off: true })); // (Cloudflare R2 not set up on the server yet: the clips go to the old storage, as before)
 await A.page.evaluate(() => { window.__reelFail = 'It stopped making progress, so it was stopped. Keep Gaffer open on screen while it works, and try again.'; });
 await A.click('#cutBody [data-cutdo="go"]'); await A.run(3000);
 const cut = await A.page.evaluate(() => (window.__rc.filter((x) => x[0] === 'cut').pop() || [])[1]);
@@ -109,15 +110,26 @@ eq([/2 clips are now in Highlights/.test(await A.text('#cutBody')), (w.db().clip
   [true, 2, 'The full reel couldn’t be joined: It stopped making progress, so it was stopped. Keep Gaffer open on screen while it works, and try again. The clips are all in Highlights; cut again to try the reel once more.', false],
   'if the full reel can\'t be joined, the clips are still uploaded, and it says why the reel is missing');
 
-// ---------- deleting the highlights, to start again
 await A.click('#cutBody [data-cutdo="finish"]'); await A.run(500);
-const files = () => (w.db().files || []).filter((f) => f.bucket === 'clips').length;
+const where = () => (w.db().files || []).map((f) => f.bucket), stores = () => (w.db().clips || []).map((c) => c.store || null);
+eq([where(), stores()], [['clips', 'clips'], [null, null]], 'with R2 not set up, the clips are uploaded to the old storage');
+
+// ---------- R2 set up: the gaffer's app moves the old clips across by itself, the next time it's open
+const d0 = w.db(); delete d0.r2Off; w.setDb(d0);
+await A.page.reload(); await A.run(5000);
+const src = await A.page.$eval('#hlList video', (v) => v.getAttribute('src'));
+eq([where(), stores(), src.startsWith('https://pub-256c81d54c3443eb8e0e013b111d2668.r2.dev/')], [['r2', 'r2'], ['r2', 'r2'], true],
+  'moved: the files are in R2, the clips say so, and they play from R2');
+eq((w.db().calls || []).filter((c) => c.name === 'clip-store' && c.body.action === 'adopt').length, 2, 'one clip at a time, each once');
+
+// ---------- deleting the highlights, to start again
+const files = () => (w.db().files || []).filter((f) => f.bucket === 'clips' || f.bucket === 'r2').length;
 eq([await A.visible('#hlList [data-hldel]'), files()], [true, 2], 'a game with highlights has Delete these highlights');
 await A.click('#hlList [data-hldel]');
 eq([await A.text('#hlList [data-hldel]'), (w.db().clips || []).length], ['Tap again to delete them', 2], 'it needs a second tap');
 await A.click('#hlList [data-hldel]'); await A.run(1500);
 eq([(w.db().clips || []).length, files(), await A.visible('#hlList [data-hldel]'), await A.text('#hlList [data-cut]')], [0, 0, false, 'Cut from a video on this phone'],
-  'deleted: the clips are gone from Highlights and from storage, and the game can be cut again from scratch');
+  'deleted: the clips are gone from Highlights and from storage (R2 too), and the game can be cut again from scratch');
 
 for (const e of A.errs) check(false, 'page error: ' + e);
 await w.close();

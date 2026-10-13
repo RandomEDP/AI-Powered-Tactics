@@ -108,8 +108,8 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0020`, **all applied to the live project**. New ones are numbered on from there |
-| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
+| `supabase/migrations/` | `0001` … `0021`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
 | `.github/workflows/watch-shots.yml` | Takes Apple Watch App Store screenshots in a simulator (run by hand) |
@@ -131,7 +131,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 **Identifiers:**
 - Bundle ID: `com.randomedp.aipoweredtactics`. That is also the APNs topic.
 - Supabase project ref: `kvefpqigpqprxfelesrb`.
-- Clips storage bucket: `clips` (public read).
+- Clips: Cloudflare R2 bucket `gaffer-clips`, played from its public address (`config.js` `clipsUrl`, an r2.dev address).
+  The old Supabase bucket `clips` (public read) only holds clips not yet moved across.
 
 ## 6. How the important parts work
 
@@ -246,8 +247,18 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   commentary had been recorded (build 128). Before cutting, JS asks `readable({paths})` and, if a video can't be opened,
   says to choose it again (Change video keeps the marks when it's the same video, `sameVideo`) without recording anything.
 - **Timing:** each clip runs from `PRE` (8 s) before its moment to `POST` (6 s) after (Ethan cut it from 15 s before).
-- **Size:** every clip is re-encoded to about 2 Mbps H.264 after export (`shrink`), because the `clips` bucket is on the
-  Supabase free plan (1 GB; 417 MB was used by about 30 clips at the old ~14 MB each).
+- **Size:** every clip is re-encoded to about 2 Mbps H.264 after export (`shrink`).
+- **Where clips live: Cloudflare R2** (`0021_clips_in_r2.sql`, `clip-store`). The Supabase free plan's 1 GB of storage
+  and 5 GB a month of downloads were filling up; R2 is free to 10 GB and free to watch. The cut asks `clip-store` for
+  upload links (`upload {paths}`: presigned S3 PUTs, an hour each, only in the team's folder, gaffers only) and the phone
+  PUTs each file straight to R2; rows get `store: 'r2'`, and `clipUrl` plays them from `CFG.clipsUrl`. If R2 isn't set up
+  (`reason: 'not_configured'`) or refuses a file, that clip goes to the old Supabase bucket instead and the done screen
+  says so. Clips cut before R2 are moved by the gaffer's app by itself (`clipsMove`, after a pull: `adopt {game_id, seq}`,
+  one at a time, each once a session): the function copies both files to R2, marks the row, and only then deletes the
+  old files. Deleting a game's highlights calls `remove`. Secrets: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
+  (plus `CLOUDFLARE_ACCOUNT_ID`). The bucket's CORS allows GET/PUT/HEAD from anywhere (uploads come from the app's web
+  view). Tests: `r2.test.mjs` (the real function; its signing is checked against Amazon's worked example), and
+  `cuttiming`, `reels`, `house` for the app.
 - **Commentary** (in the highlight maker for gaffers, `hasGaffer()`; no longer experimental): an iPhone won't play a
   second sound over a video, so a clip cut with commentary is kept twice: `path` without it and `vpath` (`<nn>v.mp4`,
   `0019_clip_commentary.sql`) with it. "Commentary on/off" (`sayOn`, `apt-say` per phone) swaps which copy plays
@@ -351,22 +362,22 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0020` are applied live. Add new ones as `supabase/migrations/0021_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0021` are applied live. Add new ones as `supabase/migrations/0022_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
   - Functions are `security definer` with `set search_path = ''`, and their grants are revoked from public and anon.
     Follow the patterns in the existing files.
-- **Edge functions:** all four are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
+- **Edge functions:** all five are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v17 (kind `live` from any team member, sent once; same as the repo), `live-stream` v5,
-    `reel-voice` v13 (players allowed too; Sweary delivery; paced for Google's per-minute limit), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v13 (players allowed too; Sweary delivery; paced for Google's per-minute limit), `clip-store` v1, `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
-  `GOOGLE_SERVICE_ACCOUNT` (Ethan is setting this one up), `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_STREAM_TOKEN`
-  (Ethan to set up for live streaming).
+  `GOOGLE_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan).
 - **GitHub repository secrets:** `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`.
 - **Auth:** email and password. Site URL and redirect go to the GitHub Pages address.
 - **Any Google API key used by `reel-voice`** is server-side. Don't give it an iOS-app restriction (requests come from
