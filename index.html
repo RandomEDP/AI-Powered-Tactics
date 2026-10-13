@@ -291,11 +291,11 @@ tr.past td { opacity: .45; }
 .res li { align-items: center; display: grid; grid-template-columns: 22px 46px 1fr; gap: 8px; padding-block: 12px; border-bottom: 1px solid var(--line); }
 .res li:last-child { border-bottom: 0; }
 .res span { min-width: 0; overflow-wrap: anywhere; }
-.res b { font-size: 16px; font-weight: 800; } .res .W { color: var(--fair); } .res .L { color: var(--bib); } .res .D { color: var(--muted); }
+.res b { font-size: 16px; font-weight: 800; } .res .W { color: var(--fair); } .res .L { color: var(--bib); } .res .D, .res .H { color: var(--muted); }
 .rowbtns { display: flex; gap: 6px; flex-wrap: wrap; grid-column: 2 / -1; }
 .rowbtns:empty { display: none; }
 .lrow, .mrow, .orow { display: grid; gap: 8px; align-items: center; padding-block: 9px; border-bottom: 1px solid var(--line); }
-.lrow { grid-template-columns: 1fr 44px auto; }
+.lrow { grid-template-columns: 1fr 44px auto; } .lrow.hrow { grid-template-columns: minmax(0, 1fr) auto; }
 .mrow { grid-template-columns: 1fr auto; }
 .orow { grid-template-columns: 1fr 52px 112px 36px; border-bottom: 0; padding-block: 4px; }
 .orow input.shirt { text-align: center; padding-inline: 4px; }
@@ -310,6 +310,7 @@ tr.past td { opacity: .45; }
 .seg button.is[data-set="start"] { background: var(--on); color: var(--on-ink); }
 .seg button.is[data-set="bench"] { background: var(--bib); }
 .seg button.is[data-set="out"] { background: var(--muted); color: var(--bg); }
+.seg button.is[data-hside="a"] { background: var(--on); color: var(--on-ink); } .seg button.is[data-hside="b"] { background: var(--bib); } .seg button.is[data-hside="out"] { background: var(--muted); color: var(--bg); }
 .step { display: flex; align-items: center; gap: 6px; }
 .step button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--fill); font-size: 22px; font-weight: 600; line-height: 1; }
 .step b { min-width: 64px; text-align: center; font-size: 26px; font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
@@ -442,7 +443,34 @@ tr.past td { opacity: .45; }
 .marks li > .link { flex: none; }
 .marks li.on > button.plain { outline: 2px solid var(--ink); }
 .camtabs button[aria-pressed="true"] { outline: 2px solid var(--ink); }
+.guestcard { border: 2px solid var(--team); } .btnlink { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
 .hcard.focus { outline: 2px solid var(--ink); }
+.lookbox .lk-frame { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; margin: 10px 0; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif; color: #fff;
+  background: radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, .55)), repeating-linear-gradient(90deg, #2f7a3f 0 11%, #2a6e38 11% 22%); }
+.lookbox .lk-frame::after { content: ''; position: absolute; left: 50%; top: 18%; width: 34%; aspect-ratio: 1; transform: translateX(-50%); border: 2px solid rgba(255, 255, 255, .28); border-radius: 50%; }
+.lk-bug { position: absolute; z-index: 1; left: 3.5%; top: 6%; display: flex; height: 13%; border-radius: 5px; overflow: hidden; background: rgba(13, 13, 13, .88); font-weight: 800; font-size: 11px; letter-spacing: .04em; }
+.lk-bug > * { display: flex; align-items: center; justify-content: center; padding: 0 7px; }
+.lk-crest { background: var(--team); width: 26px; padding: 2px !important; } .lk-crest.none { width: 5px; padding: 0 !important; } .lk-crest img { max-width: 100%; max-height: 100%; }
+.lk-score { background: var(--team); color: var(--team-ink); font-variant-numeric: tabular-nums; font-size: 12px; }
+.lk-clock { background: rgba(255, 255, 255, .94); color: #141414; font-variant-numeric: tabular-nums; font-weight: 700; }
+.lk-mark { position: absolute; z-index: 1; right: 3.5%; top: 6%; height: 11%; display: flex; align-items: center; gap: 5px; padding: 0 9px 0 3px; border-radius: 99px; background: rgba(0, 0, 0, .5); font-size: 8px; font-weight: 900; letter-spacing: .12em; }
+.lk-mark img { height: 78%; border-radius: 4px; }
+.lk-lower { position: absolute; z-index: 1; left: 3.5%; bottom: 6%; display: flex; border-radius: 5px; overflow: hidden; max-width: 93%; }
+.lk-tag { display: flex; align-items: center; padding: 0 9px; background: var(--team); color: var(--team-ink); font-size: 10px; font-weight: 900; letter-spacing: .1em; }
+.lk-panel { display: flex; flex-direction: column; justify-content: center; padding: 5px 10px; background: rgba(13, 13, 13, .88); min-width: 0; }
+.lk-panel b { font-size: 14px; font-weight: 800; line-height: 1.15; } .lk-panel small { font-size: 9px; font-weight: 600; opacity: .78; }
+.lookbox .lk-end { background: linear-gradient(225deg, color-mix(in srgb, var(--team) 32%, #000), var(--team)); color: var(--team-ink); display: grid; place-items: center; text-align: center; }
+.lookbox .lk-end::after { border-color: color-mix(in srgb, var(--team-ink) 10%, transparent); top: 50%; transform: translate(-50%, -50%); width: 52%; }
+.lk-endin { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px; }
+.lk-endin > img.lk-ec { width: 24px; height: 24px; object-fit: contain; margin-bottom: 2px; }
+.lk-kick { font-size: 7px; font-weight: 800; letter-spacing: .2em; opacity: .75; }
+.lk-title { font-size: 14px; font-weight: 900; line-height: 1.1; }
+.lk-sub { font-size: 8px; font-weight: 600; opacity: .8; }
+.lk-rule { width: 50px; height: 1px; background: currentColor; opacity: .3; margin: 6px 0; }
+.lk-icon { width: 20px; height: 20px; border-radius: 5px; }
+.lk-app { font-size: 8px; font-weight: 800; margin-bottom: 3px; }
+.lk-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px 3px 5px; border-radius: 5px; background: #000; color: #fff; border: 1px solid #a6a6a6; line-height: 1; text-align: left; }
+.lk-badge svg { width: 11px; height: 11px; fill: #fff; } .lk-badge span { font-size: 9px; font-weight: 600; display: flex; flex-direction: column; } .lk-badge small { font-size: 5px; font-weight: 500; }
 .cutprev { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 10px 12px; margin: 12px 0; }
 .cutprev h3 { margin: 0 0 4px; font-size: 16px; }
 .cutprev video { display: block; width: 100%; max-height: 240px; border-radius: 8px; background: #000; margin-top: 8px; }
@@ -899,6 +927,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
 <div class="view" id="v-setup" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>New game</h1></div>
+  <div class="toggle" id="gKind" role="group" aria-label="Who’s playing"><button type="button" data-kind="opp" aria-pressed="true">Another team</button><button type="button" data-kind="house" aria-pressed="false">Among ourselves</button></div>
+  <div id="oppSetup">
   <label class="field" for="oppPick" id="oppPickWrap" hidden>Played them before?<select id="oppPick"></select></label>
   <label class="field" for="opp" id="oppWrap">Who are you playing?<input id="opp" type="text" placeholder="Opponent's name" autocomplete="off" maxlength="40"></label>
   <p class="msg bad" id="oppErr" hidden>Enter the opponent's name before you carry on.</p>
@@ -916,6 +946,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     </div>
     <p class="note">Auto-pick benches the players with the most minutes so far this season. If you leave the bench to auto-pick, the tactic slider on the next screen chooses who starts on the bench.</p>
   </section>
+  </div>
+  <div id="houseBox" hidden></div>
 </div>
 
 <div class="view" id="v-mins" hidden>
@@ -954,7 +986,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
   <div class="swap notice" id="notice" hidden><p class="msg" id="noticeText"></p><div class="actions own"><button class="plain" id="noticeOk" type="button">Got it</button></div></div>
 
-  <div class="swap"><h2 id="swapTitle">Next change</h2><div id="swapBody"></div>
+  <div class="swap" id="swapCard"><h2 id="swapTitle">Next change</h2><div id="swapBody"></div>
     <div class="actions own"><button class="plain" id="edBtn" type="button">Edit upcoming subs</button></div></div>
   <div id="subEdit"></div>
   <div id="quickSwap"></div>
@@ -981,15 +1013,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <section>
     <h2 id="nowTitle">Right now</h2>
     <div class="swap-rows">
-      <div class="tag on">Pitch</div><div class="chips" id="pitchNow"></div>
-      <div class="tag off">Bench</div><div class="chips" id="benchNow"></div>
+      <div class="tag on" id="pitchTag">Pitch</div><div class="chips" id="pitchNow"></div>
+      <div class="tag off" id="benchTag">Bench</div><div class="chips" id="benchNow"></div>
       <div class="tag gone" id="goneTag" hidden>Out</div><div class="chips" id="goneNow" hidden></div>
     </div>
     <div class="actions own"><button class="plain" id="outBtn" type="button">Player injured or leaving</button></div>
     <div id="outPicker"></div>
   </section>
 
-  <section>
+  <section id="rotaSec">
     <h2>Full rota</h2>
     <div class="scroll"><table>
       <thead><tr><th>Half</th><th>From</th><th>On the bench</th></tr></thead>
@@ -1132,6 +1164,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   var teamName = function () { return (S.name || '').trim() || 'Your team'; };
   var teamShort = function () { return (S.short || '').trim() || teamName(); };
+  // the side a game calls "us": the team, or in a game among the squad (r.house) the first of the two sides
+  var usOf = function (r) { return r && r.house ? r.house.a : teamShort(); };
+  var usFull = function (r) { return r && r.house ? r.house.a : teamName(); };
+  var vs = function (r) { return r.house ? r.house.a + ' v ' + r.house.b : 'v ' + r.opp; }; // a game's name: "v Dog Squad", or "Bibs v Shirts"
+  var scoreLine = function (r, us, them) { return usOf(r) + ' ' + us + '–' + them + ' ' + r.opp; };
   function applyTheme(over) { // the team colour drives the whole palette; dark text goes on light team colours
     var want = over || (A.active ? S.color : DEFAULT_COLOR), c = /^#[0-9a-f]{6}$/i.test(want || '') ? want : DEFAULT_COLOR;
     var r = parseInt(c.substr(1, 2), 16) / 255, g = parseInt(c.substr(3, 2), 16) / 255, b = parseInt(c.substr(5, 2), 16) / 255;
@@ -1198,14 +1235,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var ev = (g.events || []).map(function (e) {
         var o = { min: e.min, x: e.x, at: e.at };
         if (e.kind === 'goal') { o.us = true; o.p = e.pid; o.a = e.assist; }
-        else if (e.kind === 'against') o.us = false;
+        else if (e.kind === 'against') { o.us = false; o.p = e.pid; o.a = e.assist; } // (a scorer only in a game among the squad)
         else { o.hl = true; o.p = e.pid; if (e.kind === 'save') o.k = 'save'; }
         if (e.watch) o.w = true; if (e.by_team) o.by = 'team';
         if (e.on_pitch && e.on_pitch.length) o.on = e.on_pitch;
         return stripNull(o);
       });
       return stripNull({ id: g.id, opp: g.opp, friendly: g.friendly, us: g.us, them: g.them, half: g.half, koAt: g.ko_at, htAt: g.ht_at, h2At: g.h2_at,
-        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: g.side === 7 ? 7 : null, tour: g.tournament_id || null, tourName: g.tournament || null });
+        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: g.side === 7 ? 7 : null, tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null });
     });
     s.match = d.live || null;
     return s;
@@ -1221,7 +1258,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function gameParts(r, i, tid) {
     var row = { id: r.id, team_id: tid, seq: i, opp: (r.opp || '').slice(0, 60), friendly: !!r.friendly, us: r.us | 0, them: r.them | 0, half: whole(r.half),
       ko_at: whole(r.koAt), ht_at: whole(r.htAt), h2_at: whole(r.h2At), ft_at: whole(r.ftAt), finished_at: whole(r.at),
-      sync: typeof r.sync === 'number' && isFinite(r.sync) ? r.sync : null, pre: whole(r.pre), post: whole(r.post), cap: r.cap == null ? null : !!r.cap, lineups: r.lu || null, periods: r.periods === 1 ? 1 : null, side: r.side === 7 ? 7 : null, tournament_id: r.tour || null, tournament: r.tourName ? String(r.tourName).slice(0, 60) : null };
+      sync: typeof r.sync === 'number' && isFinite(r.sync) ? r.sync : null, pre: whole(r.pre), post: whole(r.post), cap: r.cap == null ? null : !!r.cap, lineups: r.lu || null, periods: r.periods === 1 ? 1 : null, side: r.side === 7 ? 7 : null, tournament_id: r.tour || null, tournament: r.tourName ? String(r.tourName).slice(0, 60) : null, house: r.house || null };
     var players = Object.keys(r.per || {}).filter(function (k) { return whole(+k) === +k; }).map(function (k) { var x = r.per[k]; return { game_id: r.id, pid: +k, mins: x.mins | 0, goals: x.g | 0, assists: x.a | 0, scored_on: x.gf == null ? null : x.gf | 0, conceded: x.ga == null ? null : x.ga | 0 }; });
     var events = (r.ev || []).map(function (e, j) {
       return { game_id: r.id, seq: j, kind: e.hl ? (e.k === 'save' ? 'save' : 'highlight') : e.us ? 'goal' : 'against',
@@ -1381,7 +1418,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (m && m.events.some(function (e) { return !e.hl && typeof e.at === 'number' && Math.abs(e.at - when) < LOCK_MS; })) return;
         var ok = function (v) { return v == null || (typeof v === 'number' && m.squad.indexOf(v) >= 0); };
         if (m && m.phase !== 'ft' && typeof g.us === 'boolean' && ok(g.p) && ok(g.a)) {
-          goalPush(m, putEvent(m, stripNull({ on: onPitch(m, curSeg(m)), us: g.us, p: g.us && g.p != null ? g.p : null, a: g.us && g.a != null ? g.a : null, by: 'team', at: when,
+          goalPush(m, putEvent(m, stripNull({ on: onPitch(m, curSeg(m)), us: g.us, p: (g.us || m.house) && g.p != null ? g.p : null, a: (g.us || m.house) && g.a != null ? g.a : null, by: 'team', at: when,
             min: typeof g.min === 'number' ? Math.max(0, Math.min(m.half * (m.periods === 1 ? 1 : 2), Math.round(g.min))) : matchMin(m),
             x: typeof g.x === 'number' && g.x >= 1 ? Math.min(60, Math.round(g.x)) : null })));
         }
@@ -1449,8 +1486,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   var goalMsg = '', goalT = null;
   function goalPush(m, ev) { // tell everyone who isn't watching that the score has changed
-    var t = tally(m), line = teamShort() + ' ' + t.us + '–' + t.them + ' ' + m.opp;
-    notifyTeam('goal', ev.us ? 'Goal! ' + line : 'Goal for ' + m.opp + '. ' + line, ev.us ? (ev.p != null ? nm(ev.p) + (ev.a != null ? ', set up by ' + nm(ev.a) : '') + '.' : 'Tap to watch along.') : 'Tap to watch along.');
+    var t = tally(m), line = scoreLine(m, t.us, t.them), who = ev.p != null && (ev.us || m.house) ? nm(ev.p) + (ev.a != null ? ', set up by ' + nm(ev.a) : '') + '.' : 'Tap to watch along.';
+    notifyTeam('goal', m.house ? 'Goal for ' + (ev.us ? m.house.a : m.house.b) + '! ' + line : ev.us ? 'Goal! ' + line : 'Goal for ' + m.opp + '. ' + line, who);
   }
   // ---- "game started": a pop-up for everyone with the team open, and a notification for everyone else
   var wantGame = null, pushOn = false, pushSaved = null, pushToken = null, pushPids = {}, pushFor = null; // pushPids: claimed players with notifications on, as far as a gaffer is told
@@ -1554,7 +1591,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
   var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var P = function (id) { for (var i = 0; i < S.players.length; i++) if (S.players[i].id === id) return S.players[i]; return null; };
-  var nm = function (id) { var p = P(id); return p ? (p.name.trim() || 'Player') : 'Player'; };
+  var nm = function (id) { var p = P(id); return p ? (p.name.trim() || 'Player') : guestName(id) || 'Player'; };
+  function guestName(id) { // someone from outside the squad who played in a game among the squad
+    if (typeof id !== 'number' || id < 1000) return null;
+    var hs = [S.match && S.match.house, typeof D !== 'undefined' && D && D.house].concat((S.results || []).map(function (r) { return r.house; })), out = null;
+    hs.forEach(function (h) { ((h && h.guests) || []).forEach(function (g) { if (!out && g.id === id) out = g.name; }); });
+    return out;
+  }
+  var sideOf = function (m, id) { return m && m.house && m.house.side ? m.house.side[id] || null : null; };
   var fmt = function (ms) { var s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); };
   var fmt2 = function (ms) { var s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); };
   var listAnd = function (a) { return a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : (a[0] || ''); };
@@ -1659,8 +1703,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var t = { us: 0, them: 0, g: {}, a: {} };
     m.events.forEach(function (e) {
       if (e.hl) return;
-      if (!e.us) { t.them++; return; }
-      t.us++;
+      if (!e.us) { t.them++; if (!m.house) return; } else t.us++;
       if (e.p != null) t.g[e.p] = (t.g[e.p] || 0) + 1;
       if (e.a != null) t.a[e.a] = (t.a[e.a] || 0) + 1;
     });
@@ -1773,7 +1816,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
 
   function recordLine(all, scope) { // the league record; tournament games have their own
-    var rs = S.results.filter(function (r) { return scope ? r.tour === scope : !r.tour && (all || !r.friendly); });
+    var rs = S.results.filter(function (r) { return scope ? r.tour === scope : !r.tour && !r.house && (all || !r.friendly); }); // (a game among the squad is no win or loss for the team)
     var W = 0, D = 0, L = 0, gf = 0, ga = 0;
     rs.forEach(function (r) { gf += r.us; ga += r.them; if (r.us > r.them) W++; else if (r.us < r.them) L++; else D++; });
     return rs.length ? { short: 'Played ' + rs.length + ': W' + W + ' D' + D + ' L' + L, long: 'Played ' + rs.length + ': won ' + W + ', drew ' + D + ', lost ' + L + '. Scored ' + gf + ', conceded ' + ga + '.' } : null;
@@ -2131,7 +2174,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('mResume').hidden = !m; $('mResumeLbl').textContent = own ? 'Resume game' : 'Watch the game';
     $('homeNote').hidden = own || !!m;
     $('mNew').className = (m ? '' : 'primary') + (own ? '' : ' locked'); $('mNew').setAttribute('aria-disabled', !own);
-    if (m) { var t = tally(m); $('mResumeSub').textContent = 'v ' + m.opp + ', ' + t.us + '–' + t.them; }
+    if (m) { var t = tally(m); $('mResumeSub').textContent = vs(m) + ', ' + t.us + '–' + t.them; }
     // you
     var pend = A.pending && A.pending.code === A.active && !me ? A.pending : null, card = $('meCard'), html = '';
     $('pendCard').hidden = !pend; if (pend) $('pendTitle').textContent = pend.ask ? 'Confirm your email to ask to join' : 'Confirm your email to join as ' + pend.name;
@@ -2442,7 +2485,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('pOpp').value = f ? f.opp : ''; $('pDate').value = when.getFullYear() + '-' + p2(when.getMonth() + 1) + '-' + p2(when.getDate()); $('pTime').value = p2(when.getHours()) + ':' + p2(when.getMinutes());
     $('pLoc').value = f ? f.location : (d0.location || ''); $('pCost').value = f ? f.cost : (d0.cost || '');
     pSquad(f ? f.max_outfield : (FM.p.side === 5 && d0.max ? d0.max : null)); pKindShow(); fmtShow('p');
-    $('pOppList').innerHTML = S.results.map(function (r) { return r.opp; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+    $('pOppList').innerHTML = S.results.filter(function (r) { return !r.house; }).map(function (r) { return r.opp; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
     $('pCancel').hidden = !f; $('pMsg').textContent = ''; $('pSave').disabled = false; 
   }
   var pKind = 'game';
@@ -2566,8 +2609,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     return (r.ev || []).slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).map(function (e) {
       var text;
       if (e.hl) text = e.k === 'save' ? 'Save by ' + nm(e.p) : e.p != null ? 'Highlight: ' + nm(e.p) : 'Highlight';
-      else if (e.us) { us++; text = 'Goal: ' + (e.p != null ? nm(e.p) : teamShort()) + (e.a != null ? ', set up by ' + nm(e.a) : '') + ' (' + us + '–' + them + ')'; }
-      else { them++; text = 'Goal for ' + r.opp + ' (' + us + '–' + them + ')'; }
+      else if (e.us) { us++; text = 'Goal: ' + (e.p != null ? nm(e.p) : usOf(r)) + (e.a != null ? ', set up by ' + nm(e.a) : '') + (r.house ? ' for ' + usOf(r) : '') + ' (' + us + '–' + them + ')'; }
+      else { them++; text = e.p != null ? 'Goal: ' + nm(e.p) + (e.a != null ? ', set up by ' + nm(e.a) : '') + ' for ' + r.opp + ' (' + us + '–' + them + ')' : 'Goal for ' + r.opp + ' (' + us + '–' + them + ')'; }
       return { e: e, text: text };
     });
   }
@@ -2586,36 +2629,63 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var HLDEL = { i: -1, until: 0, msg: '', busy: false }; // Delete these highlights: armed by the first tap
   var DL = { i: -1, busy: false, prog: '', msg: '', path: null, bad: false };
   var RB = { pid: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false };
+  var guestGame = null, guestSeen = false, GL = { i: -1, msg: '' };
+  function guestLink(r) { return String(CFG.siteUrl || location.origin + location.pathname).replace(/[?#].*$/, '') + '?team=' + encodeURIComponent(A.active || '') + '&game=' + encodeURIComponent(r.id || ''); }
+  async function shareGuests(i) { // a message with the game's link, for the guests who played in it
+    var r = S.results[i]; if (!r || !r.house) return;
+    if (!r.id) { r.id = uuid(); save(); }
+    var names = (r.house.guests || []).map(function (g) { return g.name; }), url = guestLink(r);
+    var text = 'Thanks for playing' + (names.length ? ', ' + listAnd(names) : '') + '! Watch the highlights from ' + vs(r) + ' with ' + teamName() + ' in Gaffer. They show up once they’re cut.';
+    var done = function (msg) { GL = { i: i, msg: msg }; if (S.view === 'highlights') renderHighlights(); };
+    var copy = function () {
+      try { navigator.clipboard.writeText(text + ' ' + url).then(function () { done('Link copied. Paste it into a message to the guests.'); }, function () { done('Send them this link: ' + url); }); }
+      catch (e) { done('Send them this link: ' + url); }
+    };
+    var rc = RCp();
+    if (rc) { try { await rc.shareText({ text: text, url: url }); done(''); return; } catch (e) {} }
+    if (navigator.share) { try { await navigator.share({ text: text, url: url }); done(''); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    copy();
+  }
+  function guestCard() { // for someone who opened a game's link: what they're looking at, and what they can do next
+    if (!guestGame) return '';
+    var r = S.results.filter(function (x) { return x.id === guestGame; })[0], store = String(CFG.appStore || '');
+    return '<div class="hcard guestcard" id="guestCard"><h3>Thanks for playing</h3><p class="note">' + (r ? 'These are the highlights from <b>' + esc(vs(r)) + '</b> with ' + esc(teamName()) + '. They show up here once they’ve been cut.' : 'Loading the game…') + '</p>' +
+      (NATIVE ? '' : store ? '<div class="actions"><a class="plain primary btnlink" href="' + esc(store) + '" target="_blank" rel="noopener">Get Gaffer on the App Store</a></div>' : '<p class="note">Get Gaffer for iPhone: search for “Gaffer 5-a-Side” on the App Store.</p>') +
+      '<p class="note">Want your own stats and clips? Make an account, then join a team with its code, or start your own.</p><div class="actions"><button class="plain" type="button" data-guest="account">Make an account</button><button class="plain" type="button" data-guest="welcome">Join or start a team</button><button class="link" type="button" data-guest="close">Close</button></div></div>';
+  }
   function renderHighlights() {
+    if (guestGame) { var gr = S.results.filter(function (x) { return x.id === guestGame; })[0]; if (gr && hlFocus !== gr) { hlFocus = gr; hlBy = 'game'; } }
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
-    var own = role === 'owner', html = '', games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
-    if (!games.length) { $('hlList').innerHTML = '<div class="hcard"><h3>No games yet</h3><p class="note">Highlights appear here after your first finished game. Every goal, assist and save you log is kept as a moment.</p></div>'; return; }
+    var own = role === 'owner', html = guestCard(), games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
+    if (!games.length) { $('hlList').innerHTML = html + '<div class="hcard"><h3>No games yet</h3><p class="note">Highlights appear here after your first finished game. Every goal, assist and save you log is kept as a moment.</p></div>'; return; }
     if (hlBy === 'game') {
       games.forEach(function (g) {
         var r = g.r, ms = momentsOf(r), timed = r.koAt && ms.length, vids = clips.filter(function (c) { return c.game_id === r.id; });
         var cutBtn = !own || !timed ? '' : NATIVE ? '<button class="plain primary" type="button" data-cut="' + g.i + '">' + (vids.length ? 'Cut again from a video' : 'Cut from a video on this phone') + '</button>' : '';
-        html += '<div class="hcard' + (hlFocus === r ? ' focus' : '') + '" id="hlg-' + g.i + '"><h3>v ' + esc(r.opp) + ' ' + r.us + '–' + r.them + (r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
+        html += '<div class="hcard' + (hlFocus === r ? ' focus' : '') + '" id="hlg-' + g.i + '"><h3>' + (r.house ? esc(scoreLine(r, r.us, r.them)) + '<span class="badge">Among ourselves</span>' : 'v ' + esc(r.opp) + ' ' + r.us + '–' + r.them + (r.friendly ? '<span class="badge">Friendly</span>' : '')) + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
         var delBtn = own && vids.length ? '<button class="plain" type="button" data-hldel="' + g.i + '"' + (HLDEL.busy ? ' disabled' : '') + '>' + (HLDEL.i === g.i && Date.now() < HLDEL.until ? 'Tap again to delete them' : 'Delete these highlights') + '</button>' : '';
         var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
+        var guests = r.house && r.house.guests && r.house.guests.length && A.active && !guestGame ? '<div class="actions"><button class="plain" type="button" data-guests="' + g.i + '">Send the guests a link</button></div>' +
+          (GL.i === g.i && GL.msg ? '<p class="msg" role="status" id="glMsg">' + esc(GL.msg) + '</p>' : '') : '';
         if (vids.length) html += clipPlayer(vids) + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
           (DL.i === g.i && (DL.msg || DL.prog) ? '<p class="msg' + (DL.bad ? ' bad' : '') + '" role="status" id="dlMsg">' + esc(DL.prog || DL.msg) + '</p>' + (DL.path && !DL.busy ? '<div class="actions"><button class="plain primary" type="button" data-dlshare="1">Share or save it</button></div>' : '') : '');
         else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
             : own ? (NATIVE ? 'No video for this game yet.' : 'No video for this game yet. Open the iPhone app to cut it from a video on your phone.') : 'No video for this game yet. Ask your gaffer to generate it.',
             cutBtn);
-        html += '</div>';
+        html += guests + '</div>';
       });
     } else {
       var byId = {}; S.results.forEach(function (r) { byId[r.id] = r; });
       S.players.map(function (p) {
         var list = [];
         S.results.forEach(function (r) { (r.ev || []).forEach(function (e) {
-          var mine = e.hl ? e.p === p.id : (e.us && (e.p === p.id || e.a === p.id)); if (!mine) return;
-          list.push({ at: e.at || r.koAt || r.at || 0, text: 'v ' + r.opp + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' + minOf(e) + ' ' + (e.hl ? (e.k === 'save' ? 'Save' : 'Highlight') : e.p === p.id ? 'Goal' : 'Assist for ' + (e.p != null ? nm(e.p) : 'a goal')) });
+          var mine = e.hl ? e.p === p.id : ((e.us || r.house) && (e.p === p.id || e.a === p.id)); if (!mine) return;
+          list.push({ at: e.at || r.koAt || r.at || 0, text: vs(r) + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' + minOf(e) + ' ' + (e.hl ? (e.k === 'save' ? 'Save' : 'Highlight') : e.p === p.id ? 'Goal' : 'Assist for ' + (e.p != null ? nm(e.p) : 'a goal')) });
         }); });
         list.sort(function (a, b) { return a.at - b.at; });
         var vids = clips.filter(function (c) { return (c.pids || []).indexOf(p.id) >= 0; }).sort(function (a, b) { return (a.at || 0) - (b.at || 0); })
-          .map(function (c) { var r = byId[c.game_id]; return Object.assign({}, c, { title: (r ? 'v ' + r.opp + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label }); });
+          .map(function (c) { var r = byId[c.game_id]; return Object.assign({}, c, { title: (r ? vs(r) + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label }); });
         return { p: p, list: list, vids: vids };
       }).sort(function (a, b) { return ((b.p.id === myPid) - (a.p.id === myPid)) || (b.vids.length - a.vids.length) || (b.list.length - a.list.length); }).forEach(function (x) {
         html += '<div class="hcard"><h3>' + esc(nm(x.p.id)) + ((roster[x.p.id] || {}).gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (x.p.id === myPid ? '<span class="badge you">You</span>' : '') + '</h3>' +
@@ -2627,6 +2697,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       });
     }
     $('hlList').innerHTML = html;
+    if (guestGame && hlFocus && !guestSeen) { guestSeen = true; var gi = S.results.indexOf(hlFocus), ge = gi >= 0 && $('hlg-' + gi); if (ge) try { ge.scrollIntoView({ block: 'center' }); } catch (e) {} } // (the game they came for, once it's loaded)
     Array.prototype.forEach.call($('hlList').querySelectorAll('.vplayer video'), function (v) { // play the next clip when one ends
       v.addEventListener('ended', function () {
         var btns = v.parentNode.querySelectorAll('[data-clip]'), cur = 0;
@@ -2660,8 +2731,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var voiced = sayOn && list.some(function (c) { return c.vpath; });
     DL = { i: i, busy: true, prog: 'Starting…', msg: '', path: null, bad: false }; renderHighlights();
     try {
-      var res = await rc.joinReel({ items: list.map(function (c) { return { url: clipSrc(c, voiced) }; }), file: folderOf(r) + '-highlights.mp4',
-        outro: { title: teamName() + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: 'Made with Gaffer', color: S.color, ink: inkColour() } });
+      var res = await rc.joinReel({ items: list.map(function (c) { return { url: clipSrc(c, voiced) }; }), file: folderOf(r) + '-highlights.mp4', outro: endCard(r) });
       DL.path = res && res.path; DL.msg = 'The reel is ready' + (voiced ? ', with commentary' : '') + '.';
       if (DL.path) rc.share({ path: DL.path }).catch(function () {});
     } catch (e) { DL.msg = (e && e.message) || 'Couldn’t make the reel.'; DL.bad = true; }
@@ -2672,7 +2742,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (!r) return '';
     (r.ev || []).forEach(function (e) {
       if (typeof e.at !== 'number' || e.at < from || e.at > to) return;
-      var k = !e.hl && e.us && e.p === pid ? [4, 'Goal'] : !e.hl && e.us && e.a === pid ? [3, 'Assist'] : e.hl && e.p === pid ? [2, e.k === 'save' ? 'Save' : 'Highlight'] : null;
+      var k = !e.hl && (e.us || r.house) && e.p === pid ? [4, 'Goal'] : !e.hl && (e.us || r.house) && e.a === pid ? [3, 'Assist'] : e.hl && e.p === pid ? [2, e.k === 'save' ? 'Save' : 'Highlight'] : null;
       if (k && k[0] > rank) { rank = k[0]; out = k[1]; }
     });
     return out;
@@ -2681,7 +2751,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var byId = {}; S.results.forEach(function (r) { byId[r.id] = r; });
     return clips.filter(function (c) { return (c.pids || []).indexOf(RB.pid) >= 0; }).sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).map(function (c) {
       var r = byId[c.game_id];
-      return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: clipRole(c, RB.pid), title: (r ? 'v ' + r.opp + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label });
+      return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: clipRole(c, RB.pid), title: (r ? vs(r) + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label });
     }).filter(function (c) { return !RB.goals || c.kind === 'Goal'; });
   }
   function rbOpen(pid) { RB = { pid: pid, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false }; $('reelPop').hidden = false; renderRB(); }
@@ -2724,7 +2794,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     try {
       var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, file: (slugify(who) || 'player') + '-highlights.mp4',
-        outro: { title: who + '’s highlights', sub: teamName() + ' · Made with Gaffer', color: S.color, ink: inkColour() } });
+        outro: { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null } });
       RB.path = res && res.path; RB.msg = 'The reel is ready.';
       if (RB.path) rc.share({ path: RB.path }).catch(function () {});
     } catch (e) { RB.msg = (e && e.message) || 'Couldn’t make the reel.'; RB.bad = true; }
@@ -2761,6 +2831,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (e.target.getAttribute('data-dl') !== null) gameReel(+e.target.getAttribute('data-dl'));
     else if (e.target.getAttribute('data-dlshare') !== null) { var rc2 = RCp(); if (rc2 && DL.path) rc2.share({ path: DL.path }).catch(function () {}); }
     else if (e.target.getAttribute('data-preel') !== null) rbOpen(+e.target.getAttribute('data-preel'));
+    else if (e.target.getAttribute('data-guests') !== null) shareGuests(+e.target.getAttribute('data-guests'));
+    else if (e.target.getAttribute('data-guest') !== null) { var gw = e.target.getAttribute('data-guest'); guestGame = null; if (gw === 'close') renderHighlights(); else go(gw); }
     else if (e.target.getAttribute('data-hldel') !== null) { // twice, then the game's clips go from Highlights and from storage
       var di = +e.target.getAttribute('data-hldel'), dr = S.results[di]; if (!dr || HLDEL.busy) return;
       if (HLDEL.i === di && Date.now() < HLDEL.until) { HLDEL.until = 0; hlDelete(dr, di); }
@@ -2834,6 +2906,40 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var far = function (k) { return Math.hypot((k.u - 0.5) * 25, (k.v - gv) * 40); }; // a 5-a-side pitch is about 25 m by 40
     return cams.slice().sort(function (a, b) { return far(a) - far(b) || a.id - b.id; });
   }
+  // ---- the graphics on the clips, as on the telly: a score box (crest, both teams, the score, the match clock ticking) and a
+  // bar along the bottom saying what the moment is. Drawn by the iPhone (ReelGraphics.swift); this works out what goes in them.
+  var abbr = function (name) { // a team's name as it fits in the score box: SOP, DOG, BIBS
+    var s = String(name || '').replace(/\b(A?FC|CF|SC)\b\.?/gi, ' ').replace(/\s+/g, ' ').trim() || String(name || '').trim();
+    if (s.length <= 6) return s.toUpperCase();
+    var w = s.split(/[\s-]+/).filter(Boolean);
+    return (w.length >= 3 ? w.map(function (x) { return x[0]; }).join('').slice(0, 4) : w[0].slice(0, 3)).toUpperCase();
+  };
+  function clockAt(r, at) { // the match clock (seconds) when something was logged, carrying on through the second half
+    var half = (r.half || 0) * 60;
+    if (r.periods !== 1 && typeof r.h2At === 'number' && at >= r.h2At) return half + Math.max(0, (at - r.h2At) / 1000);
+    return typeof r.koAt === 'number' ? Math.max(0, (at - r.koAt) / 1000) : 0;
+  }
+  function endCard(r) { return { kicker: 'Full time', title: usFull(r) + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: [dayOf(r), 'Highlights'].filter(Boolean).join(' · '), color: S.color, ink: inkColour(), crest: r.house ? null : crest || null }; }
+  function lookFor(r) { return { home: abbr(usOf(r)), away: abbr(r.opp), color: S.color, ink: inkColour(), crest: crest || null }; }
+  function clipLook(r, c) { // { bug, lower } for one clip of the plan
+    var rel = Math.max(0, c.t - c.start), dur = c.end - c.start, from = c.at - rel * 1000, to = from + dur * 1000;
+    var before = { us: 0, them: 0 }, run = { us: 0, them: 0 }, changes = [], bug = null;
+    (r.ev || []).slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).forEach(function (e) {
+      if (e.hl || typeof e.at !== 'number' || e.at > to) return;
+      run[e.us ? 'us' : 'them']++;
+      if (e.at < from) before[e.us ? 'us' : 'them']++; // the score at the clip's first frame
+      else changes.push({ at: Math.round(((e.at - c.at) / 1000 + rel) * 100) / 100, us: run.us, them: run.them }); // a goal in the clip: the score changes as it goes in
+    });
+    if (typeof r.koAt === 'number') bug = { clock: Math.max(0, Math.round(((c.clock != null ? c.clock : clockAt(r, c.at)) - rel) * 100) / 100), us: before.us, them: before.them, changes: changes };
+    var main = (c.items || []).filter(function (x) { return !x.plain; })[0] || (c.items || [])[0], e = main && main.e, lower = null;
+    if (e) {
+      var at = Math.max(0, Math.round((rel + ((e.at || c.at) - c.at) / 1000) * 100) / 100), mn = minOf(e), sub = function (a) { return a.filter(Boolean).join(' · '); };
+      if (e.hl) lower = { at: at, tag: e.k === 'save' ? 'Save' : 'Highlight', title: e.p != null ? nm(e.p) : usOf(r) + ' v ' + r.opp, sub: mn };
+      else if (e.us) lower = { at: at, tag: 'Goal', title: e.p != null ? nm(e.p) : usOf(r), sub: sub([mn, e.a != null ? 'Set up by ' + nm(e.a) : '', r.house ? 'for ' + usOf(r) : '']) };
+      else lower = { at: at, tag: 'Goal', title: e.p != null ? nm(e.p) : r.opp, sub: sub([mn, e.a != null ? 'Set up by ' + nm(e.a) : '', e.p != null ? 'for ' + r.opp : '']), color: '#f2f2f2', ink: '#111111' };
+    }
+    return { bug: bug, lower: lower };
+  }
   function cutPlan(r, cams, swap) { // the clips to cut, each from its camera's video
     var live = cams.filter(function (k) { return k.src; }); if (!live.length) return [];
     var pre = r.pre != null ? r.pre : PRE, post = r.post != null ? r.post : POST, BIG = 1e5; // (timed well clear of zero, so nothing is trimmed until it's in a video)
@@ -2847,8 +2953,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (k < 0) for (var j = 0; j < segs.length; j++) if (segs[j] && segs[j].sees) { k = j; break; }
       if (k < 0) for (var x = 0; x < segs.length; x++) if (segs[x]) { k = x; break; }
       if (k < 0) return null; // no video it can be placed in yet
-      var s = segs[k];
-      return Object.assign(c, { path: s.path, start: s.start, end: s.end, t: s.t, cam: cams.indexOf(order[k]) + 1 });
+      var s = segs[k], cam = order[k], two = camTwo(r, cam, c.at), h2 = r.periods !== 1 && !!(r.h2At && c.at >= r.h2At), b = camBase(r, cam, two, h2);
+      var clock = b == null ? clockAt(r, c.at) : h2 ? (r.half || 0) * 60 + s.t - b - (two ? 0 : camGap(r)) : s.t - b; // (from the video once kick-off is marked: logging is a little late)
+      return Object.assign(c, { path: s.path, start: s.start, end: s.end, t: s.t, cam: cams.indexOf(order[k]) + 1, clock: Math.max(h2 ? (r.half || 0) * 60 : 0, clock) });
     }).filter(Boolean);
   }
   function cutRows(r, k) { // what can be marked in a camera's video: kick-off, the second half's, and every moment, in order
@@ -2889,14 +2996,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function camPitch(r) {
     var X = function (u) { return (CP.x + u * CP.w).toFixed(1); }, Y = function (v) { return (CP.y + v * CP.h).toFixed(1); }, cut = function (s) { s = String(s); return s.length > 22 ? s.slice(0, 21) + '…' : s; };
-    var o = '<svg class="campitch" id="camSvg" viewBox="0 0 100 150" role="img" aria-label="The pitch, with ' + esc(r.opp) + '’s goal at the top and ' + esc(teamShort()) + '’s at the bottom. Tap where a camera was.">' +
+    var o = '<svg class="campitch" id="camSvg" viewBox="0 0 100 150" role="img" aria-label="The pitch, with ' + esc(r.opp) + '’s goal at the top and ' + esc(usOf(r)) + '’s at the bottom. Tap where a camera was.">' +
       '<rect width="100" height="150" rx="6" style="fill:var(--pitch-deep)"/><rect x="' + CP.x + '" y="' + CP.y + '" width="' + CP.w + '" height="' + CP.h + '" rx="1.5" style="fill:var(--pitch)"/>' +
       '<g fill="none" style="stroke:var(--pitch-ink)" stroke-opacity=".4" stroke-width=".7"><rect x="' + CP.x + '" y="' + CP.y + '" width="' + CP.w + '" height="' + CP.h + '" rx="1.5"/>' +
       '<line x1="' + CP.x + '" y1="' + Y(0.5) + '" x2="' + (CP.x + CP.w) + '" y2="' + Y(0.5) + '"/><circle cx="50" cy="' + Y(0.5) + '" r="8"/>' +
       '<path d="M37 ' + CP.y + 'a13 13 0 0 0 26 0"/><path d="M37 ' + (CP.y + CP.h) + 'a13 13 0 0 1 26 0"/>' +
       '<rect x="43" y="' + (CP.y - 2.6) + '" width="14" height="2.6"/><rect x="43" y="' + (CP.y + CP.h) + '" width="14" height="2.6"/></g>' +
       '<g font-family="system-ui,sans-serif" font-weight="800" text-anchor="middle" style="fill:var(--pitch-ink)">' +
-      '<text x="50" y="' + (CP.y + 22) + '" font-size="5">' + esc(cut(r.opp)) + '</text><text x="50" y="' + (CP.y + CP.h - 17) + '" font-size="5">' + esc(cut(teamShort())) + '</text></g>';
+      '<text x="50" y="' + (CP.y + 22) + '" font-size="5">' + esc(cut(r.opp)) + '</text><text x="50" y="' + (CP.y + CP.h - 17) + '" font-size="5">' + esc(cut(usOf(r))) + '</text></g>';
     CUT.cams.forEach(function (k) {
       var got = !!k.src;
       o += '<g data-cam="' + k.id + '" class="cam" transform="translate(' + X(k.u) + ' ' + Y(k.v) + ')"><circle r="9" fill="transparent"/>' +
@@ -2907,10 +3014,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function renderCut() {
     var r = CUT && S.results[CUT.idx]; if (!r) { go('highlights'); return; }
-    var html = '<p class="msg">' + esc(teamShort() + ' ' + r.us + '–' + r.them + ' ' + r.opp) + '</p>', live = CUT.cams.filter(function (k) { return k.src; }), busy = CUT.prog ? '<p class="msg busy" id="cutProg">' + esc(CUT.prog) + '</p>' : '<p class="msg busy" id="cutProg"></p>';
+    var html = '<p class="msg">' + esc(scoreLine(r, r.us, r.them)) + '</p>', live = CUT.cams.filter(function (k) { return k.src; }), busy = CUT.prog ? '<p class="msg busy" id="cutProg">' + esc(CUT.prog) + '</p>' : '<p class="msg busy" id="cutProg"></p>';
     if (CUT.stage === 'cams') {
       html += '<section><h2>Where were the cameras?</h2><p class="note">Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.</p>' + camPitch(r) +
-        '<p class="note">Goals come from the camera nearest the goal they went in. Saves come from the one nearest ' + esc(teamShort()) + '’s goal, and other highlights from the one nearest ' + esc(r.opp) + '’s goal.</p>';
+        '<p class="note">Goals come from the camera nearest the goal they went in. Saves come from the one nearest ' + esc(usOf(r)) + '’s goal, and other highlights from the one nearest ' + esc(r.opp) + '’s goal.</p>';
       if (CUT.cams.length) html += '<ol class="camlist">' + CUT.cams.map(function (k) {
         return '<li><b>Camera ' + camNo(k) + '</b><span>' + esc(camAbout(k.src)) + '</span><span class="camacts"><button class="plain' + (k.src ? '' : ' primary') + '" type="button" data-cutdo="vid" data-cam="' + k.id + '">' + (k.src ? 'Change video' : 'Choose its video') + '</button>' +
           '<button class="plain" type="button" data-cutdo="rm" data-cam="' + k.id + '">Remove</button></span></li>';
@@ -2942,8 +3049,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         '<div class="two"><label class="field" for="cutVoiceName">Voice<select id="cutVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
         '<label class="field" for="cutVoiceStyle">Delivery<select id="cutVoiceStyle"><option value="hype"' + (voicePick().style === 'hype' ? ' selected' : '') + '>Live commentator</option><option value="plain"' + (voicePick().style === 'plain' ? ' selected' : '') + '>Read it straight</option></select></label></div>' +
         '<div class="actions"><button class="plain" type="button" data-cutdo="hear">Hear this voice</button></div>' + (CUT.heard ? '<p class="msg" role="status">' + esc(CUT.heard) + '</p>' : '');
+      html += lookPreview(r, plan);
       var from = many ? live.map(function (k) { var c = plan.filter(function (x) { return x.cam === camNo(k); }).length; return c + ' from camera ' + camNo(k); }).join(', ') : '';
-      html += '<p class="note" id="cutCount">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut' + (from ? ' (' + from + ')' : '') + ', each with the app’s watermark, plus one joined reel with an outro card to share.</p>' +
+      html += '<p class="note" id="cutCount">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut' + (from ? ' (' + from + ')' : '') + ', plus one joined reel that ends on the full-time card, to share.</p>' +
         '<div class="actions"><button class="plain" type="button" data-cutdo="cams">Back to the cameras</button><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
     }
     else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p><p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>';
@@ -2959,6 +3067,21 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       pvEl.addEventListener('loadedmetadata', function () { try { pvEl.currentTime = a0; } catch (e) {} });
     }
   }
+  var APPLE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.37 1.43c0 1.14-.49 2.27-1.18 3.08-.74.9-1.99 1.57-2.99 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.57-2.27 1.21-2.98.8-.94 2.14-1.64 3.25-1.68.03.13.05.28.05.43zm4.56 15.71c-.03.07-.46 1.58-1.52 3.12-.94 1.34-1.94 2.71-3.43 2.71-1.52 0-1.9-.88-3.63-.88-1.7 0-2.3.91-3.67.91-1.38 0-2.33-1.26-3.43-2.8-1.29-1.82-2.32-4.63-2.32-7.28 0-4.28 2.8-6.55 5.55-6.55 1.45 0 2.68.95 3.6.95.87 0 2.22-1.01 3.9-1.01.61 0 2.89.06 4.37 2.19-.13.09-2.38 1.37-2.38 4.19 0 3.26 2.85 4.42 2.96 4.45z"/></svg>';
+  function lookPreview(r, plan) { // the graphics the iPhone draws on the clips and the end card, drawn here the same way to show what they'll look like
+    var lk = lookFor(r), c = plan.filter(function (x) { return x.goal; })[0] || plan[0], g = c ? clipLook(r, c) : { bug: null, lower: null }, b = g.bug;
+    var low = g.lower || { at: 8, tag: 'Goal', title: S.players[0] ? nm(S.players[0].id) : usOf(r), sub: '12’' };
+    var sc = b ? (b.changes.filter(function (x) { return x.at <= low.at + 0.05; }).pop() || b) : { us: 1, them: 0 }, secs = Math.max(0, Math.floor((b ? b.clock : 712) + low.at));
+    var end = endCard(r), img = function (src, cls) { return '<img class="' + cls + '" src="' + esc(src) + '" alt="">'; };
+    return '<section class="lookbox"><h2>How the clips look</h2><p class="note">Like football on the telly: the score and the match clock in the corner, and what happened along the bottom just after it happens. The reel finishes on the full-time card.</p>' +
+      '<div class="lk-frame" id="lkClip" aria-hidden="true">' +
+      (CUT.bug !== false ? '<div class="lk-bug"><span class="lk-crest' + (lk.crest ? '' : ' none') + '">' + (lk.crest ? img(lk.crest, '') : '') + '</span><b>' + esc(lk.home) + '</b><span class="lk-score">' + sc.us + ' – ' + sc.them + '</span><b>' + esc(lk.away) + '</b><span class="lk-clock">' + Math.floor(secs / 60) + ':' + p2(secs % 60) + '</span></div>' : '') +
+      '<div class="lk-mark"><img src="icons/icon-192.png" alt="">GAFFER</div>' +
+      '<div class="lk-lower"><span class="lk-tag"' + (low.color ? ' style="background:' + esc(low.color) + ';color:' + esc(low.ink || '#111') + '"' : '') + '>' + esc(String(low.tag).toUpperCase()) + '</span><span class="lk-panel"><b>' + esc(low.title) + '</b>' + (low.sub ? '<small>' + esc(low.sub) + '</small>' : '') + '</span></div></div>' +
+      '<div class="lk-frame lk-end" id="lkEnd" aria-hidden="true"><div class="lk-endin">' + (end.crest ? img(end.crest, 'lk-ec') : '') + '<span class="lk-kick">' + esc(end.kicker.toUpperCase()) + '</span><b class="lk-title">' + esc(end.title) + '</b>' +
+      (end.sub ? '<span class="lk-sub">' + esc(end.sub) + '</span>' : '') + '<i class="lk-rule"></i>' + img('icons/icon-192.png', 'lk-icon') + '<b class="lk-app">Gaffer: 5-a-Side Team Manager</b><span class="lk-badge">' + APPLE + '<span><small>Download on the</small>App Store</span></span></div></div>' +
+      '<label class="check" for="cutBug"><input id="cutBug" type="checkbox"' + (CUT.bug !== false ? ' checked' : '') + '><span>Score, clock and crest on every clip <small>(the clock ticks, and the score changes as the ball goes in)</small></span></label></section>';
+  }
   function fileSrc(path) { var C = window.Capacitor; try { return C && C.convertFileSrc ? C.convertFileSrc(path) : path; } catch (e) { return path; } } // a file on the phone, as the web view can play it
   function cutKeep() { // remember what's typed before the screen is redrawn
     if (!CUT) return;
@@ -2968,6 +3091,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     });
     if ($('camSwap')) { CUT.swap = $('camSwap').checked; camStore(); }
     if ($('cutVoice')) CUT.voice = $('cutVoice').checked;
+    if ($('cutBug')) CUT.bug = $('cutBug').checked;
     if ($('cutVoiceName')) { try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('cutVoiceName').value, style: $('cutVoiceStyle').value })); } catch (e) {} }
   }
   async function camPick(k, second, fresh) { // the camera's video (or its second-half video) from Photos; a new camera with none is taken away again
@@ -3011,7 +3135,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     cutKeep(); camAdd((d.x0 - CP.x) / CP.w, (d.y0 - CP.y) / CP.h);
   });
   $('cutBody').addEventListener('pointercancel', function () { if (camDrag) { camDrag = null; if (CUT) renderCut(); } });
-  $('cutBody').addEventListener('change', function (e) { if (e.target.id === 'camSwap' && CUT) { CUT.swap = e.target.checked; camStore(); } });
+  $('cutBody').addEventListener('change', function (e) {
+    if (e.target.id === 'camSwap' && CUT) { CUT.swap = e.target.checked; camStore(); }
+    if (e.target.id === 'cutBug' && CUT) { cutKeep(); renderCut(); }
+  });
   var VOICES = [['Fenrir', 'Fenrir (excitable)'], ['Puck', 'Puck (upbeat)'], ['Sadachbia', 'Sadachbia (lively)'], ['Algenib', 'Algenib (gravelly)'], ['Orus', 'Orus (firm)'], ['Charon', 'Charon (measured)'], ['Kore', 'Kore (firm, female)'], ['Leda', 'Leda (youthful, female)']];
   function voicePick() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return { voice: v && v.voice ? v.voice : 'Fenrir', style: v && v.style === 'plain' ? 'plain' : 'hype' }; }
   $('cutBody').addEventListener('click', async function (e) {
@@ -3057,6 +3184,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (!bad && k.src2 && r.h2At && !camAt(r, k, r.h2At)) bad = 'Mark the second-half kick-off (or a second-half goal) in ' + (many ? 'camera ' + camNo(k) + '’s second video' : 'the second video') + ' first.';
       });
       if ($('cutVoice')) CUT.voice = $('cutVoice').checked;
+      if ($('cutBug')) CUT.bug = $('cutBug').checked;
       if (!live.length) { CUT.stage = 'cams'; renderCut(); return; }
       if (bad) { cutKeep(); CUT.msg = bad; renderCut(); return; }
       var list = cutPlan(r, CUT.cams, CUT.swap);
@@ -3065,13 +3193,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       try {
         var b0 = camBase(r, live[0], false, false); if (b0 != null) r.sync = Math.max(0, Math.round(b0)); save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
         if (dirty || !r.id) throw new Error('Couldn’t save the game to the database. Check your signal and try again.');
-        var ink = getComputedStyle(document.documentElement).getPropertyValue('--team-ink').trim() || '#ffffff';
         // commentary: a line for each clip plus an intro and a sign-off, spoken by a cloud voice and mixed in on the phone
         var said = null; CUT.voiced = null;
         if (CUT.voice && hasGaffer()) {
           CUT.prog = 'Recording the commentary…'; var vp = $('cutProg'); if (vp) vp.textContent = CUT.prog;
-          var words = [teamName() + ' against ' + r.opp + '. Here are the highlights.'].concat(list.map(function (c) { return commentaryFor(r, { at: c.at, dur: c.end - c.start }) || ''; }),
-            ['Full time. ' + teamName() + ' ' + r.us + ', ' + r.opp + ' ' + r.them + '.']);
+          var words = [usFull(r) + ' against ' + r.opp + '. Here are the highlights.'].concat(list.map(function (c) { return commentaryFor(r, { at: c.at, dur: c.end - c.start }) || ''; }),
+            ['Full time. ' + usFull(r) + ' ' + r.us + ', ' + r.opp + ' ' + r.them + '.']);
           words = words.map(spokenLine);
           try {
             var vp2 = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words, voice: vp2.voice, style: vp2.style } }), vd = vr && vr.data;
@@ -3079,9 +3206,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
             else CUT.voiced = (vd && vd.error) || (vr && vr.error && vr.error.message) || 'the voice service didn’t answer.';
           } catch (ve) { CUT.voiced = 'the voice service couldn’t be reached.'; }
         }
-        var res = await rc.cut({ path: list[0].path, watermark: 'Gaffer', reelFile: 'reel.mp4', introVoice: said ? said[0] : null, outroVoice: said ? said[said.length - 1] : null,
-          clips: list.map(function (c, i) { return { path: c.path, start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4', voice: said ? said[i + 1] : null, voiceAt: Math.max(0, c.t - c.start) + 0.7 }; }),
-          outro: { title: teamName() + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: 'Made with Gaffer', color: S.color, ink: ink } });
+        var bugs = CUT.bug !== false;
+        var res = await rc.cut({ path: list[0].path, watermark: 'Gaffer', reelFile: 'reel.mp4', introVoice: said ? said[0] : null, outroVoice: said ? said[said.length - 1] : null, look: bugs ? lookFor(r) : null,
+          clips: list.map(function (c, i) { var lk = clipLook(r, c); return { path: c.path, start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4', voice: said ? said[i + 1] : null, voiceAt: Math.max(0, c.t - c.start) + 0.7, bug: bugs ? lk.bug : null, lower: lk.lower }; }),
+          outro: endCard(r) });
         var rows = [];
         for (var i = 0; i < res.clips.length; i++) {
           CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; var el = $('cutProg'); if (el) el.textContent = CUT.prog;
@@ -3099,7 +3227,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         await q(sb.from('clips').insert(rows));
         ping('changed'); await pull();
         CUT.stage = 'done'; CUT.n = rows.length; CUT.reel = res.reel ? res.reel.path : null; CUT.reelErr = res.reel ? null : res.reelError || null;
-        notifyTeam('highlights', teamShort() + ' ' + r.us + '–' + r.them + ' ' + r.opp, 'The highlights are ready to watch.');
+        notifyTeam('highlights', scoreLine(r, r.us, r.them), 'The highlights are ready to watch.');
       } catch (err) { CUT.msg = (err && err.message) || 'Something went wrong while cutting.'; }
       renderCut();
     } else if (act === 'retry') { CUT.stage = CUT.cams.some(function (k) { return k.src; }) ? 'sync' : 'cams'; CUT.msg = ''; renderCut(); }
@@ -3162,13 +3290,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var MAXP = function () { return SIDE[D && D.fmt ? D.fmt.side : 5].max; };
   function playing() { return S.players.filter(function (p) { return D.sel[p.id] !== 'out'; }).length; }
   function newDraft() {
-    D = { keeper: P(S.lastKeeper) ? S.lastKeeper : null, sel: {}, manualBench: false, fmt: fmtDefault('game', defSide()), tour: null };
+    D = { keeper: P(S.lastKeeper) ? S.lastKeeper : null, sel: {}, manualBench: false, fmt: fmtDefault('game', defSide()), tour: null, kind: 'opp', house: null };
     FM.g = D.fmt;
     S.players.forEach(function (p, i) { D.sel[p.id] = i < MAXP() ? 'start' : 'out'; });
     if (D.keeper != null && D.sel[D.keeper] === 'out') D.keeper = null;
     autoPick(); $('opp').value = ''; $('friendly').checked = false; $('oppErr').hidden = true;
     var seen = {}, names = [];
-    S.results.forEach(function (r) { var n = (r.opp || '').trim(), k = n.toLowerCase(); if (n && n !== 'Opponents' && !seen[k]) { seen[k] = 1; names.push(n); } });
+    S.results.forEach(function (r) { var n = (r.opp || '').trim(), k = n.toLowerCase(); if (n && n !== 'Opponents' && !r.house && !seen[k]) { seen[k] = 1; names.push(n); } });
     names.sort(function (a, b) { return a.localeCompare(b); });
     $('oppPickWrap').hidden = !names.length;
     $('oppPick').innerHTML = '<option value="">New team</option>' + names.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
@@ -3188,6 +3316,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function renderSetup() {
     if (!D) newDraft();
+    var house = D.kind === 'house' && !D.tour && !D.fx;
+    Array.prototype.forEach.call($('gKind').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-kind') === (house ? 'house' : 'opp')); });
+    $('gKind').hidden = !!(D.tour || D.fx); $('oppSetup').hidden = house; $('houseBox').hidden = !house;
+    if (house) { if (!$('hList')) renderHouse(); else renderHouseList(); return; }
+    $('houseBox').innerHTML = '';
     FM.g = D.fmt; fmtShow('g');
     $('tourLine').hidden = !D.tour; $('tourLine').textContent = D.tour ? 'Tournament: ' + D.tour.name : ''; $('friendlyWrap').hidden = !!D.tour;
     $('lineNote').textContent = 'Up to ' + MAXP() + ' can play. Set who starts, who starts on the bench and who’s out. Tap GK for the keeper, who stays on all game.';
@@ -3230,6 +3363,100 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
   $('opp').addEventListener('input', function () { if ($('opp').value.trim()) $('oppErr').hidden = true; });
   $('auto').addEventListener('click', function () { autoPick(); D.manualBench = false; renderSetup(); });
+  // ---- a game among the squad (and any guests): two sides of any size, no fixed keeper, no subs plan. "Us" is the first
+  // side and the opponents the second, so the clock, the watch, highlights and everything else work as for any game.
+  var HOUSE_A = 'Bibs', HOUSE_B = 'Shirts';
+  function houseDraft() {
+    var f = fmtDefault('game', defSide()), h = { a: HOUSE_A, b: HOUSE_B, side: {}, guests: [], half: f.half, two: f.periods !== 1 };
+    S.players.forEach(function (p, i) { h.side[p.id] = i % 2 ? 'b' : 'a'; });
+    return h;
+  }
+  function guestId() { // guests get ids of their own, never a squad player's
+    var top = 1000;
+    [D && D.house, S.match && S.match.house].concat(S.results.map(function (r) { return r.house; })).forEach(function (h) {
+      ((h && h.guests) || []).forEach(function (g) { if (g.id > top) top = g.id; });
+    });
+    return top + 1;
+  }
+  function houseNames(h) { var a = (h.a || '').trim() || HOUSE_A, b = (h.b || '').trim() || HOUSE_B; if (a.toLowerCase() === b.toLowerCase()) b += ' 2'; return { a: a, b: b }; }
+  function houseSides(h) { // who's on each side, squad first, then guests
+    var out = { a: [], b: [] };
+    S.players.forEach(function (p) { var s = h.side[p.id]; if (s === 'a' || s === 'b') out[s].push(p.id); });
+    h.guests.forEach(function (g) { if (g.side === 'a' || g.side === 'b') out[g.side].push(g.id); });
+    return out;
+  }
+  function renderHouse() {
+    var h = D.house;
+    $('houseBox').innerHTML = '<section><h2>Two sides</h2><p class="note">Split whoever’s here into two sides, any size. There’s no fixed keeper: whoever goes in goal can change all game.</p>' +
+      '<div class="two"><label class="field" for="hA">One side<input id="hA" type="text" maxlength="20" autocomplete="off" value="' + esc(h.a) + '"></label>' +
+      '<label class="field" for="hB">The other<input id="hB" type="text" maxlength="20" autocomplete="off" value="' + esc(h.b) + '"></label></div>' +
+      '<div id="hList"></div>' +
+      '<h3>Guests</h3><p class="note">Playing with people from outside the squad? Add them by name. After the game you can send them a link to watch the highlights.</p>' +
+      '<label class="field" for="hGuest">Guest’s name<input id="hGuest" type="text" maxlength="30" autocomplete="off" autocapitalize="words" placeholder="First name is fine"></label>' +
+      '<div class="actions"><button class="plain" id="hAddA" type="button"></button><button class="plain" id="hAddB" type="button"></button></div>' +
+      '<div class="two"><label class="field" for="hHalf"><span id="hHalfLbl"></span><input id="hHalf" type="number" min="1" max="60" inputmode="numeric" value="' + h.half + '"></label>' +
+      '<label class="check" for="hTwo"><input id="hTwo" type="checkbox"' + (h.two ? ' checked' : '') + '><span>Two halves</span></label></div>' +
+      '<p class="msg" id="hMsg"></p><div class="actions"><button class="plain" id="hShuffle" type="button">Shuffle the sides</button><button class="plain primary" id="hKick" type="button">Go to kick-off</button></div></section>';
+    renderHouseList();
+  }
+  function renderHouseList() {
+    var h = D.house, n = houseNames(h), sides = houseSides(h), cut = function (x) { return x.length > 10 ? x.slice(0, 9) + '…' : x; };
+    var seg = function (id, v, guest) {
+      return '<span class="seg">' + [['a', cut(n.a)], ['b', cut(n.b)]].concat(guest ? [] : [['out', 'Out']]).map(function (o) {
+        return '<button type="button" data-hside="' + o[0] + '" data-id="' + id + '"' + (guest ? ' data-guest="1"' : '') + ' class="' + (v === o[0] ? 'is' : '') + '" aria-pressed="' + (v === o[0]) + '">' + esc(o[1]) + '</button>';
+      }).join('') + '</span>';
+    };
+    var html = S.players.map(function (p) { return '<div class="lrow hrow"><span class="who">' + esc(nm(p.id)) + '</span>' + seg(p.id, h.side[p.id] || 'out', false) + '</div>'; }).join('');
+    html += h.guests.map(function (g) { return '<div class="lrow hrow"><span class="who">' + esc(g.name) + '<small>Guest · <button class="link" type="button" data-hrm="' + g.id + '">Remove</button></small></span>' + seg(g.id, g.side, true) + '</div>'; }).join('');
+    $('hList').innerHTML = html;
+    $('hAddA').textContent = 'Add to ' + n.a; $('hAddB').textContent = 'Add to ' + n.b;
+    $('hHalfLbl').textContent = $('hTwo') && $('hTwo').checked ? 'Minutes each half' : 'Game length (min)';
+    var ok = sides.a.length >= 2 && sides.b.length >= 2;
+    $('hMsg').textContent = ok ? n.a + ' ' + sides.a.length + ' v ' + sides.b.length + ' ' + n.b + '.' : 'Each side needs at least 2 players (' + sides.a.length + ' v ' + sides.b.length + ' so far).';
+    $('hMsg').className = 'msg' + (ok ? '' : ' bad');
+    $('hKick').disabled = !ok;
+  }
+  function houseAdd(side) {
+    var el = $('hGuest'), name = el.value.trim().replace(/\s+/g, ' ').slice(0, 30); if (!name) { el.focus(); return; }
+    D.house.guests.push({ id: guestId(), name: name, side: side }); el.value = ''; renderHouseList(); el.focus();
+  }
+  function houseKick() {
+    var h = D.house, n = houseNames(h), sides = houseSides(h); if (sides.a.length < 2 || sides.b.length < 2) return;
+    var half = Math.max(1, Math.min(60, Math.round(+$('hHalf').value) || h.half || 15)), periods = $('hTwo').checked ? 2 : 1, ids = sides.a.concat(sides.b), side = {};
+    sides.a.forEach(function (id) { side[id] = 'a'; }); sides.b.forEach(function (id) { side[id] = 'b'; });
+    var guests = h.guests.filter(function (g) { return g.side === 'a' || g.side === 'b'; }).map(function (g) { return { id: g.id, name: g.name }; });
+    S.match = { opp: n.b, friendly: true, house: { a: n.a, b: n.b, side: side, guests: guests }, order: ids, keeper: null, segs: mkSegs([], ids, null, half, half, periods),
+                squad: ids.slice(), gone: [], half: half, sub: half, pitch: ids.length, periods: periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
+    D = null; lastBlock = -1; pick = null; save(); go('game');
+  }
+  $('gKind').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-kind]'); if (!b || !D) return;
+    D.kind = b.getAttribute('data-kind'); if (D.kind === 'house' && !D.house) D.house = houseDraft();
+    renderSetup();
+  });
+  $('houseBox').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || !D || !D.house) return;
+    var h = D.house, id = +b.getAttribute('data-id'), v = b.getAttribute('data-hside');
+    if (v) { if (b.getAttribute('data-guest')) h.guests.forEach(function (g) { if (g.id === id) g.side = v; }); else h.side[id] = v; renderHouseList(); }
+    else if (b.hasAttribute('data-hrm')) { var gid = +b.getAttribute('data-hrm'); h.guests = h.guests.filter(function (g) { return g.id !== gid; }); renderHouseList(); }
+    else if (b.id === 'hAddA') houseAdd('a');
+    else if (b.id === 'hAddB') houseAdd('b');
+    else if (b.id === 'hShuffle') { // everyone playing, dealt out at random into two even sides
+      var all = houseSides(h), ids = all.a.concat(all.b);
+      for (var i = ids.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = ids[i]; ids[i] = ids[j]; ids[j] = t; }
+      ids.forEach(function (x, k) { var s = k % 2 ? 'b' : 'a'; if (x >= 1000) h.guests.forEach(function (g) { if (g.id === x) g.side = s; }); else h.side[x] = s; });
+      renderHouseList();
+    }
+    else if (b.id === 'hKick') houseKick();
+  });
+  $('houseBox').addEventListener('input', function (e) {
+    if (!D || !D.house) return;
+    if (e.target.id === 'hA') { D.house.a = e.target.value; renderHouseList(); }
+    else if (e.target.id === 'hB') { D.house.b = e.target.value; renderHouseList(); }
+    else if (e.target.id === 'hHalf') { var v = Math.round(+e.target.value); if (v >= 1) D.house.half = Math.min(60, v); }
+  });
+  $('houseBox').addEventListener('change', function (e) { if (D && D.house && e.target.id === 'hTwo') { D.house.two = e.target.checked; renderHouseList(); } });
+  $('houseBox').addEventListener('keydown', function (e) { if (e.target.id === 'hGuest' && e.key === 'Enter') { e.preventDefault(); houseAdd('a'); } });
   // ---- minutes plan: sits = how many sub blocks a player spends on the bench
   function fairSits(ids, benchIds, k, B, season, full, sub) {
     var sits = {}, n = ids.length, total = B * k;
@@ -3419,17 +3646,20 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function renderGame() {
     var m = S.match; if (!m) return;
     var cb = curSeg(m), n = m.segs.length, html = '', i;
-    $('gameTitle').textContent = 'v ' + m.opp + (m.friendly ? ' (friendly)' : '');
+    $('gameTitle').textContent = vs(m) + (m.friendly && !m.house ? ' (friendly)' : '');
     for (i = 0; i < n; i++) {
       if (i > 0 && m.segs[i].h !== m.segs[i - 1].h) html += '<span class="gap"></span>';
       html += '<span style="flex:' + (m.segs[i].to - m.segs[i].from) + '" class="' + ((m.phase === 'ft' || i < cb) ? 'done' : (i === cb && m.phase !== 'pre' && m.phase !== 'ht') ? 'now' : '') + '"></span>';
     }
     $('blocks').innerHTML = html;
-    $('pitchNow').innerHTML = chips(m, onPitch(m, cb), 'on');
-    $('benchNow').innerHTML = chips(m, m.segs[cb].bench, 'off');
+    var hs = m.house; // a game among the squad: the two sides, no subs
+    $('pitchTag').textContent = hs ? hs.a : 'Pitch'; $('benchTag').textContent = hs ? hs.b : 'Bench';
+    $('pitchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'a'; }) : onPitch(m, cb), 'on');
+    $('benchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'b'; }) : m.segs[cb].bench, 'off');
+    $('swapCard').hidden = $('rotaSec').hidden = !!hs;
     $('goneTag').hidden = $('goneNow').hidden = !m.gone.length;
     $('goneNow').innerHTML = m.gone.map(function (id) { return '<span class="chip gone">' + esc(nm(id)) + '</span>'; }).join('');
-    $('nowTitle').textContent = m.phase === 'pre' ? 'Starting line-up' : m.phase === 'ht' ? 'Second half line-up' : 'Right now';
+    $('nowTitle').textContent = hs ? 'The sides' : m.phase === 'pre' ? 'Starting line-up' : m.phase === 'ht' ? 'Second half line-up' : 'Right now';
     $('notice').hidden = !m.notice; $('noticeText').textContent = m.notice || '';
 
     var title, body, t, sw;
@@ -3636,16 +3866,17 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // ---- score
   // Who to offer first when a goal goes in: outfield players on the pitch, most prolific first (goals for the scorer, assists for the pass),
   // then the bench, and the keeper last of all.
-  function pickOrder(m, assist) {
+  function pickOrder(m, assist, side) { // (a game among the squad: only the side that scored, `side` 'a' or 'b')
     var cb = curSeg(m), on = onPitch(m, cb), gk = m.segs[cb].gk, n = {};
+    if (m.house) on = on.filter(function (id) { return sideOf(m, id) === (side || 'a'); });
     S.results.forEach(function (r) { Object.keys(r.per || {}).forEach(function (k) { n[k] = (n[k] || 0) + ((assist ? r.per[k].a : r.per[k].g) || 0); }); });
-    m.events.forEach(function (e) { var k = e.us ? (assist ? e.a : e.p) : null; if (k != null) n[k] = (n[k] || 0) + 1; });
+    m.events.forEach(function (e) { var k = e.us || m.house ? (assist ? e.a : e.p) : null; if (k != null) n[k] = (n[k] || 0) + 1; });
     var best = function (a, b) { return (n[b] || 0) - (n[a] || 0); };
-    return on.filter(function (id) { return id !== gk; }).sort(best).concat(m.segs[cb].bench.slice().sort(best), on.filter(function (id) { return id === gk; }));
+    return on.filter(function (id) { return id !== gk; }).sort(best).concat(m.house ? [] : m.segs[cb].bench.slice().sort(best), on.filter(function (id) { return id === gk; }));
   }
-  function pickBtns(m, skip, assist) {
+  function pickBtns(m, skip, assist, side) {
     var cb = curSeg(m), on = onPitch(m, cb), gk = m.segs[cb].gk, html = '';
-    pickOrder(m, assist).forEach(function (id) {
+    pickOrder(m, assist, side).forEach(function (id) {
       if (id === skip) return;
       html += '<button class="pick' + (on.indexOf(id) < 0 ? ' benchp' : '') + '" type="button" data-p="' + id + '">' + esc(nm(id)) + (id === gk ? ' <small>keeper</small>' : on.indexOf(id) < 0 ? ' <small>bench</small>' : '') + '</button>';
     });
@@ -3658,22 +3889,24 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var el = $(x[0]); if (el.textContent !== '' && el.textContent !== String(x[1])) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
     });
     $('usN').textContent = t.us; $('themN').textContent = t.them; $('themLbl').textContent = m.opp;
-    $('usLbl').textContent = teamShort(); $('goalUs').textContent = 'Goal for ' + teamShort();
+    $('usLbl').textContent = usOf(m); $('goalUs').textContent = 'Goal for ' + usOf(m); $('goalThem').textContent = m.house ? 'Goal for ' + m.opp : 'Goal against';
+    $('svBtn').hidden = !!m.house; // (no fixed keeper)
     $('undo').disabled = !m.events.length; $('hlBtn').disabled = m.phase === 'pre' || m.phase === 'ft';
     $('svBtn').disabled = $('hlBtn').disabled || m.segs[curSeg(m)].gk == null;
     var locked = Date.now() < lockUntil; if (locked) pick = null;
     $('goalMsg').hidden = !goalMsg && !locked; $('goalMsg').classList.toggle('toast', locked);
     $('goalMsg').textContent = locked ? (lockNote ? lockNote + ' ' : '') + 'Score locked for 8 seconds so it isn’t counted twice.' : goalMsg;
     $('goalUs').disabled = $('goalThem').disabled = locked || (m.phase === 'ft' && role !== 'owner');
-    if (pick && pick.step === 'scorer') html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Who scored?"><strong>Who scored?</strong><div class="chips">' + pickBtns(m, null) +
+    if (pick && pick.step === 'scorer') html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Who scored?"><strong>Who scored' + (m.house ? ' for ' + esc(pick.side === 'b' ? m.opp : usOf(m)) : '') + '?</strong><div class="chips">' + pickBtns(m, null, false, pick.side) +
       '<button class="pick alt" type="button" data-p="x">Own goal or not sure</button><button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div></div>';
-    else if (pick) html = '<div class="pickpop"><div class="picker" role="dialog" aria-label="Who set it up?"><strong>Who set up ' + esc(nm(pick.p)) + '?</strong><div class="chips"><button class="pick alt" type="button" data-p="x">No assist</button>' + pickBtns(m, pick.p, true) +
+    else if (pick) html = '<div class="pickpop"><div class="picker" role="dialog" aria-label="Who set it up?"><strong>Who set up ' + esc(nm(pick.p)) + '?</strong><div class="chips"><button class="pick alt" type="button" data-p="x">No assist</button>' + pickBtns(m, pick.p, true, pick.side) +
       '</div></div></div>';
     $('picker').innerHTML = html;
     html = '';
     m.events.slice().reverse().forEach(function (e) {
-      var who = e.hl ? '<span class="note">' + (e.k === 'save' ? 'Save by ' + esc(nm(e.p)) : 'Highlight marked') + '</span>' : !e.us ? '<span class="ag">Goal for ' + esc(m.opp) + '</span>' :
-        (e.p != null ? esc(nm(e.p)) : 'Goal for ' + esc(teamShort())) + (e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '');
+      var setUp = e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '';
+      var who = e.hl ? '<span class="note">' + (e.k === 'save' ? 'Save by ' + esc(nm(e.p)) : 'Highlight marked') + '</span>' : !e.us ? (m.house && e.p != null ? '<span class="ag">' + esc(nm(e.p)) + ' for ' + esc(m.opp) + '</span>' + setUp : '<span class="ag">Goal for ' + esc(m.opp) + '</span>') :
+        (e.p != null ? esc(nm(e.p)) + (m.house ? ' <span class="note">for ' + esc(usOf(m)) + '</span>' : '') : 'Goal for ' + esc(usOf(m))) + setUp;
       if (e.by) who += ' <span class="tagf">Logged by a teammate</span>';
       html += '<li><span class="t">' + ml(e) + '</span><span>' + who + '</span></li>';
     });
@@ -3681,14 +3914,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   $('kickWatch').addEventListener('click', function () { $('kickPop').hidden = true; if (S.match) go('game'); else { wantGame = A.active; pull(); } });
   $('kickLater').addEventListener('click', function () { $('kickPop').hidden = true; });
-  $('goalUs').addEventListener('click', function () { pick = { step: 'scorer' }; renderScore(); });
+  $('goalUs').addEventListener('click', function () { pick = { step: 'scorer', side: 'a' }; renderScore(); });
   $('hlBtn').addEventListener('click', function () { var m = S.match; if (!m || role !== 'owner') return; pick = null; m.events.push(stamped(m, { hl: true, at: Date.now() })); save(); renderScore(); });
   $('svBtn').addEventListener('click', function () {
     var m = S.match; if (!m || role !== 'owner') return;
     var gk = m.segs[curSeg(m)].gk; if (gk == null) return;
     pick = null; m.events.push(stamped(m, { hl: true, k: 'save', p: gk, at: Date.now() })); save(); renderScore();
   });
-  $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; pick = null; addGoal(stamped(m, { us: false })); });
+  $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; if (m.house) { pick = { step: 'scorer', side: 'b' }; renderScore(); return; } pick = null; addGoal(stamped(m, { us: false })); });
   $('undo').addEventListener('click', function () { var m = S.match; if (!m) return; pick = null; m.events.pop(); save(); renderScore(); });
   document.body.appendChild($('picker')); // the pop-up sits above everything, outside the game screen's own layout
   $('picker').addEventListener('click', function (e) {
@@ -3696,8 +3929,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (e.target.getAttribute('data-cancel')) { pick = null; renderScore(); return; }
     var pb = e.target.closest('[data-p]'), v = pb ? pb.getAttribute('data-p') : null; if (v === null) return;
     var id = v === 'x' ? null : +v;
-    if (pick.step === 'scorer' && id != null) { pick = { step: 'assist', p: id }; renderScore(); return; }
-    var ev = stamped(m, { us: true, p: pick.step === 'scorer' ? null : pick.p, a: pick.step === 'scorer' ? null : id });
+    if (pick.step === 'scorer' && id != null) { pick = { step: 'assist', p: id, side: pick.side }; renderScore(); return; }
+    var ev = stamped(m, { us: pick.side !== 'b', p: pick.step === 'scorer' ? null : pick.p, a: pick.step === 'scorer' ? null : id });
     pick = null; addGoal(ev);
   });
 
@@ -3721,7 +3954,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       changes.push({ h: m.segs[i].h, from: m.segs[i].from, on: sw.on.map(nm), off: sw.off.map(nm) });
     }
     var acks = Object.keys(watchSeen).sort(function (a, b) { return watchSeen[b] - watchSeen[a] || (a < b ? -1 : 1); }).slice(0, 80); // presses from the watch this phone has dealt with, so it can stop repeating them
-    return { live: true, gid: m.gid, acks: acks, due: subDue(m) >= 0, team: teamShort(), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
+    return { live: true, gid: m.gid, acks: acks, due: subDue(m) >= 0, team: usOf(m), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
       players: pickOrder(m).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0, gk: id === m.segs[cb].gk }; }) };
   }
   function watchSend() {
@@ -3946,16 +4179,19 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var m = S.match; if (!m) return;
     var gm = gameMins(m), t = tally(m), per = {};
     Object.keys(gm).forEach(function (k) { if (P(+k)) per[k] = { mins: gm[k], g: t.g[k] || 0, a: t.a[k] || 0, gf: 0, ga: 0 }; });
-    m.events.forEach(function (e) { if (e.hl || !e.on) return; e.on.forEach(function (id) { if (per[id]) per[id][e.us ? 'gf' : 'ga']++; }); });
+    if (m.house) m.events.forEach(function (e) { if (e.hl) return; Object.keys(per).forEach(function (k) { per[k][(sideOf(m, +k) === 'a') === !!e.us ? 'gf' : 'ga']++; }); }); // for and against by side
+    else m.events.forEach(function (e) { if (e.hl || !e.on) return; e.on.forEach(function (id) { if (per[id]) per[id][e.us ? 'gf' : 'ga']++; }); });
     var ev = m.events.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; if (e.on) o.on = e.on; } return o; });
     var lu = m.segs.filter(function (s) { return s.to > s.from; }).map(function (s) { return { h: s.h, f: s.from, t: s.to, on: (s.gk != null ? [s.gk] : []).concat(s.on) }; });
-    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.pitch === 7 ? 7 : null, tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now() });
-    S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
+    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.pitch === 7 ? 7 : null, tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now(), house: m.house ? JSON.parse(JSON.stringify(m.house)) : null });
+    if (!m.house) S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
     if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
     var played = m.fx ? RV.list.filter(function (c) { return c.fixture === m.fx; })[0] : null; // a game against another team on the app: tell them our score
     if (played && sb) sb.rpc('challenge_result', { p_code: A.active, p_id: played.id, p_us: t.us, p_them: t.them }).then(function () { rivalsPull(); }, function () {});
     if (liveOn()) liveEnd(); // the game's over, so is its stream
-    S.match = null; pick = null; outPick = null; ed = null; lockUntil = 0; lockNote = ''; save(); go('stats'); // (the 8-second lock after a goal belongs to the game just finished)
+    S.match = null; pick = null; outPick = null; ed = null; lockUntil = 0; lockNote = ''; save(); // (the 8-second lock after a goal belongs to the game just finished)
+    var fin = S.results[S.results.length - 1];
+    if (fin && fin.house && fin.house.guests && fin.house.guests.length) hlShow(fin); else go('stats'); // (guests: their link is sent from the game's highlights)
   });
 
   // ---- stats
@@ -3977,9 +4213,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('concNote').hidden = !S.results.length;
     html = '';
     for (var i = S.results.length - 1; i >= 0; i--) {
-      var x = S.results[i], w = x.us > x.them ? 'W' : x.us < x.them ? 'L' : 'D';
+      var x = S.results[i], w = x.house ? 'H' : x.us > x.them ? 'W' : x.us < x.them ? 'L' : 'D'; // (H: among ourselves, no win or loss)
       if (statScope ? x.tour !== statScope : !!x.tour) continue;
-      html += '<li><b class="' + w + '">' + w + '</b><span>' + x.us + '–' + x.them + '</span><span>' + (x.opp ? 'v ' + esc(x.opp) : '') + (x.friendly ? '<span class="tagf">Friendly</span>' : '') + (function () { var q = ratingsOf(x); return q.motm != null && P(q.motm) ? '<br><small class="motm">★ ' + esc(nm(q.motm)) + ' ' + q.r[q.motm].toFixed(1) + '</small>' : ''; })() + '</span>' +
+      html += '<li><b class="' + w + '">' + w + '</b><span>' + x.us + '–' + x.them + '</span><span>' + (x.house ? esc(x.house.a) + ' v ' + esc(x.house.b) + '<span class="tagf">Among ourselves</span>' : (x.opp ? 'v ' + esc(x.opp) : '') + (x.friendly ? '<span class="tagf">Friendly</span>' : '')) + (function () { var q = ratingsOf(x); return q.motm != null && P(q.motm) ? '<br><small class="motm">★ ' + esc(nm(q.motm)) + ' ' + q.r[q.motm].toFixed(1) + '</small>' : ''; })() + '</span>' +
         '<span class="rowbtns">' + (x.koAt && x.ev && x.ev.length ? '<button class="del" type="button" data-reel="' + i + '">Highlights</button>' : '') +
         (role === 'owner' ? '<button class="del' + (delIdx === i ? ' armed' : '') + '" type="button" data-del="' + i + '">' + (delIdx === i ? 'Tap to confirm' : 'Remove') + '</button>' : '') + '</span></li>';
     }
@@ -4044,7 +4280,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (heads.length) html += '<section><h2>The headlines</h2><div class="heads">' + heads.map(function (h) { return '<p>' + esc(h) + '</p>'; }).join('') + '</div></section>';
     // match ratings, one game at a time
     var gi = insGame == null || !d.games[insGame] ? d.games.length - 1 : insGame, r = d.games[gi], q = ratingsOf(r);
-    html += '<section><h2>Match ratings</h2><div class="gnav"><button type="button" data-ig="' + (gi - 1) + '"' + (gi <= 0 ? ' disabled' : '') + ' aria-label="Earlier game">‹</button><p class="msg">' + esc('v ' + r.opp + ' ' + r.us + '–' + r.them) + (dayOf(r) ? '<br><small class="note">' + esc(dayOf(r)) + '</small>' : '') + '</p><button type="button" data-ig="' + (gi + 1) + '"' + (gi >= d.games.length - 1 ? ' disabled' : '') + ' aria-label="Later game">›</button></div>' +
+    html += '<section><h2>Match ratings</h2><div class="gnav"><button type="button" data-ig="' + (gi - 1) + '"' + (gi <= 0 ? ' disabled' : '') + ' aria-label="Earlier game">‹</button><p class="msg">' + esc(r.house ? scoreLine(r, r.us, r.them) : 'v ' + r.opp + ' ' + r.us + '–' + r.them) + (dayOf(r) ? '<br><small class="note">' + esc(dayOf(r)) + '</small>' : '') + '</p><button type="button" data-ig="' + (gi + 1) + '"' + (gi >= d.games.length - 1 ? ' disabled' : '') + ' aria-label="Later game">›</button></div>' +
       '<ul class="inslist">' + Object.keys(q.r).filter(function (k) { return P(+k); }).sort(function (a, b) { return q.r[b] - q.r[a]; }).map(function (k) {
         var x = r.per[k], bits = [x.g ? x.g + (x.g === 1 ? ' goal' : ' goals') : '', x.a ? x.a + (x.a === 1 ? ' assist' : ' assists') : '', x.mins + ' min'].filter(Boolean).join(', ');
         return '<li><span><b>' + esc(nm(+k)) + '</b>' + (+k === q.motm ? ' <span class="motm">★ Man of the match</span>' : '') + '<br><small class="note">' + bits + '</small></span><span class="rate">' + q.r[k].toFixed(1) + '</span></li>';
@@ -4076,10 +4312,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     (r.ev || []).slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).forEach(function (e, i) {
       if (!e.hl) { if (e.us) us++; else them++; }
       if (line || typeof e.at !== 'number' || e.at < from || e.at > to) return;
-      var p = e.p != null ? nm(e.p) : null, a = e.a != null ? nm(e.a) : null, sc = us + '–' + them, t = teamShort();
+      var p = e.p != null ? nm(e.p) : null, a = e.a != null ? nm(e.a) : null, sc = us + '–' + them, t = usOf(r);
       if (e.hl) line = e.k === 'save' && p ? pickOf(['Big save from ' + p + ' to keep it at ' + sc + '.', p + ' gets down well. Still ' + sc + '.', 'Denied by ' + p + '! It stays ' + sc + '.'], i) : pickOf([(p || 'That') + ' with one worth another look.', 'One for the highlights reel' + (p ? ' from ' + p : '') + '.'], i);
       else if (e.us) line = p && a ? pickOf([a + ' slides it through and ' + p + ' does the rest! ' + t + ' ' + sc + '.', 'What a finish from ' + p + ', set up by ' + a + '. ' + sc + '.', p + ' makes it ' + sc + ', with ' + a + ' to thank for the pass.'], i)
         : p ? pickOf([p + ' finds the net! ' + sc + ' to ' + t + '.', 'Goal! ' + p + ' with a tidy finish. ' + sc + '.', 'There it is, ' + p + ' makes it ' + sc + '.'], i) : pickOf(['It’s in! ' + t + ' ' + sc + '.', 'A goal for ' + t + '. ' + sc + '.'], i);
+      else if (p) line = (a ? a + ' finds ' + p + ', and ' : p + ' scores, and ') + (them > us ? r.opp + ' go in front. ' : them === us ? r.opp + ' are level. ' : r.opp + ' pull one back. ') + sc + '.';
       else line = them > us ? r.opp + ' go in front. ' + sc + '.' : them === us ? r.opp + ' level it at ' + sc + '.' : r.opp + ' pull one back. ' + sc + '.';
     });
     return line;
@@ -4583,7 +4820,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       $('lvScore').hidden = true; $('lvEvents').innerHTML = ''; $('lvNote').textContent = ''; $('lvTitle').textContent = 'Live';
       return;
     }
-    var m = liveGame(); $('lvTitle').textContent = m ? 'v ' + m.opp : 'Live';
+    var m = liveGame(); $('lvTitle').textContent = m ? vs(m) : 'Live';
     livePlayer(LV.s.hls); liveTick();
   }
   function liveLag() { // how far behind the picture is: from the stream's own clock when the player knows it
@@ -4998,18 +5235,18 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     (r.ev || []).slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).forEach(function (e) {
       var label;
       if (e.hl) label = e.k === 'save' ? 'Save: ' + nm(e.p) : e.p != null ? 'Highlight: ' + nm(e.p) : 'Highlight';
-      else if (e.us) { us++; label = (e.p != null ? nm(e.p) : 'Goal') + (e.a != null ? ' (' + nm(e.a) + ')' : '') + '  ' + teamShort() + ' ' + us + '-' + them + ' ' + r.opp; }
-      else { them++; label = 'Goal for ' + r.opp + '  ' + teamShort() + ' ' + us + '-' + them + ' ' + r.opp; }
+      else if (e.us) { us++; label = (e.p != null ? nm(e.p) : 'Goal') + (e.a != null ? ' (' + nm(e.a) + ')' : '') + '  ' + usOf(r) + ' ' + us + '-' + them + ' ' + r.opp; }
+      else { them++; label = (e.p != null ? nm(e.p) + (e.a != null ? ' (' + nm(e.a) + ')' : '') : 'Goal for ' + r.opp) + '  ' + usOf(r) + ' ' + us + '-' + them + ' ' + r.opp; }
       if (typeof e.at !== 'number' || typeof r.koAt !== 'number' || (keep && !keep(e))) return;
       var t = (e.at - r.koAt) / 1000 + sync;
       // which goal the moment happened at, for picking a camera: ours for a save or a goal against, theirs otherwise
       var focus = e.hl ? (e.k === 'save' ? 'us' : 'them') : e.us ? 'them' : 'us';
-      raw.push({ t: t, start: Math.max(0, t - pre), end: Math.max(0, t - pre) + pre + post, label: (e.min != null ? ml(e) + ' ' : '') + label, goal: !e.hl, plain: !!e.hl && e.k !== 'save', focus: focus, at: e.at, pids: [e.p, e.us ? e.a : null].filter(function (x) { return x != null; }) });
+      raw.push({ t: t, start: Math.max(0, t - pre), end: Math.max(0, t - pre) + pre + post, label: (e.min != null ? ml(e) + ' ' : '') + label, goal: !e.hl, plain: !!e.hl && e.k !== 'save', focus: focus, at: e.at, e: e, pids: [e.p, e.a].filter(function (x) { return x != null; }) });
     });
     var out = [];
     raw.forEach(function (c) {
       var last = out[out.length - 1];
-      var item = { text: c.label, plain: c.plain, focus: c.focus };
+      var item = { text: c.label, plain: c.plain, focus: c.focus, e: c.e };
       if (last && c.start <= last.end) { last.end = Math.max(last.end, c.end); last.items.push(item); c.pids.forEach(function (id) { if (last.pids.indexOf(id) < 0) last.pids.push(id); }); }
       else out.push({ start: c.start, end: c.end, items: [item], t: c.t, goal: c.goal, at: c.at, pids: c.pids.slice() });
     });
@@ -5037,7 +5274,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var slugify = function (s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); };
   function folderOf(r) {
     var d = new Date(r.koAt || r.at || 0), p2 = function (n) { return ('0' + n).slice(-2); };
-    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + (slugify(r.opp) || 'game');
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + (slugify(r.house ? r.house.a + ' v ' + r.house.b : r.opp) || 'game');
   }
   function copyFrom(btn, pre) {
     btn.addEventListener('click', function () {
@@ -5148,6 +5385,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
 
   // boot
+  try { // someone opening a game's link (sent to the guests who played in it): follow the team and show that game's highlights
+    var qs = new URLSearchParams(location.search), gc = (qs.get('team') || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), gg = (qs.get('game') || '').slice(0, 64);
+    if (gc.length === 6) {
+      guestGame = gg || null; A.introSeen = true; rememberTeam(gc, null, null);
+      if (A.active !== gc) { A.active = gc; S = Object.assign(blankTeam(), loadCache(gc) || {}); }
+      S.view = 'highlights'; hlBy = 'game'; saveApp();
+      if (history.replaceState) history.replaceState(null, '', location.pathname); // (so a reload doesn't do it again)
+    }
+  } catch (e) {}
   upgrade(S.match);
   if (S.match) lastBlock = curSeg(S.match);
   var first = !A.introSeen ? 'intro' : !A.active ? 'welcome' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;

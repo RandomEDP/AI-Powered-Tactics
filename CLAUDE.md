@@ -108,7 +108,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0019`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0020`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -121,7 +121,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 | Class | What it does |
 |---|---|
-| `ReelCutterPlugin` | `pickVideo({slot})`, `cut({clips:[{path,start,dur,caption,file,voice,voiceAt}], …})`, `share`, `cleanup`. Uses AVFoundation, a watermark, captions and an outro card. Footage from different cameras is turned upright and fitted to one frame |
+| `ReelCutterPlugin` | `pickVideo({slot})`, `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
 | `WatchLinkPlugin` | The phone side of the watch link. It keeps a durable inbox of watch presses (UserDefaults `watchlink.inbox`), `push({state, seen})` and `pending()` |
 | `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
@@ -248,6 +248,17 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   second sound over a video, so a clip cut with commentary is kept twice: `path` without it and `vpath` (`<nn>v.mp4`,
   `0019_clip_commentary.sql`) with it. "Commentary on/off" (`sayOn`, `apt-say` per phone) swaps which copy plays
   (`clipSrc`). The phone never speaks over a clip itself.
+- **Graphics, as on the telly** (`ReelGraphics.swift`, Core Animation layers drawn onto each clip): a score box top left
+  (crest on the team colour, short names from `abbr`, the score, which changes as the ball goes in, and the match clock
+  ticking a second at a time, carrying on through the second half), a bar along the bottom ("GOAL", the scorer, the minute
+  and who set it up) that slides in just after the moment, Gaffer's mark top right, and the end card (kicker "FULL TIME",
+  the result, the crest, then Gaffer's icon, "Gaffer: 5-a-Side Team Manager" and a "Download on the App Store" badge drawn
+  with the phone's Apple logo symbol). JS works out each clip's `bug {clock, us, them, changes}` and `lower {at, tag, title,
+  sub}` in `clipLook`; the clock comes from the video once kick-off is marked (`cutPlan` sets `c.clock`). The cut screen
+  shows the same design in HTML ("How the clips look", `lookPreview`) with a switch for the score box (`CUT.bug`). The app
+  icon is read from the bundled web files (`public/icons`). Only the per-clip export draws the score box and bar; reels
+  are joined from finished clips, so nothing is drawn twice. The Swift can be type-checked off-Mac against stand-ins for
+  UIKit (see section 10).
 - **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies), to cut again
   from scratch.
 - **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each
@@ -257,6 +268,22 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `clipRole`. Test: `reels.test.mjs`.
 - The old screens (the computer ffmpeg script, the season reels, watch-timecode import) are gone. A result's Highlights
   button opens Highlights with that game picked out (`hlShow`).
+
+### Games among the squad, with guests (`0020_games_among_the_squad.sql`)
+- New game → "Among ourselves" (`#gKind`, `D.kind = 'house'`, `renderHouse`): two named sides (Bibs and Shirts to start),
+  any size, at least 2 a side, no fixed keeper and no subs plan. Squad players are set to a side or Out; guests are added
+  by name to either side (ids from 1001 up, `guestId`; names through `guestName`, which `nm` falls back to).
+- The game is an ordinary match with `m.house = {a, b, side: {id: 'a'|'b'}, guests: [{id, name}]}`: "us" is side a and
+  `opp` is side b's name, one segment per half, everyone on (`sideOf`, `usOf`, `vs`, `scoreLine`). A goal for either side
+  only offers that side's players (`pickOrder(m, assist, side)`), scorers are kept for both sides (an `against` event with a
+  `pid`), and followers can log for either side. It's `friendly: true` and never counts in the team's record. The watch
+  gets the sides' names and side a's players.
+- Finishing it keeps `house` with the result (`games.house` jsonb, returned by `get_team`), gives squad players goals for
+  and against by side, and, if there were guests, opens the game's highlights with **Send the guests a link**
+  (`shareGuests`, native `shareText`): `<siteUrl>?team=<follow code>&game=<id>`. Opening that link follows the team and
+  shows the game's highlights with a welcome (`guestCard`): get the app (`config.js` `appStore`, empty until the App Store
+  page is live), make an account, join or start a team. The link uses the 6-character follow code, never the organiser code.
+- Test: `house.test.mjs`. Guests' names are covered on the privacy page.
 
 ### Live streaming (Gaffer tier; behind the experimental switch for gaffers) (`0017_live_streams.sql`, `live-stream`)
 - The GoPro (through GoPro Quik) or an iPhone (through a streaming app such as Larix Broadcaster) streams over RTMPS
@@ -312,7 +339,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0019` are applied live. Add new ones as `supabase/migrations/0020_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0020` are applied live. Add new ones as `supabase/migrations/0021_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
@@ -406,8 +433,13 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   for example one kept in iCloud or one written by Gaffer's own camera. `pickVideo` tries each video type the item
   offers (most particular first), then fetches it from the library by its Photos id (`PHImageManager`, downloading from
   iCloud), which needs Photos read access; each failure is worded for the gaffer.
-- The Linux test environment can't compile anything that imports UIKit or AVFoundation. The only compile check for that
-  is CI's "Check it builds" step, so read its output after pushing native changes.
+- The Linux test environment can't compile anything that imports UIKit or AVFoundation. The only full compile check for
+  that is CI's "Check it builds" step, so read its output after pushing native changes. For a quicker check of a
+  self-contained file (like `ReelGraphics.swift`), strip its UIKit/QuartzCore/AVFoundation imports, add `import Foundation`
+  and run `swiftc -typecheck` with a small file of stand-in types for what it uses; it catches most mistakes before CI.
+- Never run `git checkout <file>` (or `git restore`) to undo a failed scripted edit: a script that fails part-way hasn't
+  written anything, and checking out throws away all the uncommitted work in that file. Commit work in progress locally
+  as you go instead.
 
 ## 11. In flight / next up
 

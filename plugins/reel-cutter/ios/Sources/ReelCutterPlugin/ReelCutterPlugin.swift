@@ -10,9 +10,11 @@ import UniformTypeIdentifiers
 ///
 /// JS calls, in order:
 ///   pickVideo()  -> { path, duration, created? }   the person picks the recording from Photos
-///   cut({ path, clips: [{ start, dur, caption, file }], watermark, outro: { title, sub, color, ink }, reelFile })
+///   cut({ path, clips: [{ start, dur, caption, file, bug?, lower? }], watermark, look?, outro: { kicker, title, sub, color, ink, crest }, reelFile })
 ///                -> { clips: [{ file, path, size }], reel: { path, size } }
 ///   share({ path })                                the share sheet (save to Photos, send to a chat)
+///   shareText({ text, url })                       the share sheet for a message with a link
+///   joinReel({ items: [{ url, voice?, voiceAt? }], outro, file })   a reel from clips already made
 ///   cleanup()                                      deletes the working files
 /// While working it emits "progress" events: { stage: "copy" | "cut" | "reel", i, n, p }.
 @objc(ReelCutterPlugin)
@@ -24,6 +26,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         CAPPluginMethod(name: "cut", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "joinReel", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "shareText", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cleanup", returnType: CAPPluginReturnPromise)
     ]
 
@@ -40,6 +43,8 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         var voice: AVURLAsset? = nil   // a spoken line to lay over this stretch
         var voiceAt: Double = 0        // seconds into the stretch at which it should start
         var voiced = false             // the line is already in the footage's own sound (a finished clip), so it isn't laid again
+        var bug: ReelBug? = nil        // the score box with the match clock (ReelGraphics.swift)
+        var lower: ReelLower? = nil    // the bar along the bottom saying what the moment is
     }
 
     private struct CutError: LocalizedError {
@@ -238,6 +243,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         let watermark = call.getString("watermark") ?? ""
         let outro = call.options["outro"] as? [String: Any]
         let reelFile = call.getString("reelFile")
+        let look = ReelGraphics.look(call.options["look"])
 
         var spare: UIBackgroundTaskIdentifier = .invalid
         let begin = { spare = UIApplication.shared.beginBackgroundTask(withName: "Cutting highlights") { UIApplication.shared.endBackgroundTask(spare) } }
@@ -271,8 +277,11 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 for (index, raw) in rawClips.enumerated() {
                     let start = (raw["start"] as? NSNumber)?.doubleValue ?? 0
                     let dur = (raw["dur"] as? NSNumber)?.doubleValue ?? 20
-                    segments.append(Segment(asset: asset(raw["path"] as? String ?? path), start: start, dur: dur, caption: raw["caption"] as? String ?? "",
-                                            voice: voice(raw["voice"]), voiceAt: (raw["voiceAt"] as? NSNumber)?.doubleValue ?? 0))
+                    var segment = Segment(asset: asset(raw["path"] as? String ?? path), start: start, dur: dur, caption: raw["caption"] as? String ?? "",
+                                          voice: voice(raw["voice"]), voiceAt: (raw["voiceAt"] as? NSNumber)?.doubleValue ?? 0)
+                    segment.bug = ReelGraphics.bug(raw["bug"])
+                    segment.lower = ReelGraphics.lower(raw["lower"])
+                    segments.append(segment)
                     files.append(raw["file"] as? String ?? String(format: "clip_%02d.mp4", index + 1))
                 }
 
@@ -283,7 +292,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                     let out = dir.appendingPathComponent(files[index])
                     var clean = segment
                     clean.voice = nil
-                    try self.export(segments: [clean], watermark: watermark, outro: nil, to: out) { fraction in
+                    try self.export(segments: [clean], watermark: watermark, outro: nil, to: out, look: look) { fraction in
                         self.notifyListeners("progress", data: ["stage": "cut", "i": index, "n": segments.count, "p": segment.voice == nil ? fraction : fraction / 2])
                     }
                     self.shrink(out)
@@ -292,7 +301,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                         let name = (files[index] as NSString).deletingPathExtension + "v.mp4"
                         let voicedOut = dir.appendingPathComponent(name)
                         do {
-                            try self.export(segments: [segment], watermark: watermark, outro: nil, to: voicedOut) { fraction in
+                            try self.export(segments: [segment], watermark: watermark, outro: nil, to: voicedOut, look: look) { fraction in
                                 self.notifyListeners("progress", data: ["stage": "cut", "i": index, "n": segments.count, "p": 0.5 + fraction / 2])
                             }
                             self.shrink(voicedOut)
@@ -475,7 +484,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     /// Joins the given stretches of the source video into one file, drawing the watermark over all of it,
     /// each stretch's caption while it plays, and (for a reel) an outro card at the end.
     private func export(segments: [Segment], watermark: String, outro: [String: Any]?, to out: URL, intro: AVURLAsset? = nil, signOff: AVURLAsset? = nil,
-                        progress: @escaping (Double) -> Void) throws {
+                        look: ReelLook? = nil, progress: @escaping (Double) -> Void) throws {
         guard let firstAsset = segments.first?.asset, let firstVideo = firstAsset.tracks(withMediaType: .video).first else {
             throw CutError(message: "That file has no video in it")
         }
@@ -510,7 +519,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
 
         let scale: CMTimeScale = 600
         var cursor = CMTime.zero
-        var spans: [(at: Double, dur: Double, caption: String)] = []
+        var spans: [(at: Double, dur: Double, caption: String, bug: ReelBug?, lower: ReelLower?)] = []
         var placed: [(at: CMTime, track: AVAssetTrack)] = [] // which camera's footage starts where, for fitting each into the frame
         for segment in segments {
             guard let sourceVideo = segment.asset.tracks(withMediaType: .video).first else {
@@ -525,7 +534,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             if let audio = audio, let sourceAudio = segment.asset.tracks(withMediaType: .audio).first {
                 try? audio.insertTimeRange(range, of: sourceAudio, at: cursor)
             }
-            spans.append((at: CMTimeGetSeconds(cursor), dur: dur, caption: segment.caption))
+            spans.append((at: CMTimeGetSeconds(cursor), dur: dur, caption: segment.caption, bug: segment.bug, lower: segment.lower))
             placed.append((at: cursor, track: sourceVideo))
             if !segment.voiced { say(segment.voice, at: CMTimeGetSeconds(cursor) + segment.voiceAt, before: CMTimeGetSeconds(cursor) + dur) }
             else if segment.voice != nil { speechEnd = max(speechEnd, CMTimeGetSeconds(cursor) + segment.voiceAt + length(segment.voice) + 0.15) } // (keep the sign-off clear of it)
@@ -538,7 +547,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         // The outro card is drawn over a few silent seconds of footage, which it covers completely.
         var outroAt: Double?
         if outro != nil, let first = segments.first {
-            let dur = min(max(3.5, min(7, length(signOff) + 0.9)), total - 0.1) // long enough for the sign-off to be said
+            let dur = min(max(4.5, min(7, length(signOff) + 0.9)), total - 0.1) // long enough to read, and for the sign-off to be said
             let start = max(0, min(first.start, total - dur))
             let range = CMTimeRange(start: CMTime(seconds: start, preferredTimescale: scale), duration: CMTime(seconds: dur, preferredTimescale: scale))
             try video.insertTimeRange(range, of: sourceVideo, at: cursor)
@@ -582,35 +591,24 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         let unit = min(size.width, size.height) / 100 // 1% of the shorter side, so text scales with the footage
         let margin = unit * 3.5
 
-        if !watermark.isEmpty {
-            let mark = pill(text: watermark, fontSize: unit * 3.2, weight: .heavy, maxWidth: size.width * 0.5, unit: unit)
-            mark.frame.origin = CGPoint(x: size.width - mark.frame.width - margin, y: size.height - mark.frame.height - margin)
-            mark.opacity = 0.9
-            parent.addSublayer(mark)
-        }
+        if !watermark.isEmpty { parent.addSublayer(ReelGraphics.brand(watermark, u: unit, size: size, margin: margin)) }
 
-        for span in spans where !span.caption.isEmpty {
-            let caption = pill(text: span.caption, fontSize: unit * 4.2, weight: .bold, maxWidth: size.width * 0.8, unit: unit)
-            caption.frame.origin = CGPoint(x: margin, y: margin)
-            show(caption, from: span.at, to: outroAt == nil && span.at + span.dur >= CMTimeGetSeconds(cursor) - 0.01 ? nil : span.at + span.dur)
-            parent.addSublayer(caption)
+        for span in spans {
+            if let bug = span.bug, let look = look {
+                parent.addSublayer(ReelGraphics.scoreBug(bug, look: look, from: span.at, dur: span.dur, u: unit, size: size, margin: margin))
+            }
+            if let lower = span.lower {
+                parent.addSublayer(ReelGraphics.lowerThird(lower, look: look, from: span.at, dur: span.dur, u: unit, size: size, margin: margin))
+            } else if !span.caption.isEmpty {
+                let caption = pill(text: span.caption, fontSize: unit * 4.2, weight: .bold, maxWidth: size.width * 0.8, unit: unit)
+                caption.frame.origin = CGPoint(x: margin, y: margin)
+                show(caption, from: span.at, to: outroAt == nil && span.at + span.dur >= CMTimeGetSeconds(cursor) - 0.01 ? nil : span.at + span.dur)
+                parent.addSublayer(caption)
+            }
         }
 
         if let outro = outro, let outroAt = outroAt {
-            let background = color(outro["color"] as? String, fallback: UIColor(red: 0.12, green: 0.42, blue: 0.29, alpha: 1))
-            let ink = color(outro["ink"] as? String, fallback: .white)
-            let card = CALayer()
-            card.frame = parent.frame
-            card.backgroundColor = background.cgColor
-            let width = size.width * 0.84
-            let title = label(text: outro["title"] as? String ?? "", fontSize: unit * 8, weight: .heavy, color: ink, maxWidth: width, centred: true)
-            let sub = label(text: outro["sub"] as? String ?? "", fontSize: unit * 4, weight: .semibold, color: ink.withAlphaComponent(0.8), maxWidth: width, centred: true)
-            let gap = unit * 3
-            let block = title.frame.height + gap + sub.frame.height
-            title.frame = CGRect(x: (size.width - width) / 2, y: (size.height - block) / 2 + sub.frame.height + gap, width: width, height: title.frame.height)
-            sub.frame = CGRect(x: (size.width - width) / 2, y: (size.height - block) / 2, width: width, height: sub.frame.height)
-            card.addSublayer(title)
-            card.addSublayer(sub)
+            let card = ReelGraphics.endCard(outro, at: outroAt, u: unit, size: size, margin: margin * 1.6)
             show(card, from: outroAt, to: nil)
             parent.addSublayer(card)
         }
@@ -736,13 +734,6 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         return box
     }
 
-    private func color(_ hex: String?, fallback: UIColor) -> UIColor {
-        guard var value = hex?.trimmingCharacters(in: .whitespaces), !value.isEmpty else { return fallback }
-        if value.hasPrefix("#") { value.removeFirst() }
-        guard value.count == 6, let number = UInt32(value, radix: 16) else { return fallback }
-        return UIColor(red: CGFloat((number >> 16) & 0xFF) / 255, green: CGFloat((number >> 8) & 0xFF) / 255, blue: CGFloat(number & 0xFF) / 255, alpha: 1)
-    }
-
     // MARK: - Share and tidy up
 
     @objc public func share(_ call: CAPPluginCall) {
@@ -760,6 +751,21 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             sheet.completionWithItemsHandler = { _, completed, _, _ in
                 call.resolve(["completed": completed])
             }
+            host.present(sheet, animated: true)
+        }
+    }
+
+    /// The share sheet for a message and a link (the link to a game's highlights, for the guests who played in it).
+    @objc public func shareText(_ call: CAPPluginCall) {
+        var items: [Any] = []
+        if let text = call.getString("text"), !text.isEmpty { items.append(text) }
+        if let link = call.getString("url"), let url = URL(string: link) { items.append(url) }
+        guard !items.isEmpty else { call.reject("Nothing to share"); return }
+        DispatchQueue.main.async {
+            guard let host = self.bridge?.viewController else { call.reject("Couldn't open the share sheet"); return }
+            let sheet = UIActivityViewController(activityItems: items, applicationActivities: nil)
+            sheet.popoverPresentationController?.sourceView = host.view
+            sheet.completionWithItemsHandler = { _, completed, _, _ in call.resolve(["completed": completed]) }
             host.present(sheet, animated: true)
         }
     }

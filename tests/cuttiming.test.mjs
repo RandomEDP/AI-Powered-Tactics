@@ -79,6 +79,19 @@ await A.page.evaluate(() => { window.__reelFail = 'It stopped making progress, s
 await A.click('#cutBody [data-cutdo="go"]'); await A.run(3000);
 const cut = await A.page.evaluate(() => (window.__rc.filter((x) => x[0] === 'cut').pop() || [])[1]);
 eq(cut && cut.clips.map((c) => Math.round(c.start)), [g1 - 20 - 8, g2 + 10 - 8], 'each clip starts 8 seconds before its moment: the marked goal exactly, the other worked out from the marks');
+
+// ---------- the graphics drawn on each clip, as on the telly: score box with a ticking clock, a caption, the full-time card
+const half = (await A.team()).results[0].half * 60, near = (x, y) => Math.abs(x - y) < 0.6;
+eq([cut.look.home, cut.look.away, cut.look.crest], ['SOP', 'DOG', null], 'the score box names the teams short, as on the telly');
+const [b1, b2] = cut.clips.map((c) => c.bug);
+check(near(b1.clock, g1 - 20 - 200 - 8), `the first clip's clock starts 8 seconds before the goal, by the video (kick-off marked at 3:20, goal at ${g1 - 20}): ${b1.clock}`);
+eq([b1.us, b1.them, b1.changes], [0, 0, [{ at: 8, us: 1, them: 0 }]], 'it shows 0–0, and 1–0 from the moment the ball goes in');
+check(near(b2.clock, half + (g2 + 10) - (ko2 + 30) - 8), `the second-half clip's clock carries on from ${half / 60}:00, from the second-half kick-off as marked: ${b2.clock}`);
+eq([b2.us, b2.them, b2.changes], [1, 0, [{ at: 8, us: 1, them: 1 }]], 'and its score changes to 1–1 as Dog Squad score');
+eq(cut.clips.map((c) => [c.lower.at, c.lower.tag, c.lower.title, c.lower.color || null]), [[8, 'Goal', 'Jake', null], [8, 'Goal', 'Dog Squad', '#f2f2f2']],
+  'the bar along the bottom says what happened, just after it happens (their goals in white, ours in the team colour)');
+check(/^\d+’$/.test(cut.clips[0].lower.sub), `with the minute (${cut.clips[0].lower.sub})`);
+eq([cut.outro.kicker, cut.outro.title], ['Full time', 'Sons of Pitches FC 1–1 Dog Squad'], 'the reel ends on the full-time card');
 eq([/2 clips are now in Highlights/.test(await A.text('#cutBody')), (w.db().clips || []).length, await A.text('#cutBody .msg.bad'), await A.visible('#cutBody [data-cutdo="share"]')],
   [true, 2, 'The full reel couldn’t be joined: It stopped making progress, so it was stopped. Keep Gaffer open on screen while it works, and try again. The clips are all in Highlights; cut again to try the reel once more.', false],
   'if the full reel can\'t be joined, the clips are still uploaded, and it says why the reel is missing');
