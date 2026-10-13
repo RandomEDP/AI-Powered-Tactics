@@ -390,6 +390,10 @@
       const key = decodeURIComponent(u.split('/__r2/')[1]), body = init.body, d = load(); d.files = (d.files || []).filter((f) => !(f.bucket === 'r2' && f.path === key));
       d.files.push({ bucket: 'r2', path: key, size: body && body.size || 0, type: (init.headers || {})['Content-Type'] || '' }); store(d); return new Response('', { status: 200 });
     }
+    if (/\.r2\.dev\//.test(u) && init && init.method === 'HEAD') { // (is a file there yet, at its public address?)
+      const key = decodeURIComponent(u.split('.r2.dev/')[1].split('?')[0]);
+      return new Response(null, { status: (load().files || []).some((f) => f.bucket === 'r2' && f.path === key) ? 200 : 404 });
+    }
     return realFetch(url, init);
   };
   // The live-stream edge function (tests/stream.test.mjs runs the real one): the team's camera link, on only while live.

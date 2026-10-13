@@ -15,6 +15,8 @@ import UniformTypeIdentifiers
 ///   share({ path })                                the share sheet (save to Photos, send to a chat)
 ///   shareText({ text, url })                       the share sheet for a message with a link
 ///   joinReel({ items: [{ url, voice?, voiceAt? }], outro, file })   a reel from clips already made -> { path, size, marks }
+///   upload({ path, url, contentType? })            sends a file to an upload link in the background (it carries on with
+///                                                  the app put away or closed) -> { status, ok }; "upload" events { p }
 ///   cleanup()                                      deletes the working files
 /// While working it emits "progress" events: { stage: "copy" | "cut" | "reel", i, n, p }.
 @objc(ReelCutterPlugin)
@@ -28,6 +30,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         CAPPluginMethod(name: "joinReel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "shareText", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readable", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "upload", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cleanup", returnType: CAPPluginReturnPromise)
     ]
 
@@ -435,7 +438,12 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         guard let raw = call.options["items"] as? [[String: Any]], !raw.isEmpty else { call.reject("No clips to join"); return }
         let outro = call.options["outro"] as? [String: Any]
         let name = (call.getString("file") ?? "reel.mp4").replacingOccurrences(of: "/", with: "-")
+        var spare: UIBackgroundTaskIdentifier = .invalid
+        let begin = { spare = UIApplication.shared.beginBackgroundTask(withName: "Joining a reel") { UIApplication.shared.endBackgroundTask(spare) } }
+        if Thread.isMainThread { begin() } else { DispatchQueue.main.sync(execute: begin) } // (time to finish if the app is put away)
+        let finished = { DispatchQueue.main.async { if spare != .invalid { UIApplication.shared.endBackgroundTask(spare); spare = .invalid } } }
         queue.async {
+            defer { finished() }
             do {
                 let dir = try self.ensureWorkDir().appendingPathComponent("reel", isDirectory: true)
                 try? FileManager.default.removeItem(at: dir)
@@ -481,6 +489,24 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             } catch {
                 call.reject(error.localizedDescription)
             }
+        }
+    }
+
+    /// Sends a finished file to its upload link through iOS's background transfer service, so it keeps going when the
+    /// app is put away or closed (a whole match's reel can take minutes on mobile data).
+    @objc public func upload(_ call: CAPPluginCall) {
+        guard let path = call.getString("path"), let link = call.getString("url"), let url = URL(string: link) else {
+            call.reject("Nothing to upload"); return
+        }
+        let uploads = BackgroundUploads.shared
+        uploads.progress = { [weak self] _, p in self?.notifyListeners("upload", data: ["p": p]) }
+        do {
+            _ = try uploads.start(file: URL(fileURLWithPath: path), to: url, contentType: call.getString("contentType") ?? "video/mp4") { status, error in
+                if let error = error { call.reject("The upload stopped: " + error) }
+                else { call.resolve(["status": status, "ok": (200..<300).contains(status)]) }
+            }
+        } catch {
+            call.reject("That file couldn't be got ready to upload: " + error.localizedDescription)
         }
     }
 

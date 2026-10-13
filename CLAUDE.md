@@ -307,6 +307,16 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   gaffer's phone will make it). **Save or share** in the player (`mhExport`, `EX`): the one video fetched onto the phone
   (`joinReel` of the reel's address, no extra card), or the clips joined, then the share sheet; a second tap reuses it.
   On the web it opens the reel's address. Test: `reels.test.mjs`.
+- **It all carries on in the background** (Ethan: "really annoying to wait and just watch a progress bar"; his first try
+  failed with "Load failed" when the 6-minute video went up from the web view). Opening Highlights on a gaffer's iPhone
+  starts making a missing one video by itself (`MKTRIED`, newest game first), with a line on the game's card
+  (`[data-mkline]`, `mkShow`) instead of a screen to watch. Uploads go through iOS's background transfer service
+  (`BackgroundUploads.swift`, plugin `upload({path, url})`, "upload" progress events; `upFile` in JS, and the cut's own
+  `up`), which carries on with the app put away or closed. A made video is noted on the phone first (`apt-mk-pending`)
+  and handed to the team (`mkFinish`) when its upload answers, or, if Gaffer was closed, the next time the team loads
+  and its public address answers a HEAD (`mkResume`). `joinReel` asks iOS for background time like the cut; if iOS
+  stops it anyway (put away too long), it says "Paused…" and starts again by itself when Gaffer is back
+  (`visibilitychange`, `MK.again`). Not used: iOS 26's continued-processing tasks (reported not to fire on release).
 - **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies) and its reel,
   to cut again from scratch.
 - **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each

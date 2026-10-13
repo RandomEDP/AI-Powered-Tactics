@@ -473,7 +473,7 @@ tr.past td { opacity: .45; }
 .mhbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 16px 10px; }
 .mhbar b { display: block; font-size: 18px; } .mhbar small { color: rgba(255, 255, 255, .7); font-size: 14px; }
 #mhVideo { display: block; width: 100%; background: #000; aspect-ratio: 16 / 9; }
-.mhtools { padding: 8px 16px 0; display: flex; gap: 8px; flex-wrap: wrap; } .mhmsg { padding: 6px 16px 0; margin: 0; color: rgba(255, 255, 255, .8); font-size: 14px; } .mhmsg.bad { color: #ff9a8a; } #mhPop .cliplist { padding: 8px 16px; } #mhPop .cliplist button { color: #fff; background: rgba(255, 255, 255, .08); }
+.mhtools { padding: 8px 16px 0; display: flex; gap: 8px; flex-wrap: wrap; } .mhmsg { padding: 6px 16px 0; margin: 0; color: rgba(255, 255, 255, .8); font-size: 14px; } .mhmsg.bad { color: #ff9a8a; } .mkline { margin: -4px 0 8px; font-size: 14px; } #mhPop .cliplist { padding: 8px 16px; } #mhPop .cliplist button { color: #fff; background: rgba(255, 255, 255, .08); }
 #mhPop .cliplist button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
 .mhbtn { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: 16px; padding: 16px; margin: 6px 0 10px; background: var(--on); color: var(--on-ink); font: inherit; }
 .mhbtn b { display: block; font-size: 17px; } .mhbtn small { display: block; opacity: .85; font-size: 14px; margin-top: 2px; }
@@ -1506,7 +1506,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
       myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500);
       if (S.view === 'home' || S.view === 'games') renderFixture();
-      renderTabs(); tpLoad();
+      renderTabs(); tpLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
       var org = !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
@@ -3386,12 +3386,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   // ---- a game's clips joined into one video, once, on a gaffer's phone, and kept for everyone (games cut before the cut
   // uploaded its reel, or whose reel didn't make it). The same reel the cut makes: shrunk, with and without commentary.
-  var MK = { gid: null, busy: false, prog: '', msg: '', bad: false, part: '' };
-  async function mhMake(r) {
-    var rc = RCp(); if (!rc || MK.busy || !r) return;
+  var MK = { gid: null, busy: false, prog: '', msg: '', bad: false, part: '' }, MKTRIED = {}; // (MKTRIED: games this phone has started on this time)
+  async function mhMake(r, quiet) {
+    var rc = RCp(); if (!rc || MK.busy || !r || role !== 'owner' || !sb || !teamId) return;
     var list = clips.filter(function (c) { return c.game_id === r.id; }).sort(function (a, b) { return a.seq - b.seq; }); if (!list.length) return;
+    if (mkPending().some(function (p) { return p.gid === r.id; })) { mkResume(); return; } // (already made: its upload is still going, or done while Gaffer was away)
     var parts = [{ file: 'reel.mp4', v: false }].concat(list.some(function (c) { return c.vpath; }) ? [{ file: 'reelv.mp4', v: true }] : []);
-    MK = { gid: r.id, busy: true, prog: 'Starting…', msg: '', bad: false, part: '' }; mhDraw();
+    MK = { gid: r.id, busy: true, prog: 'starting…', msg: '', bad: false, part: '', away: document.hidden, again: null }; mhDraw(); mkShow();
     try {
       var made = [], marks = null;
       for (var i = 0; i < parts.length; i++) {
@@ -3400,23 +3401,74 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (!res || !res.path) throw new Error('the clips couldn’t be joined.');
         made.push({ file: parts[i].file, path: res.path, v: parts[i].v }); if (!parts[i].v) marks = res.marks || null;
       }
-      MK.prog = 'Uploading it for the team…'; mhDraw();
+      MK.part = ''; MK.prog = 'uploading it for the team…'; mhDraw(); mkShow();
       var keys = made.map(function (m) { return teamId + '/' + folderOf(r) + '/' + m.file; }), links = {}, r2 = !!CFG.clipsUrl;
       if (r2) { var got = await clipCall('upload', { paths: keys }); if (got && got.urls) keys.forEach(function (k, j) { links[k] = got.urls[j]; }); else if (got && got.reason === 'not_configured') r2 = false; else throw new Error((got && got.error) || 'no answer from Gaffer’s server.'); }
+      var at = {}; list.forEach(function (c, k) { var t = marks && marks[k]; if (typeof t === 'number' && isFinite(t)) at[c.seq] = Math.round(t * 100) / 100; });
+      var row = { path: keys[0], store: r2 ? 'r2' : null }; if (keys[1]) row.vpath = keys[1];
+      var pend = { code: A.active, gid: r.id, row: row, at: at, when: Date.now() };
+      if (r2 && rc.upload) mkSetPending(mkPending().filter(function (p) { return p.gid !== r.id; }).concat(pend)); // (if Gaffer is closed before it's sent, it's finished next time)
       var stored = [];
-      for (var j = 0; j < made.length; j++) {
-        var blob = await (await fetch(window.Capacitor.convertFileSrc(made[j].path))).blob(); blob = blob.slice(0, blob.size, 'video/mp4');
-        var put = null; if (r2) { try { put = await fetch(links[keys[j]], { method: 'PUT', body: blob, headers: { 'Content-Type': 'video/mp4' } }); } catch (e) {} }
-        if (put && put.ok) stored.push('r2'); else { await q(sb.storage.from('clips').upload(keys[j], blob, { contentType: 'video/mp4', upsert: true })); stored.push(null); }
-      }
-      var row = { path: keys[0], store: stored[0] }; if (keys[1] && stored[1] === stored[0]) row.vpath = keys[1];
-      await q(sb.from('games').update({ reel: row }).eq('id', r.id)); r.reel = row;
-      for (var k = 0; k < list.length; k++) { var t = marks && marks[k]; if (typeof t === 'number' && isFinite(t)) { list[k].reel_at = Math.round(t * 100) / 100; try { await q(sb.from('clips').update({ reel_at: list[k].reel_at }).eq('game_id', r.id).eq('seq', list[k].seq)); } catch (e) {} } }
-      MK = { gid: r.id, busy: false, prog: '', msg: 'It’s one video now, for everyone in the team.', bad: false, part: '' }; ping('changed');
-      if (MH && MH.r.id === r.id) { var at = MH.list[MH.i] && MH.list[MH.i].reel_at; MH.reel = hasReel(r, MH.list); mhLoad(0, true); if (typeof at === 'number') try { $('mhVideo').currentTime = at; } catch (e) {} }
-    } catch (e) { MK = { gid: r.id, busy: false, prog: '', msg: 'Couldn’t make it one video: ' + ((e && e.message) || 'something went wrong') + ' The clips still play one after another.', bad: true, part: '' }; }
-    mhDraw(); if (S.view === 'highlights') renderHighlights();
+      for (var j = 0; j < made.length; j++) { MK.part = made.length > 1 ? ' (' + (j + 1) + ' of 2)' : ''; stored.push(await upFile(made[j].path, keys[j], r2 ? links[keys[j]] : null)); }
+      row.store = stored[0] ? 'r2' : null; if (row.vpath && stored[1] !== stored[0]) delete row.vpath; // (the old storage took one: both copies must be in one place)
+      await mkFinish(pend, r);
+    } catch (e) {
+      var away = MK.away || document.hidden;
+      MK = { gid: r.id, busy: false, prog: '', part: '', bad: !away, again: away ? r.id : null,
+        msg: away ? 'Paused while Gaffer was put away. It carries on by itself when you come back.' : 'Couldn’t make it one video: ' + ((e && e.message) || 'something went wrong') + ' The clips still play one after another.' };
+    }
+    mhDraw(); mkShow(); if (S.view === 'highlights' && !quiet) renderHighlights();
   }
+  // A file from this phone to the team's clip storage. Through iOS's background uploads where the app has them (it keeps
+  // going with Gaffer put away or closed), else from the web view; the old storage if R2 isn't set up or says no.
+  // Returns true for R2, false for the old storage.
+  async function upFile(path, key, link) {
+    var rc = RCp();
+    if (link && rc && rc.upload) { var res = null; try { res = await rc.upload({ path: path, url: link, contentType: 'video/mp4' }); } catch (e) {} if (res && res.ok) return true; }
+    var blob = await (await fetch(window.Capacitor.convertFileSrc(path))).blob(); blob = blob.slice(0, blob.size, 'video/mp4');
+    if (link && !(rc && rc.upload)) { var put = null; try { put = await fetch(link, { method: 'PUT', body: blob, headers: { 'Content-Type': 'video/mp4' } }); } catch (e) {} if (put && put.ok) return true; }
+    await q(sb.storage.from('clips').upload(key, blob, { contentType: 'video/mp4', upsert: true }));
+    return false;
+  }
+  // Made videos whose upload was still going when Gaffer was closed, kept on this phone until they're handed to the team
+  var MKP = 'apt-mk-pending';
+  function mkPending() { try { return JSON.parse(localStorage.getItem(MKP)) || []; } catch (e) { return []; } }
+  function mkSetPending(list) { try { localStorage.setItem(MKP, JSON.stringify(list)); } catch (e) {} }
+  async function mkFinish(p, r) { // the made video becomes the game's, for everyone
+    await q(sb.from('games').update({ reel: p.row }).eq('id', p.gid));
+    for (var seq in p.at) { try { await q(sb.from('clips').update({ reel_at: p.at[seq] }).eq('game_id', p.gid).eq('seq', +seq)); } catch (e) {} }
+    clips.forEach(function (c) { if (c.game_id === p.gid && p.at[c.seq] != null) c.reel_at = p.at[c.seq]; });
+    r = r || S.results.filter(function (x) { return x.id === p.gid; })[0]; if (r) r.reel = p.row;
+    mkSetPending(mkPending().filter(function (x) { return x.gid !== p.gid; }));
+    MK = { gid: p.gid, busy: false, prog: '', msg: 'It’s one video now, for everyone in the team.', bad: false, part: '', again: null }; ping('changed');
+    if (MH && MH.r.id === p.gid) { var cur = MH.list[MH.i] && MH.list[MH.i].reel_at; MH.reel = hasReel(MH.r, MH.list); mhLoad(0, !$('mhVideo').paused); if (typeof cur === 'number') try { $('mhVideo').currentTime = cur; } catch (e) {} }
+    mhDraw(); mkShow(); if (S.view === 'highlights') renderHighlights();
+  }
+  async function mkResume() { // once it's all arrived (its public address answers), hand it over
+    var list = mkPending(); if (!list.length || role !== 'owner' || !sb) return;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i]; if (p.code !== A.active) continue;
+      if (Date.now() - p.when > 24 * 3600000) { mkSetPending(mkPending().filter(function (x) { return x.gid !== p.gid; })); continue; } // (never arrived)
+      var all = [p.row.path].concat(p.row.vpath ? [p.row.vpath] : []), ok = true;
+      for (var k = 0; k < all.length && ok; k++) { try { var h = await fetch(clipUrl({ path: all[k], store: p.row.store }), { method: 'HEAD', cache: 'no-store' }); ok = h.ok; } catch (e) { ok = false; } }
+      if (ok) await mkFinish(p);
+    }
+  }
+  function mkTick() { // (progress, on whichever of the two is on screen)
+    if (MH && MK.gid === MH.r.id) mhDraw(); mkShow();
+  }
+  function upProgress(d) { if (MK.busy && d && typeof d.p === 'number') { MK.prog = 'uploading, ' + Math.round(d.p * 100) + '%.'; mkTick(); } }
+  function mkShow() { // a line on the game's card in Highlights, so nobody has to sit and watch it
+    var el = document.querySelector('[data-mkline="' + MK.gid + '"]'); if (!el) return;
+    var t = MK.busy ? 'Making it one video' + MK.part + ': ' + MK.prog : MK.msg; el.textContent = t; el.hidden = !t; el.classList.toggle('bad', !!MK.bad);
+  }
+  document.addEventListener('visibilitychange', function () { // back in Gaffer: carry on with a video that was paused, and hand over any that finished uploading
+    if (document.hidden) { if (MK.busy) MK.away = true; return; }
+    setTimeout(function () {
+      if (MK.again && !MK.busy) { var r = S.results.filter(function (x) { return x.id === MK.again; })[0]; if (r) mhMake(r, true); }
+      mkResume();
+    }, 800);
+  });
   // Save or share the whole match's highlights: the one video (fetched to this phone), or the clips joined here
   var EX = { busy: false, path: null, gid: null };
   async function mhExport() {
@@ -3450,7 +3502,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var voiced = MH.reel ? !!MH.r.reel.vpath : MH.list.some(function (c) { return c.vpath; });
     $('mhTools').innerHTML = '<button class="plain primary" type="button" data-mhsave="1"' + (EX.busy ? ' disabled' : '') + '>' + (EX.busy ? 'Getting it ready…' : 'Save or share') + '</button>' +
       (voiced ? '<button class="plain saybtn" type="button" data-mhsay="1" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '');
-    var mine = MK.gid === MH.r.id, say = mine && MK.busy ? 'Making this one video for everyone' + MK.part + ': ' + MK.prog + ' The clips play one after another until then.'
+    var mine = MK.gid === MH.r.id, say = mine && MK.busy ? 'Making this one video for everyone' + MK.part + ': ' + MK.prog + ' You don’t need to wait: it carries on while you use Gaffer, and the upload finishes even if you close the app. The clips play one after another until then.'
       : mine && MK.msg ? MK.msg : !MH.reel && role !== 'owner' ? 'Playing the clips one after another. Your gaffer’s phone makes them one video next time they open this.' : '';
     $('mhMsg').hidden = !say; $('mhMsg').textContent = say; $('mhMsg').classList.toggle('bad', mine && MK.bad);
   }
@@ -3543,7 +3595,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
         var guests = r.house && r.house.guests && r.house.guests.length && A.active && !guestGame ? '<div class="actions"><button class="plain" type="button" data-guests="' + g.i + '">Send the guests a link</button></div>' +
           (GL.i === g.i && GL.msg ? '<p class="msg" role="status" id="glMsg">' + esc(GL.msg) + '</p>' : '') : '';
-        if (vids.length) html += mhButton(g.i, vids) + '<details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
+        if (vids.length) html += mhButton(g.i, vids) + '<p class="msg mkline" data-mkline="' + esc(r.id) + '" hidden></p><details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
           (DL.i === g.i && (DL.msg || DL.prog) ? '<p class="msg' + (DL.bad ? ' bad' : '') + '" role="status" id="dlMsg">' + esc(DL.prog || DL.msg) + '</p>' + (DL.path && !DL.busy ? '<div class="actions"><button class="plain primary" type="button" data-dlshare="1">Share or save it</button></div>' : '') : '');
         else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
@@ -3579,7 +3631,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         html += '</div>';
       });
     }
-    $('hlList').innerHTML = html;
+    $('hlList').innerHTML = html; mkShow();
+    if (hlBy === 'game' && role === 'owner' && !MK.busy && RCp() && sb && teamId) { // a cut game without one video: this phone makes it, quietly, while you get on
+      var want = S.results.slice().reverse().filter(function (r) { return !MKTRIED[r.id] && !(r.reel && r.reel.path) && clips.some(function (c) { return c.game_id === r.id; }); })[0];
+      if (want) { MKTRIED[want.id] = true; setTimeout(function () { mhMake(want, true); }, 600); }
+    }
     if (guestGame && hlFocus && !guestSeen) { guestSeen = true; var gi = S.results.indexOf(hlFocus), ge = gi >= 0 && $('hlg-' + gi); if (ge) try { ge.scrollIntoView({ block: 'center' }); } catch (e) {} } // (the game they came for, once it's loaded)
     Array.prototype.forEach.call($('hlList').querySelectorAll('.reelp video'), function (v) { // the moment playing in a game's reel is picked out
       v.addEventListener('timeupdate', function () {
@@ -3772,13 +3828,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- cutting highlights on the phone (iPhone app only): pick the recording, line it up, cut, upload the clips
   var CUT = null, rcBound = false;
-  function RCp() { var rc = plugin('ReelCutter'); if (rc && !rcBound) { rcBound = true; try { rc.addListener('progress', cutProgress); } catch (e) {} } return rc; }
+  function RCp() { var rc = plugin('ReelCutter'); if (rc && !rcBound) { rcBound = true; try { rc.addListener('progress', cutProgress); rc.addListener('upload', upProgress); } catch (e) {} } return rc; }
   function cutProgress(d) {
     if (!d) return;
     var pct = Math.round((d.p || 0) * 100);
     if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
     if (DL.busy) { DL.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var dm = $('dlMsg'); if (dm) dm.textContent = DL.prog; }
-    if (MK.busy) { MK.prog = d.stage === 'fetch' ? 'fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'joining, ' + pct + '%.'; var mm = $('mhMsg'); if (mm && MH && MK.gid === MH.r.id) mm.textContent = 'Making this one video for everyone' + MK.part + ': ' + MK.prog + ' The clips play one after another until then.'; }
+    if (MK.busy) { MK.prog = d.stage === 'fetch' ? 'fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'joining, ' + pct + '%.'; mkTick(); }
     if (RB.busy) { RB.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var rm = $('rbProg'); if (rm) rm.textContent = RB.prog; }
     if (!CUT) return;
     CUT.prog = d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';
@@ -4169,6 +4225,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
           else throw new Error('Couldn’t get ready to upload the clips: ' + ((got && got.error) || 'no answer from Gaffer’s server.'));
         }
         var up = async function (made) { // a clip file from the phone to the team's storage
+          var rcu = RCp(), to0 = keyOf(made);
+          if (r2 && links[to0] && rcu && rcu.upload) { var ur = null; try { ur = await rcu.upload({ path: made.path, url: links[to0], contentType: 'video/mp4' }); } catch (e) {} if (ur && ur.ok) return { key: to0, r2: true }; } // (iOS's background uploads: they carry on if the app is put away)
           var blob = await (await fetch(window.Capacitor.convertFileSrc(made.path))).blob();
           blob = blob.slice(0, blob.size, 'video/mp4'); // the phone hands the file over untyped, and storage only accepts video
           var to = keyOf(made);
