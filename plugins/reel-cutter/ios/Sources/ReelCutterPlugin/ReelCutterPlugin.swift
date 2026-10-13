@@ -10,8 +10,8 @@ import UniformTypeIdentifiers
 ///
 /// JS calls, in order:
 ///   pickVideo()  -> { path, duration, created? }   the person picks the recording from Photos
-///   cut({ path, clips: [{ start, dur, caption, file, bug?, lower? }], watermark, look?, outro: { kicker, title, sub, color, ink, crest }, reelFile })
-///                -> { clips: [{ file, path, size }], reel: { path, size } }
+///   cut({ path, clips: [{ start, dur, caption, file, bug?, lower? }], watermark, look?, outro: { kicker, title, sub, color, ink, crest }, reelFile, reelCleanFile? })
+///                -> { clips: [{ file, path, size }], reel: { path, size, marks }, reelClean?: { path, size, marks } }
 ///   share({ path })                                the share sheet (save to Photos, send to a chat)
 ///   shareText({ text, url })                       the share sheet for a message with a link
 ///   joinReel({ items: [{ url, voice?, voiceAt? }], outro, file })   a reel from clips already made
@@ -248,6 +248,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         let watermark = call.getString("watermark") ?? ""
         let outro = call.options["outro"] as? [String: Any]
         let reelFile = call.getString("reelFile")
+        let reelCleanFile = call.getString("reelCleanFile") // (with commentary: a second reel without it, for "Commentary off")
         let look = ReelGraphics.look(call.options["look"])
 
         var spare: UIBackgroundTaskIdentifier = .invalid
@@ -322,21 +323,35 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 if let reelFile = reelFile {
                     // The reel is joined from the clips just made (small, with their watermark, captions and commentary
                     // already in), not cut again from the whole game's video, which was slow enough to look stuck.
-                    var pieces: [Segment] = []
-                    for (index, segment) in segments.enumerated() {
-                        let voiced = (made[index]["voiced"] as? [String: Any])?["path"] as? String
-                        let clip = AVURLAsset(url: URL(fileURLWithPath: voiced ?? made[index]["path"] as? String ?? ""))
-                        let length = CMTimeGetSeconds(clip.duration)
-                        guard length.isFinite, length > 0.5 else { continue }
-                        pieces.append(Segment(asset: clip, start: 0, dur: length, caption: "", voice: voiced == nil ? nil : segment.voice, voiceAt: segment.voiceAt, voiced: true))
-                    }
-                    let out = dir.appendingPathComponent(reelFile)
-                    do {
-                        guard !pieces.isEmpty else { throw CutError(message: "none of the clips could be read back") }
-                        try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: intro, signOff: signOff) { fraction in
-                            self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction])
+                    // marks: where each clip starts in the reel, in seconds (null for one that couldn't be read back), so
+                    // the app can skip straight to any moment in it.
+                    func join(withVoices: Bool, name: String, from: Double, share: Double) throws -> [String: Any] {
+                        var pieces: [Segment] = []
+                        var marks: [Any] = []
+                        var at = 0.0
+                        for (index, segment) in segments.enumerated() {
+                            let voiced = withVoices ? (made[index]["voiced"] as? [String: Any])?["path"] as? String : nil
+                            let clip = AVURLAsset(url: URL(fileURLWithPath: voiced ?? made[index]["path"] as? String ?? ""))
+                            let length = CMTimeGetSeconds(clip.duration)
+                            guard length.isFinite, length > 0.5 else { marks.append(NSNull()); continue }
+                            marks.append(at)
+                            at += length
+                            pieces.append(Segment(asset: clip, start: 0, dur: length, caption: "", voice: voiced == nil ? nil : segment.voice, voiceAt: segment.voiceAt, voiced: true))
                         }
-                        result["reel"] = ["path": out.path, "size": self.fileSize(out)]
+                        let out = dir.appendingPathComponent(name)
+                        guard !pieces.isEmpty else { throw CutError(message: "none of the clips could be read back") }
+                        try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: withVoices ? intro : nil, signOff: withVoices ? signOff : nil) { fraction in
+                            self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": from + fraction * share])
+                        }
+                        self.shrink(out) // (it's uploaded for the team to watch, like the clips)
+                        return ["path": out.path, "size": self.fileSize(out), "marks": marks]
+                    }
+                    let clean = made.contains { $0["voiced"] != nil } ? reelCleanFile : nil
+                    do {
+                        result["reel"] = try join(withVoices: true, name: reelFile, from: 0, share: clean == nil ? 1 : 0.5)
+                        if let clean = clean {
+                            do { result["reelClean"] = try join(withVoices: false, name: clean, from: 0.5, share: 0.5) } catch {} // (the reel with commentary still plays)
+                        }
                     } catch {
                         result["reelError"] = error.localizedDescription // the clips are fine: they're still uploaded
                     }

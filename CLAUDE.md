@@ -108,7 +108,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0024`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0025`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -286,8 +286,15 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   stays in the game's highlights for everyone; `get_team` leaves them out of the clip's `pids` and lists them in `off`.
   Kept in `clip_hides` by game and moment (`clips.at`), so it lasts through a re-cut. "Put them back" undoes it.
   Tests: `hltag.test.mjs`, `db.test.mjs`.
-- **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies), to cut again
-  from scratch.
+- **The game's whole reel in Highlights** (`0025_game_reels.sql`, Ethan asked): the reel the cut joins (ending on the
+  full-time card) is shrunk and uploaded with the clips (`<team>/<game folder>/reel.mp4`, and `reelv.mp4` with commentary;
+  with commentary the plugin makes the reel twice, `reelCleanFile`). The plugin returns `marks` (where each clip starts in
+  the reel); the game gets `games.reel {path, vpath?, store}` (written straight, not through the game row) and each clip
+  `clips.reel_at`. By game then shows one video (`reelPlayer`, `.reelp`) with the moments underneath: tapping one skips
+  the reel to it (`data-seek`), the one playing is picked out as it goes, and Commentary on/off swaps the reel. A game
+  without a reel (cut before this, or the reel failed) plays its clips one by one as before (`clipPlayer`). Test: `reels`.
+- **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies) and its reel,
+  to cut again from scratch.
 - **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each
   player's card (Highlights → By player: untick clips, preview, Goals only; gaffers and claimed players can add an AI
   voice). Both are joined on that phone by `ReelCutter.joinReel({items:[{url,voice,voiceAt}], …})` from the clips'
@@ -408,7 +415,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0024` are applied live. Add new ones as `supabase/migrations/0025_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0025` are applied live. Add new ones as `supabase/migrations/0026_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.

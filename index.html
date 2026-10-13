@@ -1298,7 +1298,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         return stripNull(o);
       });
       return stripNull({ id: g.id, opp: g.opp, friendly: g.friendly, us: g.us, them: g.them, half: g.half, koAt: g.ko_at, htAt: g.ht_at, h2At: g.h2_at,
-        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: g.side === 7 ? 7 : null, tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null });
+        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: g.side === 7 ? 7 : null, tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null, reel: g.reel || null });
     });
     s.match = d.live || null;
     return s;
@@ -2994,6 +2994,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') +
       '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipSrc(c, on)) + '" data-g="' + esc(c.game_id || '') + '" data-at="' + (c.at || '') + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
+  // The game's whole reel (uploaded by the cut), with its moments listed underneath: tapping one skips the reel to it.
+  function hasReel(r, list) { return !!(r && r.reel && r.reel.path && list.some(function (c) { return typeof c.reel_at === 'number'; })); }
+  function reelPlayer(r, list) {
+    var rl = r.reel, voiced = !!rl.vpath, on = voiced && sayOn;
+    return '<div class="vplayer reelp"><video controls playsinline preload="metadata" src="' + esc(clipUrl({ path: on ? rl.vpath : rl.path, store: rl.store })) + '"></video>' +
+      (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') +
+      '<p class="note">The full reel. Tap a moment to skip to it.</p><ol class="cliplist">' + list.filter(function (c) { return typeof c.reel_at === 'number'; }).sort(function (a, b) { return a.reel_at - b.reel_at; })
+        .map(function (c) { return '<li><button type="button" data-seek="' + c.reel_at + '" aria-pressed="false">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
+  }
   var HLDEL = { i: -1, until: 0, msg: '', busy: false }; // Delete these highlights: armed by the first tap
   var HIDE = { busy: false, msg: '' }; // Remove from my highlights
   var DL = { i: -1, busy: false, prog: '', msg: '', path: null, bad: false };
@@ -3036,7 +3045,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
         var guests = r.house && r.house.guests && r.house.guests.length && A.active && !guestGame ? '<div class="actions"><button class="plain" type="button" data-guests="' + g.i + '">Send the guests a link</button></div>' +
           (GL.i === g.i && GL.msg ? '<p class="msg" role="status" id="glMsg">' + esc(GL.msg) + '</p>' : '') : '';
-        if (vids.length) html += clipPlayer(vids) + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
+        if (vids.length) html += (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
           (DL.i === g.i && (DL.msg || DL.prog) ? '<p class="msg' + (DL.bad ? ' bad' : '') + '" role="status" id="dlMsg">' + esc(DL.prog || DL.msg) + '</p>' + (DL.path && !DL.busy ? '<div class="actions"><button class="plain primary" type="button" data-dlshare="1">Share or save it</button></div>' : '') : '');
         else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
@@ -3071,6 +3080,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     $('hlList').innerHTML = html;
     if (guestGame && hlFocus && !guestSeen) { guestSeen = true; var gi = S.results.indexOf(hlFocus), ge = gi >= 0 && $('hlg-' + gi); if (ge) try { ge.scrollIntoView({ block: 'center' }); } catch (e) {} } // (the game they came for, once it's loaded)
+    Array.prototype.forEach.call($('hlList').querySelectorAll('.reelp video'), function (v) { // the moment playing in a game's reel is picked out
+      v.addEventListener('timeupdate', function () {
+        var btns = v.parentNode.querySelectorAll('[data-seek]'), cur = -1;
+        Array.prototype.forEach.call(btns, function (b, i) { if (+b.getAttribute('data-seek') <= v.currentTime + 0.3) cur = i; });
+        Array.prototype.forEach.call(btns, function (b, i) { var on = i === cur; if ((b.getAttribute('aria-pressed') === 'true') !== on) b.setAttribute('aria-pressed', on); });
+      });
+    });
     Array.prototype.forEach.call($('hlList').querySelectorAll('.vplayer video'), function (v) { // play the next clip when one ends
       v.addEventListener('ended', function () {
         var btns = v.parentNode.querySelectorAll('[data-clip]'), cur = 0;
@@ -3100,8 +3116,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (!sb || !r.id || role !== 'owner') return;
     HLDEL.busy = true; HLDEL.msg = 'Deleting…'; renderHighlights();
     var paths = [], inR2 = []; clips.forEach(function (c) { if (c.game_id === r.id) { var to = c.store === 'r2' ? inR2 : paths; to.push(c.path); if (c.vpath) to.push(c.vpath); } });
+    if (r.reel) { var rto = r.reel.store === 'r2' ? inR2 : paths; rto.push(r.reel.path); if (r.reel.vpath) rto.push(r.reel.vpath); } // (and the game's whole reel)
     try {
       await q(sb.from('clips').delete().eq('game_id', r.id));
+      try { await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null; } catch (e) {}
       try { if (paths.length) await q(sb.storage.from('clips').remove(paths)); } catch (e) {} // (a file left behind is never shown: the rows are what list them)
       if (inR2.length) await clipCall('remove', { paths: inR2 });
       HLDEL = { i: i, until: 0, msg: 'Deleted. Cut them again from a video whenever you like.', busy: false };
@@ -3211,6 +3229,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('toPlayerReels').addEventListener('click', function () { hlBy = 'player'; hlFocus = null; go('highlights'); });
   $('hlToggle').addEventListener('click', function (e) { var by = e.target.getAttribute('data-by'); if (by) { hlBy = by; renderHighlights(); } });
   $('hlList').addEventListener('click', function (e) {
+    var sk = e.target.closest('[data-seek]');
+    if (sk) { // a moment in the game's reel: skip to it
+      var sv = sk.closest('.vplayer').querySelector('video'), st = +sk.getAttribute('data-seek');
+      try { sv.currentTime = st + 0.05; var sp = sv.play(); if (sp && sp.catch) sp.catch(function () {}); } catch (err) {}
+      Array.prototype.forEach.call(sk.closest('.vplayer').querySelectorAll('[data-seek]'), function (b) { b.setAttribute('aria-pressed', b === sk); });
+      return;
+    }
     var c = e.target.getAttribute('data-clip'), cut = e.target.getAttribute('data-cut');
     if (e.target.getAttribute('data-say')) { sayOn = !sayOn; try { localStorage.setItem('apt-say', sayOn ? '1' : '0'); } catch (err) {} renderHighlights(); return; }
     if (c !== null) {
@@ -3615,12 +3640,16 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
           } catch (ve) { CUT.voiced = 'the voice service couldn’t be reached.'; }
         }
         var bugs = CUT.bug !== false; CUT.storeNote = null;
-        var res = await rc.cut({ path: list[0].path, watermark: 'Gaffer', reelFile: 'reel.mp4', introVoice: said ? said[0] : null, outroVoice: said ? said[said.length - 1] : null, look: bugs ? lookFor(r) : null,
+        var res = await rc.cut({ path: list[0].path, watermark: 'Gaffer', reelFile: said ? 'reelv.mp4' : 'reel.mp4', reelCleanFile: said ? 'reel.mp4' : null, introVoice: said ? said[0] : null, outroVoice: said ? said[said.length - 1] : null, look: bugs ? lookFor(r) : null,
           clips: list.map(function (c, i) { var lk = clipLook(r, c); return { path: c.path, start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4', voice: said ? said[i + 1] : null, voiceAt: Math.max(0, c.t - c.start) + 0.7, bug: bugs ? lk.bug : null, lower: lk.lower }; }),
           outro: endCard(r) });
         var rows = [], keyOf = function (made) { return teamId + '/' + folderOf(r) + '/' + made.file; }, links = {}, r2 = !!CFG.clipsUrl;
+        // the whole reel goes up too, to play at the top of the game in Highlights (without commentary, and with it if there is any)
+        var reelParts = res.reelClean ? [{ file: 'reel.mp4', path: res.reelClean.path }, { file: 'reelv.mp4', path: res.reel.path, v: true }] : res.reel ? [{ file: 'reel.mp4', path: res.reel.path }] : [];
+        var marks = (res.reelClean || res.reel || {}).marks || null;
         if (r2) { // one upload link per file, from Gaffer's server (the clips go to R2 with them)
           var keys = []; res.clips.forEach(function (made) { keys.push(keyOf(made)); if (made.voiced) keys.push(keyOf(made.voiced)); });
+          reelParts.forEach(function (made) { keys.push(keyOf(made)); });
           var got = await clipCall('upload', { paths: keys });
           if (got && got.urls) keys.forEach(function (k, j) { links[k] = got.urls[j]; });
           else if (got && got.reason === 'not_configured') r2 = false; // (not set up: the old storage, as before)
@@ -3645,6 +3674,22 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
           var path = a.key, vpath = v ? v.key : null;
           rows.push({ team_id: teamId, game_id: r.id, seq: i, path: path, vpath: vpath, store: a.r2 ? 'r2' : null, label: list[i].labels.join(' / ').slice(0, 200), at: list[i].at || null, dur: list[i].end - list[i].start, pids: list[i].pids });
         }
+        var reelRow = null, oldReel = r.reel || null;
+        if (reelParts.length && marks) {
+          try {
+            CUT.prog = 'Uploading the full reel'; var elr = $('cutProg'); if (elr) elr.textContent = CUT.prog;
+            var ups = []; for (var ri = 0; ri < reelParts.length; ri++) ups.push(await up(reelParts[ri]));
+            if (ups.every(function (u) { return u.r2 === ups[0].r2; })) {
+              reelRow = { path: ups[0].key, store: ups[0].r2 ? 'r2' : null }; if (ups[1]) reelRow.vpath = ups[1].key;
+              rows.forEach(function (x, ix) { var t = marks[ix]; x.reel_at = typeof t === 'number' && isFinite(t) ? Math.round(t * 100) / 100 : null; });
+            }
+          } catch (e) { reelRow = null; } // (the clips are all up: the game just shows them one by one, as before)
+        }
+        if (oldReel) { // cut again: an old reel file the new one doesn't replace goes
+          var nowKeys = reelRow ? [reelRow.path, reelRow.vpath] : [];
+          var oldGone = [oldReel.path, oldReel.vpath].filter(function (k) { return k && nowKeys.indexOf(k) < 0; });
+          if (oldGone.length) try { if (oldReel.store === 'r2') await clipCall('remove', { paths: oldGone }); else await q(sb.storage.from('clips').remove(oldGone)); } catch (e) {}
+        }
         var stale = [], keptOld = []; rows.forEach(function (x) { if (!x.store) { keptOld.push(x.path); if (x.vpath) keptOld.push(x.vpath); } });
         clips.forEach(function (c) { if (c.game_id === r.id && !c.store) [c.path, c.vpath].forEach(function (k) { if (k && keptOld.indexOf(k) < 0) stale.push(k); }); }); // (cut again: the old storage's copies go)
         if (stale.length) try { await q(sb.storage.from('clips').remove(stale)); } catch (e) {}
@@ -3653,6 +3698,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (gone.length) await clipCall('remove', { paths: gone }); // (fewer clips this time: the extra old ones go)
         await q(sb.from('clips').delete().eq('game_id', r.id));
         await q(sb.from('clips').insert(rows));
+        try { await q(sb.from('games').update({ reel: reelRow }).eq('id', r.id)); r.reel = reelRow; } catch (e) {}
         ping('changed'); await pull();
         CUT.stage = 'done'; CUT.n = rows.length; CUT.reel = res.reel ? res.reel.path : null; CUT.reelErr = res.reel ? null : res.reelError || null;
         notifyTeam('highlights', scoreLine(r, r.us, r.them), 'The highlights are ready to watch.');

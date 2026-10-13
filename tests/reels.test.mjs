@@ -13,7 +13,8 @@ const cutter = () => { // the native ReelCutter, as the web app sees it
     addListener: (n, f) => { cb = f; return { remove() {} }; },
     pickVideo: async (o) => ({ path: '/phone/game' + o.slot + '.mov', duration: 5400 }),
     cut: async (o) => { window.__rc.push(['cut', o]);
-      return { clips: o.clips.map((c) => Object.assign({ file: c.file, path: '/phone/' + c.file }, c.voice ? { voiced: { file: c.file.replace('.mp4', 'v.mp4'), path: '/phone/' + c.file.replace('.mp4', 'v.mp4') } } : {})), reel: { path: '/phone/' + o.reelFile } }; },
+      return { clips: o.clips.map((c) => Object.assign({ file: c.file, path: '/phone/' + c.file }, c.voice ? { voiced: { file: c.file.replace('.mp4', 'v.mp4'), path: '/phone/' + c.file.replace('.mp4', 'v.mp4') } } : {})), reel: { path: '/phone/' + o.reelFile, marks: o.clips.map((c, i) => i ? i * 14.04 : 0) },
+        ...(o.reelCleanFile && o.clips.some((c) => c.voice) ? { reelClean: { path: '/phone/' + o.reelCleanFile, marks: o.clips.map((c, i) => i ? i * 14.04 : 0) } } : {}) }; },
     joinReel: async (o) => { window.__rc.push(['join', o]); if (cb) { cb({ stage: 'fetch', i: 0, n: o.items.length, p: 0 }); cb({ stage: 'reel', p: 0.5 }); } return { path: '/phone/' + o.file, size: 1000 }; },
     share: async (o) => { window.__rc.push(['share', o.path]); return {}; }, cleanup: async () => ({}),
   };
@@ -54,12 +55,33 @@ eq(cut.clips.map((c) => !!c.voice), [true, true, true], 'each clip is cut with a
 const rows = () => (w.db().clips || []).slice().sort((a, b) => a.seq - b.seq);
 eq(rows().map((c) => [tail(c.path), tail(c.vpath)]), [['01.mp4', '01v.mp4'], ['02.mp4', '02v.mp4'], ['03.mp4', '03v.mp4']], 'each clip is kept twice: without commentary (path) and with it (vpath)');
 const files = () => (w.db().files || []).filter((f) => f.bucket === 'r2').length;
-eq([files(), (w.db().files || []).filter((f) => f.bucket === 'clips').length, rows().map((c) => c.store)], [6, 0, ['r2', 'r2', 'r2']], 'both copies are uploaded, straight to Cloudflare R2 (none to the old storage)');
+eq([files(), (w.db().files || []).filter((f) => f.bucket === 'clips').length, rows().map((c) => c.store)], [8, 0, ['r2', 'r2', 'r2']], 'both copies of each clip, and the whole reel twice (with and without commentary), go straight to Cloudflare R2 (none to the old storage)');
+const lastCut = (await calls(A, 'cut')).pop();
+eq([lastCut.reelFile, lastCut.reelCleanFile], ['reelv.mp4', 'reel.mp4'], 'with commentary the cut makes the reel twice: with it, and without it for Commentary off');
+const g0 = w.db().games[0];
+eq([tail(g0.reel && g0.reel.path), tail(g0.reel && g0.reel.vpath), g0.reel && g0.reel.store], ['reel.mp4', 'reelv.mp4', 'r2'], 'the game keeps its whole reel (without and with commentary)');
+eq(rows().map((c) => c.reel_at), [0, 14.04, 28.08], 'and each clip keeps where it starts in the reel');
 check((w.db().files || []).every((f) => f.type === 'video/mp4'), 'as videos, so they play in any browser');
 check(/with commentary/.test(await A.text('#cutBody')), 'the done screen says the clips have commentary');
 await A.click('#cutBody [data-cutdo="finish"]'); await A.run(500);
 
-// ---------- Commentary on / off swaps which copy plays (one sound at a time, as an iPhone needs)
+// ---------- the game's whole reel plays at the top of the game, and tapping a moment skips to it
+eq([await A.page.$$eval('#hlList .hcard:first-child .reelp video', (v) => v.length), await A.page.$$eval('#hlList .hcard:first-child [data-seek]', (b) => b.length)], [1, 3], 'By game shows the whole reel, with its moments underneath');
+eq(await A.page.$eval('#hlList .hcard:first-child .reelp video', (v) => v.getAttribute('src').replace(/^.*\//, '')), 'reelv.mp4', 'with commentary, as this phone has it on');
+await A.page.evaluate(() => { const v = document.querySelector('#hlList .reelp video'); let t = 0; Object.defineProperty(v, 'currentTime', { configurable: true, get: () => t, set: (x) => { t = x; } }); v.play = () => Promise.resolve(); });
+await A.click('#hlList .hcard:first-child [data-seek="14.04"]');
+eq([await A.page.$eval('#hlList .reelp video', (v) => Math.round(v.currentTime * 100) / 100), await A.page.$eval('#hlList [data-seek="14.04"]', (b) => b.getAttribute('aria-pressed'))], [14.09, 'true'], 'tapping a moment skips the reel straight to it');
+await shot(A, 'reel-in-highlights');
+await A.click('#hlList [data-say]');
+eq(await A.page.$eval('#hlList .hcard:first-child .reelp video', (v) => v.getAttribute('src').replace(/^.*\//, '')), 'reel.mp4', 'Commentary off plays the reel without it');
+await A.click('#hlList [data-say]');
+// a game whose reel didn't upload still plays its clips one by one, as before
+const savedReel = w.db().games[0].reel; let dbx = w.db(); dbx.games[0].reel = null; w.setDb(dbx); await A.page.reload(); await A.run(1500);
+if (await A.view() !== 'highlights') { await A.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]') || document.querySelector('.view:not([hidden]) .back'); if (b) b.click(); }); await A.run(300); await A.click('#mHighlights'); }
+await A.run(500);
+eq([await A.page.$$eval('#hlList .reelp', (x) => x.length), await A.page.$$eval('#hlList .hcard:first-child [data-clip]', (b) => b.length)], [0, 3], 'without a reel, the clips play one by one as before');
+
+// ---------- Commentary on / off swaps which copy of each clip plays (one sound at a time, as an iPhone needs)
 const srcs = () => A.page.$$eval('#hlList .hcard:first-child [data-clip]', (x) => x.map((y) => y.getAttribute('data-src').replace(/^.*\//, '')));
 const vsrc = () => A.page.$eval('#hlList .hcard:first-child video', (v) => v.getAttribute('src').replace(/^.*\//, ''));
 eq([await A.text('#hlList [data-say]'), await srcs(), await vsrc()], ['Commentary on', ['01v.mp4', '02v.mp4', '03v.mp4'], '01v.mp4'], 'commentary on: the copies with commentary play');
@@ -68,6 +90,7 @@ eq([await A.text('#hlList [data-say]'), await srcs(), await vsrc()], ['Commentar
 check(await A.page.evaluate(() => localStorage.getItem('apt-say') === '0'), 'the choice is remembered on this phone');
 await A.click('#hlList [data-say]');
 check(await A.page.evaluate(() => !document.querySelector('#hlList .say') && !document.querySelector('[data-line]')), 'no spoken-by-the-phone commentary is left to talk over the video');
+dbx = w.db(); dbx.games[0].reel = savedReel; w.setDb(dbx); await A.page.reload(); await A.run(1500); // (the reel back for the rest)
 
 // ---------- a follower downloads the game's reel
 const F = await w.phone({ db: true, native: true, label: 'follower' });
