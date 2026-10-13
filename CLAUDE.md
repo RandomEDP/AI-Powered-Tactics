@@ -367,8 +367,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   when a new one replaces it (`save_player_reel` leaves the file).
 - **Videos in the feed play like Instagram** (`AUTO`, `autoScan`, `feedPick`): each shows its first frame (`#t=0.1` on
   the address), muted and looping with no controls; an IntersectionObserver plays the top one at least 60% on screen and
-  pauses the rest, so scrolling hands over to the next; leaving Home or the app stops it. Tapping a video or its
-  "Sound off" pill turns sound on for it and the ones after (`data-snd`). Liking redraws only the heart (`likeDraw`) so
+  pauses the rest, so scrolling hands over to the next; leaving Home or the app stops it. One tap on the video that's
+  playing pauses it (▶ over it, `.held`) and it stays paused until tapped again or scrolled away (`AUTO.held`); a tap on
+  another video plays that one and stops the first (`AUTO.chosen`), both kept by post id as the feed can be redrawn.
+  Sound is only the "Sound off" pill (`data-snd`), for that video and the ones after. Liking redraws only the heart (`likeDraw`) so
   a playing video carries on. Test: `posts.test.mjs`.
 - **Every video stops once it's off screen** (Ethan): any video that starts playing is watched by `OFFIO` (an
   IntersectionObserver) and paused when under 20% is on screen, which includes its screen being hidden; `go()` to a

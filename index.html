@@ -463,7 +463,8 @@ tr.past td { opacity: .45; }
 .ptile video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .ptile span { position: absolute; left: 6px; bottom: 4px; color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
 
-.pvid { position: relative; } .pvid video { display: block; width: 100%; background: #000; }
+.pvid { position: relative; }
+.pvid.held::after { content: '▶'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, .55); color: #fff; font-size: 24px; pointer-events: none; } .pvid video { display: block; width: 100%; background: #000; }
 .snd { position: absolute; right: 10px; bottom: 10px; border: 0; border-radius: 999px; background: rgba(0, 0, 0, .6); color: #fff; font: inherit; font-size: 13px; font-weight: 700; padding: 6px 10px; min-height: 0; }
 #mhPop { position: fixed; inset: 0; z-index: 49; background: #000; color: #fff; overflow-y: auto; padding: calc(10px + env(safe-area-inset-top, 0px)) 0 calc(16px + env(safe-area-inset-bottom, 0px)); }
 #mhPop[hidden] { display: none; }
@@ -2419,7 +2420,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   document.addEventListener('visibilitychange', function () { if (document.hidden) vidsStop(); });
   // ---- videos in the feed, like Instagram: each shows its first frame; the top one fully on screen plays (muted, on a
   // loop) and the next takes over as you scroll. A tap turns the sound on or off, for every video after it too.
-  var AUTO = { sound: false, io: null };
+  var AUTO = { sound: false, io: null, held: null, chosen: null };
   function autoScan() {
     if (typeof IntersectionObserver === 'undefined') return;
     if (!AUTO.io) AUTO.io = new IntersectionObserver(function (ents) { ents.forEach(function (en) { en.target.__vis = en.isIntersecting ? en.intersectionRatio : 0; }); feedPick(); }, { threshold: [0, 0.3, 0.6, 0.9, 1] });
@@ -2429,20 +2430,35 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     });
     setTimeout(feedPick, 0);
   }
+  // A tap on the video that's playing pauses it, and it stays paused (▶ over it) until it's tapped again or scrolled
+  // away; a tap on another video plays that one instead (AUTO.held / AUTO.chosen, by post, as the feed can be redrawn).
+  var postOf = function (v) { var p = v.closest('[data-post]'); return p ? p.getAttribute('data-post') : null; };
   function feedPick() {
-    var all = Array.prototype.slice.call(document.querySelectorAll('video[data-auto]')), pop = !$('postView').hidden, best = null, bt = 0;
-    all.forEach(function (v) {
-      if (pop ? !v.closest('#postView') : !!v.closest('#postView') || S.view !== 'feed' && S.view !== 'profile') return; // (the post that's open, else the feed)
-      if ((v.__vis || 0) < 0.6) return;
+    var all = Array.prototype.slice.call(document.querySelectorAll('video[data-auto]')), pop = !$('postView').hidden, best = null, bt = 0, chosen = null;
+    var here = all.filter(function (v) { return pop ? !!v.closest('#postView') : !v.closest('#postView') && (S.view === 'feed' || S.view === 'profile'); }); // (the post that's open, else the feed)
+    here.forEach(function (v) {
+      var id = postOf(v), vis = v.__vis || 0;
+      if (vis < 0.2) { if (id === AUTO.held) AUTO.held = null; if (id === AUTO.chosen) AUTO.chosen = null; } // (scrolled away: back to normal)
+      if (id === AUTO.chosen && vis >= 0.2) chosen = v;
+      if (vis < 0.6) return;
       var t = v.getBoundingClientRect().top; if (!best || t < bt) { best = v; bt = t; }
     });
+    if (chosen) best = chosen;
+    if (best && postOf(best) === AUTO.held) best = null; // paused by a tap: left paused
     all.forEach(function (v) { if (v !== best && v.__on) { v.__on = false; try { v.pause(); } catch (e) {} } });
+    all.forEach(function (v) { var box = v.parentNode; if (box && box.classList) box.classList.toggle('held', postOf(v) === AUTO.held && here.indexOf(v) >= 0); });
     if (!best) return;
     best.muted = !AUTO.sound;
     if (!best.__on) { best.__on = true; try { var pr = best.play(); if (pr && pr.catch) pr.catch(function () { best.__on = false; }); } catch (e) { best.__on = false; } }
   }
+  document.addEventListener('click', function (e) { // a tap on a video: pause it, or play it (and stop the one that was)
+    var v = e.target.closest ? e.target.closest('video[data-auto]') : null; if (!v) return;
+    var id = postOf(v);
+    if (v.__on) { AUTO.held = id; AUTO.chosen = null; } else { AUTO.chosen = id; if (AUTO.held === id) AUTO.held = null; }
+    feedPick();
+  });
   document.addEventListener('click', function (e) { // the sound, for this video and the ones after it
-    var b = e.target.closest ? e.target.closest('[data-snd], video[data-auto]') : null; if (!b) return;
+    var b = e.target.closest ? e.target.closest('[data-snd]') : null; if (!b) return;
     AUTO.sound = !AUTO.sound;
     Array.prototype.forEach.call(document.querySelectorAll('video[data-auto]'), function (v) { v.muted = !AUTO.sound; });
     Array.prototype.forEach.call(document.querySelectorAll('[data-snd]'), function (x) { x.setAttribute('aria-pressed', AUTO.sound); x.textContent = AUTO.sound ? 'Sound on' : 'Sound off'; });
