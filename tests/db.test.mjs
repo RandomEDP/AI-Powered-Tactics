@@ -24,7 +24,7 @@ eq(await d.rpc(null, 'get_team', { p_code: 'ZZZZZZ' }), null, 'a wrong code open
 // ---------- nobody can go round the app and read or change tables directly
 for (const [who, label] of [[null, 'someone not signed in'], [sam, 'a signed-in stranger'], [jake, 'a signed-in stranger (later a player)']]) {
   const seen = [];
-  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests', 'team_streams']) seen.push(await count(who, 'public.' + table));
+  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests', 'team_streams', 'clip_hides']) seen.push(await count(who, 'public.' + table));
   check(seen.every((n) => n === 0 || n === 'denied'), `${label} reading the tables directly sees nothing (${seen.join(',')})`);
 }
 await d.as(sam, `update public.teams set name = 'Hacked FC'`).catch(() => {});
@@ -278,6 +278,23 @@ await d.admin(`update public.team_streams set started_at = now() - interval '5 h
 eq(await d.rpc(null, 'team_stream', { p_code: sop.code }), null, 'a stream nobody ended is over after four hours');
 await d.admin(`update public.team_streams set started_at = now() where team_id = '${sop.id}'`);
 const squadNow = await squadSize();
+
+// ---------- Remove from my highlights (0022): a player takes a clip out from under their own name; it stays in the game
+const hg = (await d.admin(`insert into public.games (id, team_id, opp) values (gen_random_uuid(), '${sop.id}', 'Dog Squad') returning id`))[0].id;
+await d.admin(`insert into public.clips (team_id, game_id, seq, path, at, pids) values ('${sop.id}', '${hg}', 0, '${sop.id}/dog/01.mp4', 1000, '{3,2}'), ('${sop.id}', '${hg}', 1, '${sop.id}/dog/02.mp4', 5000, '{3}')`);
+const clipsOf = async (who) => (await d.rpc(who, 'get_team', { p_code: sop.code })).clips.filter((c) => c.game_id === hg).map((c) => [c.seq, c.pids, c.off]);
+eq(await clipsOf(null), [[0, [3, 2], []], [1, [3], []]], 'clips list who is in them, and nobody has taken any out');
+eq(await d.rpc(jake, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 1000 }), 'ok', 'a player takes a clip out from under their own name');
+eq(await clipsOf(null), [[0, [2], [3]], [1, [3], []]], 'it is still in the game, just not under them (for everyone, signed in or not)');
+eq([await d.rpc(sam, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 5000 }), await d.rpc(rival, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 5000 })], ['not_in_squad', 'not_in_squad'], 'nobody outside the squad can take clips out from under anyone');
+eq(await d.rpc(jake, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 9999 }), 'no_clip', 'only a clip that exists');
+check(/Sign in|permission denied/i.test(await d.fails(d.rpc(null, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 5000 }))), 'or without signing in');
+await d.admin(`delete from public.clips where game_id = '${hg}'`);
+await d.admin(`insert into public.clips (team_id, game_id, seq, path, at, pids) values ('${sop.id}', '${hg}', 0, '${sop.id}/dog/01.mp4', 1000, '{3,2}')`);
+eq(await clipsOf(ethan), [[0, [2], [3]]], 'cutting the game again (new clip rows) leaves it out from under them');
+eq(await d.rpc(jake, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 1000, p_hide: false }), 'ok', 'and they can put it back');
+eq(await clipsOf(ethan), [[0, [3, 2], []]], 'back under their name, in its place');
+eq(await count(jake, 'public.clip_hides'), 0, 'nobody reads the table directly');
 
 // ---------- deleting an account
 eq(await d.rpc(jake, 'delete_my_account'), 0, 'a player deleting their account takes no team with it');

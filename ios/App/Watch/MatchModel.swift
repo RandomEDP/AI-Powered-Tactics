@@ -312,8 +312,9 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         lock(for: 8)
     }
 
-    func highlight() {
-        press(brain.pressHighlight(now: Date()))
+    /// A highlight from the watch's screen: timed when Highlight was tapped, for the player picked (nil: no one).
+    func highlight(at: Date, player: Int?) {
+        press(brain.pressHighlight(now: Date(), at: at, chose: .some(player)))
     }
 
     /// A highlight from the Action button, Siri or a shortcut, which can run with the app off screen or not even open.

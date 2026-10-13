@@ -4,6 +4,7 @@ import WatchKit
 enum Step: Hashable {
     case scorer
     case assist(Int)
+    case highlight(Date)  // when Highlight was tapped: the moment the clip is cut around
 }
 
 struct ContentView: View {
@@ -26,6 +27,8 @@ struct ContentView: View {
                         ScorerList(state: state, path: $path)
                     case .assist(let scorer):
                         AssistList(state: state, scorer: scorer, path: $path)
+                    case .highlight(let at):
+                        HighlightList(state: state, at: at, path: $path)
                     }
                 }
             }
@@ -172,7 +175,8 @@ struct MatchView: View {
                     .disabled(model.locked || !state.inPlay)
 
                     Button {
-                        model.highlight()
+                        let now = Date()
+                        if state.highlightPlayers.isEmpty { model.highlight(at: now, player: nil) } else { path = [.highlight(now)] }
                     } label: {
                         Label("Highlight", systemImage: "star.fill").frame(maxWidth: .infinity)
                     }
@@ -367,6 +371,31 @@ struct ScorerList: View {
             .foregroundStyle(.secondary)
         }
         .navigationTitle("Who scored?")
+    }
+}
+
+/// Whose highlight it was: the outfield players on the pitch, or no one. It's timed from the Highlight tap, not from here.
+struct HighlightList: View {
+    let state: MatchState
+    let at: Date
+    @Binding var path: [Step]
+    @EnvironmentObject var model: MatchModel
+
+    var body: some View {
+        List {
+            ForEach(state.highlightPlayers) { player in
+                Button(player.name) {
+                    model.highlight(at: at, player: player.id)
+                    path = []
+                }
+            }
+            Button("No one") {
+                model.highlight(at: at, player: nil)
+                path = []
+            }
+            .foregroundStyle(.secondary)
+        }
+        .navigationTitle("Whose highlight?")
     }
 }
 

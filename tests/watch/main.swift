@@ -474,6 +474,27 @@ do {
     check(kind(h.send.first ?? "") == "hl" && w.presses.isEmpty, "a highlight is sent once and not repeated")
 }
 
+// ---------- 22c. Whose highlight: picked on the watch, timed from the Highlight tap
+do {
+    var w = WatchBrain()
+    _ = w.receive(json: phone(), sent: ms(at(1)), now: at(1))
+    check(w.state?.highlightPlayers.map { $0.name } == ["Jake"], "the list offers the outfield players on the pitch, not the keeper")
+    let jake = w.pressHighlight(now: at(58), at: at(50), chose: .some(2)).send.first ?? ""
+    check(kind(jake) == "hl" && field(jake, "p") as? Int == 2 && field(jake, "pick") as? Bool == true, "a player picked goes with the highlight")
+    check(field(jake, "at") as? Double == ms(at(50)), "timed when Highlight was tapped, not when the name was picked")
+    let none = w.pressHighlight(now: at(70), at: at(66), chose: .some(nil)).send.first ?? ""
+    check(field(none, "pick") as? Bool == true && field(none, "p") == nil, "No one: said so, so the phone doesn't put it under the wearer's name")
+    let button = w.pressHighlight(now: at(80)).send.first ?? ""
+    check(field(button, "pick") == nil && field(button, "p") == nil, "from the Action button nobody was asked: the phone decides")
+    _ = w.pressEnd(now: at(900))
+    check(w.pressHighlight(now: at(905), at: at(898), chose: .some(2)).send.count == 1, "tapped just before the whistle, picked just after: still marked")
+    check(w.pressHighlight(now: at(1100), at: at(898), chose: .some(2)).send.isEmpty, "but not one left on the list for minutes into the break")
+    check(w.pressHighlight(now: at(905), at: at(910), chose: .some(2)).send.isEmpty == false, "a tap time later than now is taken as now")
+    var pre = WatchBrain()
+    _ = pre.receive(json: phone(phase: "pre", running: false), sent: ms(at(-5)), now: at(-5))
+    check(pre.pressHighlight(now: at(-1), at: at(-2), chose: .some(2)).send.isEmpty, "never before kick-off")
+}
+
 // ---------- 22a. A highlight from the Action button (or Siri), with no screen: what the watch says back
 do {
     var w = WatchBrain()

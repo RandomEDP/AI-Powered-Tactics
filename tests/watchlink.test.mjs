@@ -126,6 +126,13 @@ const finish = async (p) => { p.errs.forEach((e) => check(false, 'page error: ' 
   await p.click('#undo'); await p.click('#undo'); await p.run(9000);
   await p.fromWatch({ type: 'hl', id: id(), at: await p.now(), gid });
   eq((await p.match()).events[5].hl, true, 'a highlight from the watch is marked');
+  // whose it was, picked on the watch's list ("No one" says so; a name not in this game's squad counts as no one)
+  await p.fromWatch({ type: 'hl', pick: true, p: 3, id: id(), at: await p.now(), gid });
+  await p.fromWatch({ type: 'hl', pick: true, id: id(), at: await p.now() + 1, gid });
+  await p.fromWatch({ type: 'hl', pick: true, p: 99, id: id(), at: await p.now() + 2, gid });
+  eq((await p.match()).events.slice(-3).map((e) => [e.hl, e.p ?? null]), [[true, 3], [true, null], [true, null]], 'a highlight picked on the watch goes under that player; No one under nobody');
+  check(/Highlight: Chaplin/.test(await p.text('#events')), 'and the phone lists it under his name');
+  await p.tap('#undo'); await p.tap('#undo'); await p.tap('#undo');
   // the Action button sends a highlight two ways at once (straight across and by the watch's queue): the second copy can
   // turn up after the first was dealt with, by either route (after a restart too: see "after another restart" below)
   const hlTwice = id(); await p.fromWatch({ type: 'hl', id: hlTwice, at: await p.now(), gid });

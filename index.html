@@ -257,6 +257,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .events li { display: grid; grid-template-columns: 56px 1fr; gap: 8px; padding-block: 10px; border-bottom: 1px solid var(--line); }
 .events .t { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; }
 .events .ag { color: var(--bib); font-weight: 600; }
+.events .hlwho { padding: 0; min-height: 0; font: inherit; color: var(--muted); text-align: left; }
 .tagf { font-size: 12px; font-weight: 650; color: var(--muted); background: var(--fill); border-radius: 999px; padding: 2px 8px; margin-left: 6px; white-space: nowrap; }
 
 /* ---- pickers and pop-ups */
@@ -268,6 +269,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .picker strong { font-size: 20px; font-weight: 750; letter-spacing: -.01em; line-height: 1.2; }
 .pick { min-height: 46px; padding: 6px 16px; border-radius: 999px; border: 0; background: var(--on-soft); color: var(--ink); font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
 .pick.benchp, .pick.alt, .picker.out .pick, .ed .pick { background: var(--fill); }
+.pick.on { box-shadow: inset 0 0 0 2px var(--ink); }
 .pick.alt { color: var(--muted); }
 .picker.out .pick.best, .ed .pick.sel { background: var(--on); color: var(--on-ink); }
 .picker.out .pick.warn, .ed .pick.b.sel { background: var(--bib); color: #fff; }
@@ -2651,9 +2653,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var voiced = list.some(function (c) { return c.vpath; }), on = voiced && sayOn;
     return '<div class="vplayer"><video controls playsinline preload="metadata" src="' + esc(clipSrc(list[0], on)) + '"></video>' +
       (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') +
-      '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipSrc(c, on)) + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
+      '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipSrc(c, on)) + '" data-g="' + esc(c.game_id || '') + '" data-at="' + (c.at || '') + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
   var HLDEL = { i: -1, until: 0, msg: '', busy: false }; // Delete these highlights: armed by the first tap
+  var HIDE = { busy: false, msg: '' }; // Remove from my highlights
   var DL = { i: -1, busy: false, prog: '', msg: '', path: null, bad: false };
   var RB = { pid: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false };
   var guestGame = null, guestSeen = false, GL = { i: -1, msg: '' };
@@ -2717,9 +2720,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       }).sort(function (a, b) { return ((b.p.id === myPid) - (a.p.id === myPid)) || (b.vids.length - a.vids.length) || (b.list.length - a.list.length); }).forEach(function (x) {
         html += '<div class="hcard"><h3>' + esc(nm(x.p.id)) + ((roster[x.p.id] || {}).gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (x.p.id === myPid ? '<span class="badge you">You</span>' : '') + '</h3>' +
           '<p class="note">' + (x.vids.length ? x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ' this season, oldest first' : x.list.length ? x.list.length + (x.list.length === 1 ? ' moment' : ' moments') + ' this season, oldest first' : 'No moments yet') + '</p>';
-        if (x.vids.length) html += clipPlayer(x.vids) + (RCp() ? '<div class="actions"><button class="plain primary" type="button" data-preel="' + x.p.id + '">Make a reel</button></div>' : '');
+        var mineNow = x.p.id === myPid && !!sb && !!me, hidBtn = mineNow && x.vids.length ? '<button class="plain" type="button" data-hide="1"' + (HIDE.busy ? ' disabled' : '') + '>Remove this clip from my highlights</button>' : '';
+        if (x.vids.length) html += clipPlayer(x.vids) + (RCp() || hidBtn ? '<div class="actions">' + (RCp() ? '<button class="plain primary" type="button" data-preel="' + x.p.id + '">Make a reel</button>' : '') + hidBtn + '</div>' : '');
         else if (x.list.length) html += '<ul>' + x.list.map(function (m) { return '<li class="wide"><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' +
           novid('No clips for ' + esc(nm(x.p.id)) + ' yet. They appear here when a game’s highlights are cut.');
+        if (mineNow) { var hid = clips.filter(function (c) { return (c.off || []).indexOf(myPid) >= 0; });
+          if (HIDE.msg) html += '<p class="msg" role="status" id="hideMsg">' + esc(HIDE.msg) + '</p>';
+          if (hid.length) html += '<p class="note">' + (hid.length === 1 ? '1 clip is' : hid.length + ' clips are') + ' taken out of your highlights. They’re still in the games’ highlights for everyone.</p><div class="actions"><button class="link" type="button" data-unhide="1"' + (HIDE.busy ? ' disabled' : '') + '>Put ' + (hid.length === 1 ? 'it' : 'them') + ' back</button></div>'; }
         html += '</div>';
       });
     }
@@ -2732,6 +2739,23 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (btns[cur + 1]) btns[cur + 1].click();
       });
     });
+  }
+  // A player takes clips out from under their own name (or puts them back). The clips stay in the games' highlights.
+  async function hideClips(list, hide) {
+    if (!sb || !me || myPid == null || HIDE.busy || !list.length || list.some(function (x) { return !x.g || !x.at; })) return;
+    HIDE = { busy: true, msg: hide ? 'Taking it out…' : 'Putting them back…' }; renderHighlights();
+    try {
+      for (var i = 0; i < list.length; i++) {
+        var res = (await q(sb.rpc('hide_clip', { p_code: A.active, p_game: list[i].g, p_at: list[i].at, p_hide: hide }))).data;
+        if (res === 'not_in_squad') throw new Error('Only the player themselves can do this. Join the squad as yourself first.');
+        clips.forEach(function (c) { if (c.game_id !== list[i].g || c.at !== list[i].at) return; // (straight away here; the pull below confirms it)
+          c.off = (c.off || []).filter(function (x) { return x !== myPid; }); c.pids = (c.pids || []).filter(function (x) { return x !== myPid; });
+          if (hide) c.off.push(myPid); else c.pids.push(myPid); });
+      }
+      HIDE = { busy: false, msg: hide ? 'Taken out of your highlights. It’s still in the game’s highlights.' : 'Back in your highlights.' };
+      ping('changed'); pull();
+    } catch (e) { HIDE = { busy: false, msg: (e && e.message && /Join the squad/.test(e.message) ? e.message : 'Couldn’t change that. Check your signal and try again.') }; }
+    renderHighlights();
   }
   async function hlDelete(r, i) { // so a game's highlights can be cut again from scratch
     if (!sb || !r.id || role !== 'owner') return;
@@ -2859,6 +2883,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (e.target.getAttribute('data-dl') !== null) gameReel(+e.target.getAttribute('data-dl'));
     else if (e.target.getAttribute('data-dlshare') !== null) { var rc2 = RCp(); if (rc2 && DL.path) rc2.share({ path: DL.path }).catch(function () {}); }
     else if (e.target.getAttribute('data-preel') !== null) rbOpen(+e.target.getAttribute('data-preel'));
+    else if (e.target.getAttribute('data-hide') !== null) { var hb = e.target.closest('.hcard').querySelector('[data-clip][aria-pressed="true"]'); if (hb) hideClips([{ g: hb.getAttribute('data-g'), at: +hb.getAttribute('data-at') }], true); }
+    else if (e.target.getAttribute('data-unhide') !== null) hideClips(clips.filter(function (c) { return (c.off || []).indexOf(myPid) >= 0; }).map(function (c) { return { g: c.game_id, at: c.at }; }), false);
     else if (e.target.getAttribute('data-guests') !== null) shareGuests(+e.target.getAttribute('data-guests'));
     else if (e.target.getAttribute('data-guest') !== null) { var gw = e.target.getAttribute('data-guest'); guestGame = null; if (gw === 'close') renderHighlights(); else go(gw); }
     else if (e.target.getAttribute('data-hldel') !== null) { // twice, then the game's clips go from Highlights and from storage
@@ -3937,6 +3963,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var best = function (a, b) { return (n[b] || 0) - (n[a] || 0); };
     return on.filter(function (id) { return id !== gk; }).sort(best).concat(m.house ? [] : m.segs[cb].bench.slice().sort(best), on.filter(function (id) { return id === gk; }));
   }
+  function hlCands(m) { var cb = curSeg(m), gk = m.segs[cb].gk; return onPitch(m, cb).filter(function (id) { return m.house || id !== gk; }); }
+  function hlFind(m, at) { return m.events.filter(function (e) { return e.hl && e.k !== 'save' && e.at === at; })[0]; }
   function pickBtns(m, skip, assist, side) {
     var cb = curSeg(m), on = onPitch(m, cb), gk = m.segs[cb].gk, html = '';
     pickOrder(m, assist, side).forEach(function (id) {
@@ -3956,11 +3984,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('svBtn').hidden = !!m.house; // (no fixed keeper)
     $('undo').disabled = !m.events.length; $('hlBtn').disabled = m.phase === 'pre' || m.phase === 'ft';
     $('svBtn').disabled = $('hlBtn').disabled || m.segs[curSeg(m)].gk == null;
-    var locked = Date.now() < lockUntil; if (locked) pick = null;
+    var locked = Date.now() < lockUntil; if (locked && pick && pick.step !== 'hl') pick = null;
     $('goalMsg').hidden = !goalMsg && !locked; $('goalMsg').classList.toggle('toast', locked);
     $('goalMsg').textContent = locked ? (lockNote ? lockNote + ' ' : '') + 'Score locked for 8 seconds so it isn’t counted twice.' : goalMsg;
     $('goalUs').disabled = $('goalThem').disabled = locked || (m.phase === 'ft' && role !== 'owner');
-    if (pick && pick.step === 'scorer') html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Who scored?"><strong>Who scored' + (m.house ? ' for ' + esc(pick.side === 'b' ? m.opp : usOf(m)) : '') + '?</strong><div class="chips">' + pickBtns(m, null, false, pick.side) +
+    var hlE = pick && pick.step === 'hl' ? hlFind(m, pick.at) : null; if (pick && pick.step === 'hl' && !hlE) pick = null;
+    if (hlE) html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Whose highlight?"><strong>Whose highlight?</strong><p class="note">Marked at ' + esc(ml(hlE)) + '. It goes under their name in Highlights.</p><div class="chips">' +
+      hlCands(m).map(function (id) { return '<button class="pick' + (hlE.p === id ? ' on' : '') + '" type="button" data-p="' + id + '">' + esc(nm(id)) + (m.house ? ' <small>' + esc(sideOf(m, id) === 'b' ? m.opp : usOf(m)) + '</small>' : '') + '</button>'; }).join('') +
+      '<button class="pick alt" type="button" data-p="x">No one</button></div></div></div>';
+    else if (pick && pick.step === 'scorer') html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Who scored?"><strong>Who scored' + (m.house ? ' for ' + esc(pick.side === 'b' ? m.opp : usOf(m)) : '') + '?</strong><div class="chips">' + pickBtns(m, null, false, pick.side) +
       '<button class="pick alt" type="button" data-p="x">Own goal or not sure</button><button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div></div>';
     else if (pick) html = '<div class="pickpop"><div class="picker" role="dialog" aria-label="Who set it up?"><strong>Who set up ' + esc(nm(pick.p)) + '?</strong><div class="chips"><button class="pick alt" type="button" data-p="x">No assist</button>' + pickBtns(m, pick.p, true, pick.side) +
       '</div></div></div>';
@@ -3968,7 +4000,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     html = '';
     m.events.slice().reverse().forEach(function (e) {
       var setUp = e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '';
-      var who = e.hl ? '<span class="note">' + (e.k === 'save' ? 'Save by ' + esc(nm(e.p)) : 'Highlight marked') + '</span>' : !e.us ? (m.house && e.p != null ? '<span class="ag">' + esc(nm(e.p)) + ' for ' + esc(m.opp) + '</span>' + setUp : '<span class="ag">Goal for ' + esc(m.opp) + '</span>') :
+      var who = e.hl ? (e.k === 'save' ? '<span class="note">Save by ' + esc(nm(e.p)) + '</span>' : role === 'owner' && typeof e.at === 'number' ? '<button class="link hlwho" type="button" data-hlwho="' + e.at + '">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked: whose?') + '</button>'
+        : '<span class="note">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked') + '</span>') : !e.us ? (m.house && e.p != null ? '<span class="ag">' + esc(nm(e.p)) + ' for ' + esc(m.opp) + '</span>' + setUp : '<span class="ag">Goal for ' + esc(m.opp) + '</span>') :
         (e.p != null ? esc(nm(e.p)) + (m.house ? ' <span class="note">for ' + esc(usOf(m)) + '</span>' : '') : 'Goal for ' + esc(usOf(m))) + setUp;
       if (e.by) who += ' <span class="tagf">Logged by a teammate</span>';
       html += '<li><span class="t">' + ml(e) + '</span><span>' + who + '</span></li>';
@@ -3978,7 +4011,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('kickWatch').addEventListener('click', function () { $('kickPop').hidden = true; if (S.match) go('game'); else { wantGame = A.active; pull(); } });
   $('kickLater').addEventListener('click', function () { $('kickPop').hidden = true; });
   $('goalUs').addEventListener('click', function () { pick = { step: 'scorer', side: 'a' }; renderScore(); });
-  $('hlBtn').addEventListener('click', function () { var m = S.match; if (!m || role !== 'owner') return; pick = null; m.events.push(stamped(m, { hl: true, at: Date.now() })); save(); renderScore(); });
+  $('hlBtn').addEventListener('click', function () { // marked this second (the clip is cut around it), then: whose was it?
+    var m = S.match; if (!m || role !== 'owner') return;
+    var e = stamped(m, { hl: true, at: Date.now() }); while (hlFind(m, e.at)) e.at++;
+    m.events.push(e); pick = hlCands(m).length ? { step: 'hl', at: e.at } : null; save(); renderScore();
+  });
+  $('events').addEventListener('click', function (ev) { // a highlight already marked (on the watch, say): change whose it is
+    var b = ev.target.closest('[data-hlwho]'), m = S.match; if (!b || !m || role !== 'owner') return;
+    pick = { step: 'hl', at: +b.getAttribute('data-hlwho') }; renderScore();
+  });
   $('svBtn').addEventListener('click', function () {
     var m = S.match; if (!m || role !== 'owner') return;
     var gk = m.segs[curSeg(m)].gk; if (gk == null) return;
@@ -3992,6 +4033,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (e.target.getAttribute('data-cancel')) { pick = null; renderScore(); return; }
     var pb = e.target.closest('[data-p]'), v = pb ? pb.getAttribute('data-p') : null; if (v === null) return;
     var id = v === 'x' ? null : +v;
+    if (pick.step === 'hl') { var he = hlFind(m, pick.at); pick = null; if (he) { if (id == null) delete he.p; else he.p = id; save(); } renderScore(); return; }
     if (pick.step === 'scorer' && id != null) { pick = { step: 'assist', p: id, side: pick.side }; renderScore(); return; }
     var ev = stamped(m, { us: pick.side !== 'b', p: pick.step === 'scorer' ? null : pick.p, a: pick.step === 'scorer' ? null : id });
     pick = null; addGoal(ev);
@@ -4075,7 +4117,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       addGoal(stampAt(m, stripNull({ us: !!ev.us, p: ev.us ? ok(ev.p) : null, a: ev.us ? ok(ev.a) : null }), when), raw);
     } else if (ev.type === 'hl') {
       seen();
-      putEvent(m, stampAt(m, stripNull({ hl: true, p: myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null, watch: true, at: raw }), when)); save(); if (S.view === 'game') renderScore();
+      var hp = ev.pick ? ok(ev.p) : myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null;
+      putEvent(m, stampAt(m, stripNull({ hl: true, p: hp, watch: true, at: raw }), when)); save(); if (S.view === 'game') renderScore();
     } else seen();
     return false;
   }

@@ -31,7 +31,8 @@
           players: d.game_players.filter((p) => p.game_id === g.id).map((p) => ({ pid: p.pid, mins: p.mins, goals: p.goals, assists: p.assists, scored_on: p.scored_on ?? null, conceded: p.conceded ?? null })),
           events: d.game_events.filter((e) => e.game_id === g.id).sort((x, y) => x.seq - y.seq) })),
         fixtures: d.fixtures.filter((f) => f.team_id === t.id && (f.status || 'open') === 'open').sort((x, y) => x.ko_at - y.ko_at).map((f) => Object.assign({}, f, { votes: d.fixture_votes.filter((v) => v.fixture_id === f.id).map((v) => ({ pid: v.pid, choice: v.choice })) })),
-        clips: d.clips.filter((c) => c.team_id === t.id),
+        clips: d.clips.filter((c) => c.team_id === t.id).map((c) => { const off = (d.clip_hides || []).filter((h) => h.game_id === c.game_id && h.at === c.at).map((h) => h.pid).sort((x, y) => x - y);
+          return Object.assign({}, c, { pids: (c.pids || []).filter((x) => off.indexOf(x) < 0), off }); }),
         live: (d.live_matches.find((l) => l.team_id === t.id) || {}).state || null });
     }
     if (name === 'create_team') {
@@ -55,6 +56,17 @@
       d.players.forEach((x) => { if (x.team_id === t.id && x.user_id === uid()) x.user_id = null; });
       if (['fwd', 'def', 'mix', 'gk'].indexOf(a.p_position) < 0) return ok('position');
       p.user_id = uid(); p.last_name = a.p_last_name || null; p.position = a.p_position; store(d); return ok('ok');
+    }
+    if (name === 'hide_clip') { // Remove from my highlights (0022): only the player themselves, keyed by the game and the moment
+      if (!uid()) return fail('Sign in first', '42501');
+      const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok('no_clip');
+      const p = d.players.find((x) => x.team_id === t.id && x.user_id === uid()); if (!p) return ok('not_in_squad');
+      d.clip_hides = d.clip_hides || [];
+      if (a.p_hide !== false) {
+        if (!d.clips.some((c) => c.team_id === t.id && c.game_id === a.p_game && c.at === a.p_at)) return ok('no_clip');
+        if (!d.clip_hides.some((h) => h.game_id === a.p_game && h.at === a.p_at && h.pid === p.pid)) d.clip_hides.push({ team_id: t.id, game_id: a.p_game, at: a.p_at, pid: p.pid });
+      } else d.clip_hides = d.clip_hides.filter((h) => !(h.team_id === t.id && h.game_id === a.p_game && h.at === a.p_at && h.pid === p.pid));
+      store(d); return ok('ok');
     }
     if (name === 'release_player') { const t = d.teams.find((x) => x.code === a.p_code); d.players.forEach((x) => { if (t && x.team_id === t.id && x.user_id === uid()) x.user_id = null; }); store(d); return ok(true); }
     if (['request_join', 'my_join_request', 'team_join_requests', 'decide_join'].includes(name)) { // asking to join when your name isn't in the squad

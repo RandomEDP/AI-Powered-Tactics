@@ -78,6 +78,8 @@ struct MatchState: Codable, Equatable {
     }
 
     var halfIndex: Int { phase == "h2" || phase == "ft" ? 1 : 0 }
+    /// Who a highlight can be for: the outfield players on the pitch now.
+    var highlightPlayers: [Player] { players.filter { $0.on && !$0.gk } }
     var inPlay: Bool { phase == "h1" || phase == "h2" }
     var playing: Bool { live && running && inPlay }
     /// The whistle that ends this half is the final one.
@@ -333,9 +335,19 @@ struct WatchBrain: Codable {
     }
 
     /// A highlight. Sent once: the phone queues it if it can't take it straight away.
-    mutating func pressHighlight(now: Date) -> Outcome {
-        guard let game = state, game.live, game.inPlay else { return Outcome() }
-        return Outcome(send: [event(["type": "hl"], id: UUID().uuidString, now: now)])
+    /// From the watch's own screen it is timed when Highlight was tapped (`at`), and says whose it was once that's been
+    /// picked (`chose`: a player, or nil for no one). From the Action button there's no screen to ask on, so neither is set.
+    mutating func pressHighlight(now: Date, at: Date? = nil, chose: Int?? = .none) -> Outcome {
+        guard let game = state, game.live else { return Outcome() }
+        let when = at.map { min($0, now) } ?? now
+        // (tapped while the half was on: still counts if the whistle has gone while the player was being picked)
+        guard game.inPlay || (at != nil && game.phase != "pre" && now.timeIntervalSince(when) < 120) else { return Outcome() }
+        var fields: [String: Any] = ["type": "hl"]
+        if case .some(let who) = chose {
+            fields["pick"] = true
+            if let who = who { fields["p"] = who }
+        }
+        return Outcome(send: [event(fields, id: UUID().uuidString, now: when)])
     }
 
     /// What the watch says after a highlight is marked without the app on screen (the Action button, Siri or a shortcut),
