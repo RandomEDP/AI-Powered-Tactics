@@ -293,6 +293,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `clips.reel_at`. By game then shows one video (`reelPlayer`, `.reelp`) with the moments underneath: tapping one skips
   the reel to it (`data-seek`), the one playing is picked out as it goes, and Commentary on/off swaps the reel. A game
   without a reel (cut before this, or the reel failed) plays its clips one by one as before (`clipPlayer`). Test: `reels`.
+- **Watch the whole match highlights** (Ethan: "a big obvious button … with the time of them"): every cut game's card
+  in By game starts with `.mhbtn` (`mhButton`: how many moments and how long, from the clips' `dur`), which opens a full
+  screen player (`#mhPop`, `mhOpen`/`mhLoad`/`mhDraw`). It plays the uploaded reel when the game has one (moments skip
+  to `reel_at`), and otherwise every clip back to back (`ended` loads the next), so games cut before reels were kept
+  (SOP's 15–2 v Dog Squad) still get it. The inline reel or clips are folded under it (`details.allclips`, kept open
+  across redraws in `HLOPEN`). Test: `reels.test.mjs`.
 - **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies) and its reel,
   to cut again from scratch.
 - **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each
@@ -359,6 +365,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   (`not_yours`), you have a username (`no_profile`) and you haven't posted 30 in the last day (`too_many`). A post points at
   the clip or reel; nothing is copied (`private.post_json` builds the video link). A posted player reel isn't deleted
   when a new one replaces it (`save_player_reel` leaves the file).
+- **Videos in the feed play like Instagram** (`AUTO`, `autoScan`, `feedPick`): each shows its first frame (`#t=0.1` on
+  the address), muted and looping with no controls; an IntersectionObserver plays the top one at least 60% on screen and
+  pauses the rest, so scrolling hands over to the next; leaving Home or the app stops it. Tapping a video or its
+  "Sound off" pill turns sound on for it and the ones after (`data-snd`). Liking redraws only the heart (`likeDraw`) so
+  a playing video carries on. Test: `posts.test.mjs`.
+- Watch out for function names: index.html is one scope, so a second `function x()` silently replaces the first (a new
+  `autoPick` once replaced the bench picker's, and a new `mmss` was replaced by the clock's). Grep before naming.
 - **Post cards** (`postCard`): name (opens their profile), the video, like (`like_post`, a `liked` flag rather than
   deleting a row), the caption, and ⋯: Delete for your own (two taps, `remove_post`, which sets `removed_at`) or Report
   with a reason (`report_post`, `post_reports`). Who can see a post follows who can see the profile (`can_see`).

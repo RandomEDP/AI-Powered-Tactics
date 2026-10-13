@@ -462,6 +462,21 @@ tr.past td { opacity: .45; }
 .ptile { position: relative; aspect-ratio: 1; border: 0; padding: 0; background: #111; overflow: hidden; border-radius: 4px; }
 .ptile video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .ptile span { position: absolute; left: 6px; bottom: 4px; color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+
+.pvid { position: relative; } .pvid video { display: block; width: 100%; background: #000; }
+.snd { position: absolute; right: 10px; bottom: 10px; border: 0; border-radius: 999px; background: rgba(0, 0, 0, .6); color: #fff; font: inherit; font-size: 13px; font-weight: 700; padding: 6px 10px; min-height: 0; }
+#mhPop { position: fixed; inset: 0; z-index: 49; background: #000; color: #fff; overflow-y: auto; padding: calc(10px + env(safe-area-inset-top, 0px)) 0 calc(16px + env(safe-area-inset-bottom, 0px)); }
+#mhPop[hidden] { display: none; }
+#mhPop .plain { background: rgba(255, 255, 255, .16); color: #fff; } #mhPop .plain[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
+.mhbox { max-width: 720px; margin: 0 auto; }
+.mhbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 16px 10px; }
+.mhbar b { display: block; font-size: 18px; } .mhbar small { color: rgba(255, 255, 255, .7); font-size: 14px; }
+#mhVideo { display: block; width: 100%; background: #000; aspect-ratio: 16 / 9; }
+.mhtools { padding: 8px 16px 0; } #mhPop .cliplist { padding: 8px 16px; } #mhPop .cliplist button { color: #fff; background: rgba(255, 255, 255, .08); }
+#mhPop .cliplist button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
+.mhbtn { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: 16px; padding: 16px; margin: 6px 0 10px; background: var(--on); color: var(--on-ink); font: inherit; }
+.mhbtn b { display: block; font-size: 17px; } .mhbtn small { display: block; opacity: .85; font-size: 14px; margin-top: 2px; }
+.mhplay { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 255, 255, .22); font-size: 18px; }
 #postPop, #postView { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #postPop[hidden], #postView[hidden] { display: none; }
 #postPop .field input, #postPop .field textarea { background: var(--bg); }
@@ -846,6 +861,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div id="npTags" class="chips"></div><div id="npTagList" class="taglist"></div>
   <p class="msg bad" id="npMsg" hidden></p>
   <div class="actions"><button class="plain primary" id="npPost" type="button">Share</button><button class="link" id="npCancel" type="button">Cancel</button></div>
+</div></div>
+
+<div id="mhPop" role="dialog" aria-labelledby="mhTitle" hidden><div class="mhbox">
+  <div class="mhbar"><div><b id="mhTitle">Match highlights</b><small id="mhNow"></small></div><button class="plain" id="mhClose" type="button">Close</button></div>
+  <video id="mhVideo" controls playsinline preload="auto"></video>
+  <div class="mhtools" id="mhTools"></div>
+  <ol class="cliplist" id="mhList"></ol>
 </div></div>
 
 <div id="postView" role="dialog" aria-label="Post" hidden><div class="planbox"><div id="pvBody"></div><div class="actions"><button class="link" id="pvClose" type="button">Close</button></div></div></div>
@@ -2322,7 +2344,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     return '<article class="post" data-post="' + esc(x.id) + '"><header><button class="who" type="button" data-prof="' + esc(x.username) + '">' + avatar(x.name || x.username, x.color) +
       '<span><b>' + esc(x.username) + '</b><small>' + esc([x.team, x.kind === 'reel' ? 'Player reel' : (x.video && x.video.label) || ''].filter(Boolean).join(' · ')) + '</small></span></button>' +
       '<button class="link" type="button" data-pmore="' + esc(x.id) + '" aria-label="More">⋯</button></header>' +
-      '<video controls playsinline preload="metadata" src="' + esc(postSrc(x)) + '"></video>' +
+      '<div class="pvid"><video playsinline muted loop preload="metadata" data-auto="1" src="' + esc(postSrc(x) + '#t=0.1') + '"></video><button class="snd" type="button" data-snd="1" aria-pressed="' + AUTO.sound + '">' + (AUTO.sound ? 'Sound on' : 'Sound off') + '</button></div>' +
       '<div class="pbar"><button type="button" data-like="' + esc(x.id) + '" aria-pressed="' + !!x.liked + '" aria-label="Like">' + HEART + '<span>' + x.likes + '</span></button><small>' + esc(dayText(x.at)) + '</small></div>' +
       '<p class="cap' + (x.caption ? '' : ' empty') + '">' + (x.caption ? '<b>' + esc(x.username) + '</b> ' + esc(x.caption) : '') + '</p>' +
       ((x.tags || []).length ? '<p class="ptags">With ' + x.tags.map(function (t) { return '<button type="button" class="plink" data-plink="' + esc(t.username) + '">@' + esc(t.username) + '</button>'; }).join(', ') + '</p>' : '') +
@@ -2364,7 +2386,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       else html = items.map(function (x) { return x.html; }).join('');
     }
     if (FD.msg) html += '<p class="msg" role="status" id="fdMsg">' + esc(FD.msg) + '</p>';
-    $('fdBody').innerHTML = html;
+    $('fdBody').innerHTML = html; autoScan();
   }
   $('fdFind').addEventListener('click', function () { PPL.msg = ''; go('people'); });
   $('fdReq').addEventListener('click', function () { PPL.msg = ''; PPL.follows = null; go('people'); });
@@ -2381,7 +2403,43 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function postsEverywhere(id) { return [].concat(FD.posts || [], PF.posts || [], PF.tagged || [], PV.post ? [PV.post] : []).filter(function (x) { return x.id === id; }); }
   function postsRedraw() { if (S.view === 'feed') renderFeed(); if (S.view === 'profile') renderProfile(); if (PV.post) renderPV(); }
   var PV = { post: null };
-  function renderPV() { $('pvBody').innerHTML = PV.post ? postCard(PV.post) : ''; }
+  function renderPV() { $('pvBody').innerHTML = PV.post ? postCard(PV.post) : ''; autoScan(); }
+  function likeDraw(id) { // just the heart and the count, so a video that's playing carries on
+    var x = postsEverywhere(id)[0]; if (!x) return;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-like="' + id + '"]'), function (b) { b.setAttribute('aria-pressed', !!x.liked); var n = b.querySelector('span'); if (n) n.textContent = x.likes; });
+  }
+  // ---- videos in the feed, like Instagram: each shows its first frame; the top one fully on screen plays (muted, on a
+  // loop) and the next takes over as you scroll. A tap turns the sound on or off, for every video after it too.
+  var AUTO = { sound: false, io: null };
+  function autoScan() {
+    if (typeof IntersectionObserver === 'undefined') return;
+    if (!AUTO.io) AUTO.io = new IntersectionObserver(function (ents) { ents.forEach(function (en) { en.target.__vis = en.isIntersecting ? en.intersectionRatio : 0; }); feedPick(); }, { threshold: [0, 0.3, 0.6, 0.9, 1] });
+    Array.prototype.forEach.call(document.querySelectorAll('video[data-auto]'), function (v) {
+      if (v.__obs) return; v.__obs = true; v.__vis = 0; AUTO.io.observe(v);
+      v.addEventListener('play', function () { v.__on = true; }); v.addEventListener('pause', function () { v.__on = false; });
+    });
+    setTimeout(feedPick, 0);
+  }
+  function feedPick() {
+    var all = Array.prototype.slice.call(document.querySelectorAll('video[data-auto]')), pop = !$('postView').hidden, best = null, bt = 0;
+    all.forEach(function (v) {
+      if (pop ? !v.closest('#postView') : !!v.closest('#postView') || S.view !== 'feed' && S.view !== 'profile') return; // (the post that's open, else the feed)
+      if ((v.__vis || 0) < 0.6) return;
+      var t = v.getBoundingClientRect().top; if (!best || t < bt) { best = v; bt = t; }
+    });
+    all.forEach(function (v) { if (v !== best && v.__on) { v.__on = false; try { v.pause(); } catch (e) {} } });
+    if (!best) return;
+    best.muted = !AUTO.sound;
+    if (!best.__on) { best.__on = true; try { var pr = best.play(); if (pr && pr.catch) pr.catch(function () { best.__on = false; }); } catch (e) { best.__on = false; } }
+  }
+  document.addEventListener('click', function (e) { // the sound, for this video and the ones after it
+    var b = e.target.closest ? e.target.closest('[data-snd], video[data-auto]') : null; if (!b) return;
+    AUTO.sound = !AUTO.sound;
+    Array.prototype.forEach.call(document.querySelectorAll('video[data-auto]'), function (v) { v.muted = !AUTO.sound; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-snd]'), function (x) { x.setAttribute('aria-pressed', AUTO.sound); x.textContent = AUTO.sound ? 'Sound on' : 'Sound off'; });
+    feedPick();
+  });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) Array.prototype.forEach.call(document.querySelectorAll('video[data-auto]'), function (v) { if (v.__on) { v.__on = false; try { v.pause(); } catch (e) {} } }); else feedPick(); });
   $('pvClose').addEventListener('click', function () { PV.post = null; $('postView').hidden = true; });
   $('postView').addEventListener('click', function (e) { if (e.target === $('postView')) { PV.post = null; $('postView').hidden = true; } });
   document.body.addEventListener('click', async function (e) {
@@ -2390,9 +2448,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if ((id = b.getAttribute('data-openpost'))) { PV.post = [].concat(PF.posts || [], PF.tagged || []).filter(function (x) { return x.id === id; })[0] || null; FD.open = null; renderPV(); $('postView').hidden = !PV.post; return; }
     if ((id = b.getAttribute('data-like'))) {
       var now = b.getAttribute('aria-pressed') !== 'true';
-      postsEverywhere(id).forEach(function (x) { x.liked = now; x.likes = Math.max(0, x.likes + (now ? 1 : -1)); }); postsRedraw(); // (straight away; the server's count follows)
+      postsEverywhere(id).forEach(function (x) { x.liked = now; x.likes = Math.max(0, x.likes + (now ? 1 : -1)); }); likeDraw(id); // (straight away; the server's count follows)
       try { var lr = (await q(sb.rpc('like_post', { p_id: id, p_like: now }))).data; if (lr) postsEverywhere(id).forEach(function (x) { x.likes = lr.likes; x.liked = lr.liked; }); } catch (err) {}
-      postsRedraw(); return;
+      likeDraw(id); return;
     }
     if ((id = b.getAttribute('data-puntag'))) {
       try { await q(sb.rpc('untag_post', { p_id: id })); FD.msg = 'You’re off that post.'; } catch (err) { FD.msg = 'Couldn’t do that. Check your signal.'; }
@@ -3050,6 +3108,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('gamesNew').addEventListener('click', function () { if (role !== 'owner') return; fxEdit = null; pollBack = 'games'; go('poll'); });
   // ---- the bar along the bottom: Home, Games, Settings
   function renderTabs() {
+    if (AUTO.io) setTimeout(feedPick, 0); // (leaving the feed stops its video)
     var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = role === 'owner';
     $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
     var cur = S.view === 'profile' ? (PF.tab ? 'profile' : '') : S.view === 'options' ? (optFrom === 'profile' ? 'profile' : 'home') : S.view === 'people' || S.view === 'teamview' ? 'feed' : S.view === 'account' ? 'profile' : S.view;
@@ -3282,6 +3341,55 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') +
       '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipSrc(c, on)) + '" data-g="' + esc(c.game_id || '') + '" data-at="' + (c.at || '') + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
+  // ---- the whole match's highlights, full screen (Ethan: a big obvious button, with how long they last). Plays the reel
+  // the cut uploaded when there is one; otherwise every clip, back to back, as one.
+  var MH = null, HLOPEN = {}; // (HLOPEN: the games whose moments are unfolded, kept open when the list is drawn again)
+  function mhTime(sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+  function mhLength(list) { return list.reduce(function (n, c) { return n + (+c.dur > 0 ? +c.dur : 14); }, 0); }
+  function mhButton(gi, list) {
+    return '<button class="mhbtn" type="button" data-mh="' + gi + '"><span class="mhplay" aria-hidden="true">▶</span><span><b>Watch the whole match highlights</b><small>' +
+      list.length + (list.length === 1 ? ' moment' : ' moments') + ' · ' + mhTime(mhLength(list)) + '</small></span></button>';
+  }
+  function mhOpen(gi) {
+    var r = S.results[gi]; if (!r) return;
+    var list = clips.filter(function (c) { return c.game_id === r.id; }); if (!list.length) return;
+    MH = { gi: gi, r: r, list: list, reel: hasReel(r, list), i: 0 };
+    $('mhTitle').textContent = vs(r) + ' ' + r.us + '–' + r.them;
+    $('mhPop').hidden = false; mhLoad(0, true); mhDraw();
+  }
+  function mhSrc() {
+    if (MH.reel) { var rl = MH.r.reel; return clipUrl({ path: sayOn && rl.vpath ? rl.vpath : rl.path, store: rl.store }); }
+    return clipSrc(MH.list[MH.i], sayOn);
+  }
+  function mhLoad(i, play) { // (no reel: clip i)
+    var v = $('mhVideo'); MH.i = Math.max(0, Math.min(MH.list.length - 1, i));
+    var src = mhSrc(); if (v.getAttribute('src') !== src) v.setAttribute('src', src);
+    if (play) try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {}
+  }
+  function mhDraw() {
+    if (!MH) return;
+    var list = MH.reel ? MH.list.filter(function (c) { return typeof c.reel_at === 'number'; }).sort(function (a, b) { return a.reel_at - b.reel_at; }) : MH.list, cur = MH.reel ? MH.cur || 0 : MH.i;
+    $('mhList').innerHTML = list.map(function (c, i) { return '<li><button type="button" data-mhi="' + i + '"' + (MH.reel ? ' data-mht="' + c.reel_at + '"' : '') + ' aria-pressed="' + (i === cur) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('');
+    $('mhNow').textContent = 'Moment ' + (cur + 1) + ' of ' + list.length + ' · ' + mhTime(mhLength(MH.list)) + ' in all';
+    var voiced = MH.reel ? !!MH.r.reel.vpath : MH.list.some(function (c) { return c.vpath; });
+    $('mhTools').innerHTML = voiced ? '<button class="plain saybtn" type="button" data-mhsay="1" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '';
+  }
+  function mhClose() { MH = null; var v = $('mhVideo'); try { v.pause(); } catch (e) {} v.removeAttribute('src'); try { v.load(); } catch (e) {} $('mhPop').hidden = true; }
+  $('mhVideo').addEventListener('ended', function () { if (MH && !MH.reel && MH.i < MH.list.length - 1) { mhLoad(MH.i + 1, true); mhDraw(); } }); // the next clip straight after
+  $('mhVideo').addEventListener('timeupdate', function () { // (the reel: which moment is playing)
+    if (!MH || !MH.reel) return; var t = $('mhVideo').currentTime, cur = 0;
+    Array.prototype.forEach.call($('mhList').querySelectorAll('[data-mht]'), function (b, i) { if (+b.getAttribute('data-mht') <= t + 0.3) cur = i; });
+    if (cur !== (MH.cur || 0)) { MH.cur = cur; mhDraw(); }
+  });
+  $('mhPop').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || !MH) return;
+    if (b.id === 'mhClose') { mhClose(); return; }
+    if (b.hasAttribute('data-mhsay')) { var v = $('mhVideo'), at = v.currentTime || 0; sayOn = !sayOn; try { localStorage.setItem('apt-say', sayOn ? '1' : '0'); } catch (err) {} mhLoad(MH.i, false); try { v.currentTime = at; } catch (err) {} try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {} mhDraw(); return; }
+    var i = b.getAttribute('data-mhi'); if (i === null) return;
+    if (MH.reel) { MH.cur = +i; var rv = $('mhVideo'); try { rv.currentTime = +b.getAttribute('data-mht') + 0.05; var p2 = rv.play(); if (p2 && p2.catch) p2.catch(function () {}); } catch (err) {} }
+    else mhLoad(+i, true);
+    mhDraw();
+  });
   // The game's whole reel (uploaded by the cut), with its moments listed underneath: tapping one skips the reel to it.
   function hasReel(r, list) { return !!(r && r.reel && r.reel.path && list.some(function (c) { return typeof c.reel_at === 'number'; })); }
   function reelPlayer(r, list) {
@@ -3354,7 +3462,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
         var guests = r.house && r.house.guests && r.house.guests.length && A.active && !guestGame ? '<div class="actions"><button class="plain" type="button" data-guests="' + g.i + '">Send the guests a link</button></div>' +
           (GL.i === g.i && GL.msg ? '<p class="msg" role="status" id="glMsg">' + esc(GL.msg) + '</p>' : '') : '';
-        if (vids.length) html += (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
+        if (vids.length) html += mhButton(g.i, vids) + '<details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
           (DL.i === g.i && (DL.msg || DL.prog) ? '<p class="msg' + (DL.bad ? ' bad' : '') + '" role="status" id="dlMsg">' + esc(DL.prog || DL.msg) + '</p>' + (DL.path && !DL.busy ? '<div class="actions"><button class="plain primary" type="button" data-dlshare="1">Share or save it</button></div>' : '') : '');
         else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
@@ -3545,7 +3653,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
   $('toPlayerReels').addEventListener('click', function () { hlBy = 'player'; hlFocus = null; go('highlights'); });
   $('hlToggle').addEventListener('click', function (e) { var by = e.target.getAttribute('data-by'); if (by) { hlBy = by; renderHighlights(); } });
+  $('hlList').addEventListener('toggle', function (e) { var d = e.target; if (d && d.hasAttribute && d.hasAttribute('data-hlopen')) HLOPEN[d.getAttribute('data-hlopen')] = d.open; }, true);
   $('hlList').addEventListener('click', function (e) {
+    var mb = e.target.closest('[data-mh]'); if (mb) { mhOpen(+mb.getAttribute('data-mh')); return; }
     var sk = e.target.closest('[data-seek]');
     if (sk) { // a moment in the game's reel: skip to it
       var sv = sk.closest('.vplayer').querySelector('video'), st = +sk.getAttribute('data-seek');

@@ -72,6 +72,8 @@ console.log('files:', JSON.stringify(d.files), '\nclip rows:', JSON.stringify((d
 await A.click('#cutBody [data-cutdo="share"]'); await wait(200); await A.click('#cutBody [data-cutdo="finish"]'); await wait(400);
 console.log('plugin calls:', (await A.evaluate(() => window.__rc)).map((x) => x.split(' {')[0]).join(', '), '| view:', await view(A));
 const srcs = () => A.$$eval('#hlList .hcard:first-child [data-clip]', (x) => x.map((y) => y.getAttribute('data-src').replace(/^.*\//, '')));
+console.log('whole match:', await A.$$eval('#hlList .mhbtn', (b) => b.map((x) => x.textContent)));
+await A.evaluate(() => document.querySelectorAll('#hlList details.allclips').forEach((d) => { d.open = true; d.dispatchEvent(new Event('toggle')); }));
 console.log('commentary:', await A.textContent('#hlList [data-say]'), await srcs()); await A.click('#hlList [data-say]'); await wait(200);
 console.log('commentary:', await A.textContent('#hlList [data-say]'), await srcs()); await A.click('#hlList [data-say]'); await wait(200);
 console.log('by game:', await A.$$eval('#hlList .vplayer video', (v) => v.map((x) => x.getAttribute('src').replace(/clips\/[^/]+/, 'clips/<team>'))), await A.$$eval('#hlList [data-clip]', (x) => x.map((y) => y.textContent)));

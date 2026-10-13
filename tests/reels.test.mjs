@@ -66,6 +66,19 @@ check(/with commentary/.test(await A.text('#cutBody')), 'the done screen says th
 await A.click('#cutBody [data-cutdo="finish"]'); await A.run(500);
 
 // ---------- the game's whole reel plays at the top of the game, and tapping a moment skips to it
+eq(await A.page.$$eval('#hlList .hcard:first-child .mhbtn', (b) => b.map((x) => x.textContent)), ['▶Watch the whole match highlights3 moments · 0:42'], 'a big button to watch the whole match\'s highlights, with how many moments and how long');
+await A.page.evaluate(() => { HTMLMediaElement.prototype.play = function () { this.__played = (this.__played || 0) + 1; return Promise.resolve(); }; });
+await A.click('#hlList .hcard:first-child .mhbtn'); await A.run(300);
+eq([await A.visible('#mhPop'), await A.page.$eval('#mhVideo', (v) => v.getAttribute('src').replace(/^.*\//, '')), await A.page.$$eval('#mhList [data-mht]', (b) => b.length), await A.page.$eval('#mhVideo', (v) => v.__played || 0)],
+  [true, 'reelv.mp4', 3, 1], 'it opens full screen and plays the reel, with every moment to skip to');
+check(/^Moment 1 of 3 · 0:42 in all$/.test(await A.text('#mhNow')), `saying where it's up to (${await A.text('#mhNow')})`);
+await A.page.evaluate(() => { const v = document.getElementById('mhVideo'); let t = 0; Object.defineProperty(v, 'currentTime', { configurable: true, get: () => t, set: (x) => { t = x; } }); });
+await A.click('#mhList [data-mhi="1"]');
+eq([await A.page.$eval('#mhVideo', (v) => Math.round(v.currentTime * 100) / 100), await A.text('#mhNow')], [14.09, 'Moment 2 of 3 · 0:42 in all'], 'tapping a moment skips the reel to it');
+await shot(A, 'match-highlights');
+await A.click('#mhClose'); await A.run(200);
+eq(await A.visible('#mhPop'), false, 'Close goes back');
+await A.page.evaluate(() => document.querySelectorAll('#hlList details.allclips').forEach((d) => { d.open = true; d.dispatchEvent(new Event('toggle')); }));
 eq([await A.page.$$eval('#hlList .hcard:first-child .reelp video', (v) => v.length), await A.page.$$eval('#hlList .hcard:first-child [data-seek]', (b) => b.length)], [1, 3], 'By game shows the whole reel, with its moments underneath');
 eq(await A.page.$eval('#hlList .hcard:first-child .reelp video', (v) => v.getAttribute('src').replace(/^.*\//, '')), 'reelv.mp4', 'with commentary, as this phone has it on');
 await A.page.evaluate(() => { const v = document.querySelector('#hlList .reelp video'); let t = 0; Object.defineProperty(v, 'currentTime', { configurable: true, get: () => t, set: (x) => { t = x; } }); v.play = () => Promise.resolve(); });
@@ -79,6 +92,19 @@ await A.click('#hlList [data-say]');
 const savedReel = w.db().games[0].reel; let dbx = w.db(); dbx.games[0].reel = null; w.setDb(dbx); await A.page.reload(); await A.run(1500);
 if (await A.view() !== 'highlights') { await A.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]') || document.querySelector('.view:not([hidden]) .back'); if (b) b.click(); }); await A.run(300); await A.click('#mHighlights'); }
 await A.run(500);
+await A.page.evaluate(() => { HTMLMediaElement.prototype.play = function () { this.__played = (this.__played || 0) + 1; return Promise.resolve(); }; });
+eq(await A.page.$$eval('#hlList .hcard:first-child .mhbtn', (b) => b.length), 1, 'a game whose reel didn\'t upload (cut before reels were kept) still has the whole-match button');
+await A.click('#hlList .hcard:first-child .mhbtn'); await A.run(300);
+const mhsrc = () => A.page.$eval('#mhVideo', (v) => v.getAttribute('src').replace(/^.*\//, ''));
+eq([await mhsrc(), await A.text('#mhNow')], ['01v.mp4', 'Moment 1 of 3 · 0:42 in all'], 'which plays the clips back to back');
+await A.page.evaluate(() => document.getElementById('mhVideo').dispatchEvent(new Event('ended'))); await A.run(100);
+eq([await mhsrc(), await A.text('#mhNow'), await A.page.$eval('#mhVideo', (v) => v.__played || 0)], ['02v.mp4', 'Moment 2 of 3 · 0:42 in all', 2], 'each one straight after the last');
+await A.click('#mhList [data-mhi="2"]');
+eq(await mhsrc(), '03v.mp4', 'and any moment can be picked');
+await A.page.evaluate(() => document.getElementById('mhVideo').dispatchEvent(new Event('ended'))); await A.run(100);
+eq(await mhsrc(), '03v.mp4', 'stopping after the last');
+await A.click('#mhClose'); await A.run(200);
+await A.page.evaluate(() => document.querySelectorAll('#hlList details.allclips').forEach((d) => { d.open = true; d.dispatchEvent(new Event('toggle')); }));
 eq([await A.page.$$eval('#hlList .reelp', (x) => x.length), await A.page.$$eval('#hlList .hcard:first-child [data-clip]', (b) => b.length)], [0, 3], 'without a reel, the clips play one by one as before');
 
 // ---------- Commentary on / off swaps which copy of each clip plays (one sound at a time, as an iPhone needs)

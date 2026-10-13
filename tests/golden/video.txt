@@ -17,6 +17,7 @@ plugin asked for: [["/tmp/game.mov",<s>,"1' Puxley  SOP FC 1-0 Dog"],["/tmp/half
 files: [{"bucket":"r2","path":"<id>/2026-10-10_dog/01.mp4","size":29589,"type":"video/mp4"},{"bucket":"r2","path":"<id>/2026-10-10_dog/01v.mp4","size":29589,"type":"video/mp4"},{"bucket":"r2","path":"<id>/2026-10-10_dog/02.mp4","size":29589,"type":"video/mp4"},{"bucket":"r2","path":"<id>/2026-10-10_dog/02v.mp4","size":29589,"type":"video/mp4"}] 
 clip rows: [{"seq":0,"path":"<team>/2026-10-10_dog/01.mp4","vpath":"<team>/2026-10-10_dog/01v.mp4","label":"1' Puxley  SOP FC 1-0 Dog","dur":<s>,"pids":[5]},{"seq":1,"path":"<team>/2026-10-10_dog/02.mp4","vpath":"<team>/2026-10-10_dog/02v.mp4","label":"16' Goal for Dog  SOP FC 1-1 Dog","dur":<s>,"pids":[]}]
 plugin calls: pick 1, pick 1, pick 2, cut, share /tmp/reelv.mp4, cleanup | view: v-highlights
+whole match: [ '▶Watch the whole match highlights2 moments · 0:27' ]
 commentary: Commentary on [ '01v.mp4', '02v.mp4' ]
 commentary: Commentary off [ '01.mp4', '02.mp4' ]
 by game: [
