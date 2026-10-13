@@ -17,7 +17,8 @@ const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 const VOICES = ["Fenrir", "Puck", "Sadachbia", "Algenib", "Orus", "Charon", "Kore", "Leda"];
 const HYPE = "You are an excitable British football commentator calling the action live on television. Loud, fast and full of energy, voice rising to a shout on the goal. Say exactly this:";
-const SWEARY = "You are a foul-mouthed British Sunday-league football commentator who can't believe what he's watching: loud, raw and incredulous, swearing freely, shouting the big moments as if you're losing your mind down the pub. Say exactly this, swear words and all:";
+// (Ethan: it came out Australian, so the accent is spelt out.)
+const SWEARY = "You are a foul-mouthed Sunday-league football commentator from the East End of London, speaking in a broad, proper East London Cockney accent: dropped h's, glottal stops (foo'ball, wha' a goal), London vowels. Never Australian, never American, never posh. You can't believe what you're watching: loud, raw and incredulous, swearing freely, shouting the big moments as if you're losing your mind down the pub. Say exactly this, swear words and all:";
 const MONTHLY = 40000; // characters per team per month: roughly forty reels
 const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
 // Google's own wording for why the live-commentator delivery was refused is long and ends in a web address that doesn't

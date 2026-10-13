@@ -202,6 +202,7 @@ globalThis.fetch = async (url, init = {}) => { if (String(url).startsWith('https
 const said = async (style) => { ttsAsked.length = 0; const out = await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['HOW THE FUCK has Jake scored that?'], style }); return [out.engine, (ttsAsked[0] && ttsAsked[0].input.prompt) || '', ttsAsked[0] && ttsAsked[0].input.text]; };
 const [swEngine, swPrompt, swText] = await said('sweary');
 check(swEngine === 'gemini' && /foul-mouthed/.test(swPrompt) && /swear words and all/.test(swPrompt) && swText === 'HOW THE FUCK has Jake scored that?', 'Sweary (18+) is performed as a foul-mouthed pub commentator, the line said word for word');
+check(/broad, proper East London Cockney accent/.test(swPrompt) && /Never Australian/.test(swPrompt), 'in a proper East London Cockney accent, spelt out (it came out Australian)');
 check(/excitable British football commentator/.test((await said('hype'))[1]), 'Live commentator is still the excitable telly commentator');
 
 // Google's per-minute limit on the commentator voice (what Ethan's reels kept hitting: every line was asked for at once)

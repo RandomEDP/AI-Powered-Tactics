@@ -4756,9 +4756,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function swearyLine(e, p, a, sc, t, us, them, r, i) {
     var pickOf = function (list) { return list[Math.abs(i) % list.length]; };
     if (e.hl) return e.k === 'save' && p ? pickOf(['What a fucking save from ' + p + '! Still ' + sc + '.', 'How the hell has ' + p + ' kept that out? It stays ' + sc + '.', p + ' says absolutely not. Fuck off. ' + sc + '.'])
-      : pickOf(['Look at this. Fucking outrageous' + (p ? ' from ' + p : '') + '.', 'Filth. Absolute filth' + (p ? ' from ' + p : '') + '.', 'Oh, you cheeky bastard' + (p ? ', ' + p : '') + '.']);
-    if (e.us) return p && a ? pickOf(['HOW THE FUCK? ' + a + ' threads it through and ' + p + ' absolutely buries it! ' + sc + '!', 'Get in, you fucking beauty! ' + p + ' smashes it home off ' + a + '’s pass. ' + sc + '.', a + ' to ' + p + ' and it’s in the fucking net! ' + t + ' ' + sc + '!'])
-      : p ? pickOf(['Oh, you fucking beauty, ' + p + '! ' + sc + '!', 'HOW THE FUCK has ' + p + ' scored that? ' + sc + '!', p + ' has just leathered it into the top bin. Absolute filth. ' + sc + '.', 'Get in! ' + p + ', you absolute legend. ' + sc + '.'])
+      : pickOf(['Look at this. Fucking outrageous' + (p ? ' from ' + p : '') + '.', 'Filth. Absolute filth' + (p ? ' from ' + p : '') + '.', 'Oh, you cheeky bastard' + (p ? ', ' + p : '') + '.', 'Leave it out! That’s fucking tasty' + (p ? ', ' + p : '') + '.']);
+    if (e.us) return p && a ? pickOf(['HOW THE FUCK? ' + a + ' threads it through and ' + p + ' absolutely buries it! ' + sc + '!', 'Get in, my son! ' + p + ' smashes it home off ' + a + '’s pass. Fucking beautiful. ' + sc + '.', a + ' to ' + p + ' and it’s in the fucking net! ' + t + ' ' + sc + '!'])
+      : p ? pickOf(['Oh, you fucking beauty, ' + p + '! ' + sc + '!', 'HOW THE FUCK has ' + p + ' scored that? ' + sc + '!', p + ' has just leathered it into the top bin. Absolute filth. ' + sc + '.', 'Get in! ' + p + ', you absolute legend. ' + sc + '.', 'Blimey! ' + p + ' has only gone and fucking done it! ' + sc + '!'])
       : pickOf(['It’s in! It’s fucking in! ' + t + ' ' + sc + '!', 'Scrappy as hell, but who gives a shit? ' + sc + '.']);
     if (p) return p + (a ? ', off ' + a + ',' : '') + ' scores for ' + r.opp + ', the cheeky bastard. ' + sc + '.';
     return them > us ? 'Oh, for fuck’s sake. ' + r.opp + ' go in front. ' + sc + '.' : them === us ? 'Shit. ' + r.opp + ' are level. ' + sc + '.' : 'Bollocks. ' + r.opp + ' pull one back. ' + sc + '.';

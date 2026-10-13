@@ -389,7 +389,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   - "Read it straight" uses Chirp 3 HD with `GOOGLE_TTS_KEY`.
   - **"Sweary, 18+"** (Ethan asked for it, after a sweary meme reel): the app writes the lines with swearing in
     (`swearyLine`, the sweary intro and sign-off; swearing at the football, never at anyone for who they are), and the
-    function performs them with its `SWEARY` prompt (a foul-mouthed pub commentator). Off unless chosen; the choice is
+    function performs them with its `SWEARY` prompt (a foul-mouthed pub commentator in a broad East London Cockney
+    accent, spelt out because it first came out Australian; the lines have some Cockney in too: "my son", "Blimey", "Leave it out"). Off unless chosen; the choice is
     kept per phone (`apt-voice`). The App Store age rating has to allow for it (Ethan's to set in App Store Connect).
   - If the performed line fails, the function falls back to Chirp and returns a plain-English `note` saying why.
   - Google's project has a small per-minute limit for `gemini-2.5-flash-tts` ("Quota exceeded ... per_minute_per_project_per_base_model",
@@ -417,7 +418,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v17 (kind `live` from any team member, sent once; same as the repo), `live-stream` v5,
-    `reel-voice` v13 (players allowed too; Sweary delivery; paced for Google's per-minute limit), `clip-store` v1, `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v1, `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
