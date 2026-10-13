@@ -108,7 +108,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0027`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0028`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -341,7 +341,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   code** (Ethan: to join you still need it from the gaffer), nor upcoming games, chat, the live game or guests' names.
   `teams.listed` (default true) is the gaffer's switch in Options, "Let people find this team" (`#oFind`, `S.listed`,
   written with the team row); an unlisted team only opens for its own squad and gaffers.
-- Tests: `people.test.mjs`, `posts.test.mjs` and `db.test.mjs`. The mock has all of it (`tests/mock-supabase.js`, `PEOPLE`).
+- Tests: `people.test.mjs`, `posts.test.mjs`, `social.test.mjs` and `db.test.mjs`. The mock has all of it (`tests/mock-supabase.js`, `PEOPLE`).
 - Applying it live: the Supabase MCP `apply_migration` times out (asking for a confirmation nobody sees) on anything
   containing `delete`, so `unfollow`, `answer_follow` and `block_user` went in through the SQL editor.
 
@@ -363,6 +363,22 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   deleting a row), the caption, and ⋯: Delete for your own (two taps, `remove_post`, which sets `removed_at`) or Report
   with a reason (`report_post`, `post_reports`). Who can see a post follows who can see the profile (`can_see`).
 - No comments or photo avatars yet (letters on the team colour instead).
+- **Teammates follow each other** (`0028_teammates_and_tags.sql`, Ethan asked): a trigger on `players` (insert, or
+  `user_id` changing) and `team_members` (insert) runs `private.follow_teammates`, so whoever joins or claims their player
+  follows everyone on the team and they follow them, accepted even for a private profile; the migration did it once for
+  everyone already on a team. Unfollowing a teammate sticks (only a new join re-runs it). Blocked pairs are left alone.
+- **Names open profiles** (Ethan: "pretty much anywhere that makes sense"): `team_people(code)` gives the squad's
+  usernames (signed in only, never anyone blocked with you), loaded after each pull (`tpLoad`, `TP`, at most once a
+  minute). `plink(pid, html)` turns a name into a `.plink` button (`data-plink`, looks like plain text), handled by one
+  capture-phase listener that opens the profile with Back returning to where you were. Used on the Team page squad list,
+  polls, Stats, Insights, Highlights by player, and chat senders. Not in the live game, pickers or the subs screens.
+- **Tags** (`post_tags`): the composer's "Tag people" (`#npTagQ`, `renderTags`) suggests everyone you follow (teammates
+  among them) and finds anyone else with `find_people`; up to 10. Share calls `create_post`, then `tag_post(id, usernames)`
+  (author only; not yourself, not anyone blocked; unknown names skipped). Post cards show "With @…" (`.ptags`, each a
+  `.plink`); `post_json` returns `tags` and `tagged_me`. Profiles have a Tagged tab (`user_tagged`). Someone tagged can
+  take themselves off (⋯ → Remove me from this post, `untag_post`, sets `removed`). `create_post` was left as it was:
+  changing its arguments needs a `drop function`, which the MCP won't run. Tests: `social.test.mjs`, `db.test.mjs`.
+- Applying 0028 live: `drop trigger` also waits for the confirmation nobody sees, so it uses `create or replace trigger`.
 - Applying it live: soft-delete and the `liked` flag keep `delete` out of the SQL, so it all went through the MCP (in
   three parts).
 
@@ -445,7 +461,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0027` are applied live. Add new ones as `supabase/migrations/0028_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0028` are applied live. Add new ones as `supabase/migrations/0029_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
@@ -569,8 +585,22 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   feed leaves out SOP's own games. Push notifications for follow requests aren't built yet.
 - **Copyright:** `LICENSE` says all rights reserved (with third-party licences kept). The repo stays public for GitHub
   Pages; going private means moving the website first (Cloudflare Pages), best after App Store approval.
+- **Match fees (Ethan likes it; parked until he comes back to it):** players pay their match fee in Gaffer and Gaffer
+  takes a small cut. Plan put to him: Stripe Connect (each gaffer signs up once to connect their bank; Stripe does the
+  ID checks and holds no money of ours; Apple takes nothing because it's a real-world game), Apple Pay or card, the
+  gaffer sees who's paid, nudges for anyone who owes. Fees are roughly 1.5% + 20p a card payment (check current prices),
+  so about 28p of £5: suggest adding ~50p, letting players top up (say £20 for 4 games, one fee), and the paid tier
+  fee-free. Two steps: (1) no money handled: "who's paid" on each game, "I've paid" for players, reminders, the gaffer's
+  own payment link (Monzo/PayPal); (2) real payments through Stripe with the cut (Ethan makes the Stripe account; its
+  keys go in Supabase secrets, never chat). **His four answers are needed first:** who pays the fee (player £5 + 50p,
+  or gaffer gets £5 minus it); the cut (50p or a percentage); when players are charged (on "I'm in" or after the game)
+  and what happens if a game's called off (refund or credit); and whether to start step 1.
 - **Ideas he has raised but not built yet:**
-  - ads in the free tier and the £4.99 Gaffer subscription (in-app purchase);
+  - ads in the free tier and the £4.99 Gaffer subscription (in-app purchase). Advice given: ads in the feed only once
+    lots of people post (then about 1 in 8, never first); better: rewarded ads to unlock things (another game's
+    highlights, AI commentary on a reel), a short ad before a game's reel, one full-screen ad at full time; never during
+    a live game or near the watch, subs or scoring. Other money: match fees (above), team-priced subscription, team
+    sponsors on reels and the end card, pitch-booking referrals, paid one-offs like a season reel;
   - MOTM and ratings from video;
   - full-game commentary;
   - a leaderboard for team Elo by area.

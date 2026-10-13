@@ -435,6 +435,10 @@ tr.past td { opacity: .45; }
 .fdicons svg, .baricons svg { width: 26px; height: 26px; } .fdicons .pplBadge { position: absolute; top: 2px; right: 0; margin: 0; }
 .post { background: var(--surface); border-radius: var(--r-card); overflow: hidden; margin-bottom: 14px; }
 .post header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.ptags { margin: 2px 12px 8px; color: var(--muted); font-size: 15px; } .ptags .plink { color: var(--ink); font-weight: 600; }
+.taglist { display: grid; gap: 4px; margin: 6px 0 10px; } .tagopt { text-align: left; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; } .tagopt small { color: var(--muted); }
+#npTags:empty { display: none; } #npTags { margin: 6px 0; }
+.plink { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-align: inherit; cursor: pointer; min-height: 0; }
 .post header .who { flex: 1; display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 0; text-align: left; color: var(--ink); font: inherit; }
 .post header small { display: block; color: var(--muted); font-size: 13px; }
 .av { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; flex: none; }
@@ -451,7 +455,7 @@ tr.past td { opacity: .45; }
 .igcounts b { display: block; font-size: 20px; } .igcounts small { color: var(--muted); font-size: 13px; }
 .igname { margin-bottom: 10px; } .igname b { font-size: 17px; } .igname > small { display: block; color: var(--muted); margin-top: 6px; }
 .igname .prteams { margin-top: 8px; }
-.igtabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); margin: 14px 0 10px; }
+.igtabs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); margin: 14px 0 10px; }
 .igtabs button { border: 0; background: none; font: inherit; font-weight: 700; color: var(--muted); min-height: 44px; border-bottom: 2px solid transparent; }
 .igtabs button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
 .pgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
@@ -460,6 +464,7 @@ tr.past td { opacity: .45; }
 .ptile span { position: absolute; left: 6px; bottom: 4px; color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
 #postPop, #postView { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #postPop[hidden], #postView[hidden] { display: none; }
+#postPop .field input, #postPop .field textarea { background: var(--bg); }
 #postView .post { margin: 0; } #postView .planbox { padding: 12px; }
 .nplist { display: flex; flex-direction: column; max-height: 34vh; overflow-y: auto; } .nplist label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 2px; border-bottom: 1px solid var(--line); } .nplist input { width: 22px; height: 22px; flex: none; }
 #npPrev { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 16 / 9; }
@@ -837,6 +842,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="toggle" id="npKind"><button type="button" data-k="clip" aria-pressed="true">Your clips</button><button type="button" data-k="reel" aria-pressed="false">Your reels</button></div>
   <div id="npList"></div>
   <label class="field" for="npCap">Caption<textarea id="npCap" rows="2" maxlength="300" placeholder="Say something about it"></textarea></label>
+  <label class="field" for="npTagQ">Tag people<input id="npTagQ" type="search" autocomplete="off" autocapitalize="off" placeholder="Search by name or username"></label>
+  <div id="npTags" class="chips"></div><div id="npTagList" class="taglist"></div>
   <p class="msg bad" id="npMsg" hidden></p>
   <div class="actions"><button class="plain primary" id="npPost" type="button">Share</button><button class="link" id="npCancel" type="button">Cancel</button></div>
 </div></div>
@@ -1474,7 +1481,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
       myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500);
       if (S.view === 'home' || S.view === 'games') renderFixture();
-      renderTabs();
+      renderTabs(); tpLoad();
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
       var org = !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
@@ -1697,7 +1704,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     });
   }
   function afterAuth() {
-    myTeams = null; renderAccount();
+    myTeams = null; renderAccount(); TP = { code: null, map: {}, at: 0 };
     if (me) setTimeout(profileCheck, 0); else { MYP = undefined; profAsked = null; pplBadges(); }
     if (me && A.pending) { finishPending(); return; }
     if (A.active) openTeam(A.active, S.view);
@@ -2195,6 +2202,22 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function pplOpen() { PPL.msg = ''; go('people'); }
   $('pplBtn').addEventListener('click', function () { go('feed'); });
   $('pplBack').addEventListener('click', function () { go('feed'); });
+  // ---- names that open profiles: which of the squad have a profile (team_people), so a name can be tapped through to it
+  var TP = { code: null, map: {}, at: 0 };
+  function plink(pid, html) { var u = me && TP.code === A.active && TP.map[pid]; return u ? '<button type="button" class="plink" data-plink="' + esc(u) + '">' + html + '</button>' : html; }
+  async function tpLoad(force) {
+    var code = A.active; if (!sb || !me || !code) return;
+    if (!force && TP.code === code && Date.now() - TP.at < 60000) return;
+    TP.at = Date.now();
+    try {
+      var r = await q(sb.rpc('team_people', { p_code: code })); if (A.active !== code || r.error) return;
+      var m = {}; (r.data || []).forEach(function (x) { m[x.pid] = x.username; });
+      var changed = TP.code !== code || JSON.stringify(m) !== JSON.stringify(TP.map); TP = { code: code, map: m, at: Date.now() };
+      var playing = [].some.call(document.querySelectorAll('.view:not([hidden]) video'), function (v) { return !v.paused; }); // (never interrupt a clip someone's watching)
+      if (changed && !playing && ['home', 'games', 'poll', 'stats', 'insights', 'highlights', 'chat'].indexOf(S.view) >= 0) render();
+    } catch (e) {}
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('[data-plink]') : null; if (b) { e.stopPropagation(); $('postView').hidden = true; PV.post = null; openProfile(b.getAttribute('data-plink'), S.view); } }, true);
   function openProfile(u, back) { if (MYP && u && u.toLowerCase() === MYP.username.toLowerCase()) { openMe(); return; } PF = { u: u, d: null, msg: '', pins: null, mine: null, report: false, back: back || S.view, ptab: 'posts' }; go('profile'); }
   async function pplLoad() {
     if (!sb || !me || !MYP || PPL.busy) return;
@@ -2301,7 +2324,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       '<video controls playsinline preload="metadata" src="' + esc(postSrc(x)) + '"></video>' +
       '<div class="pbar"><button type="button" data-like="' + esc(x.id) + '" aria-pressed="' + !!x.liked + '" aria-label="Like">' + HEART + '<span>' + x.likes + '</span></button><small>' + esc(dayText(x.at)) + '</small></div>' +
       '<p class="cap' + (x.caption ? '' : ' empty') + '">' + (x.caption ? '<b>' + esc(x.username) + '</b> ' + esc(x.caption) : '') + '</p>' +
-      (open ? '<div class="pmenu">' + (x.mine ? '<button class="plain" type="button" data-pdel="' + esc(x.id) + '">' + (armed ? 'Tap again to delete it' : 'Delete this post') + '</button>'
+      ((x.tags || []).length ? '<p class="ptags">With ' + x.tags.map(function (t) { return '<button type="button" class="plink" data-plink="' + esc(t.username) + '">@' + esc(t.username) + '</button>'; }).join(', ') + '</p>' : '') +
+      (open ? '<div class="pmenu">' + (x.tagged_me && !x.mine ? '<button class="plain" type="button" data-puntag="' + esc(x.id) + '">Remove me from this post</button>' : '') + (x.mine ? '<button class="plain" type="button" data-pdel="' + esc(x.id) + '">' + (armed ? 'Tap again to delete it' : 'Delete this post') + '</button>'
         : '<p class="note">Report this post? Gaffer looks at every report.</p><div class="chips">' + ['Not their clip', 'Offensive', 'Spam', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-preport="' + esc(x.id) + '" data-why="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>') + '</div>' : '') +
       '</article>';
   }
@@ -2353,21 +2377,28 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
 
   // Likes, the ⋯ menu, deleting and reporting work the same wherever a post is shown (Home, a profile, a post on its own).
-  function postsEverywhere(id) { return [].concat(FD.posts || [], PF.posts || [], PV.post ? [PV.post] : []).filter(function (x) { return x.id === id; }); }
+  function postsEverywhere(id) { return [].concat(FD.posts || [], PF.posts || [], PF.tagged || [], PV.post ? [PV.post] : []).filter(function (x) { return x.id === id; }); }
   function postsRedraw() { if (S.view === 'feed') renderFeed(); if (S.view === 'profile') renderProfile(); if (PV.post) renderPV(); }
   var PV = { post: null };
   function renderPV() { $('pvBody').innerHTML = PV.post ? postCard(PV.post) : ''; }
   $('pvClose').addEventListener('click', function () { PV.post = null; $('postView').hidden = true; });
   $('postView').addEventListener('click', function (e) { if (e.target === $('postView')) { PV.post = null; $('postView').hidden = true; } });
   document.body.addEventListener('click', async function (e) {
-    var b = e.target.closest('[data-like],[data-pmore],[data-pdel],[data-preport],[data-openpost]'); if (!b || !sb || !me) return;
+    var b = e.target.closest('[data-like],[data-pmore],[data-pdel],[data-preport],[data-openpost],[data-puntag]'); if (!b || !sb || !me) return;
     var id;
-    if ((id = b.getAttribute('data-openpost'))) { PV.post = (PF.posts || []).filter(function (x) { return x.id === id; })[0] || null; FD.open = null; renderPV(); $('postView').hidden = !PV.post; return; }
+    if ((id = b.getAttribute('data-openpost'))) { PV.post = [].concat(PF.posts || [], PF.tagged || []).filter(function (x) { return x.id === id; })[0] || null; FD.open = null; renderPV(); $('postView').hidden = !PV.post; return; }
     if ((id = b.getAttribute('data-like'))) {
       var now = b.getAttribute('aria-pressed') !== 'true';
       postsEverywhere(id).forEach(function (x) { x.liked = now; x.likes = Math.max(0, x.likes + (now ? 1 : -1)); }); postsRedraw(); // (straight away; the server's count follows)
       try { var lr = (await q(sb.rpc('like_post', { p_id: id, p_like: now }))).data; if (lr) postsEverywhere(id).forEach(function (x) { x.likes = lr.likes; x.liked = lr.liked; }); } catch (err) {}
       postsRedraw(); return;
+    }
+    if ((id = b.getAttribute('data-puntag'))) {
+      try { await q(sb.rpc('untag_post', { p_id: id })); FD.msg = 'You’re off that post.'; } catch (err) { FD.msg = 'Couldn’t do that. Check your signal.'; }
+      var mine0 = MYP && MYP.username.toLowerCase();
+      postsEverywhere(id).forEach(function (x) { x.tagged_me = false; x.tags = (x.tags || []).filter(function (t) { return t.username.toLowerCase() !== mine0; }); });
+      if (PF.tagged && PF.d && PF.d.me) PF.tagged = PF.tagged.filter(function (x) { return x.id !== id; });
+      FD.open = null; if (S.view === 'profile') PF.msg = FD.msg; postsRedraw(); return;
     }
     if ((id = b.getAttribute('data-pmore'))) { FD.open = FD.open === id ? null : id; FD.arm = null; postsRedraw(); return; }
     if ((id = b.getAttribute('data-pdel'))) {
@@ -2385,12 +2416,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
 
   // ---- a new post: one of your clips, or your player reel, with a caption
-  var NP = { kind: 'clip', clips: null, reels: null, pick: null, busy: false };
+  var NP = { kind: 'clip', clips: null, reels: null, pick: null, busy: false, tags: [], follows: null, found: null, tq: '' };
   async function postOpen() {
     if (!sb || !me) { A.after = 'feed'; go('account'); return; }
     if (!MYP) { unameOpen(false); return; }
-    NP = { kind: 'clip', clips: null, reels: null, pick: null, busy: false }; $('npCap').value = ''; $('npMsg').hidden = true; $('postPop').hidden = false; renderNP();
-    try { var r = await Promise.all([q(sb.rpc('my_clips')), q(sb.rpc('my_reels'))]); NP.clips = r[0].data || []; NP.reels = r[1].data || []; } catch (e) { NP.clips = NP.clips || []; NP.reels = NP.reels || []; $('npMsg').textContent = 'Couldn’t load your clips. Check your signal.'; $('npMsg').hidden = false; }
+    NP = { kind: 'clip', clips: null, reels: null, pick: null, busy: false, tags: [], follows: null, found: null, tq: '' }; $('npCap').value = ''; $('npTagQ').value = ''; $('npMsg').hidden = true; $('postPop').hidden = false; renderNP(); renderTags();
+    try { var r = await Promise.all([q(sb.rpc('my_clips')), q(sb.rpc('my_reels')), q(sb.rpc('my_follows'))]); NP.clips = r[0].data || []; NP.reels = r[1].data || []; NP.follows = ((r[2].data || {}).following || []).filter(function (x) { return x.status === 'accepted'; }); renderTags(); } catch (e) { NP.clips = NP.clips || []; NP.reels = NP.reels || []; $('npMsg').textContent = 'Couldn’t load your clips. Check your signal.'; $('npMsg').hidden = false; }
     if (!NP.clips.length && NP.reels.length) NP.kind = 'reel';
     renderNP();
   }
@@ -2407,6 +2438,33 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     $('npList').innerHTML = html; $('npPost').disabled = NP.busy || !list.length;
   }
+  // tagging: people you follow (your teammates are among them) to start with, anyone by search
+  function renderTags() {
+    var tagged = {}; NP.tags.forEach(function (t) { tagged[t.username.toLowerCase()] = 1; });
+    $('npTags').innerHTML = NP.tags.map(function (t) { return '<button class="chip on" type="button" data-untag="' + esc(t.username) + '" aria-label="Untag @' + esc(t.username) + '">@' + esc(t.username) + ' ✕</button>'; }).join('');
+    var mineU = MYP ? MYP.username.toLowerCase() : '', q2 = NP.tq.trim().replace(/^@/, '');
+    var pool = q2.length >= 2 ? NP.found : NP.follows, html = '';
+    if (NP.tags.length >= 10) html = '<p class="note">That’s 10, the most for one post.</p>';
+    else if (pool === null) html = q2.length >= 2 ? '<p class="note">Looking…</p>' : '';
+    else {
+      var list = (pool || []).filter(function (x) { return !tagged[x.username.toLowerCase()] && x.username.toLowerCase() !== mineU; }).slice(0, 8);
+      html = list.length ? (q2.length < 2 ? '<p class="note">People you follow</p>' : '') + list.map(function (x) { return '<button class="tagopt" type="button" data-tagu="' + esc(x.username) + '" data-tagn="' + esc(x.name || '') + '"><b>' + esc(x.name || x.username) + '</b> <small>@' + esc(x.username) + '</small></button>'; }).join('')
+        : q2.length >= 2 ? '<p class="note">Nobody found by that name.</p>' : '';
+    }
+    $('npTagList').innerHTML = html;
+  }
+  var tagT = null;
+  $('npTagQ').addEventListener('input', function () {
+    NP.tq = this.value; clearTimeout(tagT);
+    var q2 = NP.tq.trim().replace(/^@/, ''); if (q2.length < 2) { NP.found = null; renderTags(); return; }
+    NP.found = null; renderTags();
+    tagT = setTimeout(async function () { try { var r = await q(sb.rpc('find_people', { p_query: q2 })); if (NP.tq.trim().replace(/^@/, '') === q2) { NP.found = r.data || []; renderTags(); } } catch (e) { NP.found = []; renderTags(); } }, 250);
+  });
+  $('npTagList').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tagu]'); if (!b || NP.tags.length >= 10) return;
+    NP.tags.push({ username: b.getAttribute('data-tagu'), name: b.getAttribute('data-tagn') }); $('npTagQ').value = ''; NP.tq = ''; NP.found = null; renderTags();
+  });
+  $('npTags').addEventListener('click', function (e) { var b = e.target.closest('[data-untag]'); if (!b) return; var u = b.getAttribute('data-untag'); NP.tags = NP.tags.filter(function (t) { return t.username !== u; }); renderTags(); });
   $('npKind').addEventListener('click', function (e) { var b = e.target.closest('[data-k]'); if (!b) return; NP.kind = b.getAttribute('data-k'); NP.pick = null; renderNP(); });
   $('npList').addEventListener('change', function (e) { var k = e.target.getAttribute('data-np'); if (k) { NP.pick = k; renderNP(); } });
   $('npCancel').addEventListener('click', function () { if (!NP.busy) $('postPop').hidden = true; });
@@ -2417,7 +2475,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     try {
       var res = (await q(sb.rpc('create_post', args))).data || {};
       if (res.error) throw new Error(res.error === 'too_many' ? 'That’s a lot of posts today. Try again tomorrow.' : res.error === 'no_profile' ? 'Pick a username first.' : 'That isn’t one of yours any more.');
-      $('postPop').hidden = true; NP.busy = false; FD.posts = null; FD.msg = 'Shared.';
+      var tagMsg = '';
+      if (NP.tags.length) { try { var tr = await q(sb.rpc('tag_post', { p_id: res.id, p_tags: NP.tags.map(function (t) { return t.username; }) })); if (tr.error) throw tr.error; } catch (err) { tagMsg = ' The tags didn’t go through, so nobody’s tagged.'; } }
+      $('postPop').hidden = true; NP.busy = false; FD.posts = null; FD.msg = 'Shared.' + tagMsg;
       if (S.view === 'profile' && PF.d && PF.d.me) { PF.loaded = false; renderProfile(); } else go('feed');
     } catch (e) { NP.busy = false; $('npMsg').textContent = (e && e.message) || 'Couldn’t share it. Check your signal.'; $('npMsg').hidden = false; renderNP(); }
   });
@@ -2462,11 +2522,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
 
   // ---- a profile
+  function pgrid(posts) { return '<div class="pgrid">' + posts.map(function (x) { return '<button class="ptile" type="button" data-openpost="' + esc(x.id) + '" aria-label="' + esc(x.caption || 'Post') + '"><video muted playsinline preload="metadata" src="' + esc(postSrc(x) + '#t=1') + '"></video><span>♥ ' + x.likes + '</span></button>'; }).join('') + '</div>'; }
   async function prLoad() {
     if (!sb || !me || !PF.u) return;
     try {
-      var r = await Promise.all([q(sb.rpc('get_profile', { p_username: PF.u })), q(sb.rpc('user_posts', { p_username: PF.u }))]);
-      PF.d = r[0].data; PF.posts = r[1].data || null; PF.msg = PF.d ? PF.msg : '';
+      var r = await Promise.all([q(sb.rpc('get_profile', { p_username: PF.u })), q(sb.rpc('user_posts', { p_username: PF.u })), q(sb.rpc('user_tagged', { p_username: PF.u }))]);
+      PF.d = r[0].data; PF.posts = r[1].data || null; PF.tagged = r[2].data || null; PF.msg = PF.d ? PF.msg : '';
     } catch (e) { PF.msg = 'Couldn’t load that profile. Check your signal.'; }
     PF.loaded = true; if (S.view === 'profile') renderProfile();
   }
@@ -2499,11 +2560,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (!d.can_see) html += '<div class="card"><p class="note">' + (d.follow === 'pending' ? 'Waiting for @' + esc(d.username) + ' to accept. Their posts, teams and results show once they do.' : 'This account is private. Ask to follow @' + esc(d.username) + ' to see their posts, teams and results.') + '</p></div>';
       else {
         var tab = PF.ptab || 'posts';
-        html += '<div class="igtabs">' + [['posts', 'Posts'], ['pinned', 'Pinned'], ['results', 'Results']].map(function (x) { return '<button type="button" data-ptab="' + x[0] + '" aria-pressed="' + (tab === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div>';
+        html += '<div class="igtabs">' + [['posts', 'Posts'], ['tagged', 'Tagged'], ['pinned', 'Pinned'], ['results', 'Results']].map(function (x) { return '<button type="button" data-ptab="' + x[0] + '" aria-pressed="' + (tab === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div>';
         if (tab === 'posts') {
           if (!posts) html += '<p class="note">Loading…</p>';
           else if (!posts.length) html += mine ? '<div class="card"><p class="note">Share your first moment: one of your clips, or your player reel.</p><div class="actions"><button class="plain primary" type="button" data-pr="post">Post a highlight</button></div></div>' : '<p class="note">No posts yet.</p>';
-          else html += '<div class="pgrid">' + posts.map(function (x) { return '<button class="ptile" type="button" data-openpost="' + esc(x.id) + '" aria-label="' + esc(x.caption || 'Post') + '"><video muted playsinline preload="metadata" src="' + esc(postSrc(x) + '#t=1') + '"></video><span>♥ ' + x.likes + '</span></button>'; }).join('') + '</div>';
+          else html += pgrid(posts);
+        } else if (tab === 'tagged') {
+          if (!PF.tagged) html += '<p class="note">Loading…</p>';
+          else if (!PF.tagged.length) html += '<p class="note">' + (mine ? 'When someone tags you in a post, it shows here.' : 'Nobody has tagged @' + esc(d.username) + ' in a post yet.') + '</p>';
+          else html += pgrid(PF.tagged);
         } else if (tab === 'pinned') {
           html += '<div class="card">';
           if (PF.pins) html += pinPicker();
@@ -2615,7 +2680,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     me = null; closeTeam();
     A.teams.slice().forEach(function (t) { forgetTeam(t.code); });
     A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; preels = []; crest = null; J = null;
-    MYP = undefined; profAsked = null; PPL = { q: '', found: null, teams: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; FD = { posts: null, games: null, busy: false, msg: '', open: null, arm: null, seenAt: 0 }; $('unamePop').hidden = true; $('postPop').hidden = true; pplBadges();
+    TP = { code: null, map: {}, at: 0 }; MYP = undefined; profAsked = null; PPL = { q: '', found: null, teams: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; FD = { posts: null, games: null, busy: false, msg: '', open: null, arm: null, seenAt: 0 }; $('unamePop').hidden = true; $('postPop').hidden = true; pplBadges();
     CH = { code: null, list: [], unread: 0 }; RV = { code: null, list: [], home: null, near: [], q: '', form: null, msg: '' }; myAsk = null; asks = []; askMsg = ''; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
     saveApp(); applyTheme(); go('welcome');
   }
@@ -2758,7 +2823,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('squadNote').hidden = !sb; $('squadNote').textContent = nClaimed + ' of ' + S.players.length + ' have claimed their profile.';
     $('squadList').innerHTML = S.players.slice().sort(function (a, b) { return (!!(roster[b.id] || {}).gaffer) - (!!(roster[a.id] || {}).gaffer); }).map(function (p) {
       var x = roster[p.id] || {}, s = T[p.id];
-      return '<div class="prow"><span>' + esc(nm(p.id)) + (x.gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (p.id === myPid ? '<span class="badge you">You</span>' : '') +
+      return '<div class="prow"><span>' + plink(p.id, esc(nm(p.id))) + (x.gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (p.id === myPid ? '<span class="badge you">You</span>' : '') +
         (sb && p.id !== myPid ? (x.claimed ? '<span class="badge claimed">Claimed</span>' : '<span class="badge">Not claimed</span>') : '') +
         (sb && own && pushFor === A.active && x.claimed && !pushPids[p.id] ? '<span class="badge nopush">Notifications off</span>' : '') + '</span>' +
         '<small>' + (p.pos ? posName(p.pos) + ', ' : '') + s.g + ' G, ' + s.a + ' A</small></div>';
@@ -2811,7 +2876,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       return;
     }
     var s = fxSides(f), spots = fxSpots(f, s), mine = myPid == null ? null : (f.votes || []).filter(function (v) { return v.pid === myPid; })[0];
-    var full = s.ins.length >= f.max_outfield, names = function (ids) { return ids.map(function (id) { return esc(nm(id)); }).join(', '); };
+    var full = s.ins.length >= f.max_outfield, names = function (ids) { return ids.map(function (id) { return plink(id, esc(nm(id))); }).join(', '); };
     var left = Math.max(0, f.max_outfield - s.ins.length) + (s.gk == null ? 1 : 0), ask = myPid != null && !mine, tour = f.kind === 'tournament';
     var ff = fmtFix(Object.assign({ side: f.side || 5 }, f.fmt || fmtDefault(tour ? 'tournament' : 'game', f.side || 5)));
     var played = tour ? S.results.filter(function (r) { return r.tour === f.id; }) : [];
@@ -2829,7 +2894,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       '<p class="fxsub">' + esc(whenText(f.ko_at)) + ' · ' + (left ? left + (left === 1 ? ' space left' : ' spaces left') : 'full') + '</p>' +
       '<p class="note">' + [f.location ? esc(f.location) : '', f.cost ? esc(f.cost) : '', fmtText(ff) + (tour ? ' games' : '')].filter(Boolean).join(', ') + '</p>' +
       (played.length ? '<ul class="tgames">' + played.map(function (r) { return '<li><span>v ' + esc(r.opp) + '</span><b>' + r.us + '–' + r.them + '</b></li>'; }).join('') + '</ul>' : '') +
-      '<p class="note"><b>' + s.ins.length + ' of ' + f.max_outfield + '</b> outfield' + (full ? ' (full)' : '') + ', keeper: <b>' + (s.gk != null ? esc(nm(s.gk)) : 'needed') + '</b></p>';
+      '<p class="note"><b>' + s.ins.length + ' of ' + f.max_outfield + '</b> outfield' + (full ? ' (full)' : '') + ', keeper: <b>' + (s.gk != null ? plink(s.gk, esc(nm(s.gk))) : 'needed') + '</b></p>';
     if (myPid != null) {
       var c = mine && mine.choice, dis = function (k) { return (k === 'gk' && s.gk != null && s.gk !== myPid) || (k === 'in' && full && c !== 'in') ? ' disabled' : ''; };
       html += '<div class="vote"><button type="button" data-vote="in" aria-pressed="' + (c === 'in') + '"' + dis('in') + '>I’m in</button>' +
@@ -3309,7 +3374,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
           .map(function (c) { var r = byId[c.game_id]; return Object.assign({}, c, { title: (r ? vs(r) + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label }); });
         return { p: p, list: list, vids: vids };
       }).sort(function (a, b) { return ((b.p.id === myPid) - (a.p.id === myPid)) || (b.vids.length - a.vids.length) || (b.list.length - a.list.length); }).forEach(function (x) {
-        html += '<div class="hcard"><h3>' + esc(nm(x.p.id)) + ((roster[x.p.id] || {}).gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (x.p.id === myPid ? '<span class="badge you">You</span>' : '') + '</h3>' +
+        html += '<div class="hcard"><h3>' + plink(x.p.id, esc(nm(x.p.id))) + ((roster[x.p.id] || {}).gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (x.p.id === myPid ? '<span class="badge you">You</span>' : '') + '</h3>' +
           '<p class="note">' + (x.vids.length ? x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ' this season, oldest first' : x.list.length ? x.list.length + (x.list.length === 1 ? ' moment' : ' moments') + ' this season, oldest first' : 'No moments yet') + '</p>';
         var mineNow = x.p.id === myPid && !!sb && !!me, hidBtn = mineNow && x.vids.length ? '<button class="plain" type="button" data-hide="1"' + (HIDE.busy ? ' disabled' : '') + '>Remove this clip from my highlights</button>' : '';
         var pr = preelOf(x.p.id);
@@ -4953,7 +5018,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var T = totals(showF, statScope);
     S.players.slice().sort(function (a, b) { var x = T[a.id], y = T[b.id]; return (y.g - x.g) || (y.a - x.a) || (y.mins - x.mins); }).forEach(function (p) {
       var x = T[p.id]; if (statScope && !x.apps) return;
-      html += '<tr><td>' + esc(nm(p.id)) + '</td><td class="n">' + x.apps + '</td><td class="n">' + x.mins + '</td><td class="n">' + x.g + '</td><td class="n">' + x.a + '</td><td class="n">' + (x.tracked ? x.ga : '–') + '</td></tr>';
+      html += '<tr><td>' + plink(p.id, esc(nm(p.id))) + '</td><td class="n">' + x.apps + '</td><td class="n">' + x.mins + '</td><td class="n">' + x.g + '</td><td class="n">' + x.a + '</td><td class="n">' + (x.tracked ? x.ga : '–') + '</td></tr>';
     });
     $('season').innerHTML = html;
     $('concNote').hidden = !S.results.length;
@@ -5029,18 +5094,18 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     html += '<section><h2>Match ratings</h2><div class="gnav"><button type="button" data-ig="' + (gi - 1) + '"' + (gi <= 0 ? ' disabled' : '') + ' aria-label="Earlier game">‹</button><p class="msg">' + esc(r.house ? scoreLine(r, r.us, r.them) : 'v ' + r.opp + ' ' + r.us + '–' + r.them) + (dayOf(r) ? '<br><small class="note">' + esc(dayOf(r)) + '</small>' : '') + '</p><button type="button" data-ig="' + (gi + 1) + '"' + (gi >= d.games.length - 1 ? ' disabled' : '') + ' aria-label="Later game">›</button></div>' +
       '<ul class="inslist">' + Object.keys(q.r).filter(function (k) { return P(+k); }).sort(function (a, b) { return q.r[b] - q.r[a]; }).map(function (k) {
         var x = r.per[k], bits = [x.g ? x.g + (x.g === 1 ? ' goal' : ' goals') : '', x.a ? x.a + (x.a === 1 ? ' assist' : ' assists') : '', x.mins + ' min'].filter(Boolean).join(', ');
-        return '<li><span><b>' + esc(nm(+k)) + '</b>' + (+k === q.motm ? ' <span class="motm">★ Man of the match</span>' : '') + '<br><small class="note">' + bits + '</small></span><span class="rate">' + q.r[k].toFixed(1) + '</span></li>';
+        return '<li><span><b>' + plink(+k, esc(nm(+k))) + '</b>' + (+k === q.motm ? ' <span class="motm">★ Man of the match</span>' : '') + '<br><small class="note">' + bits + '</small></span><span class="rate">' + q.r[k].toFixed(1) + '</span></li>';
       }).join('') + '</ul></section>';
     // form
     var fl = S.players.filter(function (p) { return d.form[p.id].n; }).sort(function (a, b) { var x = d.form[a.id], y = d.form[b.id]; return y.sum / y.n - x.sum / x.n; });
     html += '<section><h2>Season form</h2><div class="scroll"><table><thead><tr><th>Player</th><th class="n">Average</th><th class="n">Last 3</th><th class="n">★</th></tr></thead><tbody>' + fl.map(function (p) {
-      var f = d.form[p.id], l3 = f.last.slice(-3); return '<tr><td>' + esc(nm(p.id)) + '</td><td class="n">' + (f.sum / f.n).toFixed(1) + '</td><td class="n">' + (l3.reduce(function (a, b) { return a + b; }, 0) / l3.length).toFixed(1) + '</td><td class="n">' + (f.motm || '') + '</td></tr>';
+      var f = d.form[p.id], l3 = f.last.slice(-3); return '<tr><td>' + plink(p.id, esc(nm(p.id))) + '</td><td class="n">' + (f.sum / f.n).toFixed(1) + '</td><td class="n">' + (l3.reduce(function (a, b) { return a + b; }, 0) / l3.length).toFixed(1) + '</td><td class="n">' + (f.motm || '') + '</td></tr>';
     }).join('') + '</tbody></table></div><p class="note">★ is how many times each player has been man of the match.</p></section>';
     // chemistry
     html += '<section><h2>Chemistry</h2>';
-    if (d.pairs.length) html += '<p class="note">How the team does while two players are on the pitch together.</p><ul class="inslist">' + d.pairs.slice(0, 5).map(function (x) { var gd = x.gf - x.ga; return '<li><span><b>' + esc(nm(x.a)) + ' + ' + esc(nm(x.b)) + '</b></span><small>' + x.gf + '–' + x.ga + ' (' + (gd > 0 ? '+' : '') + gd + ') in ' + x.mins + ' min</small></li>'; }).join('') + '</ul>';
+    if (d.pairs.length) html += '<p class="note">How the team does while two players are on the pitch together.</p><ul class="inslist">' + d.pairs.slice(0, 5).map(function (x) { var gd = x.gf - x.ga; return '<li><span><b>' + plink(x.a, esc(nm(x.a))) + ' + ' + plink(x.b, esc(nm(x.b))) + '</b></span><small>' + x.gf + '–' + x.ga + ' (' + (gd > 0 ? '+' : '') + gd + ') in ' + x.mins + ' min</small></li>'; }).join('') + '</ul>';
     else html += '<p class="note">On-pitch pairings build up from games played on this version of the app. Link-ups below use every game.</p>';
-    if (d.links.length) html += '<h3 style="margin-top:8px">Link-ups</h3><ul class="inslist">' + d.links.slice(0, 5).map(function (l) { return '<li><span><b>' + esc(nm(l.a)) + ' → ' + esc(nm(l.p)) + '</b></span><small>' + l.n + (l.n === 1 ? ' goal' : ' goals') + '</small></li>'; }).join('') + '</ul>';
+    if (d.links.length) html += '<h3 style="margin-top:8px">Link-ups</h3><ul class="inslist">' + d.links.slice(0, 5).map(function (l) { return '<li><span><b>' + plink(l.a, esc(nm(l.a))) + ' → ' + plink(l.p, esc(nm(l.p))) + '</b></span><small>' + l.n + (l.n === 1 ? ' goal' : ' goals') + '</small></li>'; }).join('') + '</ul>';
     html += '</section>';
     // when goals come
     var mx = d.buckets.reduce(function (m, b) { return Math.max(m, b.f, b.a); }, 1);
@@ -5653,7 +5718,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (mk.length) html += '<div class="cacts">' + mk.map(function (k) { return '<button type="button" data-chunmute="' + esc(k) + '">Unmute ' + esc(muted[k]) + '</button>'; }).join('') + '</div>';
       if (!CH.list.length && !CH.err) html += '<p class="note">Nothing yet. Say something, or record a play on the Tactics tab and send it here. Be decent: anyone can report a message, and the gaffer can remove it.</p>';
       html += '<div class="chatlist">' + CH.list.map(function (m) {
-        var o = '<div class="cmsg' + (m.mine ? ' mine' : '') + '"><small>' + esc(m.mine ? 'You' : m.name || 'Player') + ' · ' + chatWhen(m.at) + '</small>';
+        var o = '<div class="cmsg' + (m.mine ? ' mine' : '') + '"><small>' + (m.mine ? 'You' : m.pid != null ? plink(m.pid, esc(m.name || 'Player')) : esc(m.name || 'Player')) + ' · ' + chatWhen(m.at) + '</small>';
         var play = m.play ? tbClean(m.play) : null;
         if (play) o += '<div class="cplay"><b>' + esc(m.play_name || 'A play') + '</b><svg viewBox="0 0 100 140" data-chsvg="' + m.id + '" role="img" aria-label="Recorded play">' + tbSvg(false, tbFrame(play, tbTracks(play), 0)) + '</svg><div class="cacts"><button type="button" data-chplay="' + m.id + '">▶ Play, ' + Math.max(1, Math.round(play.dur / 1000)) + ' s</button></div></div>';
         if (m.body) o += '<button type="button" class="bubble" data-chmsg="' + m.id + '">' + esc(m.body) + '</button>';

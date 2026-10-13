@@ -306,7 +306,9 @@ eq(await Promise.all(['EDP', 'ethan', 'EthanDP', 'E_D_P_1', 'gaffer'].map((u) =>
 eq(await d.rpc(sam, 'set_profile', { p_username: 'Ethan', p_name: 'Not Ethan' }), 'reserved', 'so nobody else can take them');
 eq(await d.rpc(ethan, 'set_profile', { p_username: 'EDP', p_name: 'Ethan' }), 'ok', 'but Ethan can');
 const mp = await d.rpc(ethan, 'my_profile');
-eq(['username', 'name', 'private', 'pins', 'followers', 'following', 'requests'].map((k) => mp[k]), ['EDP', 'Ethan', false, [], 0, 0, 0], 'his profile, public to start with');
+const mateIds = (await d.admin(`select u from (select p.user_id u from public.players p where p.team_id = '${sop.id}' and p.user_id is not null union select m.user_id from public.team_members m where m.team_id = '${sop.id}') x where u <> '${ethan.id}'`)).map((r) => r.u);
+const both = (await d.admin(`select count(*)::int as n from public.follows a join public.follows b on b.follower = a.followee and b.followee = a.follower where a.follower = '${ethan.id}' and a.status = 'accepted' and b.status = 'accepted' and a.followee = any('{${mateIds.join(',')}}'::uuid[])`))[0].n;
+eq(['username', 'name', 'private', 'pins', 'requests'].map((k) => mp[k]).concat(both === mateIds.length && mp.following >= mateIds.length), ['EDP', 'Ethan', false, [], 0, true], `his profile, public to start with, already following his ${mateIds.length} teammates both ways (and anyone who was on the team before)`);
 eq(await d.rpc(jake, 'my_profile'), null, 'someone who hasn\'t picked one has no profile yet (the app asks)');
 eq(await d.rpc(jake, 'set_profile', { p_username: 'edp', p_name: 'Jake' }), 'reserved', 'names are the same whatever the capitals');
 eq(await d.rpc(jake, 'set_profile', { p_username: 'Chappers', p_name: '  Chaplin   Smith ' }), 'ok', 'Jake (who plays as Chaplin) picks one');
@@ -439,10 +441,55 @@ eq((await d.rpc(jake, 'save_player_reel', { p_code: sop.code, p_pid: 3, p_path: 
 eq((await d.rpc(ethan, 'get_feed'))[0].video.path.endsWith('reel-3.mp4'), true, 'which still plays in the post');
 for (const t of ['posts', 'post_likes', 'post_reports']) eq(await count(sam, 'public.' + t), 0, `nobody reads ${t} directly`);
 
+// ---------- teammates follow each other; names link to profiles; tags (0028)
+const fol = async (a, b) => ((await d.admin(`select status from public.follows where follower = '${a.id}' and followee = '${b.id}'`))[0] || {}).status || null;
+eq([await fol(ethan, jake), await fol(jake, ethan)], ['accepted', 'accepted'], 'a gaffer and a player on the same team follow each other');
+eq([await fol(sam, jake) === 'accepted' || await fol(sam, jake) === null, await fol(jake, rival)], [true, null], 'nobody outside the team is followed for them');
+const newbie = await d.user('newbie@example.com');
+await d.admin(`insert into public.players (team_id, pid, name) values ('${sop.id}', 77, 'Newbie') on conflict do nothing`);
+await d.rpc(sam, 'set_profile', { p_username: 'samwise', p_name: 'Sam', p_private: true });
+eq(await d.rpc(newbie, 'claim_player', { p_code: sop.code, p_pid: 77, p_last_name: '', p_position: 'mix' }), 'ok', 'someone new joins the squad');
+eq([await fol(newbie, ethan), await fol(ethan, newbie), await fol(newbie, jake), await fol(jake, newbie)], ['accepted', 'accepted', 'accepted', 'accepted'], 'and straight away follows everyone on it, and they follow them');
+await d.rpc(jake, 'unfollow', { p_username: 'EDP' });
+await d.rpc(newbie, 'claim_player', { p_code: sop.code, p_pid: 77, p_last_name: 'N', p_position: 'def' });
+eq(await fol(jake, ethan), null, 'unfollowing a teammate sticks (nothing re-follows them)');
+await d.rpc(jake, 'follow', { p_username: 'EDP' });
+const blockedMate = await d.user('blocked@example.com');
+await d.rpc(blockedMate, 'set_profile', { p_username: 'grumpy', p_name: 'Grumpy' });
+await d.rpc(ethan, 'block_user', { p_username: 'grumpy' });
+await d.admin(`insert into public.players (team_id, pid, name) values ('${sop.id}', 78, 'Grumpy') on conflict do nothing`);
+await d.rpc(blockedMate, 'claim_player', { p_code: sop.code, p_pid: 78, p_last_name: '', p_position: 'mix' });
+eq([await fol(blockedMate, ethan), await fol(ethan, blockedMate), await fol(blockedMate, jake)], [null, null, 'accepted'], 'except anyone either has blocked');
+let people = await d.rpc(sam, 'team_people', { p_code: sop.code });
+eq(people.map((x) => [x.pid, x.username]), [[3, 'Chappers'], [78, 'grumpy']], 'the squad\'s usernames, so names in the app can open their profiles');
+eq((await d.rpc(ethan, 'team_people', { p_code: sop.code })).map((x) => x.username), ['Chappers'], 'never anyone blocked with you');
+await d.rpc(ethan, 'block_user', { p_username: 'grumpy', p_block: false });
+check(/Sign in|permission denied/i.test(await d.fails(d.rpc(null, 'team_people', { p_code: sop.code }))), 'and only signed in');
+
+await d.rpc(sam, 'set_profile', { p_username: 'samwise', p_name: 'Sam', p_private: false });
+post = await d.rpc(jake, 'create_post', { p_kind: 'clip', p_game: hg, p_at: 1000, p_caption: 'With the lads' });
+eq(await d.rpc(jake, 'tag_post', { p_id: post.id, p_tags: ['edp', 'samwise', 'nobody_here', 'Chappers', 'EDP'] }), 2, 'people can be tagged in a post');
+eq(await d.rpc(ethan, 'tag_post', { p_id: post.id, p_tags: ['samwise'] }), null, 'only by whoever posted it');
+let tp = (await d.rpc(jake, 'user_posts', { p_username: 'chappers' })).find((x) => x.id === post.id);
+eq(tp.tags.map((x) => x.username), ['EDP', 'samwise'], 'people can be tagged in a post (not yourself, unknown names skipped, each once)');
+eq((await d.rpc(rival, 'user_tagged', { p_username: 'EDP' })).map((x) => [x.id === post.id, x.tagged_me]), [[true, false]], 'and it shows on their profile\'s Tagged tab');
+eq((await d.rpc(ethan, 'user_tagged', { p_username: 'EDP' }))[0].tagged_me, true, 'which knows it\'s you');
+eq([await d.rpc(ethan, 'untag_post', { p_id: post.id }), await d.rpc(sam, 'untag_post', { p_id: post.id })], [true, true], 'anyone tagged can take their tag off');
+eq([(await d.rpc(jake, 'user_posts', { p_username: 'chappers' })).find((x) => x.id === post.id).tags, await d.rpc(sam, 'user_tagged', { p_username: 'EDP' })], [[], []], 'which leaves the post up, without them');
+eq(await d.rpc(rival, 'untag_post', { p_id: post.id }), false, 'nobody else\'s tag can be taken off');
+await d.rpc(jake, 'block_user', { p_username: 'samwise' });
+const p2 = await d.rpc(jake, 'create_post', { p_kind: 'clip', p_game: hg, p_at: 1000 }); await d.rpc(jake, 'tag_post', { p_id: p2.id, p_tags: ['samwise'] });
+eq((await d.rpc(jake, 'user_posts', { p_username: 'chappers' })).find((x) => x.id === p2.id).tags, [], 'nobody blocked can be tagged');
+await d.rpc(jake, 'block_user', { p_username: 'samwise', p_block: false });
+for (let i = 0; i < 11; i++) { const u = await d.user(`tagme${i}@example.com`); await d.rpc(u, 'set_profile', { p_username: 'tagme' + i, p_name: 'T' + i }); }
+check(/Up to 10/.test(await d.fails(d.rpc(jake, 'tag_post', { p_id: p2.id, p_tags: Array.from({ length: 11 }, (_, i) => 'tagme' + i) }))), 'up to 10 people a post');
+eq((await d.rpc(jake, 'user_posts', { p_username: 'chappers' })).find((x) => x.id === p2.id).tags, [], 'and too many tags none of them');
+eq(await count(sam, 'public.post_tags'), 0, 'nobody reads post_tags directly');
+
 // ---------- deleting an account
 eq(await d.rpc(jake, 'delete_my_account'), 0, 'a player deleting their account takes no team with it');
 t = await d.rpc(ethan, 'get_team', { p_code: sop.code });
-eq([t.players.find((p) => p.pid === 3).claimed, t.players.length], [false, squadNow], 'their profile is freed, and stays in the squad with its stats');
+eq([t.players.find((p) => p.pid === 3).claimed, t.players.length], [false, squadNow + 2], 'their profile is freed, and stays in the squad with its stats');
 eq((await d.rpc(ethan, 'chat_list', { p_code: sop.code })).filter((m) => m.name === 'Chaplin').length > 0, true, 'their chat messages stay, under their first name');
 eq(await d.rpc(ethan, 'delete_my_account'), 0, 'one of two gaffers deleting their account leaves the team for the other');
 eq((await d.rpc(third, 'get_team', { p_code: sop.code })).team.name, 'Sons of Pitches', 'who still has it');

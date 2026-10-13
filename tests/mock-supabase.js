@@ -11,6 +11,11 @@
   const code = (n) => { const a = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < n; i++) s += a[Math.floor(Math.random() * a.length)]; return s; };
   const uid = () => (sessionStorage.getItem('__mockuser') || null);
   const isOrg = (d, team) => !!uid() && d.team_members.some((m) => m.team_id === team && m.user_id === uid());
+  // (0028) someone joining a team follows everyone on it, and they follow them, accepted; not anyone either has blocked
+  const followMates = (d, team, user) => { d.follows = d.follows || []; d.blocks = d.blocks || [];
+    const us = [...new Set(d.players.filter((p) => p.team_id === team && p.user_id).map((p) => p.user_id).concat(d.team_members.filter((m) => m.team_id === team).map((m) => m.user_id)))];
+    us.filter((o) => o !== user && !d.blocks.some((x) => (x.blocker === o && x.blocked === user) || (x.blocker === user && x.blocked === o))).forEach((o) => [[user, o], [o, user]].forEach(([a1, b1]) => {
+      const f = d.follows.find((x) => x.follower === a1 && x.followee === b1); if (f) f.status = 'accepted'; else d.follows.push({ follower: a1, followee: b1, status: 'accepted', at: Date.now() }); })); };
   const teamOf = (d, table, row) => table === 'teams' ? row.id : (row.team_id || (d.games.find((g) => g.id === row.game_id) || {}).team_id);
   const ok = (data) => Promise.resolve({ data, error: null });
   const fail = (message, code) => Promise.resolve({ data: null, error: { message, code } });
@@ -46,7 +51,7 @@
     if (name === 'join_as_organiser') {
       if (!uid()) return fail('Sign in first', '42501');
       const t = d.teams.find((x) => x.organiser_code === a.p_organiser_code); if (!t) return ok(null);
-      if (!isOrg(d, t.id)) d.team_members.push({ team_id: t.id, user_id: uid() }); store(d); return ok(t.code);
+      if (!isOrg(d, t.id)) { d.team_members.push({ team_id: t.id, user_id: uid() }); followMates(d, t.id, uid()); } store(d); return ok(t.code);
     }
     if (name === 'new_organiser_code') { const t = d.teams.find((x) => x.id === a.p_team); if (!t || !isOrg(d, t.id)) return fail('no', '42501'); t.organiser_code = code(10); store(d); return ok(t.organiser_code); }
     if (name === 'claim_player') {
@@ -56,10 +61,10 @@
       if (p.user_id && p.user_id !== uid()) return ok('taken');
       d.players.forEach((x) => { if (x.team_id === t.id && x.user_id === uid()) x.user_id = null; });
       if (['fwd', 'def', 'mix', 'gk'].indexOf(a.p_position) < 0) return ok('position');
-      p.user_id = uid(); p.last_name = a.p_last_name || null; p.position = a.p_position; store(d); return ok('ok');
+      const was = p.user_id; p.user_id = uid(); p.last_name = a.p_last_name || null; p.position = a.p_position; if (was !== uid()) followMates(d, t.id, uid()); store(d); return ok('ok');
     }
     // ---------- profiles and following (0023), as the real functions behave
-    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team', 'create_post', 'remove_post', 'like_post', 'report_post', 'get_feed', 'user_posts', 'my_reels'];
+    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team', 'create_post', 'remove_post', 'like_post', 'report_post', 'get_feed', 'user_posts', 'my_reels', 'team_people', 'tag_post', 'untag_post', 'user_tagged'];
     if (PEOPLE.includes(name)) {
       const RESERVED = d.reserved_usernames || ['edp', 'ethan', 'ethandp', 'e_d_p_1', 'gaffer', 'admin', 'support', 'official'].map((h) => ({ handle: h, user_id: null }));
       const prof = (u) => d.profiles.find((p) => p.user_id === u), byName = (n) => d.profiles.find((p) => p.username.toLowerCase() === String(n || '').trim().toLowerCase());
@@ -110,7 +115,19 @@
         const c = x.kind === 'clip' ? d.clips.filter((y) => y.game_id === x.game_id && y.at === x.at).sort((a1, b1) => a1.seq - b1.seq)[0] : null;
         return { id: x.id, kind: x.kind, caption: x.caption, at: x.created_at, username: pr.username, name: pr.name, mine: x.user_id === uid(), team: t.name, short: t.short, color: t.color,
           video: x.kind === 'reel' ? { path: x.path, store: x.store, label: 'Player reel' } : c ? { path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur } : null,
-          likes: d.post_likes.filter((l) => l.post_id === x.id && l.liked).length, liked: d.post_likes.some((l) => l.post_id === x.id && l.user_id === uid() && l.liked) }; };
+          likes: d.post_likes.filter((l) => l.post_id === x.id && l.liked).length, liked: d.post_likes.some((l) => l.post_id === x.id && l.user_id === uid() && l.liked),
+          tags: (d.post_tags || []).filter((g) => g.post_id === x.id && !g.removed && !blocked(uid(), g.user_id)).map((g) => prof(g.user_id)).filter(Boolean).map((tp) => ({ username: tp.username, name: tp.name })).sort((p1, p2) => p1.username < p2.username ? -1 : 1),
+          tagged_me: (d.post_tags || []).some((g) => g.post_id === x.id && g.user_id === uid() && !g.removed) }; };
+      // (0028) the squad's usernames; tags
+      if (name === 'team_people') { const t = d.teams.find((x) => x.code === String(a.p_code || '').trim().toUpperCase());
+        return ok(t ? d.players.filter((p) => p.team_id === t.id && p.user_id && prof(p.user_id) && !blocked(uid(), p.user_id)).sort((p1, p2) => p1.pid - p2.pid).map((p) => ({ pid: p.pid, username: prof(p.user_id).username })) : []); }
+      if (name === 'tag_post') { const x = d.posts.find((y) => y.id === a.p_id && y.user_id === uid() && !y.removed_at); if (!x) return ok(null); d.post_tags = d.post_tags || [];
+        const add = [...new Set((Array.isArray(a.p_tags) ? a.p_tags : []).map((n) => byName(n)).filter((pr) => pr && pr.user_id !== uid() && !blocked(uid(), pr.user_id)).map((pr) => pr.user_id))].filter((u) => !d.post_tags.some((g) => g.post_id === x.id && g.user_id === u));
+        if (d.post_tags.filter((g) => g.post_id === x.id).length + add.length > 10) return fail('Up to 10 people a post', '22023');
+        add.forEach((u) => d.post_tags.push({ post_id: x.id, user_id: u, removed: false })); store(d); return ok(d.post_tags.filter((g) => g.post_id === x.id && !g.removed).length); }
+      if (name === 'untag_post') { const g = (d.post_tags || []).find((y) => y.post_id === a.p_id && y.user_id === uid() && !y.removed); if (!g) return ok(false); g.removed = true; store(d); return ok(true); }
+      if (name === 'user_tagged') { const pr = byName(a.p_username); if (!pr || blocked(uid(), pr.user_id) || !seeable(pr)) return ok(null);
+        return ok(d.posts.filter((x) => !x.removed_at && (d.post_tags || []).some((g) => g.post_id === x.id && g.user_id === pr.user_id && !g.removed) && prof(x.user_id) && seeable(prof(x.user_id)) && !blocked(uid(), x.user_id)).sort((x, y) => y.created_at - x.created_at).map(postJson).filter((x) => x)); }
       const live = (x) => !x.removed_at;
       if (name === 'create_post') { if (!mine) return ok({ error: 'no_profile' }); let team = null, path = null, st = null;
         if (a.p_kind === 'clip') { const c = clipsOf(uid()).find((y) => y.game_id === a.p_game && y.at === a.p_at); if (c) team = (d.clips.find((y) => y.game_id === c.game_id && y.at === c.at) || {}).team_id; }
@@ -220,7 +237,7 @@
       const have = d.players.find((p) => p.team_id === t.id && p.user_id === r.user_id);
       if (!have) {
         const pid = Math.max(d.players.filter((p) => p.team_id === t.id).reduce((m, p) => Math.max(m, p.pid), 0) + 1, +((t.settings || {}).nextId) || 0);
-        d.players.push({ team_id: t.id, pid, name: r.name, position: r.position, shirt_number: r.shirt_number, user_id: r.user_id, last_name: r.last_name });
+        d.players.push({ team_id: t.id, pid, name: r.name, position: r.position, shirt_number: r.shirt_number, user_id: r.user_id, last_name: r.last_name }); if (r.user_id) followMates(d, t.id, r.user_id);
         t.settings = Object.assign({}, t.settings, { nextId: pid + 1 }); r.pid = pid;
       } else r.pid = have.pid;
       r.status = 'approved'; store(d); return ok('ok');
