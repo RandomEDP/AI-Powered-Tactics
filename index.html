@@ -2768,7 +2768,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }).join('') + '</ol>' : '<p class="note">' + (RB.goals ? 'None of ' + esc(who) + '’s clips is a goal of theirs yet.' : 'No clips yet.') + '</p>';
     if (canVoice()) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
       (RB.voice ? '<div class="two"><label class="field" for="rbVoiceName">Voice<select id="rbVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
-        '<label class="field" for="rbVoiceStyle">Delivery<select id="rbVoiceStyle"><option value="hype"' + (voicePick().style === 'hype' ? ' selected' : '') + '>Live commentator</option><option value="plain"' + (voicePick().style === 'plain' ? ' selected' : '') + '>Read it straight</option></select></label></div>' : '');
+        '<label class="field" for="rbVoiceStyle">Delivery<select id="rbVoiceStyle">' + styleOpts() + '</select></label></div>' : '');
     html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
       '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
       '<div class="actions">' + (RB.path && !RB.busy ? '<button class="plain primary" type="button" id="rbShare">Share or save it</button>' : '<button class="plain primary" type="button" id="rbMake"' + (RB.busy || !on.length ? ' disabled' : '') + '>Make the reel</button>') +
@@ -2782,7 +2782,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     RB.busy = true; RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
     var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
     if (RB.voice && canVoice()) {
-      var lines = [who + '’s highlights, for ' + teamName() + '.'].concat(list.map(function (c) { return byId[c.game_id] ? commentaryFor(byId[c.game_id], c) : ''; }), ['That’s ' + who + '. What a player.']).map(spokenLine);
+      var sw = swears(), lines = [sw ? who + '’s highlights. Brace yourselves, this is absolute filth.' : who + '’s highlights, for ' + teamName() + '.'].concat(list.map(function (c) { return byId[c.game_id] ? commentaryFor(byId[c.game_id], c, sw) : ''; }), [sw ? 'That’s ' + who + '. What a fucking player.' : 'That’s ' + who + '. What a player.']).map(spokenLine);
       try {
         var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
         if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) {
@@ -2813,7 +2813,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (t.id === 'rbGoals') RB.goals = t.checked;
     else if (t.hasAttribute('data-rbpick')) RB.pick[t.getAttribute('data-rbpick')] = t.checked;
     else if (t.id === 'rbVoice') RB.voice = t.checked;
-    else if (t.id === 'rbVoiceName' || t.id === 'rbVoiceStyle') { try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('rbVoiceName').value, style: $('rbVoiceStyle').value })); } catch (err) {} return; }
+    else if (t.id === 'rbVoiceName' || t.id === 'rbVoiceStyle') { try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('rbVoiceName').value, style: $('rbVoiceStyle').value })); } catch (err) {} } // (a different voice is a different reel)
     else return;
     RB.path = null; RB.msg = ''; RB.note = ''; renderRB(); // (a change means the reel made before isn't this one)
   });
@@ -3047,7 +3047,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       html += busy;
       if (hasGaffer()) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel; the clips are kept with and without it, and everyone can switch it on or off)</small></span></label>' +
         '<div class="two"><label class="field" for="cutVoiceName">Voice<select id="cutVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
-        '<label class="field" for="cutVoiceStyle">Delivery<select id="cutVoiceStyle"><option value="hype"' + (voicePick().style === 'hype' ? ' selected' : '') + '>Live commentator</option><option value="plain"' + (voicePick().style === 'plain' ? ' selected' : '') + '>Read it straight</option></select></label></div>' +
+        '<label class="field" for="cutVoiceStyle">Delivery<select id="cutVoiceStyle">' + styleOpts() + '</select></label></div>' +
         '<div class="actions"><button class="plain" type="button" data-cutdo="hear">Hear this voice</button></div>' + (CUT.heard ? '<p class="msg" role="status">' + esc(CUT.heard) + '</p>' : '');
       html += lookPreview(r, plan);
       var from = many ? live.map(function (k) { var c = plan.filter(function (x) { return x.cam === camNo(k); }).length; return c + ' from camera ' + camNo(k); }).join(', ') : '';
@@ -3142,7 +3142,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (e.target.id === 'cutBug' && CUT) { cutKeep(); renderCut(); }
   });
   var VOICES = [['Fenrir', 'Fenrir (excitable)'], ['Puck', 'Puck (upbeat)'], ['Sadachbia', 'Sadachbia (lively)'], ['Algenib', 'Algenib (gravelly)'], ['Orus', 'Orus (firm)'], ['Charon', 'Charon (measured)'], ['Kore', 'Kore (firm, female)'], ['Leda', 'Leda (youthful, female)']];
-  function voicePick() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return { voice: v && v.voice ? v.voice : 'Fenrir', style: v && v.style === 'plain' ? 'plain' : 'hype' }; }
+  function voicePick() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return { voice: v && v.voice ? v.voice : 'Fenrir', style: v && (v.style === 'plain' || v.style === 'sweary') ? v.style : 'hype' }; }
+  var STYLES = [['hype', 'Live commentator'], ['plain', 'Read it straight'], ['sweary', 'Sweary, 18+ (swears like a pub commentator)']];
+  function styleOpts() { var now = voicePick().style; return STYLES.map(function (x) { return '<option value="' + x[0] + '"' + (now === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join(''); }
+  var swears = function () { return voicePick().style === 'sweary'; };
   $('cutBody').addEventListener('click', async function (e) {
     var bt = e.target.closest ? e.target.closest('[data-cutdo]') : e.target, act = bt && bt.getAttribute('data-cutdo'), rc = RCp(), r = CUT && S.results[CUT.idx]; if (!act || !CUT || !r) return;
     if (!rc) { CUT.msg = 'Cutting from a video needs the iPhone app.'; renderCut(); return; }
@@ -3173,7 +3176,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (act === 'hear') { // a sample line in the chosen voice, played straight away
       cutKeep(); CUT.heard = 'Fetching the voice…'; renderCut();
       try {
-        var hv = voicePick(), hr = await sb.functions.invoke('reel-voice', { body: { code: A.active, voice: hv.voice, style: hv.style, lines: ['What a finish from ' + (S.players.length ? nm(S.players[0].id) : 'the number nine') + '! ' + teamName() + ' lead 2 1!'] } }), hd = hr && hr.data;
+        var hv = voicePick(), hr = await sb.functions.invoke('reel-voice', { body: { code: A.active, voice: hv.voice, style: hv.style, lines: [hv.style === 'sweary' ? 'HOW THE FUCK has ' + (S.players.length ? nm(S.players[0].id) : 'the number nine') + ' scored that? ' + teamName() + ' lead 2 1!' : 'What a finish from ' + (S.players.length ? nm(S.players[0].id) : 'the number nine') + '! ' + teamName() + ' lead 2 1!'] } }), hd = hr && hr.data;
         if (hd && hd.audio && hd.audio[0]) { new Audio('data:audio/mpeg;base64,' + hd.audio[0]).play().catch(function () {}); CUT.heard = hd.engine === 'gemini' || hv.style === 'plain' ? 'Playing.' : 'Playing, read straight: the live-commentator delivery isn’t available to this key yet (' + (hd.note || 'no reason given') + ').'; }
         else CUT.heard = 'Couldn’t fetch the voice: ' + ((hd && hd.error) || 'the voice service didn’t answer.');
       } catch (he) { CUT.heard = 'Couldn’t reach the voice service.'; }
@@ -3208,8 +3211,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         var said = null; CUT.voiced = null;
         if (CUT.voice && hasGaffer()) {
           CUT.prog = 'Recording the commentary…'; var vp = $('cutProg'); if (vp) vp.textContent = CUT.prog;
-          var words = [usFull(r) + ' against ' + r.opp + '. Here are the highlights.'].concat(list.map(function (c) { return commentaryFor(r, { at: c.at, dur: c.end - c.start }) || ''; }),
-            ['Full time. ' + usFull(r) + ' ' + r.us + ', ' + r.opp + ' ' + r.them + '.']);
+          var sw = swears(), ft = 'Full time. ' + usFull(r) + ' ' + r.us + ', ' + r.opp + ' ' + r.them + '.';
+          var words = [sw ? usFull(r) + ' against ' + r.opp + '. Strap in, this gets fucking mental.' : usFull(r) + ' against ' + r.opp + '. Here are the highlights.'].concat(list.map(function (c) { return commentaryFor(r, { at: c.at, dur: c.end - c.start }, sw) || ''; }),
+            [sw ? ft + ' ' + (r.us > r.them ? 'Get fucking in!' : r.us < r.them ? 'Absolute shambles. Pints are on the keeper.' : 'Honours even. Shite game, if we’re honest.') : ft]);
           words = words.map(spokenLine);
           try {
             var vp2 = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words, voice: vp2.voice, style: vp2.style } }), vd = vr && vr.data;
@@ -4318,12 +4322,24 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('insBody').addEventListener('click', function (e) { var g = e.target.getAttribute('data-ig'); if (g !== null && !e.target.disabled) { insGame = +g; renderInsights(); } });
 
   // ---- commentary: a line for each highlight, spoken by the AI voice when a reel is made with commentary
-  function commentaryFor(r, c) {
+  // Sweary (18+): the pub commentator who can't believe what he's watching. Swearing at the football, never at anyone for who they are.
+  function swearyLine(e, p, a, sc, t, us, them, r, i) {
+    var pickOf = function (list) { return list[Math.abs(i) % list.length]; };
+    if (e.hl) return e.k === 'save' && p ? pickOf(['What a fucking save from ' + p + '! Still ' + sc + '.', 'How the hell has ' + p + ' kept that out? It stays ' + sc + '.', p + ' says absolutely not. Fuck off. ' + sc + '.'])
+      : pickOf(['Look at this. Fucking outrageous' + (p ? ' from ' + p : '') + '.', 'Filth. Absolute filth' + (p ? ' from ' + p : '') + '.', 'Oh, you cheeky bastard' + (p ? ', ' + p : '') + '.']);
+    if (e.us) return p && a ? pickOf(['HOW THE FUCK? ' + a + ' threads it through and ' + p + ' absolutely buries it! ' + sc + '!', 'Get in, you fucking beauty! ' + p + ' smashes it home off ' + a + '’s pass. ' + sc + '.', a + ' to ' + p + ' and it’s in the fucking net! ' + t + ' ' + sc + '!'])
+      : p ? pickOf(['Oh, you fucking beauty, ' + p + '! ' + sc + '!', 'HOW THE FUCK has ' + p + ' scored that? ' + sc + '!', p + ' has just leathered it into the top bin. Absolute filth. ' + sc + '.', 'Get in! ' + p + ', you absolute legend. ' + sc + '.'])
+      : pickOf(['It’s in! It’s fucking in! ' + t + ' ' + sc + '!', 'Scrappy as hell, but who gives a shit? ' + sc + '.']);
+    if (p) return p + (a ? ', off ' + a + ',' : '') + ' scores for ' + r.opp + ', the cheeky bastard. ' + sc + '.';
+    return them > us ? 'Oh, for fuck’s sake. ' + r.opp + ' go in front. ' + sc + '.' : them === us ? 'Shit. ' + r.opp + ' are level. ' + sc + '.' : 'Bollocks. ' + r.opp + ' pull one back. ' + sc + '.';
+  }
+  function commentaryFor(r, c, sweary) {
     var us = 0, them = 0, line = '', from = (c.at || 0) - 1500, to = (c.at || 0) + ((c.dur || 21) * 1000), pickOf = function (list, seed) { return list[Math.abs(seed) % list.length]; };
     (r.ev || []).slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).forEach(function (e, i) {
       if (!e.hl) { if (e.us) us++; else them++; }
       if (line || typeof e.at !== 'number' || e.at < from || e.at > to) return;
       var p = e.p != null ? nm(e.p) : null, a = e.a != null ? nm(e.a) : null, sc = us + '–' + them, t = usOf(r);
+      if (sweary) { line = swearyLine(e, p, a, sc, t, us, them, r, i); return; }
       if (e.hl) line = e.k === 'save' && p ? pickOf(['Big save from ' + p + ' to keep it at ' + sc + '.', p + ' gets down well. Still ' + sc + '.', 'Denied by ' + p + '! It stays ' + sc + '.'], i) : pickOf([(p || 'That') + ' with one worth another look.', 'One for the highlights reel' + (p ? ' from ' + p : '') + '.'], i);
       else if (e.us) line = p && a ? pickOf([a + ' slides it through and ' + p + ' does the rest! ' + t + ' ' + sc + '.', 'What a finish from ' + p + ', set up by ' + a + '. ' + sc + '.', p + ' makes it ' + sc + ', with ' + a + ' to thank for the pass.'], i)
         : p ? pickOf([p + ' finds the net! ' + sc + ' to ' + t + '.', 'Goal! ' + p + ' with a tidy finish. ' + sc + '.', 'There it is, ' + p + ' makes it ' + sc + '.'], i) : pickOf(['It’s in! ' + t + ' ' + sc + '.', 'A goal for ' + t + '. ' + sc + '.'], i);

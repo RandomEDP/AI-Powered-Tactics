@@ -331,6 +331,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   - "Live commentator" uses Gemini TTS (`gemini-2.5-flash-tts`). It needs the `GOOGLE_SERVICE_ACCOUNT` secret: the
     whole JSON key of a service account with the **Vertex AI User** role. Plain API keys are refused for this model.
   - "Read it straight" uses Chirp 3 HD with `GOOGLE_TTS_KEY`.
+  - **"Sweary, 18+"** (Ethan asked for it, after a sweary meme reel): the app writes the lines with swearing in
+    (`swearyLine`, the sweary intro and sign-off; swearing at the football, never at anyone for who they are), and the
+    function performs them with its `SWEARY` prompt (a foul-mouthed pub commentator). Off unless chosen; the choice is
+    kept per phone (`apt-voice`). The App Store age rating has to allow for it (Ethan's to set in App Store Connect).
   - If the performed line fails, the function falls back to Chirp and returns a plain-English `note` saying why.
 - Ethan funds the Google usage himself.
 
@@ -353,7 +357,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v17 (kind `live` from any team member, sent once; same as the repo), `live-stream` v5,
-    `reel-voice` v11 (players allowed too), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v12 (players allowed too; Sweary delivery), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,

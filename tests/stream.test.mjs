@@ -197,6 +197,12 @@ eq([(await V('tok-ethan')).engine, (await V('tok-jake')).engine], ['chirp', 'chi
 eq((await V('tok-rival')).error, "Only the team's gaffers and players can add commentary. Join the squad as yourself first.", 'someone who isn\'t in the team gets none');
 eq((await V(null)).error, 'Sign in first.', 'nor does anyone not signed in');
 eq(DB.voice_usage[0] && DB.voice_usage[0].chars, 2 * 'What a goal from Jake!'.length, 'both count against the team\'s monthly allowance');
+const ttsAsked = [];
+globalThis.fetch = async (url, init = {}) => { if (String(url).startsWith('https://texttospeech.googleapis.com/')) { ttsAsked.push(JSON.parse(init.body)); return new Response(JSON.stringify({ audioContent: 'QUFBQUFB' }), { status: 200 }); } return before(url, init); };
+const said = async (style) => { ttsAsked.length = 0; const out = await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['HOW THE FUCK has Jake scored that?'], style }); return [out.engine, (ttsAsked[0] && ttsAsked[0].input.prompt) || '', ttsAsked[0] && ttsAsked[0].input.text]; };
+const [swEngine, swPrompt, swText] = await said('sweary');
+check(swEngine === 'gemini' && /foul-mouthed/.test(swPrompt) && /swear words and all/.test(swPrompt) && swText === 'HOW THE FUCK has Jake scored that?', 'Sweary (18+) is performed as a foul-mouthed pub commentator, the line said word for word');
+check(/excitable British football commentator/.test((await said('hype'))[1]), 'Live commentator is still the excitable telly commentator');
 
 globalThis.fetch = realFetch;
 await done();

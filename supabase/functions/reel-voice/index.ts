@@ -2,8 +2,9 @@
 // Called by a gaffer's app (a game's highlights) or a player's (their own reel) with { code, lines: [text, ...], voice?, style? };
 // answers { audio: [base64 MP3 or null, ...], engine } in the same order. Only the team's gaffers and players who have joined
 // the squad as themselves can use it.
-// style "hype" asks Gemini-TTS to perform the line like a live commentator; if that isn't available to the key, or style is "plain",
-// the same voice from the Chirp 3 HD set reads it straight.
+// style "hype" asks Gemini-TTS to perform the line like a live commentator, and "sweary" (18+, the app writes lines with
+// swearing in) like a foul-mouthed pub commentator; if that isn't available to the key, or style is "plain", the same voice
+// from the Chirp 3 HD set reads it straight.
 // Each team has a monthly allowance of characters, kept in public.voice_usage, so the bill can't run away.
 // Needs this secret (Edge Functions > Secrets):
 //   GOOGLE_TTS_KEY           an API key for a Google Cloud project with the Cloud Text-to-Speech API switched on
@@ -16,6 +17,7 @@ const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 const VOICES = ["Fenrir", "Puck", "Sadachbia", "Algenib", "Orus", "Charon", "Kore", "Leda"];
 const HYPE = "You are an excitable British football commentator calling the action live on television. Loud, fast and full of energy, voice rising to a shout on the goal. Say exactly this:";
+const SWEARY = "You are a foul-mouthed British Sunday-league football commentator who can't believe what he's watching: loud, raw and incredulous, swearing freely, shouting the big moments as if you're losing your mind down the pub. Say exactly this, swear words and all:";
 const MONTHLY = 40000; // characters per team per month: roughly forty reels
 const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
 // Google's own wording for why the live-commentator delivery was refused is long and ends in a web address that doesn't
@@ -96,7 +98,7 @@ Deno.serve(async (req: Request) => {
     // The live-commentator model wants to know who is calling: signed in as the service account if there is one, else the plain key.
     let bearer: string | null = null;
     if (input.style !== "plain") { try { bearer = await googleToken(); } catch (e) { refused(String((e as Error)?.message || e)); } }
-    const performed = (text: string) => speak({ input: { text, prompt: HYPE }, voice: { languageCode: "en-GB", name: voice, model_name: "gemini-2.5-flash-tts" }, audioConfig: { audioEncoding: "MP3" } }, refused, bearer);
+    const performed = (text: string) => speak({ input: { text, prompt: input.style === "sweary" ? SWEARY : HYPE }, voice: { languageCode: "en-GB", name: voice, model_name: "gemini-2.5-flash-tts" }, audioConfig: { audioEncoding: "MP3" } }, refused, bearer);
     let engine = "chirp";
     let audio: (string | null)[] = [];
     if (input.style !== "plain" && !(hypeProblem && !bearer)) { // (not if signing in as the service account has just failed)
