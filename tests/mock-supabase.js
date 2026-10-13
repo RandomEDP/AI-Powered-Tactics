@@ -33,6 +33,7 @@
         fixtures: d.fixtures.filter((f) => f.team_id === t.id && (f.status || 'open') === 'open').sort((x, y) => x.ko_at - y.ko_at).map((f) => Object.assign({}, f, { votes: d.fixture_votes.filter((v) => v.fixture_id === f.id).map((v) => ({ pid: v.pid, choice: v.choice })) })),
         clips: d.clips.filter((c) => c.team_id === t.id).map((c) => { const off = (d.clip_hides || []).filter((h) => h.game_id === c.game_id && h.at === c.at).map((h) => h.pid).sort((x, y) => x - y);
           return Object.assign({}, c, { pids: (c.pids || []).filter((x) => off.indexOf(x) < 0), off }); }),
+        reels: (d.player_reels || []).filter((x) => x.team_id === t.id && x.path).sort((x, y) => x.pid - y.pid).map((x) => ({ pid: x.pid, path: x.path, store: x.store || null, marks: x.marks || [], made_at: x.made_at })),
         live: (d.live_matches.find((l) => l.team_id === t.id) || {}).state || null });
     }
     if (name === 'create_team') {
@@ -144,6 +145,16 @@
       if (name === 'my_blocks') return ok(d.blocks.filter((x) => x.blocker === uid()).map((x) => prof(x.blocked)).filter(Boolean).map((p) => ({ username: p.username, name: p.name })));
       if (name === 'report_user') { const p = byName(a.p_username); if (!p || p.user_id === uid()) return ok(false); const r = d.profile_reports.find((x) => x.reporter === uid() && x.reported === p.user_id);
         if (r) r.reason = String(a.p_reason || '').slice(0, 200); else d.profile_reports.push({ reporter: uid(), reported: p.user_id, reason: String(a.p_reason || '').slice(0, 200) }); store(d); return ok(true); }
+    }
+    if (name === 'save_player_reel') { // a player's reel on their card (0026): the player themselves or a gaffer, in their own folder
+      if (!uid()) return fail('Sign in first', '42501');
+      const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t || !d.players.some((p) => p.team_id === t.id && p.pid === a.p_pid)) return ok({ error: 'missing' });
+      if (!(isOrg(d, t.id) || d.players.some((p) => p.team_id === t.id && p.pid === a.p_pid && p.user_id === uid()))) return ok({ error: 'not_allowed' });
+      if (a.p_path != null && (!String(a.p_path).startsWith(t.id + '/players/' + a.p_pid + '/') || String(a.p_path).includes('..'))) return ok({ error: 'bad_path' });
+      d.player_reels = d.player_reels || []; let r = d.player_reels.find((x) => x.team_id === t.id && x.pid === a.p_pid); const old = r ? r.path : null;
+      if (!r) { r = { team_id: t.id, pid: a.p_pid }; d.player_reels.push(r); }
+      Object.assign(r, { path: a.p_path ?? null, store: a.p_store === 'r2' ? 'r2' : null, marks: a.p_path == null ? [] : a.p_marks || [], made_by: uid(), made_at: Date.now() });
+      store(d); return ok({ ok: true, old: old !== (a.p_path ?? null) ? old : null });
     }
     if (name === 'hide_clip') { // Remove from my highlights (0022): only the player themselves, keyed by the game and the moment
       if (!uid()) return fail('Sign in first', '42501');
@@ -311,7 +322,11 @@
   function clipStore(d, b) {
     const no = (status, error, reason) => ({ data: null, error: { message: 'Edge Function returned a non-2xx status code', context: new Response(JSON.stringify({ error, reason }), { status }) } });
     const t = d.teams.find((x) => x.code === String(b.code || '').trim().toUpperCase());
-    if (!uid()) return no(401, 'Sign in first.'); if (!t) return no(404, 'No such team.'); if (!isOrg(d, t.id)) return no(403, 'Only a gaffer can change the team\'s highlights.');
+    if (!uid()) return no(401, 'Sign in first.'); if (!t) return no(404, 'No such team.');
+    if (!isOrg(d, t.id)) { // a player: only their own reel's folder, as the real function
+      const me = d.players.find((p) => p.team_id === t.id && p.user_id === uid()), own = me ? t.id + '/players/' + me.pid + '/' : '';
+      if (!own || !['upload', 'remove'].includes(b.action) || !(b.paths || []).length || !(b.paths || []).every((k) => String(k).startsWith(own))) return no(403, 'Only a gaffer can change the team\'s highlights.');
+    }
     if (d.r2Off) return no(503, 'Clip storage isn\'t set up on Gaffer\'s server yet.', 'not_configured');
     const keys = b.paths || [];
     if (b.action !== 'adopt' && (!keys.length || !keys.every((k) => String(k).startsWith(t.id + '/')))) return no(400, 'Those files aren\'t in this team\'s folder.');

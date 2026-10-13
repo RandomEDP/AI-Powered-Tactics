@@ -14,7 +14,7 @@ import UniformTypeIdentifiers
 ///                -> { clips: [{ file, path, size }], reel: { path, size, marks }, reelClean?: { path, size, marks } }
 ///   share({ path })                                the share sheet (save to Photos, send to a chat)
 ///   shareText({ text, url })                       the share sheet for a message with a link
-///   joinReel({ items: [{ url, voice?, voiceAt? }], outro, file })   a reel from clips already made
+///   joinReel({ items: [{ url, voice?, voiceAt? }], outro, file })   a reel from clips already made -> { path, size, marks }
 ///   cleanup()                                      deletes the working files
 /// While working it emits "progress" events: { stage: "copy" | "cut" | "reel", i, n, p }.
 @objc(ReelCutterPlugin)
@@ -449,11 +449,13 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                     return AVURLAsset(url: url)
                 }
                 var pieces: [Segment] = []
+                var marks: [Any] = [] // where each item starts in the reel, in seconds (null for one left out), to skip to it
+                var at = 0.0
                 for (index, item) in raw.enumerated() {
-                    guard let where_ = item["url"] as? String, !where_.isEmpty else { continue }
+                    guard let where_ = item["url"] as? String, !where_.isEmpty else { marks.append(NSNull()); continue }
                     var local: URL
                     if where_.hasPrefix("http") {
-                        guard let remote = URL(string: where_) else { continue }
+                        guard let remote = URL(string: where_) else { marks.append(NSNull()); continue }
                         local = dir.appendingPathComponent(String(format: "clip_%03d.mp4", index))
                         try self.fetch(remote, to: local) { p in
                             self.notifyListeners("progress", data: ["stage": "fetch", "i": index, "n": raw.count, "p": p])
@@ -463,7 +465,9 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                     }
                     let clip = AVURLAsset(url: local)
                     let length = CMTimeGetSeconds(clip.duration)
-                    guard length.isFinite, length > 0.5 else { continue }
+                    guard length.isFinite, length > 0.5 else { marks.append(NSNull()); continue }
+                    marks.append(at)
+                    at += length
                     let line = voice(item["voice"])
                     pieces.append(Segment(asset: clip, start: 0, dur: length, caption: "", voice: line, voiceAt: (item["voiceAt"] as? NSNumber)?.doubleValue ?? 0.7, voiced: line == nil))
                 }
@@ -472,7 +476,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: voice(call.options["introVoice"]), signOff: voice(call.options["outroVoice"])) { fraction in
                     self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction])
                 }
-                call.resolve(["path": out.path, "size": self.fileSize(out)])
+                call.resolve(["path": out.path, "size": self.fileSize(out), "marks": marks])
             } catch {
                 call.reject(error.localizedDescription)
             }

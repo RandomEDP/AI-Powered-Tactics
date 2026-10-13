@@ -12,6 +12,7 @@ const ENV = {}, USERS = { 'tok-ethan': 'u-ethan', 'tok-jake': 'u-jake', 'tok-riv
 const DB = {
   teams: [{ id: 't-sop', code: 'SOPFC1' }, { id: 't-ath', code: 'ATHLET' }],
   team_members: [{ team_id: 't-sop', user_id: 'u-ethan' }, { team_id: 't-ath', user_id: 'u-rival' }],
+  players: [{ team_id: 't-sop', pid: 2, user_id: 'u-jake' }],
   clips: [{ team_id: 't-sop', game_id: 'g1', seq: 0, path: 't-sop/2026-10-10_dog/01.mp4', vpath: 't-sop/2026-10-10_dog/01v.mp4', store: null },
     { team_id: 't-sop', game_id: 'g1', seq: 1, path: 't-sop/2026-10-10_dog/02.mp4', vpath: null, store: null }],
 };
@@ -85,6 +86,14 @@ check(links.urls.every((u, i) => u.startsWith(`https://acct-1.r2.cloudflarestora
 check(!JSON.stringify(links).includes('r2-secret'), 'the R2 secret itself is never sent');
 await fetch(links.urls[0], { method: 'PUT', body: new TextEncoder().encode('new clip'), headers: { 'Content-Type': 'video/mp4' } });
 eq(R2[mine[0]], { body: 'new clip', type: 'video/mp4' }, 'and the file goes straight into R2 with it');
+
+// ---------- a player's own reel: only in their own folder
+const jakeReel = await up('tok-jake', ['t-sop/players/2/reel-1791660000000.mp4']);
+check(jakeReel.urls && jakeReel.urls.length === 1 && jakeReel.urls[0].includes('/gaffer-clips/t-sop/players/2/reel-'), 'a player can upload their own reel, into their own folder');
+eq([(await up('tok-jake', ['t-sop/players/3/reel.mp4'])).status, (await up('tok-jake', ['t-sop/players/2/reel.mp4', 't-sop/2026-10-17_dog/01.mp4'])).status, (await call('tok-jake', { code: 'SOPFC1', action: 'adopt', game_id: 'g1', seq: 0 })).status],
+  [403, 403, 403], 'but not into anyone else\'s, nor the game clips, nor anything else');
+eq((await call('tok-jake', { code: 'SOPFC1', action: 'remove', paths: ['t-sop/players/2/reel-1791660000000.mp4'] })).removed, 1, 'and can remove their own old reel');
+eq((await up('tok-ethan', ['t-sop/players/2/reel-2.mp4'])).urls.length, 1, 'a gaffer can put a reel in any player\'s folder');
 
 // ---------- moving the clips cut before R2
 const adopt = (seq) => call('tok-ethan', { code: 'SOPFC1', action: 'adopt', game_id: 'g1', seq });

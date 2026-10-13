@@ -15,7 +15,7 @@ const cutter = () => { // the native ReelCutter, as the web app sees it
     cut: async (o) => { window.__rc.push(['cut', o]);
       return { clips: o.clips.map((c) => Object.assign({ file: c.file, path: '/phone/' + c.file }, c.voice ? { voiced: { file: c.file.replace('.mp4', 'v.mp4'), path: '/phone/' + c.file.replace('.mp4', 'v.mp4') } } : {})), reel: { path: '/phone/' + o.reelFile, marks: o.clips.map((c, i) => i ? i * 14.04 : 0) },
         ...(o.reelCleanFile && o.clips.some((c) => c.voice) ? { reelClean: { path: '/phone/' + o.reelCleanFile, marks: o.clips.map((c, i) => i ? i * 14.04 : 0) } } : {}) }; },
-    joinReel: async (o) => { window.__rc.push(['join', o]); if (cb) { cb({ stage: 'fetch', i: 0, n: o.items.length, p: 0 }); cb({ stage: 'reel', p: 0.5 }); } return { path: '/phone/' + o.file, size: 1000 }; },
+    joinReel: async (o) => { window.__rc.push(['join', o]); if (cb) { cb({ stage: 'fetch', i: 0, n: o.items.length, p: 0 }); cb({ stage: 'reel', p: 0.5 }); } return { path: '/phone/' + o.file, size: 1000, marks: o.items.map((x, i) => i * 14.04) }; },
     share: async (o) => { window.__rc.push(['share', o.path]); return {}; }, cleanup: async () => ({}),
   };
   window.Capacitor.convertFileSrc = (path) => location.origin + '/_capacitor_file_' + path;
@@ -134,6 +134,7 @@ join = (await calls(F, 'join')).pop();
 eq([join.items.map((x) => tail(x.url)), join.items.some((x) => x.voice), join.outro.title, join.file], [['01.mp4'], false, 'Jake’s highlights', 'jake-highlights.mp4'], 'the reel is his goal only, no commentary, his name on the outro');
 eq([await F.text('#rbMsg'), (await calls(F, 'share')).pop(), await F.visible('#rbShare')], ['The reel is ready.', '/phone/jake-highlights.mp4', true], 'then the share sheet, and Share or save it');
 await F.click('#rbClose'); eq(await F.visible('#reelPop'), false, 'Close puts it away');
+eq((w.db().player_reels || []).length, 0, 'someone just following the team can share a player\'s reel, but it isn\'t put on his card (only he or a gaffer can)');
 
 // ---------- the gaffer makes Chaplin's reel with a commentator
 await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-preel="3"]');
@@ -159,7 +160,25 @@ check(said.body.lines.every((l) => !/\d–\d/.test(l)), 'scores are written out 
 eq([!!join.introVoice, !!join.outroVoice, join.items.map((x) => !!x.voice), join.items.map((x) => tail(x.url))], [true, true, [true, true], ['01.mp4', '02.mp4']],
   'the voice goes over the clean copies (never on top of another commentary)');
 check(join.items.every((x) => x.voiceAt >= 0.5), 'each line comes just after the moment');
-await A.click('#rbClose');
+const kept = (w.db().player_reels || []).find((x) => x.pid === 3);
+check(!!kept && kept.path.startsWith(w.db().teams[0].id + '/players/3/reel-') && kept.store === 'r2', `a gaffer's reel of Chaplin goes on to his card, kept in his own folder (${kept && kept.path})`);
+eq([kept.marks.map((m) => m.t), kept.marks.every((m) => /Dog Squad/.test(m.label))], [[0, 14.04], true], 'with where each of his moments is in it');
+check((w.db().files || []).some((f) => f.bucket === 'r2' && f.path === kept.path), 'the reel itself is uploaded');
+await A.click('#rbClose'); await A.run(800);
+const card = '#hlList .hcard:has([data-preel="3"])';
+eq([await A.page.$$eval(card + ' .reelp video', (v) => v.length), await A.page.$$eval(card + ' [data-seek]', (b) => b.map((x) => x.getAttribute('data-seek')))], [1, ['0', '14.04']], 'his card plays the reel, with his moments underneath');
+check(/All 2 clips, one by one/.test(await A.text(card)), 'and his clips one by one are still there, folded away');
+await shot(A, 'player-reel-card');
+await A.page.evaluate((c) => { const v = document.querySelector(c + ' .reelp video'); let t = 0; Object.defineProperty(v, 'currentTime', { configurable: true, get: () => t, set: (x) => { t = x; } }); v.play = () => Promise.resolve(); }, card);
+await A.click(card + ' [data-seek="14.04"]');
+eq(await A.page.$eval(card + ' .reelp video', (v) => Math.round(v.currentTime * 100) / 100), 14.09, 'tapping a moment skips to it');
+await A.click('#hlList [data-preel="3"]'); await A.click('#rbMake'); await A.run(1500);
+check(/on Chaplin’s card in Highlights/.test(await A.text('#rbMsg')), 'the reel maker says it\'s on his card');
+await A.click('#rbClose'); await A.run(800);
+const again = (w.db().player_reels || []).find((x) => x.pid === 3);
+check(again.path !== kept.path && !(w.db().files || []).some((f) => f.path === kept.path), 'a new reel replaces the old one, and the old file goes');
+await A.click(card + ' [data-preeloff="3"]'); await A.run(1000);
+eq([(w.db().player_reels || []).find((x) => x.pid === 3).path, (w.db().files || []).some((f) => f.path === again.path), await A.page.$$eval(card + ' .reelp', (v) => v.length)], [null, false, 0], 'and a reel can be taken off the card (the file goes too)');
 
 // ---------- deleting the game's highlights takes both copies
 await A.click('#hlToggle [data-by="game"]');

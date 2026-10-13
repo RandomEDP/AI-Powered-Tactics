@@ -5,7 +5,9 @@
 //   upload { paths: [key] }            -> { urls: [link] }  links to PUT each file to, for an hour
 //   remove { paths: [key] }            -> { removed }       deletes them (a game's highlights deleted, to cut again)
 //   adopt  { game_id, seq }            -> { moved }         moves one clip (both copies) from Supabase storage to R2
-// Every key must be in the team's own folder ("<team id>/..."). Secrets (Edge Functions > Secrets):
+// Every key must be in the team's own folder ("<team id>/..."). A player who has joined the squad as themselves may also
+// upload and remove their own reel, in their own folder ("<team id>/players/<their pid>/..."), and nothing else.
+// Secrets (Edge Functions > Secrets):
 //   CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -48,7 +50,13 @@ Deno.serve(async (req: Request) => {
     const { data: team } = await db.from("teams").select("id").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
     if (!team) return json({ error: "No such team." }, 404);
     const { data: gaffer } = await db.from("team_members").select("user_id").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
-    if (!gaffer) return json({ error: "Only a gaffer can change the team's highlights." }, 403);
+    if (!gaffer) { // a player: only their own reel's folder
+      const { data: me } = await db.from("players").select("pid").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
+      const own = me ? `${team.id}/players/${me.pid}/` : "";
+      const asked: unknown[] = Array.isArray(input.paths) ? input.paths : [];
+      if (!own || (input.action !== "upload" && input.action !== "remove") || !asked.length || !asked.every((k) => typeof k === "string" && k.startsWith(own)))
+        return json({ error: "Only a gaffer can change the team's highlights." }, 403);
+    }
 
     const account = Deno.env.get("CLOUDFLARE_ACCOUNT_ID"), access = Deno.env.get("R2_ACCESS_KEY_ID"), secret = Deno.env.get("R2_SECRET_ACCESS_KEY"), bucket = Deno.env.get("R2_BUCKET");
     if (!account || !access || !secret || !bucket) return json({ error: "Clip storage isn't set up on Gaffer's server yet.", reason: "not_configured" }, 503);

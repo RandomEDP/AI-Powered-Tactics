@@ -391,6 +391,22 @@ eq((await d.rpc(ethan, 'get_team', { p_code: sop.code })).team.listed, false, 'a
 await d.admin(`update public.teams set listed = true where id = '${sop.id}'`);
 eq((await d.admin(`select column_default from information_schema.columns where table_name = 'teams' and column_name = 'listed'`))[0].column_default, 'true', 'every team starts listed');
 
+// ---------- a player's reel on their card (0026)
+const reelOf = async (who, pid) => ((await d.rpc(who, 'get_team', { p_code: sop.code })).reels || []).find((x) => x.pid === pid) || null;
+const marks = [{ t: 0, label: 'v Dog Squad: 2\' Goal' }, { t: 14.04, label: 'v Dog Squad: 9\' Assist' }];
+let pr = await d.rpc(jake, 'save_player_reel', { p_code: sop.code, p_pid: 3, p_path: `${sop.id}/players/3/reel-1.mp4`, p_store: 'r2', p_marks: marks });
+eq([pr.ok, pr.old], [true, null], 'a player can keep their own reel');
+let seen = await reelOf(null, 3);
+eq([seen.path, seen.store, seen.marks.map((m) => m.t), typeof seen.made_at], [`${sop.id}/players/3/reel-1.mp4`, 'r2', [0, 14.04], 'number'], 'and everyone following the team sees it on their card, with where each moment is');
+eq((await d.rpc(jake, 'save_player_reel', { p_code: sop.code, p_pid: 2, p_path: `${sop.id}/players/2/reel-1.mp4`, p_marks: [] })).error, 'not_allowed', 'but not someone else\'s');
+eq((await d.rpc(sam, 'save_player_reel', { p_code: sop.code, p_pid: 3, p_path: `${sop.id}/players/3/x.mp4`, p_marks: [] })).error, 'not_allowed', 'and nobody outside the squad can');
+eq((await d.rpc(jake, 'save_player_reel', { p_code: sop.code, p_pid: 3, p_path: `${sop.id}/players/2/reel.mp4`, p_marks: [] })).error, 'bad_path', 'the file has to be in that player\'s own folder');
+pr = await d.rpc(ethan, 'save_player_reel', { p_code: sop.code, p_pid: 3, p_path: `${sop.id}/players/3/reel-2.mp4`, p_store: 'r2', p_marks: marks.slice(0, 1) });
+eq([pr.ok, pr.old, (await reelOf(jake, 3)).path], [true, `${sop.id}/players/3/reel-1.mp4`, `${sop.id}/players/3/reel-2.mp4`], 'a gaffer can too; a new reel replaces the old one, and says which file that was so it can go');
+pr = await d.rpc(jake, 'save_player_reel', { p_code: sop.code, p_pid: 3, p_path: null });
+eq([pr.old, await reelOf(jake, 3)], [`${sop.id}/players/3/reel-2.mp4`, null], 'and it can be taken off the card');
+eq(await count(jake, 'public.player_reels'), 0, 'nobody reads the table directly');
+
 // ---------- deleting an account
 eq(await d.rpc(jake, 'delete_my_account'), 0, 'a player deleting their account takes no team with it');
 t = await d.rpc(ethan, 'get_team', { p_code: sop.code });

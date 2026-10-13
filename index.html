@@ -429,6 +429,7 @@ tr.past td { opacity: .45; }
 .prres .wl { font-weight: 800; color: var(--muted); } .prres .W { color: var(--on); } .prres small { display: block; color: var(--muted); font-size: 13px; }
 .pins label { display: flex; gap: 10px; align-items: flex-start; padding-block: 8px; border-bottom: 1px solid var(--line); } .pins input { width: 22px; height: 22px; flex: none; }
 .feedcard .badge.new { background: #ffc83d; color: #2a2100; }
+.allclips summary { font-weight: 700; color: var(--muted); cursor: pointer; padding-block: 8px; }
 .prteams button { border: 0; border-radius: 999px; padding: 6px 12px; font: inherit; font-weight: 700; font-size: 14px; }
 .tdot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
 .tvcrest { width: 64px; height: 64px; object-fit: contain; border-radius: 12px; }
@@ -1248,6 +1249,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // role in the open team: owner = gaffer (runs games); scorer = follower who may log goals; viewer = follower
   var role = 'viewer', teamId = null, orgCode = null;
   var clips = []; // highlight clips stored for this team
+  var preels = []; // players' reels kept on their cards: [{pid, path, store, marks: [{t, label}], made_at}]
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
   var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live'];
@@ -1414,10 +1416,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (!d) { forgetTeam(code); closeTeam(); S = blankTeam(); S.view = 'welcome'; go('welcome'); setSync('gone'); return; }
       teamId = d.team.id; orgCode = d.team.organiser_code || null; stale = false;
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
-      myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; setTimeout(clipsMove, 1500);
+      myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500);
       if (S.view === 'home' || S.view === 'games') renderFixture();
       renderTabs();
-      try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips })); } catch (e) {}
+      try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
       var org = !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
       if (org && (dirty || syncing)) { if (!syncing) { clearTimeout(wt); wt = setTimeout(syncAll, 300); } return; } // our own edits are on their way up (sent now if they were waiting for this); theirs will arrive after
@@ -1513,7 +1515,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     S = Object.assign(blankTeam(), cache || { name: meta ? meta.name : '' });
     S.view = view || 'home';
     try { crest = localStorage.getItem(TKEY + code + ':crest'); } catch (e) { crest = null; }
-    try { var rc = JSON.parse(localStorage.getItem(TKEY + code + ':roster')) || {}; roster = rc.roster || {}; myPid = me && rc.myPid != null ? rc.myPid : null; fixtures = rc.fixtures || []; clips = rc.clips || []; } catch (e) { roster = {}; myPid = null; fixtures = []; clips = []; }
+    try { var rc = JSON.parse(localStorage.getItem(TKEY + code + ':roster')) || {}; roster = rc.roster || {}; myPid = me && rc.myPid != null ? rc.myPid : null; fixtures = rc.fixtures || []; clips = rc.clips || []; preels = rc.reels || []; } catch (e) { roster = {}; myPid = null; fixtures = []; clips = []; preels = []; }
     applyTheme(); renderCrest(); upgrade(S.match); lastBlock = S.match ? curSeg(S.match) : -1; pick = null; outPick = null;
     var org = !!(meta && meta.org && me);
     role = org ? 'owner' : 'viewer'; document.body.className = org ? '' : 'ro';
@@ -2400,7 +2402,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     try { await sb.auth.signOut(); } catch (e) {}
     me = null; closeTeam();
     A.teams.slice().forEach(function (t) { forgetTeam(t.code); });
-    A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; crest = null; J = null;
+    A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; preels = []; crest = null; J = null;
     MYP = undefined; profAsked = null; PPL = { q: '', found: null, teams: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; $('unamePop').hidden = true; pplBadges();
     CH = { code: null, list: [], unread: 0 }; RV = { code: null, list: [], home: null, near: [], q: '', form: null, msg: '' }; myAsk = null; asks = []; askMsg = ''; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
     saveApp(); applyTheme(); go('welcome');
@@ -3003,6 +3005,27 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       '<p class="note">The full reel. Tap a moment to skip to it.</p><ol class="cliplist">' + list.filter(function (c) { return typeof c.reel_at === 'number'; }).sort(function (a, b) { return a.reel_at - b.reel_at; })
         .map(function (c) { return '<li><button type="button" data-seek="' + c.reel_at + '" aria-pressed="false">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
+  // A player's reel kept on their card: the same player as a game's reel, its moments underneath to skip to.
+  function preelOf(pid) { return preels.filter(function (x) { return x.pid === pid && x.path; })[0] || null; }
+  function canKeepReel(pid) { return !!(sb && me && CFG.clipsUrl && teamId && (role === 'owner' || (myPid != null && myPid === pid))); } // the player themselves, or a gaffer
+  function playerReelPlayer(pr) {
+    return '<div class="vplayer reelp"><video controls playsinline preload="metadata" src="' + esc(clipUrl({ path: pr.path, store: pr.store })) + '"></video>' +
+      '<p class="note">' + (pr.made_at ? 'Their reel, made ' + esc(dayText(pr.made_at)) + '. ' : '') + 'Tap a moment to skip to it.</p><ol class="cliplist">' +
+      (pr.marks || []).filter(function (m) { return typeof m.t === 'number'; }).map(function (m) { return '<li><button type="button" data-seek="' + m.t + '" aria-pressed="false">' + esc(m.label || 'Moment') + '</button></li>'; }).join('') + '</ol></div>';
+  }
+  async function keepPlayerReel(pid, file, marks, labels) { // after a player's reel is made: up to their card, replacing the one before
+    var key = teamId + '/players/' + pid + '/reel-' + Date.now() + '.mp4';
+    var got = await clipCall('upload', { paths: [key] });
+    if (!got || !got.urls) throw new Error((got && got.error) || 'Gaffer’s server didn’t answer.');
+    var blob = await (await fetch(window.Capacitor.convertFileSrc(file))).blob(); blob = blob.slice(0, blob.size, 'video/mp4');
+    var put = await fetch(got.urls[0], { method: 'PUT', body: blob, headers: { 'Content-Type': 'video/mp4' } });
+    if (!put.ok) throw new Error('the clip storage answered ' + put.status + '.');
+    var ms = []; (marks || []).forEach(function (t, i) { if (typeof t === 'number' && isFinite(t)) ms.push({ t: Math.round(t * 100) / 100, label: String(labels[i] || '').slice(0, 200) }); });
+    var res = (await q(sb.rpc('save_player_reel', { p_code: A.active, p_pid: pid, p_path: key, p_store: 'r2', p_marks: ms }))).data || {};
+    if (!res.ok) { try { await clipCall('remove', { paths: [key] }); } catch (e) {} throw new Error(res.error === 'not_allowed' ? 'only ' + nm(pid) + ' or a gaffer can.' : 'it wasn’t accepted.'); }
+    if (res.old) try { await clipCall('remove', { paths: [res.old] }); } catch (e) {} // (the reel it replaced)
+    ping('changed'); await pull();
+  }
   var HLDEL = { i: -1, until: 0, msg: '', busy: false }; // Delete these highlights: armed by the first tap
   var HIDE = { busy: false, msg: '' }; // Remove from my highlights
   var DL = { i: -1, busy: false, prog: '', msg: '', path: null, bad: false };
@@ -3069,7 +3092,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         html += '<div class="hcard"><h3>' + esc(nm(x.p.id)) + ((roster[x.p.id] || {}).gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (x.p.id === myPid ? '<span class="badge you">You</span>' : '') + '</h3>' +
           '<p class="note">' + (x.vids.length ? x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ' this season, oldest first' : x.list.length ? x.list.length + (x.list.length === 1 ? ' moment' : ' moments') + ' this season, oldest first' : 'No moments yet') + '</p>';
         var mineNow = x.p.id === myPid && !!sb && !!me, hidBtn = mineNow && x.vids.length ? '<button class="plain" type="button" data-hide="1"' + (HIDE.busy ? ' disabled' : '') + '>Remove this clip from my highlights</button>' : '';
-        if (x.vids.length) html += clipPlayer(x.vids) + (RCp() || hidBtn ? '<div class="actions">' + (RCp() ? '<button class="plain primary" type="button" data-preel="' + x.p.id + '">Make a reel</button>' : '') + hidBtn + '</div>' : '');
+        var pr = preelOf(x.p.id);
+        if (pr) html += playerReelPlayer(pr) + (canKeepReel(x.p.id) ? '<div class="actions"><button class="link" type="button" data-preeloff="' + x.p.id + '">Take this reel off ' + (x.p.id === myPid ? 'my' : esc(nm(x.p.id)) + '’s') + ' card</button></div>' : '');
+        if (x.vids.length) html += (pr ? '<details class="allclips"><summary>All ' + x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ', one by one</summary>' + clipPlayer(x.vids) + '</details>' : clipPlayer(x.vids)) +
+          (RCp() || hidBtn ? '<div class="actions">' + (RCp() ? '<button class="plain primary" type="button" data-preel="' + x.p.id + '">' + (pr ? 'Make a new reel' : 'Make a reel') + '</button>' : '') + hidBtn + '</div>' : '');
         else if (x.list.length) html += '<ul>' + x.list.map(function (m) { return '<li class="wide"><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' +
           novid('No clips for ' + esc(nm(x.p.id)) + ' yet. They appear here when a game’s highlights are cut.');
         if (mineNow) { var hid = clips.filter(function (c) { return (c.off || []).indexOf(myPid) >= 0; });
@@ -3206,6 +3232,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         outro: { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null } });
       RB.path = res && res.path; RB.msg = 'The reel is ready.';
       if (RB.path) rc.share({ path: RB.path }).catch(function () {});
+      if (RB.path && res.marks && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
+        RB.prog = 'Putting it on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card…'; renderRB();
+        try { await keepPlayerReel(RB.pid, RB.path, res.marks, list.map(function (c) { return c.title; })); RB.msg = 'The reel is ready, and it’s on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card in Highlights.'; }
+        catch (e) { RB.note = 'It couldn’t be put on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card: ' + ((e && e.message) || 'something went wrong.') + ' It’s still on this phone to share.'; }
+      }
     } catch (e) { RB.msg = (e && e.message) || 'Couldn’t make the reel.'; RB.bad = true; }
     RB.busy = false; RB.prog = ''; renderRB();
   }
@@ -3247,6 +3278,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (e.target.getAttribute('data-dl') !== null) gameReel(+e.target.getAttribute('data-dl'));
     else if (e.target.getAttribute('data-dlshare') !== null) { var rc2 = RCp(); if (rc2 && DL.path) rc2.share({ path: DL.path }).catch(function () {}); }
     else if (e.target.getAttribute('data-preel') !== null) rbOpen(+e.target.getAttribute('data-preel'));
+    else if (e.target.getAttribute('data-preeloff') !== null) { // off the card (the file goes too)
+      var offPid = +e.target.getAttribute('data-preeloff');
+      (async function () { try { var rr = (await q(sb.rpc('save_player_reel', { p_code: A.active, p_pid: offPid, p_path: null }))).data || {}; if (rr.old) await clipCall('remove', { paths: [rr.old] }); ping('changed'); await pull(); } catch (err) {} renderHighlights(); })();
+    }
     else if (e.target.getAttribute('data-hide') !== null) { var hb = e.target.closest('.hcard').querySelector('[data-clip][aria-pressed="true"]'); if (hb) hideClips([{ g: hb.getAttribute('data-g'), at: +hb.getAttribute('data-at') }], true); }
     else if (e.target.getAttribute('data-unhide') !== null) hideClips(clips.filter(function (c) { return (c.off || []).indexOf(myPid) >= 0; }).map(function (c) { return { g: c.game_id, at: c.at }; }), false);
     else if (e.target.getAttribute('data-guests') !== null) shareGuests(+e.target.getAttribute('data-guests'));
