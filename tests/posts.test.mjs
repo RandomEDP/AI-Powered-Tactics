@@ -104,5 +104,29 @@ await J.click('#pvBody [data-pmore]'); await J.click('#pvBody [data-pdel]'); che
 await J.click('#pvBody [data-pdel]'); await J.run(1000);
 eq([await J.visible('#postView'), await J.page.$$eval('#prBody .pgrid .ptile', (x) => x.length), (w.db().posts || []).filter((p) => !p.removed_at).length], [false, 1, 1], 'his post is gone');
 
+// ---------- any video stops when it goes off screen: another tab, or scrolled away
+await A.page.reload(); await A.run(2500);
+await A.page.evaluate(() => { window.__v = [];
+  Object.defineProperty(HTMLMediaElement.prototype, 'paused', { configurable: true, get() { return !this.__on2; } });
+  HTMLMediaElement.prototype.play = function () { this.__on2 = true; window.__v.push('play'); this.dispatchEvent(new Event('play')); return Promise.resolve(); };
+  HTMLMediaElement.prototype.pause = function () { if (this.__on2) window.__v.push('pause'); this.__on2 = false; this.dispatchEvent(new Event('pause')); }; });
+const anyOn = () => A.page.evaluate(() => [...document.querySelectorAll('video')].filter((v) => !v.paused && !v.hasAttribute('data-auto')).length);
+await A.click('#tabs [data-tab="home"]'); await A.run(300); await A.click('#mHighlights'); await A.run(400);
+await A.page.evaluate(() => document.querySelectorAll('#hlList details.allclips').forEach((d) => { d.open = true; d.dispatchEvent(new Event('toggle')); }));
+await A.page.evaluate(() => document.querySelector('#hlList .vplayer video').play()); await A.run(300);
+eq(await anyOn(), 1, 'a highlight playing');
+await A.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]'); if (b) b.click(); }); await A.run(400);
+eq(await anyOn(), 0, 'stops when you go to another screen');
+await A.click('#mHighlights'); await A.run(400);
+await A.page.evaluate(() => document.querySelectorAll('#hlList details.allclips').forEach((d) => { d.open = true; }));
+await A.page.evaluate(() => document.querySelector('#hlList .vplayer video').play()); await A.run(300);
+await A.page.evaluate(() => { document.querySelector('#hlList').style.paddingBottom = '2000px'; window.scrollTo(0, document.body.scrollHeight); }); await A.run(600);
+eq(await anyOn(), 0, 'and when it\'s scrolled off screen');
+await A.page.evaluate(() => { document.querySelector('#hlList').style.paddingBottom = ''; window.scrollTo(0, 0); }); await A.run(300);
+await A.click('#hlList .mhbtn'); await A.run(400);
+eq([await A.visible('#mhPop'), await anyOn()], [true, 1], 'the whole match\'s highlights play full screen');
+await A.page.evaluate(() => { const b = document.querySelector('#tabs [data-tab="feed"]'); b.click(); }); await A.run(500);
+eq([await A.visible('#mhPop'), await anyOn()], [false, 0], 'and stop, and close, on going to another tab');
+
 await w.close();
 await done(A, J);

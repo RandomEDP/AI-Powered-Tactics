@@ -1902,6 +1902,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (pick && view !== 'game') { pick = null; $('picker').innerHTML = ''; }
     if (view !== 'game') $('subPop').hidden = true;
     if (view !== 'live') livePlayer(null); // stop the picture (and its data) once the stream is off screen
+    if (view !== S.view) { if (MH) mhClose(); if (!$('postView').hidden) { $('postView').hidden = true; PV.post = null; } vidsStop(); } // another screen: nothing carries on playing
     if (view === 'soon' && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome';
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
     if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'feed', 'people', 'profile', 'teamview'].indexOf(view) < 0) view = 'welcome';
@@ -2408,6 +2409,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var x = postsEverywhere(id)[0]; if (!x) return;
     Array.prototype.forEach.call(document.querySelectorAll('[data-like="' + id + '"]'), function (b) { b.setAttribute('aria-pressed', !!x.liked); var n = b.querySelector('span'); if (n) n.textContent = x.likes; });
   }
+  // ---- every video stops once it's off screen (Ethan): scrolled mostly out of sight, another tab or screen (hidden
+  // screens aren't on screen at all), or the app put away. The feed's own videos are looked after by feedPick.
+  var OFFIO = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(function (ents) {
+    ents.forEach(function (en) { var v = en.target; if ((!en.isIntersecting || en.intersectionRatio < 0.2) && !v.paused && !v.hasAttribute('data-auto')) { try { v.pause(); } catch (e) {} } });
+  }, { threshold: [0, 0.2] });
+  document.addEventListener('play', function (e) { var v = e.target; if (OFFIO && v && v.tagName === 'VIDEO' && !v.hasAttribute('data-auto') && !v.__off) { v.__off = true; OFFIO.observe(v); } }, true);
+  function vidsStop() { Array.prototype.forEach.call(document.querySelectorAll('video'), function (v) { if (!v.paused && !v.hasAttribute('data-auto') && v.id !== 'lvVideo') { try { v.pause(); } catch (e) {} } }); }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) vidsStop(); });
   // ---- videos in the feed, like Instagram: each shows its first frame; the top one fully on screen plays (muted, on a
   // loop) and the next takes over as you scroll. A tap turns the sound on or off, for every video after it too.
   var AUTO = { sound: false, io: null };

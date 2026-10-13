@@ -370,6 +370,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   pauses the rest, so scrolling hands over to the next; leaving Home or the app stops it. Tapping a video or its
   "Sound off" pill turns sound on for it and the ones after (`data-snd`). Liking redraws only the heart (`likeDraw`) so
   a playing video carries on. Test: `posts.test.mjs`.
+- **Every video stops once it's off screen** (Ethan): any video that starts playing is watched by `OFFIO` (an
+  IntersectionObserver) and paused when under 20% is on screen, which includes its screen being hidden; `go()` to a
+  different screen also closes the full-screen highlights and an open post and pauses everything (`vidsStop`), and so
+  does putting the app away. The feed's own autoplay videos are handled by `feedPick`. Test: `posts.test.mjs`.
 - Watch out for function names: index.html is one scope, so a second `function x()` silently replaces the first (a new
   `autoPick` once replaced the bench picker's, and a new `mmss` was replaced by the clock's). Grep before naming.
 - **Post cards** (`postCard`): name (opens their profile), the video, like (`like_post`, a `liked` flag rather than
