@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch",
+      "Monitor",
+      "TaskStop",
+      "SendUserFile",
+      "mcp__github",
+      "mcp__Supabase",
+      "mcp__claude-code-remote"
+    ],
+    "deny": [
+      "Read(**/AuthKey_*.p8)"
+    ]
+  }
+}
