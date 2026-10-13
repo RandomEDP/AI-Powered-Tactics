@@ -26,6 +26,7 @@ const reason = (m: string) =>
   /has not been used in project|it is disabled|SERVICE_DISABLED/i.test(m) ? "Google's Agent Platform API has to be switched on for the project the key belongs to"
   : /are blocked|SERVICE_BLOCKED/i.test(m) ? "the key is limited to certain Google services. In Google Cloud: Credentials, open the key, API restrictions, and add Agent Platform API"
   : /API keys are not supported|endpoints\.predict/i.test(m) ? (Deno.env.get("GOOGLE_SERVICE_ACCOUNT") ? "the service account needs the Vertex AI User role in the Google project" : "it needs a service account: Google doesn't accept a plain API key for this voice")
+  : /quota|rate.?limit|resource.?exhausted/i.test(m) ? "Google's limit on how often the commentator voice can be asked for was hit. In Google Cloud: IAM & Admin, Quotas, search gemini-2.5-flash-tts, and ask for a higher limit"
   : /billing/i.test(m) ? "the Google project needs billing switched on"
   : m.replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim().slice(0, 170);
 
@@ -98,7 +99,19 @@ Deno.serve(async (req: Request) => {
     // The live-commentator model wants to know who is calling: signed in as the service account if there is one, else the plain key.
     let bearer: string | null = null;
     if (input.style !== "plain") { try { bearer = await googleToken(); } catch (e) { refused(String((e as Error)?.message || e)); } }
-    const performed = (text: string) => speak({ input: { text, prompt: input.style === "sweary" ? SWEARY : HYPE }, voice: { languageCode: "en-GB", name: voice, model_name: "gemini-2.5-flash-tts" }, audioConfig: { audioEncoding: "MP3" } }, refused, bearer);
+    // Google only lets a project ask for the commentator voice a few times a minute: one line at a time, and when it says
+    // slow down, wait and ask again (within about a minute and a half overall; anything left after that is read straight).
+    const pause = Number(Deno.env.get("VOICE_RETRY_MS") || 5000), until = Date.now() + 90000;
+    const performed = async (text: string) => {
+      for (let tries = 0; ; tries++) {
+        let said = "";
+        const got = await speak({ input: { text, prompt: input.style === "sweary" ? SWEARY : HYPE }, voice: { languageCode: "en-GB", name: voice, model_name: "gemini-2.5-flash-tts" }, audioConfig: { audioEncoding: "MP3" } }, (m) => { said = m; refused(m); }, bearer);
+        if (got) return got;
+        const wait = pause * (tries + 1);
+        if (!/quota|rate.?limit|resource.?exhausted/i.test(said) || tries >= 3 || Date.now() + wait > until) return null;
+        await new Promise((done) => setTimeout(done, wait));
+      }
+    };
     let engine = "chirp";
     let audio: (string | null)[] = [];
     if (input.style !== "plain" && !(hypeProblem && !bearer)) { // (not if signing in as the service account has just failed)
@@ -107,7 +120,7 @@ Deno.serve(async (req: Request) => {
       const first = await performed(lines[firstAt]);
       if (first) {
         engine = "gemini";
-        audio = await Promise.all(lines.map((text, i) => !text ? null : i === firstAt ? first : performed(text)));
+        for (let i = 0; i < lines.length; i++) audio.push(!lines[i] ? null : i === firstAt ? first : await performed(lines[i]));
         audio = await Promise.all(audio.map((a, i) => a || !lines[i] ? a : straight(lines[i]))); // any that failed are read straight
       }
     }

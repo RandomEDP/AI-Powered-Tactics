@@ -204,5 +204,23 @@ const [swEngine, swPrompt, swText] = await said('sweary');
 check(swEngine === 'gemini' && /foul-mouthed/.test(swPrompt) && /swear words and all/.test(swPrompt) && swText === 'HOW THE FUCK has Jake scored that?', 'Sweary (18+) is performed as a foul-mouthed pub commentator, the line said word for word');
 check(/excitable British football commentator/.test((await said('hype'))[1]), 'Live commentator is still the excitable telly commentator');
 
+// Google's per-minute limit on the commentator voice (what Ethan's reels kept hitting: every line was asked for at once)
+ENV.VOICE_RETRY_MS = '5';
+let busy = 0, most = 0, refusals = 0;
+const quota = (n) => async (url, init = {}) => {
+  if (!String(url).startsWith('https://texttospeech.googleapis.com/')) return before(url, init);
+  const body = JSON.parse(init.body), gem = body.voice.model_name === 'gemini-2.5-flash-tts';
+  busy++; most = Math.max(most, busy); await new Promise((r) => setTimeout(r, 2)); busy--;
+  if (gem && refusals < n) { refusals++; return new Response(JSON.stringify({ error: { message: 'Quota exceeded for aiplatform.googleapis.com/global_generate_content_requests_per_minute_per_project_per_base_model with base model: gemini-2.5-flash-tts.' } }), { status: 429 }); }
+  return new Response(JSON.stringify({ audioContent: gem ? 'R0VNSU5J' : 'Q0hJUlA=' }), { status: 200 });
+};
+globalThis.fetch = quota(3);
+const paced = await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['One.', 'Two.', 'Three.', 'Four.'], style: 'sweary' });
+eq([paced.engine, paced.audio, most], ['gemini', ['R0VNSU5J', 'R0VNSU5J', 'R0VNSU5J', 'R0VNSU5J'], 1], 'told to slow down, it asks one line at a time and tries again: every line is performed');
+busy = 0; most = 0; refusals = 0; globalThis.fetch = quota(1000);
+const flat = await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['One.', 'Two.'], style: 'hype' });
+check(flat.engine === 'chirp' && flat.audio.every((a) => a === 'Q0hJUlA=') && /IAM & Admin, Quotas, search gemini-2.5-flash-tts/.test(flat.note || ''), `if Google keeps refusing, the lines are read straight and the note says which limit to raise (${flat.note})`);
+delete ENV.VOICE_RETRY_MS;
+
 globalThis.fetch = realFetch;
 await done();
