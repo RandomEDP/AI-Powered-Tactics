@@ -24,7 +24,7 @@ eq(await d.rpc(null, 'get_team', { p_code: 'ZZZZZZ' }), null, 'a wrong code open
 // ---------- nobody can go round the app and read or change tables directly
 for (const [who, label] of [[null, 'someone not signed in'], [sam, 'a signed-in stranger'], [jake, 'a signed-in stranger (later a player)']]) {
   const seen = [];
-  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests', 'team_streams', 'clip_hides']) seen.push(await count(who, 'public.' + table));
+  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests', 'team_streams', 'clip_hides', 'profiles', 'follows', 'blocks', 'profile_reports']) seen.push(await count(who, 'public.' + table));
   check(seen.every((n) => n === 0 || n === 'denied'), `${label} reading the tables directly sees nothing (${seen.join(',')})`);
 }
 await d.as(sam, `update public.teams set name = 'Hacked FC'`).catch(() => {});
@@ -295,6 +295,80 @@ eq(await clipsOf(ethan), [[0, [2], [3]]], 'cutting the game again (new clip rows
 eq(await d.rpc(jake, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 1000, p_hide: false }), 'ok', 'and they can put it back');
 eq(await clipsOf(ethan), [[0, [3, 2], []]], 'back under their name, in its place');
 eq(await count(jake, 'public.clip_hides'), 0, 'nobody reads the table directly');
+
+// ---------- usernames, profiles and following (0023)
+await d.admin(`update public.games set us = 3, them = 1, finished_at = (extract(epoch from now()) * 1000)::bigint where id = '${hg}'`);
+await d.admin(`insert into public.game_players (game_id, pid, mins, goals, assists) values ('${hg}', 3, 30, 2, 1), ('${hg}', 2, 30, 1, 0)`);
+await d.admin(`update public.reserved_usernames set user_id = '${ethan.id}' where handle in ('edp', 'ethan', 'ethandp', 'e_d_p_1')`); // (live: set on the real database, never in a file)
+eq(await d.rpc(null, 'username_status', { p_username: 'jakey' }), 'ok', 'anyone can check a username is free, before their account exists');
+eq(await Promise.all(['ab', 'jake smith', 'x'.repeat(21), 'jake!'].map((u) => d.rpc(null, 'username_status', { p_username: u }))), ['invalid', 'invalid', 'invalid', 'invalid'], 'usernames are 3 to 20 letters, numbers or _');
+eq(await Promise.all(['EDP', 'ethan', 'EthanDP', 'E_D_P_1', 'gaffer'].map((u) => d.rpc(sam, 'username_status', { p_username: u }))), ['reserved', 'reserved', 'reserved', 'reserved', 'reserved'], 'Ethan\'s names are kept for him (and nobody can be "gaffer")');
+eq(await d.rpc(sam, 'set_profile', { p_username: 'Ethan', p_name: 'Not Ethan' }), 'reserved', 'so nobody else can take them');
+eq(await d.rpc(ethan, 'set_profile', { p_username: 'EDP', p_name: 'Ethan' }), 'ok', 'but Ethan can');
+const mp = await d.rpc(ethan, 'my_profile');
+eq(['username', 'name', 'private', 'pins', 'followers', 'following', 'requests'].map((k) => mp[k]), ['EDP', 'Ethan', false, [], 0, 0, 0], 'his profile, public to start with');
+eq(await d.rpc(jake, 'my_profile'), null, 'someone who hasn\'t picked one has no profile yet (the app asks)');
+eq(await d.rpc(jake, 'set_profile', { p_username: 'edp', p_name: 'Jake' }), 'reserved', 'names are the same whatever the capitals');
+eq(await d.rpc(jake, 'set_profile', { p_username: 'Chappers', p_name: '  Chaplin   Smith ' }), 'ok', 'Jake (who plays as Chaplin) picks one');
+eq(await d.rpc(sam, 'set_profile', { p_username: 'CHAPPERS', p_name: 'Sam' }), 'taken', 'nobody can take one that\'s in use, whatever the capitals');
+eq(await d.rpc(sam, 'set_profile', { p_username: 'samwise', p_name: 'Sam', p_private: true }), 'ok', 'Sam goes private');
+eq(await d.rpc(rival, 'set_profile', { p_username: 'rivalgaffer', p_name: 'Rival' }), 'ok', 'and the rival gaffer picks one');
+check(/Sign in|permission denied/i.test(await d.fails(d.rpc(null, 'set_profile', { p_username: 'ghost', p_name: '' }))), 'picking one needs an account');
+
+eq((await d.rpc(sam, 'find_people', { p_query: 'chap' })).map((x) => [x.username, x.name, x.follow]), [['Chappers', 'Chaplin Smith', null]], 'people are found by username or name');
+eq((await d.rpc(sam, 'find_people', { p_query: 'e' })), [], 'with at least two letters');
+let pf = await d.rpc(sam, 'get_profile', { p_username: 'chappers' });
+eq([pf.can_see, pf.teams.map((t) => t.name), ['games', 'goals', 'assists', 'wins'].map((k) => pf.stats[k]), pf.results.map((r) => [r.opp, r.us, r.them, r.goals, r.assists])], [true, ['Sons of Pitches'], [1, 2, 1, 1], [['Dog Squad', 3, 1, 2, 1]]],
+  'a public profile shows their teams, stats and results to anyone signed in');
+check(!('fixtures' in pf) && !JSON.stringify(pf).includes('organiser') && !JSON.stringify(pf).includes(sop.code), 'never upcoming games, and no team codes');
+eq(pf.clips, [], 'no clips until they choose some');
+const mineClips = await d.rpc(jake, 'my_clips');
+eq(mineClips.map((c) => [c.game_id === hg, c.at, c.team, c.opp]), [[true, 1000, 'SOP FC', 'Dog Squad']], 'they can pick from their clips across all their teams');
+eq(await d.rpc(jake, 'set_pins', { p_pins: [{ g: hg, at: 1000 }] }), 'ok', 'and show one');
+eq((await d.rpc(sam, 'get_profile', { p_username: 'Chappers' })).clips.map((c) => [c.at, c.path.endsWith('01.mp4')]), [[1000, true]], 'it shows on their profile');
+eq(await d.rpc(jake, 'set_pins', { p_pins: [{ g: hg, at: 1000 }, { g: hg, at: 1000 }, { g: hg, at: 1000 }, { g: hg, at: 1000 }] }), 'too_many', 'three at most');
+eq(await d.rpc(ethan, 'set_pins', { p_pins: [{ g: hg, at: 1000 }] }), 'not_yours', 'and only their own clips');
+await d.rpc(jake, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 1000 });
+eq((await d.rpc(sam, 'get_profile', { p_username: 'Chappers' })).clips, [], 'a clip taken out of their highlights leaves their profile too');
+await d.rpc(jake, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 1000, p_hide: false });
+
+// following someone public, and a private profile
+eq(await d.rpc(sam, 'follow', { p_username: 'chappers' }), 'accepted', 'following someone public is straight away');
+eq(await d.rpc(third, 'follow', { p_username: 'chappers' }), 'no_profile', 'you need a username of your own to follow anyone');
+pf = await d.rpc(jake, 'get_profile', { p_username: 'samwise' });
+eq([pf.can_see, pf.name, 'teams' in pf, 'results' in pf, 'clips' in pf, pf.follows_me], [false, 'Sam', false, false, false, 'accepted'], 'a private profile shows only a name and counts to someone not following it');
+eq(await d.rpc(jake, 'follow', { p_username: 'samwise' }), 'pending', 'following someone private is a request');
+eq([(await d.rpc(sam, 'my_profile')).requests, (await d.rpc(sam, 'my_follows')).requests.map((x) => x.username)], [1, ['Chappers']], 'which they see');
+eq((await d.rpc(jake, 'get_profile', { p_username: 'samwise' })).can_see, false, 'still private while it waits');
+eq(await d.rpc(sam, 'answer_follow', { p_username: 'Chappers', p_accept: true }), true, 'they accept');
+eq([(await d.rpc(jake, 'get_profile', { p_username: 'samwise' })).can_see, (await d.rpc(sam, 'my_profile')).followers], [true, 1], 'and now it\'s open to them');
+eq(await d.rpc(sam, 'answer_follow', { p_username: 'Chappers', p_accept: false }), true, 'a follower can be removed');
+eq((await d.rpc(jake, 'get_profile', { p_username: 'samwise' })).follow, null, 'which ends it');
+await d.rpc(rival, 'follow', { p_username: 'samwise' });
+await d.rpc(sam, 'set_profile', { p_username: 'samwise', p_name: 'Sam', p_private: false });
+eq((await d.rpc(rival, 'get_profile', { p_username: 'samwise' })).follow, 'accepted', 'going public accepts every request waiting');
+
+// the feed
+await d.rpc(ethan, 'follow', { p_username: 'chappers' });
+let feed = await d.rpc(sam, 'my_feed');
+eq(feed.map((x) => [x.game_id === hg, x.team, x.opp, x.us, x.them, x.people.map((p) => [p.username, p.goals, p.assists]), x.clips.length]), [[true, 'SOP FC', 'Dog Squad', 3, 1, [['Chappers', 2, 1]], 1]],
+  'the feed shows games played by people you follow, with their goals, assists and clips');
+check(feed[0].code === sop.code, 'with the team\'s follow code, so the app can leave out teams it already follows');
+eq(await d.rpc(ethan, 'my_feed'), [], 'but never your own team\'s games: you\'ve seen those');
+eq(await d.rpc(jake, 'my_feed'), [], 'nothing from people you don\'t follow');
+
+// blocking and reporting
+eq(await d.rpc(jake, 'block_user', { p_username: 'samwise' }), true, 'anyone can be blocked');
+eq([await d.rpc(sam, 'get_profile', { p_username: 'chappers' }), await d.rpc(jake, 'get_profile', { p_username: 'samwise' }), await d.rpc(sam, 'find_people', { p_query: 'chap' }), await d.rpc(sam, 'my_feed')], [null, null, [], []],
+  'then neither can find or see the other, and the feed drops them');
+eq([await d.rpc(sam, 'follow', { p_username: 'chappers' }), (await d.rpc(sam, 'my_follows')).following], ['missing', []], 'and following between them ends, and can\'t start again');
+eq((await d.rpc(jake, 'my_blocks')).map((x) => x.username), ['samwise'], 'blocked people are listed, to unblock');
+eq(await d.rpc(jake, 'block_user', { p_username: 'samwise', p_block: false }), true, 'unblocking');
+check((await d.rpc(sam, 'get_profile', { p_username: 'chappers' })) !== null, 'makes them visible again (without following back)');
+eq(await d.rpc(sam, 'report_user', { p_username: 'chappers', p_reason: 'Rude clip' }), true, 'anyone can be reported');
+eq(await d.rpc(sam, 'report_user', { p_username: 'chappers', p_reason: 'Rude clip, again' }), true, 'reporting again updates it');
+eq((await d.admin(`select count(*)::int as n, max(reason) as r from public.profile_reports`))[0], { n: 1, r: 'Rude clip, again' }, 'once per person');
+for (const t of ['profiles', 'follows', 'blocks', 'profile_reports', 'reserved_usernames']) eq(await count(sam, 'public.' + t), 0, `nobody reads ${t} directly`);
 
 // ---------- deleting an account
 eq(await d.rpc(jake, 'delete_my_account'), 0, 'a player deleting their account takes no team with it');

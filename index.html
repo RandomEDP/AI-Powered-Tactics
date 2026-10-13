@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- Gaffer: 5-a-Side Team Manager. Copyright © 2026 Ethan Davison-Pearce. All rights reserved. See LICENSE. -->
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
@@ -410,6 +411,26 @@ tr.past td { opacity: .45; }
 .tbplay button { border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 650; padding: 8px 12px; }
 #planPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #planPop[hidden] { display: none; }
+#unamePop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#unamePop[hidden] { display: none; }
+.pplBadge { margin-left: 8px; min-width: 20px; height: 20px; border-radius: 10px; background: #ffc83d; color: #2a2100; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; } .pplBadge[hidden] { display: none; }
+.prow { display: flex; align-items: center; gap: 10px; padding-block: 10px; border-bottom: 1px solid var(--line); }
+.prow:last-child { border-bottom: 0; }
+.prow .who { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0; color: var(--ink); font: inherit; }
+.prow .who b { display: block; overflow-wrap: anywhere; } .prow .who small { color: var(--muted); font-size: 14px; }
+.prow .plain { min-height: 40px; padding-inline: 14px; }
+.prhead { display: flex; flex-direction: column; gap: 4px; }
+.prhead .at { color: var(--muted); font-weight: 650; } .prhead .counts { color: var(--muted); font-size: 14px; }
+.prteams { display: flex; flex-wrap: wrap; gap: 8px; }
+.prteams span { border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 14px; }
+.prstats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.prstats div { background: var(--bg); border-radius: 14px; padding: 10px 6px; text-align: center; } .prstats b { display: block; font-size: 24px; } .prstats small { color: var(--muted); font-size: 12px; font-weight: 650; }
+.prres { list-style: none; margin: 0; padding: 0; } .prres li { display: grid; grid-template-columns: 28px 1fr; gap: 8px; padding-block: 9px; border-bottom: 1px solid var(--line); } .prres li:last-child { border-bottom: 0; }
+.prres .wl { font-weight: 800; color: var(--muted); } .prres .W { color: var(--on); } .prres small { display: block; color: var(--muted); font-size: 13px; }
+.pins label { display: flex; gap: 10px; align-items: flex-start; padding-block: 8px; border-bottom: 1px solid var(--line); } .pins input { width: 22px; height: 22px; flex: none; }
+.feedcard .badge.new { background: #ffc83d; color: #2a2100; }
+#pplQ { text-transform: none; letter-spacing: normal; font-family: inherit; font-weight: 500; font-size: 17px; }
+#pplBody > section { margin-top: 18px; } #pplBody > section > h2 { margin-bottom: 10px; } #pplBody details summary { font-weight: 700; cursor: pointer; }
 #pushPop { position: fixed; inset: 0; z-index: 47; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #pushPop[hidden] { display: none; }
 .planbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
@@ -708,7 +729,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <section id="myTeamsSec" hidden><h2>Your teams</h2><div class="menu" id="myTeams"></div></section>
   <div class="card"><h2>Start a team</h2><p class="note">Running a team? Set up your squad and colours, then share the code with your players.</p>
     <div class="actions"><button class="plain" id="createBtn" type="button">Create a team</button></div></div>
-  <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button></div></div>
+  <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button><button class="plain" id="pplBtn" type="button">People<span class="pplBadge" hidden></span></button></div></div>
   <p class="note" id="sync2"></p>
   <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a></p>
 </div>
@@ -727,6 +748,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <p class="note">An account links you to your player on each team, and lets gaffers run their teams.</p>
     <label class="field" for="aEmail">Email<input id="aEmail" type="email" autocomplete="email" inputmode="email"></label>
     <label class="field" for="aPass">Password<input id="aPass" type="password" autocomplete="current-password" minlength="8"></label>
+    <label class="field" for="aUser">Username, for a new account<input id="aUser" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. jake_9"></label>
+    <p class="note">Only needed when you create an account: 3 to 20 letters, numbers or _. It’s how people find and follow you.</p>
     <div class="actions"><button class="plain primary" id="aSignIn" type="button">Sign in</button><button class="plain" id="aSignUp" type="button">Create account</button></div>
     <p class="note">New accounts get a confirmation email. Tap the link once, then sign in here.</p>
   </div>
@@ -760,6 +783,27 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="actions"><button class="plain" id="codeCopy" type="button">Copy code</button><button class="plain primary" type="button" data-go="home">Go to the team</button></div>
   <p class="note">Anyone with the code can follow live games and see the stats. To add another gaffer, share the gaffer code from Options.</p>
 </div>
+
+<div class="view" id="v-people" hidden>
+  <div class="bar"><button class="back" type="button" id="pplBack">&lsaquo; Back</button><h1>People</h1></div>
+  <div id="pplBody"></div>
+</div>
+
+<div class="view" id="v-profile" hidden>
+  <div class="bar"><button class="back" type="button" data-go="people">&lsaquo; People</button><h1 id="prTitle">Profile</h1></div>
+  <div id="prBody"></div>
+</div>
+
+<div id="unamePop" role="dialog" aria-labelledby="unTitle" hidden><div class="planbox">
+  <h2 id="unTitle">Pick a username</h2>
+  <p id="unWhy">Gaffer has profiles now. Pick a username so team-mates can find and follow you.</p>
+  <label class="field" for="unUser">Username<input id="unUser" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. jake_9"></label>
+  <p class="note" id="unCheck">3 to 20 letters, numbers or _.</p>
+  <label class="field" for="unName">Your name, as it shows on your profile<input id="unName" type="text" maxlength="40" autocomplete="name"></label>
+  <div class="field"><span>Who can see your teams, results and clips?</span><div class="toggle" id="unPriv"><button type="button" data-priv="0" aria-pressed="true">Anyone</button><button type="button" data-priv="1" aria-pressed="false">Only people I accept</button></div></div>
+  <p class="msg bad" id="unMsg" hidden></p>
+  <div class="actions"><button class="plain primary" id="unSave" type="button">Save</button><button class="link" id="unLater" type="button">Not now</button></div>
+</div></div>
 
 <div id="planPop" role="dialog" aria-labelledby="planTitle" hidden><div class="planbox">
   <h2 id="planTitle">Free to use. Gaffer tier on the way.</h2>
@@ -884,6 +928,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <button id="mStats" type="button">Stats</button>
     <button id="mHighlights" type="button">Highlights</button>
     <button id="mInsights" type="button">Insights</button>
+    <button id="mPeople" type="button">People<span class="pplBadge" hidden></span></button>
   </div>
   <p class="msg" id="lockMsg" role="status"></p>
   <button class="soon-pill" id="soonPill" type="button" data-go="soon" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI reports and commentary</small></button>
@@ -1196,7 +1241,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'people', 'profile', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1586,6 +1631,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function afterAuth() {
     myTeams = null; renderAccount();
+    if (me) setTimeout(profileCheck, 0); else { MYP = undefined; profAsked = null; pplBadges(); }
     if (me && A.pending) { finishPending(); return; }
     if (A.active) openTeam(A.active, S.view);
     else { role = me ? 'owner' : 'viewer'; document.body.className = me ? '' : 'ro'; renderWelcome(); }
@@ -1749,7 +1795,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'people', 'profile', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1761,14 +1807,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (view !== 'live') livePlayer(null); // stop the picture (and its data) once the stream is off screen
     if (view === 'soon' && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome';
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
-    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account'].indexOf(view) < 0) view = 'welcome';
+    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'people', 'profile'].indexOf(view) < 0) view = 'welcome';
     if (view === 'create' && S.view !== 'create') resetCreate();
     if (view === 'game' && !S.match) view = 'home';
     if (view === 'mins' && !D) view = 'home';
     if (view === 'setup' && !(keep && D)) newDraft();
     S.view = view; saveLocal();
     if (view === 'join') applyTheme(J.d.team.color);
-    else if (view === 'intro' || view === 'welcome' || view === 'account') applyTheme(DEFAULT_COLOR); else if (view !== 'create') applyTheme();
+    else if (view === 'intro' || view === 'welcome' || view === 'account' || view === 'people' || view === 'profile') applyTheme(DEFAULT_COLOR); else if (view !== 'create') applyTheme();
     var fresh = $('v-' + view).hidden;
     VIEWS.forEach(function (v) { $('v-' + v).hidden = v !== view; });
     if (view === 'intro' && fresh) { $('introTrack').scrollLeft = 0; introPaint(); }
@@ -1784,6 +1830,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'poll') renderPoll();
     else if (S.view === 'cut') renderCut();
     else if (S.view === 'account') renderAccount();
+    else if (S.view === 'people') renderPeople();
+    else if (S.view === 'profile') renderProfile();
     else if (S.view === 'create') renderCreate();
     else if (S.view === 'code') renderCode();
     else if (S.view === 'home') renderHome();
@@ -1933,13 +1981,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (me) html += '<div class="actions"><button class="plain primary" type="button" data-do="claim">Join as ' + esc(p.name) + '</button></div>';
         else html += '<div class="toggle"><button type="button" data-mode="up" aria-pressed="' + (J.mode === 'up') + '">New account</button><button type="button" data-mode="in" aria-pressed="' + (J.mode === 'in') + '">I have an account</button></div>' +
           '<label class="field" for="jEmail">Email<input id="jEmail" type="email" autocomplete="email" inputmode="email"></label>' +
-          '<label class="field" for="jPass">Password<input id="jPass" type="password" autocomplete="' + (J.mode === 'up' ? 'new-password' : 'current-password') + '" minlength="8"></label>' +
+          '<label class="field" for="jPass">Password<input id="jPass" type="password" autocomplete="' + (J.mode === 'up' ? 'new-password' : 'current-password') + '" minlength="8"></label>' + jUserField() +
           '<div class="actions"><button class="plain primary" type="button" data-do="' + J.mode + '">' + (J.mode === 'up' ? 'Create account and join' : 'Sign in and join') + '</button></div>';
         html += '<p class="msg" id="jMsg"></p></div>';
       }
       return html + '</div>';
     }).join('') + askRow();
   }
+  function jUserField() { return J.mode !== 'up' ? '' : '<label class="field" for="jUser">Pick a username<input id="jUser" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. jake_9"></label><p class="note">3 to 20 letters, numbers or _. It’s how people find and follow you.</p>'; }
   // Not in the squad list: the same details as claiming a player, plus a first name, sent to the gaffers to let in or turn down.
   function askRow() {
     var open = J.open === 'ask', html = '<div class="jrow' + (open ? ' open' : '') + '"><button class="jhead" type="button" data-ask="1" aria-expanded="' + open + '"><span>My name isn’t here</span><span class="badge">Ask to join</span></button>';
@@ -1952,7 +2001,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (me) html += '<div class="actions"><button class="plain primary" type="button" data-do="claim">Ask to join</button></div>';
       else html += '<div class="toggle"><button type="button" data-mode="up" aria-pressed="' + (J.mode === 'up') + '">New account</button><button type="button" data-mode="in" aria-pressed="' + (J.mode === 'in') + '">I have an account</button></div>' +
         '<label class="field" for="jEmail">Email<input id="jEmail" type="email" autocomplete="email" inputmode="email"></label>' +
-        '<label class="field" for="jPass">Password<input id="jPass" type="password" autocomplete="' + (J.mode === 'up' ? 'new-password' : 'current-password') + '" minlength="8"></label>' +
+        '<label class="field" for="jPass">Password<input id="jPass" type="password" autocomplete="' + (J.mode === 'up' ? 'new-password' : 'current-password') + '" minlength="8"></label>' + jUserField() +
         '<div class="actions"><button class="plain primary" type="button" data-do="' + J.mode + '">' + (J.mode === 'up' ? 'Create account and ask to join' : 'Sign in and ask to join') + '</button></div>';
       html += '<p class="msg" id="jMsg"></p></div>';
     }
@@ -1965,7 +2014,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (ps) { J.pos = ps; Array.prototype.forEach.call(b.parentNode.children, function (x) { x.setAttribute('aria-pressed', x === b); }); return; }
     if (b.getAttribute('data-ask')) { J.open = J.open === 'ask' ? null : 'ask'; J.pos = null; renderJoin(); if (J.open) { var ff = $('jFirst'); if (ff) ff.focus(); } return; }
     if (pid !== null) { J.open = J.open === +pid ? null : +pid; J.pos = null; renderJoin(); if (J.open != null) { var f = $('jLast'); if (f) f.focus(); } return; }
-    if (mode) { var keep = { f: $('jFirst') ? $('jFirst').value : '', l: $('jLast').value, n: $('jNum').value, e: $('jEmail').value, p: $('jPass').value }; J.mode = mode; renderJoin(); if ($('jFirst')) $('jFirst').value = keep.f; $('jLast').value = keep.l; $('jNum').value = keep.n; $('jEmail').value = keep.e; $('jPass').value = keep.p; return; }
+    if (mode) { var keep = { f: $('jFirst') ? $('jFirst').value : '', l: $('jLast').value, n: $('jNum').value, e: $('jEmail').value, p: $('jPass').value, u: $('jUser') ? $('jUser').value : '' }; J.mode = mode; renderJoin(); if ($('jFirst')) $('jFirst').value = keep.f; $('jLast').value = keep.l; $('jNum').value = keep.n; $('jEmail').value = keep.e; $('jPass').value = keep.p; if ($('jUser')) $('jUser').value = keep.u; return; }
     if (!act) return;
     var asking = J.open === 'ask', p = asking ? { pid: null, name: $('jFirst').value.replace(/\s+/g, ' ').trim().slice(0, 40), position: null } : J.d.players.filter(function (x) { return x.pid === J.open; })[0]; if (!p) return;
     if (asking && !p.name) { jSay('Enter your first name.', true); return; }
@@ -1978,10 +2027,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var email = $('jEmail').value.trim(), pw = $('jPass').value;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { jSay('Enter your email address.', true); return; }
     if (pw.length < 8) { jSay('Passwords need at least 8 characters.', true); return; }
+    var juser = act === 'up' && $('jUser') ? $('jUser').value.trim() : '';
+    if (act === 'up') { jSay('Checking your username…'); var jbad = await unameProblem(juser); if (jbad) { jSay(jbad, true); return; } A.wantName = juser; }
     A.pending = pend; saveApp(); jSay(act === 'up' ? 'Creating your account…' : 'Signing in…');
     try {
       if (act === 'up') {
-        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: NATIVE_SITE || (location.origin + location.pathname) } });
+        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: NATIVE_SITE || (location.origin + location.pathname), data: { username: juser } } });
         if (r1.error) throw r1.error;
         if (!r1.data.session) { rememberTeam(pend.code, pend.team, false); openTeam(pend.code); } // email still to confirm: follow the team meanwhile
       } else {
@@ -2019,6 +2070,234 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     pendBusy = false;
   }
 
+  // ---- people: usernames, profiles, following and the feed (0023). Everyone with an account picks a username; a profile
+  // shows their teams, results, stats and up to three clips they choose (never upcoming games), to anyone signed in if
+  // public, or only to followers they've accepted if private. The feed is games played by people you follow, leaving out
+  // teams you're in or follow already (you've seen those).
+  var MYP, profAsked = null, unPriv = false, unT = null, unFirst = false;
+  var PPL = { q: '', found: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false };
+  var PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' };
+  var UN_SAY = { invalid: 'Usernames are 3 to 20 letters, numbers or _, with no spaces.', taken: 'Someone already has that username. Try another.', reserved: 'That username is kept back. Try another.' };
+  async function unameProblem(u) { // why this username can't be had, or '' (if the server can't be asked, it's checked again later)
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(u || '')) return u ? UN_SAY.invalid : 'Pick a username for your account.';
+    try { var r = await q(sb.rpc('username_status', { p_username: u })); return UN_SAY[r.data] || ''; } catch (e) { return ''; }
+  }
+  function pplBadges() { var n = MYP && MYP.requests ? MYP.requests : 0; Array.prototype.forEach.call(document.querySelectorAll('.pplBadge'), function (b) { b.hidden = !n; b.textContent = n; }); }
+  async function profileCheck() { // once a session: who you are on Gaffer; ask for a username if you haven't one
+    if (!sb || !me || profAsked === me.id) return;
+    profAsked = me.id;
+    try { MYP = (await q(sb.rpc('my_profile'))).data || null; } catch (e) { profAsked = null; return; }
+    var want = A.wantName || (me.user_metadata && me.user_metadata.username) || '';
+    if (!MYP && want) {
+      try { var r = await q(sb.rpc('set_profile', { p_username: want, p_name: myName(), p_private: false })); if (r.data === 'ok') MYP = (await q(sb.rpc('my_profile'))).data || null; } catch (e) {}
+      if (!MYP) unameOpen(true, want, 'Someone took @' + want + ' before your account was ready. Pick another.');
+    } else if (!MYP) unameOpen(true);
+    if (A.wantName) { A.wantName = null; saveApp(); }
+    pplBadges(); if (S.view === 'people') renderPeople();
+  }
+  function myName() { var p = myPid != null ? P(myPid) : null; return p ? [p.name, (roster[myPid] || {}).last_name || ''].join(' ').trim() : ''; }
+  function unameOpen(first, want, why) {
+    unFirst = !!first; unPriv = MYP ? !!MYP.private : false;
+    $('unTitle').textContent = MYP ? 'Your profile' : 'Pick a username';
+    $('unWhy').textContent = why || (MYP ? 'Change your username, your name or who can see your profile.' : 'Gaffer has profiles now. Pick a username so team-mates can find and follow you. Your profile shows your teams, results, stats and up to three clips you choose.');
+    $('unUser').value = MYP ? MYP.username : want || ''; $('unName').value = MYP ? MYP.name : myName();
+    $('unCheck').textContent = '3 to 20 letters, numbers or _.'; $('unMsg').hidden = true; $('unSave').disabled = false;
+    $('unLater').textContent = MYP ? 'Cancel' : 'Not now';
+    Array.prototype.forEach.call($('unPriv').children, function (b) { b.setAttribute('aria-pressed', (b.getAttribute('data-priv') === '1') === unPriv); });
+    $('unamePop').hidden = false;
+  }
+  $('unPriv').addEventListener('click', function (e) { var b = e.target.closest('[data-priv]'); if (!b) return; unPriv = b.getAttribute('data-priv') === '1'; Array.prototype.forEach.call($('unPriv').children, function (x) { x.setAttribute('aria-pressed', x === b); }); });
+  $('unUser').addEventListener('input', function () {
+    clearTimeout(unT); var u = $('unUser').value.trim();
+    unT = setTimeout(async function () { if ($('unUser').value.trim() !== u) return; if (MYP && u.toLowerCase() === MYP.username.toLowerCase()) { $('unCheck').textContent = 'That’s yours.'; return; } var bad = await unameProblem(u); if ($('unUser').value.trim() === u) $('unCheck').textContent = bad || '@' + u + ' is free.'; }, 400);
+  });
+  $('unLater').addEventListener('click', function () { $('unamePop').hidden = true; });
+  $('unSave').addEventListener('click', async function () {
+    var u = $('unUser').value.trim(), say = function (t) { $('unMsg').textContent = t; $('unMsg').hidden = !t; };
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(u)) { say(UN_SAY.invalid); return; }
+    $('unSave').disabled = true; say('');
+    try {
+      var r = await q(sb.rpc('set_profile', { p_username: u, p_name: $('unName').value.trim(), p_private: unPriv }));
+      if (r.data !== 'ok') { say(UN_SAY[r.data] || 'That didn’t work. Try again.'); $('unSave').disabled = false; return; }
+      MYP = (await q(sb.rpc('my_profile'))).data || null; $('unamePop').hidden = true; pplBadges();
+      if (S.view === 'people') renderPeople(); else if (S.view === 'profile') { PF.u = MYP.username; prLoad(); }
+    } catch (e) { say('Couldn’t save that. Check your signal and try again.'); $('unSave').disabled = false; }
+  });
+  function pplOpen() { PPL.msg = ''; go('people'); }
+  $('mPeople').addEventListener('click', pplOpen); $('pplBtn').addEventListener('click', pplOpen);
+  $('pplBack').addEventListener('click', function () { go(A.active ? 'home' : 'welcome'); });
+  function openProfile(u, back) { PF = { u: u, d: null, msg: '', pins: null, mine: null, report: false, back: back || S.view }; go('profile'); }
+  async function pplLoad() {
+    if (!sb || !me || !MYP || PPL.busy) return;
+    PPL.busy = true;
+    try {
+      var r = await Promise.all([q(sb.rpc('my_follows')), q(sb.rpc('my_feed')), q(sb.rpc('my_blocks')), q(sb.rpc('my_profile'))]);
+      PPL.follows = r[0].data || { requests: [], followers: [], following: [] }; PPL.blocks = r[2].data || []; MYP = r[3].data || MYP;
+      var mine = A.teams.map(function (t) { return t.code; }); // teams this phone follows already: their games are in the team's own screens
+      PPL.feed = (r[1].data || []).filter(function (x) { return mine.indexOf(x.code) < 0; });
+      var seen = 0; try { seen = +localStorage.getItem('apt-feed-seen') || 0; } catch (e) {}
+      PPL.seenAt = seen; var top = PPL.feed.reduce(function (m, x) { return Math.max(m, x.when || 0); }, seen);
+      try { localStorage.setItem('apt-feed-seen', String(top)); } catch (e) {}
+    } catch (e) { PPL.msg = 'Couldn’t load people. Check your signal.'; }
+    PPL.busy = false; pplBadges(); if (S.view === 'people') renderPeople();
+  }
+  function inkFor(c) { // dark text on light team colours, as applyTheme does
+    if (!/^#[0-9a-f]{6}$/i.test(c || '')) return '#f7f5ec';
+    var lin = function (v) { v = parseInt(v, 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * lin(c.substr(1, 2)) + 0.7152 * lin(c.substr(3, 2)) + 0.0722 * lin(c.substr(5, 2)) > 0.4 ? '#15140f' : '#f7f5ec';
+  }
+  function teamCol(c) { return /^#[0-9a-f]{6}$/i.test(c || '') ? c : DEFAULT_COLOR; }
+  function scoreText(x) { var h = x.house; return h ? (h.a || 'Bibs') + ' ' + x.us + '–' + x.them + ' ' + (h.b || 'Shirts') : (x.team || '') + ' ' + x.us + '–' + x.them + ' ' + (x.opp || ''); }
+  function dayText(ms) { if (!ms) return ''; var d = new Date(+ms); return d.getDate() + ' ' + MON[d.getMonth()]; }
+  function didText(p) { var out = []; if (p.goals) out.push(p.goals + (p.goals === 1 ? ' goal' : ' goals')); if (p.assists) out.push(p.assists + (p.assists === 1 ? ' assist' : ' assists')); return out.join(', ') || 'played'; }
+  function folBtn(x) { // what following this person looks like from here
+    if (x.me) return '<span class="badge you">You</span>';
+    return '<button class="plain' + (x.follow ? '' : ' primary') + '" type="button" data-fol="' + esc(x.username) + '">' + (x.follow === 'accepted' ? 'Following' : x.follow === 'pending' ? 'Requested' : x.private ? 'Ask to follow' : 'Follow') + '</button>';
+  }
+  function personRow(x, extra) { return '<div class="prow"><button class="who" type="button" data-prof="' + esc(x.username) + '"><b>' + esc(x.name || x.username) + (x.private ? ' <span class="badge">Private</span>' : '') + '</b><small>@' + esc(x.username) + '</small></button>' + (extra || '') + '</div>'; }
+  function renderPeople() {
+    var html = '';
+    if (!sb) html = '<div class="card"><p class="note">People needs an internet connection and an account.</p></div>';
+    else if (!me) html = '<div class="card"><h2>Profiles</h2><p class="note">Sign in to pick a username, follow people and see their teams, results and clips.</p><div class="actions"><button class="plain primary" type="button" data-pp="signin">Sign in</button></div></div>';
+    else if (MYP === undefined) { html = '<p class="note">Loading…</p>'; profileCheck(); }
+    else if (!MYP) html = '<div class="card"><h2>Pick a username</h2><p class="note">You need one to have a profile and follow people.</p><div class="actions"><button class="plain primary" type="button" data-pp="pick">Pick a username</button></div></div>';
+    else {
+      html += '<div class="card"><div class="prhead"><h2>' + esc(MYP.name || MYP.username) + '</h2><span class="at">@' + esc(MYP.username) + (MYP.private ? ' · Private' : ' · Public') + '</span><span class="counts">' + MYP.followers + ' following you · following ' + MYP.following + '</span></div>' +
+        '<div class="actions"><button class="plain primary" type="button" data-prof="' + esc(MYP.username) + '">My profile</button><button class="plain" type="button" data-pp="pick">Edit</button></div></div>';
+      var f = PPL.follows;
+      if (f && f.requests.length) html += '<section><h2>Asking to follow you</h2><div class="card">' + f.requests.map(function (x) { return personRow(x, '<button class="plain primary" type="button" data-acc="' + esc(x.username) + '">Accept</button><button class="plain" type="button" data-dec="' + esc(x.username) + '">Decline</button>'); }).join('') + '</div></section>';
+      html += '<section><h2>Find people</h2><div class="joinrow"><input id="pplQ" type="search" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Name or username" aria-label="Find people" value="' + esc(PPL.q) + '"><button class="plain primary" id="pplGo" type="button">Search</button></div>';
+      if (PPL.found) html += '<div class="card" id="pplFound">' + (PPL.found.length ? PPL.found.map(function (x) { return personRow(x, folBtn(x)); }).join('') : '<p class="note">Nobody found by that name.</p>') + '</div>';
+      html += '</section><section><h2>From people you follow</h2>';
+      if (!PPL.feed) html += '<p class="note">Loading…</p>';
+      else if (!PPL.feed.length) html += '<p class="note">When people you follow play for teams you don’t follow, their games and clips show here.</p>';
+      else PPL.feed.forEach(function (x) {
+        html += '<div class="card feedcard"><h3>' + esc(scoreText(x)) + (x.when > PPL.seenAt && PPL.seenAt ? '<span class="badge new">New</span>' : '') + '</h3><p class="note">' + esc([x.team_name, dayText(x.when)].filter(Boolean).join(', ')) + '</p>' +
+          (x.people || []).map(function (p) { return personRow(p, '<span class="note">' + esc(didText(p)) + '</span>'); }).join('') +
+          (x.clips && x.clips.length ? clipPlayer(x.clips.map(function (c) { return Object.assign({}, c, { title: c.label }); })) : '') + '</div>';
+      });
+      html += '</section>';
+      if (f) {
+        html += '<details class="card"><summary>Following (' + f.following.length + ')</summary>' + (f.following.map(function (x) { return personRow(x, folBtn({ username: x.username, follow: x.status })); }).join('') || '<p class="note">Nobody yet. Find people above.</p>') + '</details>';
+        html += '<details class="card"><summary>Your followers (' + f.followers.length + ')</summary>' + (f.followers.map(function (x) { return personRow(x, '<button class="plain" type="button" data-dec="' + esc(x.username) + '">Remove</button>'); }).join('') || '<p class="note">Nobody yet.</p>') + '</details>';
+      }
+      if (PPL.blocks && PPL.blocks.length) html += '<details class="card"><summary>Blocked (' + PPL.blocks.length + ')</summary>' + PPL.blocks.map(function (x) { return personRow(x, '<button class="plain" type="button" data-unblock="' + esc(x.username) + '">Unblock</button>'); }).join('') + '</details>';
+      if (!PPL.follows && !PPL.busy) pplLoad();
+    }
+    if (PPL.msg) html += '<p class="msg" role="status" id="pplMsg">' + esc(PPL.msg) + '</p>';
+    $('pplBody').innerHTML = html;
+  }
+  async function pplSearch() {
+    var t = ($('pplQ') && $('pplQ').value || '').trim(); PPL.q = t;
+    if (t.replace(/^@/, '').length < 2) { PPL.found = null; PPL.msg = 'Type at least two letters.'; renderPeople(); return; }
+    try { PPL.found = (await q(sb.rpc('find_people', { p_query: t.replace(/^@/, '') }))).data || []; PPL.msg = ''; } catch (e) { PPL.msg = 'Couldn’t search. Check your signal.'; }
+    renderPeople();
+  }
+  async function followTap(u, state) { // Follow, or tap again to stop
+    try {
+      if (state) await q(sb.rpc('unfollow', { p_username: u }));
+      else { var r = await q(sb.rpc('follow', { p_username: u })); if (r.data === 'no_profile') { unameOpen(false); return; } if (r.data === 'pending') PPL.msg = 'Asked to follow @' + u + '. You’ll see their profile once they accept.'; }
+    } catch (e) { PPL.msg = 'That didn’t work. Check your signal.'; }
+    PPL.follows = null; PPL.found = PPL.found ? PPL.found.map(function (x) { return x.username === u ? Object.assign({}, x, { follow: state ? null : x.private ? 'pending' : 'accepted' }) : x; }) : null;
+    if (S.view === 'profile') prLoad(); else { renderPeople(); pplLoad(); }
+  }
+  function clipTap(e) { // the clip list under a player: play the one tapped (shared by Highlights, People and profiles)
+    var b = e.target.closest('[data-clip]'); if (!b) return false;
+    var box = b.closest('.vplayer'), v = box.querySelector('video');
+    Array.prototype.forEach.call(box.querySelectorAll('[data-clip]'), function (x) { x.setAttribute('aria-pressed', x === b); });
+    v.src = b.getAttribute('data-src'); try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {}
+    return true;
+  }
+  $('pplBody').addEventListener('keydown', function (e) { if (e.target.id === 'pplQ' && e.key === 'Enter') pplSearch(); });
+  $('pplBody').addEventListener('click', async function (e) {
+    if (clipTap(e)) return;
+    var b = e.target.closest('button'); if (!b) return; var g = function (k) { return b.getAttribute(k); };
+    if (b.id === 'pplGo') pplSearch();
+    else if (g('data-pp') === 'signin') { A.after = 'people'; go('account'); }
+    else if (g('data-pp') === 'pick') unameOpen(false);
+    else if (g('data-prof')) openProfile(g('data-prof'), 'people');
+    else if (g('data-fol')) followTap(g('data-fol'), b.textContent === 'Following' || b.textContent === 'Requested');
+    else if (g('data-acc') || g('data-dec')) { try { await q(sb.rpc('answer_follow', { p_username: g('data-acc') || g('data-dec'), p_accept: !!g('data-acc') })); } catch (err) { PPL.msg = 'That didn’t work. Check your signal.'; } PPL.follows = null; pplLoad(); }
+    else if (g('data-unblock')) { try { await q(sb.rpc('block_user', { p_username: g('data-unblock'), p_block: false })); } catch (err) {} PPL.follows = null; pplLoad(); }
+  });
+
+  // ---- a profile
+  async function prLoad() {
+    if (!sb || !me || !PF.u) return;
+    try { PF.d = (await q(sb.rpc('get_profile', { p_username: PF.u }))).data; PF.msg = PF.d ? PF.msg : ''; } catch (e) { PF.msg = 'Couldn’t load that profile. Check your signal.'; }
+    PF.loaded = true; if (S.view === 'profile') renderProfile();
+  }
+  function renderProfile() {
+    var d = PF.d, html = '';
+    $('prTitle').textContent = d ? (d.me ? 'My profile' : d.name || '@' + d.username) : 'Profile';
+    if (!me) html = '<p class="note">Sign in to see profiles.</p>';
+    else if (!PF.loaded) { html = '<p class="note">Loading…</p>'; prLoad(); }
+    else if (!d) html = '<div class="card"><p class="note">' + esc(PF.msg || 'That profile isn’t there any more.') + '</p></div>';
+    else {
+      html += '<div class="card"><div class="prhead"><h2>' + esc(d.name || d.username) + '</h2><span class="at">@' + esc(d.username) + (d.private ? ' · Private' : '') + '</span><span class="counts">' + d.followers + (d.followers === 1 ? ' follower' : ' followers') + ' · following ' + d.following + '</span></div><div class="actions">' +
+        (d.me ? '<button class="plain" type="button" data-pr="edit">Edit profile</button>' : folBtn(d)) +
+        (d.follows_me === 'pending' ? '<button class="plain primary" type="button" data-pr="accept">Accept their request</button>' : '') + '</div></div>';
+      if (!d.can_see) html += '<div class="card"><p class="note">' + (d.follow === 'pending' ? 'Waiting for @' + esc(d.username) + ' to accept. Their teams, results and clips show once they do.' : '@' + esc(d.username) + '’s profile is private. Ask to follow to see their teams, results and clips.') + '</p></div>';
+      else {
+        var st = d.stats || {};
+        html += '<div class="card"><h3>Teams</h3><div class="prteams">' + ((d.teams || []).map(function (t) { return '<span style="background:' + teamCol(t.color) + ';color:' + inkFor(teamCol(t.color)) + '">' + esc(t.name) + '</span>'; }).join('') || '<span class="note">Not in a squad yet.</span>') + '</div>' +
+          '<div class="prstats"><div><b>' + (st.games || 0) + '</b><small>Games</small></div><div><b>' + (st.wins || 0) + '</b><small>Wins</small></div><div><b>' + (st.goals || 0) + '</b><small>Goals</small></div><div><b>' + (st.assists || 0) + '</b><small>Assists</small></div></div></div>';
+        html += '<div class="card"><h3>Clips</h3>';
+        if (PF.pins) html += pinPicker();
+        else {
+          html += (d.clips || []).length ? clipPlayer(d.clips.map(function (c) { return Object.assign({}, c, { title: scoreText(c) + ': ' + c.label }); })) : '<p class="note">' + (d.me ? 'Pick up to three of your clips to show here.' : 'No clips picked yet.') + '</p>';
+          if (d.me) html += '<div class="actions"><button class="plain" type="button" data-pr="pins">Choose clips (up to 3)</button></div>';
+        }
+        html += '</div><div class="card"><h3>Results</h3>' + ((d.results || []).length ? '<ul class="prres">' + d.results.map(function (r) {
+          var won = r.house ? (r.house.side === 'b' ? r.them > r.us : r.us > r.them) : r.us > r.them, lost = r.house ? (r.house.side === 'b' ? r.them < r.us : r.us < r.them) : r.us < r.them;
+          return '<li><span class="wl ' + (won ? 'W' : lost ? 'L' : 'D') + '">' + (won ? 'W' : lost ? 'L' : 'D') + '</span><span>' + esc(scoreText(r)) + '<small>' + esc([dayText(r.when), r.house ? 'among ' + r.team_name : r.friendly ? 'friendly' : '', didText(r)].filter(Boolean).join(' · ')) + '</small></span></li>';
+        }).join('') + '</ul>' : '<p class="note">No games yet.</p>') + '</div>';
+      }
+      if (!d.me) {
+        html += '<div class="card"><div class="actions"><button class="link" type="button" data-pr="report">Report @' + esc(d.username) + '</button><button class="link" type="button" data-pr="block">' + (PF.armBlock ? 'Tap again to block @' + esc(d.username) : 'Block @' + esc(d.username)) + '</button></div>';
+        if (PF.report) html += '<p class="note">What’s wrong? Gaffer looks at every report.</p><div class="chips">' + ['Offensive name or clips', 'Pretending to be someone else', 'Spam or a fake account', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-why="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>';
+        html += '<p class="note">Blocking hides you from each other and ends any following between you.</p></div>';
+      }
+    }
+    if (PF.msg && d) html += '<p class="msg" role="status" id="prMsg">' + esc(PF.msg) + '</p>';
+    $('prBody').innerHTML = html;
+  }
+  function pinPicker() {
+    if (!PF.mine) return '<p class="note">Loading your clips…</p>';
+    if (!PF.mine.length) return '<p class="note">You haven’t any clips yet. They appear once a game you played in is cut into highlights.</p><div class="actions"><button class="plain" type="button" data-pr="pinsx">Back</button></div>';
+    var key = function (c) { return c.game_id + ':' + c.at; };
+    return '<p class="note">From all your teams. Pick up to three.</p><div class="pins">' + PF.mine.map(function (c) {
+      var on = PF.pins.indexOf(key(c)) >= 0;
+      return '<label><input type="checkbox" data-pin="' + esc(key(c)) + '"' + (on ? ' checked' : '') + (!on && PF.pins.length >= 3 ? ' disabled' : '') + '><span>' + esc(scoreText(c) + ': ' + c.label) + '<small class="note"> ' + esc(dayText(c.when)) + '</small></span></label>';
+    }).join('') + '</div><div class="actions"><button class="plain primary" type="button" data-pr="pinsave">Save</button><button class="plain" type="button" data-pr="pinsx">Cancel</button></div>';
+  }
+  $('prBody').addEventListener('change', function (e) {
+    var k = e.target.getAttribute('data-pin'); if (!k || !PF.pins) return;
+    PF.pins = PF.pins.filter(function (x) { return x !== k; }); if (e.target.checked) PF.pins.push(k);
+    renderProfile();
+  });
+  $('prBody').addEventListener('click', async function (e) {
+    if (clipTap(e)) return;
+    var b = e.target.closest('button'); if (!b || !PF.d) return; var act = b.getAttribute('data-pr'), u = PF.d.username;
+    if (b.getAttribute('data-fol')) { followTap(u, !!PF.d.follow); return; }
+    if (b.getAttribute('data-why')) { try { await q(sb.rpc('report_user', { p_username: u, p_reason: b.getAttribute('data-why') })); PF.msg = 'Thanks. Gaffer will look at @' + u + '’s profile. Block them too if you’d rather not see them.'; } catch (err) { PF.msg = 'Couldn’t send that. Check your signal.'; } PF.report = false; renderProfile(); return; }
+    if (act === 'edit') unameOpen(false);
+    else if (act === 'accept') { try { await q(sb.rpc('answer_follow', { p_username: u, p_accept: true })); } catch (err) {} prLoad(); }
+    else if (act === 'report') { PF.report = !PF.report; renderProfile(); }
+    else if (act === 'block') {
+      if (!PF.armBlock) { PF.armBlock = true; renderProfile(); setTimeout(function () { if (PF.armBlock) { PF.armBlock = false; if (S.view === 'profile') renderProfile(); } }, 3000); return; }
+      PF.armBlock = false;
+      try { await q(sb.rpc('block_user', { p_username: u, p_block: true })); PPL.follows = null; PPL.found = null; PPL.msg = 'Blocked @' + u + '. Unblock them from the list at the bottom.'; go('people'); pplLoad(); } catch (err) { PF.msg = 'Couldn’t block them. Check your signal.'; renderProfile(); }
+    }
+    else if (act === 'pins') { PF.pins = (MYP && MYP.pins || []).map(function (p) { return p.g + ':' + p.at; }); PF.mine = null; renderProfile(); try { PF.mine = (await q(sb.rpc('my_clips'))).data || []; } catch (err) { PF.mine = []; PF.msg = 'Couldn’t load your clips.'; } renderProfile(); }
+    else if (act === 'pinsx') { PF.pins = null; renderProfile(); }
+    else if (act === 'pinsave') {
+      var list = PF.pins.map(function (k) { var i = k.lastIndexOf(':'); return { g: k.slice(0, i), at: +k.slice(i + 1) }; });
+      try { var r = await q(sb.rpc('set_pins', { p_pins: list })); PF.msg = r.data === 'ok' ? 'Saved.' : r.data === 'too_many' ? 'Three at most.' : 'One of those isn’t yours any more.'; if (r.data === 'ok') { PF.pins = null; MYP = (await q(sb.rpc('my_profile'))).data || MYP; } } catch (err) { PF.msg = 'Couldn’t save. Check your signal.'; }
+      prLoad();
+    }
+  });
+
   // ---- account: sign in with email and password
   function aSay(t, bad) { var el = $('aMsg'); el.textContent = t || ''; el.className = 'msg' + (bad ? ' bad' : ''); el.hidden = !t; }
   function renderAccount() {
@@ -2030,17 +2309,19 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var email = $('aEmail').value.trim(), pw = $('aPass').value;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { aSay('Enter your email address.', true); return; }
     if (pw.length < 8) { aSay('Passwords need at least 8 characters.', true); return; }
+    var auser = $('aUser').value.trim();
+    if (kind === 'up') { aSay('Checking your username…'); var abad = await unameProblem(auser); if (abad) { aSay(abad, true); return; } A.wantName = auser; saveApp(); }
     aSay(kind === 'up' ? 'Creating your account…' : 'Signing in…');
     try {
       if (kind === 'up') {
-        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: NATIVE_SITE || (location.origin + location.pathname) } });
+        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: NATIVE_SITE || (location.origin + location.pathname), data: { username: auser } } });
         if (r1.error) throw r1.error;
         if (!r1.data.session) { aSay('Check your email and tap the link to confirm your account, then sign in here.'); return; }
       } else {
         var r2 = await sb.auth.signInWithPassword({ email: email, password: pw });
         if (r2.error) throw r2.error;
       }
-      $('aPass').value = ''; aSay('');
+      $('aPass').value = ''; $('aUser').value = ''; aSay('');
       var next = A.after; A.after = null; go(next || 'welcome');
     } catch (e) {
       var m = (e && e.message) || '';
@@ -2063,6 +2344,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     me = null; closeTeam();
     A.teams.slice().forEach(function (t) { forgetTeam(t.code); });
     A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; crest = null; J = null;
+    MYP = undefined; profAsked = null; PPL = { q: '', found: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; $('unamePop').hidden = true; pplBadges();
     CH = { code: null, list: [], unread: 0 }; RV = { code: null, list: [], home: null, near: [], q: '', form: null, msg: '' }; myAsk = null; asks = []; askMsg = ''; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
     saveApp(); applyTheme(); go('welcome');
   }

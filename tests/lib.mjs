@@ -123,7 +123,7 @@ export async function world() {
       },
       /// Sets a game up against `opp` and stops on the game screen, before kick-off.
       newGame: async (opp = 'Dog') => { await P.click('#mNew'); await page.fill('#opp', opp); await P.click('#startGame'); await P.click('#kick'); },
-      signUp: async (email) => { await page.fill('#aEmail', email); await page.fill('#aPass', 'longpassword'); await P.click('#aSignUp'); await P.click('#aSignIn'); await P.run(500); },
+      signUp: async (email, user) => { await page.fill('#aEmail', email); await page.fill('#aPass', 'longpassword'); await page.fill('#aUser', user || email.split('@')[0].replace(/[^A-Za-z0-9_]/g, '').slice(0, 16) + '_fc'); await P.click('#aSignUp'); await P.click('#aSignIn'); await P.run(500); },
     };
     return P;
   };

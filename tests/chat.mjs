@@ -12,7 +12,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms)), view = (p) => p.eval
 // the two phones keep separate stand-in databases, so messages are carried across by hand
 const carry = async (from, to) => { const m = await from.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).messages); await to.evaluate((m) => { const d = JSON.parse(localStorage.getItem('__mockdb')); d.messages = m; localStorage.setItem('__mockdb', JSON.stringify(d)); }, m); };
 const ctx = await mk(); const A = await ctx.newPage(); A.on('pageerror', (e) => errs.push('A: ' + e)); await A.goto(BASE); await wait(300);
-await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
+await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
 await A.fill('#tName', 'Sons of Pitches FC'); await A.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan\nAli'); await A.click('#tCreate'); await wait(400);
 const code = await A.textContent('#codeBig'); await A.click('#v-code [data-go="home"]'); await wait(300);
 await A.click('#meCard [data-me="pick"]'); await wait(300); await A.click('#joinList [data-pid="8"]'); await A.click('#joinList [data-pos="fwd"]'); await A.click('#joinList [data-do="claim"]'); await wait(600);
@@ -41,7 +41,7 @@ await A.click('[data-tbrun="0"]'); await wait(700); const mid = await A.$eval('#
 await A.click('[data-tbsend="0"]'); await wait(700); console.log('send ->', await view(A), '| play cards:', await A.$$eval('.cplay', (x) => x.length), '|', await A.textContent('.cplay b'));
 if (out) await A.screenshot({ path: `${out}/chat.png` });
 // Ali signs up, claims, reads, reports, mutes
-await D.click('#joinList [data-pid="9"]'); await D.fill('#jLast', 'Khan'); console.log('claim form asks for a shirt number:', await D.isVisible('#jNum')); await D.fill('#jNum', '56'); await D.click('#joinList [data-pos="mix"]'); await D.fill('#jEmail', 'ali@example.com'); await D.fill('#jPass', 'longenough1'); await D.click('#joinList [data-do="up"]'); await wait(500);
+await D.click('#joinList [data-pid="9"]'); await D.fill('#jLast', 'Khan'); console.log('claim form asks for a shirt number:', await D.isVisible('#jNum')); await D.fill('#jNum', '56'); await D.click('#joinList [data-pos="mix"]'); await D.fill('#jEmail', 'ali@example.com'); await D.fill('#jUser', 'ali_k'); await D.fill('#jPass', 'longenough1'); await D.click('#joinList [data-do="up"]'); await wait(500);
 await D.click('#pendCard [data-go="account"]'); await D.fill('#aEmail', 'ali@example.com'); await D.fill('#aPass', 'longenough1'); await D.click('#aSignIn'); await wait(900);
 await carry(A, D); await D.reload(); await wait(900);
 console.log('Ali’s number after claiming: in the database', await D.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).players.find((p) => p.name === 'Ali').shirt_number), '| on his card', await D.inputValue('#myNum'));

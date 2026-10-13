@@ -82,7 +82,7 @@ const total = rows().length;
 
 // ---------- Jake, on his own phone, takes it out of his highlights
 const db = w.db(); const jakeUser = { id: 'u-jake', email: 'jake@example.com', password: 'longpassword' };
-db.users.push(jakeUser); db.players.find((p) => p.pid === P1).user_id = 'u-jake'; w.setDb(db);
+db.users.push(jakeUser); db.players.find((p) => p.pid === P1).user_id = 'u-jake'; db.profiles = (db.profiles || []).concat({ user_id: 'u-jake', username: 'jake_p', name: 'Jake', private: false, pins: [] }); w.setDb(db);
 const J = await w.phone({ db: true, native: true, label: 'jake' });
 await J.ctx.addInitScript(cutter); await J.page.reload(); await J.run(500);
 await J.page.fill('#joinCode', code); await J.click('#joinBtn'); await J.run(500); await J.click('#jFollow'); await J.run(800);

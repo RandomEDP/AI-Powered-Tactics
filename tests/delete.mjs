@@ -17,7 +17,7 @@ await ctx.route('**/*', (r) => { const u = r.request().url(); if (u.includes('ve
 const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(String(e)));
 await p.goto(BASE); await p.waitForTimeout(300);
 console.log('privacy link:', await p.getAttribute('#v-welcome [data-privacy]', 'href'));
-await p.click('#acctBtn'); await p.fill('#aEmail', 'x@example.com'); await p.fill('#aPass', 'longpassword'); await p.click('#aSignUp'); await p.click('#aSignIn'); await p.waitForTimeout(300);
+await p.click('#acctBtn'); await p.fill('#aEmail', 'x@example.com'); await p.fill('#aPass', 'longpassword'); await p.fill('#aUser', 'x_fc'); await p.click('#aSignUp'); await p.click('#aSignIn'); await p.waitForTimeout(300);
 await p.click('#createBtn'); await p.fill('#tName', 'Solo FC'); await p.click('#tCreate'); await p.waitForTimeout(300); await p.click('#v-code [data-go="home"]');
 await p.click('#mSwitch'); await p.click('#acctBtn');
 console.log('delete visible:', await p.isVisible('#aDelete'));

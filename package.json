@@ -2,6 +2,7 @@
   "name": "ai-powered-tactics",
   "version": "1.0.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "AI Powered Tactics: line-ups, sub rotations, live scores and highlights for small-sided football.",
   "scripts": {
     "build:web": "node scripts/build-web.mjs",

@@ -23,7 +23,7 @@ await W.page.fill('#jFirst', '  Woody '); await W.click('#joinList [data-do="up"
 await W.page.fill('#jLast', 'Wood'); await W.page.fill('#jNum', '14'); await W.click('#joinList [data-pos="def"]');
 await W.click('#joinList [data-mode="in"]'); eq([await W.page.inputValue('#jFirst'), await W.page.inputValue('#jNum')], ['  Woody ', '14'], 'switching between new account and existing account keeps what was typed');
 await W.click('#joinList [data-mode="up"]'); await W.click('#joinList [data-pos="def"]');
-await W.page.fill('#jEmail', 'woody@example.com'); await W.page.fill('#jPass', 'longpassword'); await W.click('#joinList [data-do="up"]'); await W.run(800);
+await W.page.fill('#jEmail', 'woody@example.com'); await W.page.fill('#jUser', 'woody_w'); await W.page.fill('#jPass', 'longpassword'); await W.click('#joinList [data-do="up"]'); await W.run(800);
 eq([await W.view(), await W.visible('#pendCard'), await W.text('#pendTitle'), w.db().join_requests.length], ['home', true, 'Confirm your email to ask to join', 0], 'account made: they follow the team, and the request waits for the email to be confirmed');
 await W.click('#pendCard [data-go="account"]'); await W.page.fill('#aEmail', 'woody@example.com'); await W.page.fill('#aPass', 'longpassword'); await W.click('#aSignIn'); await W.run(1500);
 let reqs = w.db().join_requests;
@@ -55,6 +55,7 @@ await X.click('#joinList [data-ask]'); await X.page.fill('#jFirst', 'Ringer'); a
 await X.click('#joinList [data-mode="in"]'); await X.page.fill('#jFirst', 'Ringer'); await X.click('#joinList [data-pos="fwd"]');
 await X.page.evaluate(async () => { const sb = window.supabase.createClient(); await sb.auth.signUp({ email: 'ringer@example.com', password: 'longpassword' }); }); // (an account made earlier)
 await X.page.fill('#jEmail', 'ringer@example.com'); await X.page.fill('#jPass', 'longpassword'); await X.click('#joinList [data-do="in"]'); await w.run(2500);
+check(await X.visible('#unamePop'), 'an account made before profiles is asked for a username'); await X.click('#unLater'); // (Not now)
 eq([await X.view(), /asked to join/.test(await X.text('#meCard')), w.db().join_requests.filter((r) => r.status === 'pending').length, calls('join')], ['home', true, 1, 2], 'someone with an account already signs in and asks in one go');
 await A.click('#tabs [data-tab="home"]'); await w.run(1500);
 check(/Ringer/.test(await A.text('#askCard')), 'the gaffer sees the new request arrive while the app is open');

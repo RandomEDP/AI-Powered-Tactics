@@ -2,7 +2,7 @@
 // Implements just what the app uses, with the same access rules as the real policies and functions.
 (function () {
   const KEY = '__mockdb';
-  const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips', 'messages', 'reports', 'join_requests', 'team_streams'];
+  const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips', 'messages', 'reports', 'join_requests', 'team_streams', 'profiles', 'follows', 'blocks', 'profile_reports', 'clip_hides'];
   // tests/lib.mjs gives every phone its own browser profile, like real devices; then the database lives with the test runner (window.__mockRemote).
   const REMOTE = window.__mockRemote || null;
   const xhr = (method, body) => { const x = new XMLHttpRequest(); x.open(method, REMOTE, false); x.send(body || null); return x.responseText; };
@@ -56,6 +56,83 @@
       d.players.forEach((x) => { if (x.team_id === t.id && x.user_id === uid()) x.user_id = null; });
       if (['fwd', 'def', 'mix', 'gk'].indexOf(a.p_position) < 0) return ok('position');
       p.user_id = uid(); p.last_name = a.p_last_name || null; p.position = a.p_position; store(d); return ok('ok');
+    }
+    // ---------- profiles and following (0023), as the real functions behave
+    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user'];
+    if (PEOPLE.includes(name)) {
+      const RESERVED = d.reserved_usernames || ['edp', 'ethan', 'ethandp', 'e_d_p_1', 'gaffer', 'admin', 'support', 'official'].map((h) => ({ handle: h, user_id: null }));
+      const prof = (u) => d.profiles.find((p) => p.user_id === u), byName = (n) => d.profiles.find((p) => p.username.toLowerCase() === String(n || '').trim().toLowerCase());
+      const blocked = (a, b) => d.blocks.some((x) => (x.blocker === a && x.blocked === b) || (x.blocker === b && x.blocked === a));
+      const fol = (a, b) => (d.follows.find((f) => f.follower === a && f.followee === b) || {}).status || null;
+      const status = (n, who) => !/^[A-Za-z0-9_]{3,20}$/.test(n || '') ? 'invalid' : RESERVED.some((r) => r.handle === n.toLowerCase() && (r.user_id == null || r.user_id !== who)) ? 'reserved' : d.profiles.some((p) => p.username.toLowerCase() === n.toLowerCase() && p.user_id !== who) ? 'taken' : 'ok';
+      const inTeam = (team) => d.players.some((p) => p.team_id === team && p.user_id === uid()) || d.team_members.some((m) => m.team_id === team && m.user_id === uid());
+      const when = (g) => g.finished_at || 0;
+      const houseOf = (g, pid) => g.house ? { a: g.house.a, b: g.house.b, side: pid != null && g.house.side ? g.house.side[pid] || null : null } : null;
+      const clipsOf = (u) => { const out = []; d.players.filter((p) => p.user_id === u).forEach((p) => { const t = d.teams.find((x) => x.id === p.team_id) || {};
+        d.clips.filter((c) => c.team_id === p.team_id && (c.pids || []).includes(p.pid) && c.at != null && !(d.clip_hides || []).some((h) => h.game_id === c.game_id && h.at === c.at && h.pid === p.pid)).forEach((c) => { const g = d.games.find((x) => x.id === c.game_id) || {};
+          out.push({ game_id: c.game_id, at: c.at, seq: c.seq, path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur, team: t.short, team_name: t.name, color: t.color, opp: g.opp, us: g.us, them: g.them, house: houseOf(g, p.pid), when: when(g) }); }); });
+        return out.sort((a, b) => b.at - a.at); };
+      const seeable = (p) => p.user_id === uid() || !p.private || fol(uid(), p.user_id) === 'accepted';
+      const counts = (u) => ({ followers: d.follows.filter((f) => f.followee === u && f.status === 'accepted').length, following: d.follows.filter((f) => f.follower === u && f.status === 'accepted').length });
+      if (name === 'username_status') return ok(status(String(a.p_username || '').trim(), uid()));
+      if (!uid()) return fail('Sign in first', '42501');
+      const mine = prof(uid());
+      if (name === 'set_profile') {
+        const u = String(a.p_username || '').trim(), st = status(u, uid()); if (st !== 'ok') return ok(st);
+        const row = { user_id: uid(), username: u, name: String(a.p_name || '').replace(/\s+/g, ' ').trim().slice(0, 40), private: !!a.p_private };
+        if (mine) Object.assign(mine, row); else d.profiles.push(Object.assign({ pins: [] }, row));
+        if (!a.p_private) d.follows.forEach((f) => { if (f.followee === uid()) f.status = 'accepted'; });
+        store(d); return ok('ok');
+      }
+      if (name === 'my_profile') return ok(mine ? Object.assign({ username: mine.username, name: mine.name, private: mine.private, pins: mine.pins || [], requests: d.follows.filter((f) => f.followee === uid() && f.status === 'pending').length }, counts(uid())) : null);
+      if (name === 'find_people') { const t = String(a.p_query || '').trim().toLowerCase(); if (t.length < 2) return ok([]);
+        return ok(d.profiles.filter((p) => (p.username.toLowerCase().includes(t) || p.name.toLowerCase().includes(t)) && !blocked(uid(), p.user_id)).slice(0, 20)
+          .map((p) => ({ username: p.username, name: p.name, private: p.private, me: p.user_id === uid(), follow: fol(uid(), p.user_id) }))); }
+      if (name === 'get_profile') {
+        const p = byName(a.p_username); if (!p || blocked(uid(), p.user_id)) return ok(null);
+        const see = seeable(p), out = Object.assign({ username: p.username, name: p.name, private: p.private, me: p.user_id === uid(), can_see: see, follow: fol(uid(), p.user_id), follows_me: fol(p.user_id, uid()) }, counts(p.user_id));
+        if (!see) return ok(out);
+        const pls = d.players.filter((x) => x.user_id === p.user_id), rows = [];
+        pls.forEach((pl) => d.game_players.filter((gp) => gp.pid === pl.pid).forEach((gp) => { const g = d.games.find((x) => x.id === gp.game_id && x.team_id === pl.team_id); if (g) rows.push({ g, gp, t: d.teams.find((x) => x.id === pl.team_id) || {} }); }));
+        const won = (r) => !r.g.house ? r.g.us > r.g.them : (r.g.house.side || {})[r.gp.pid] === 'b' ? r.g.them > r.g.us : r.g.us > r.g.them;
+        const cl = clipsOf(p.user_id), pins = p.pins || [];
+        return ok(Object.assign(out, {
+          teams: pls.map((pl) => d.teams.find((x) => x.id === pl.team_id)).filter(Boolean).map((t) => ({ name: t.name, short: t.short, color: t.color, crest: t.crest || null })),
+          stats: { games: rows.length, goals: rows.reduce((n, r) => n + (r.gp.goals || 0), 0), assists: rows.reduce((n, r) => n + (r.gp.assists || 0), 0), wins: rows.filter(won).length },
+          results: rows.sort((x, y) => when(y.g) - when(x.g)).slice(0, 10).map((r) => ({ team: r.t.short, team_name: r.t.name, opp: r.g.opp, us: r.g.us, them: r.g.them, friendly: !!r.g.friendly, house: houseOf(r.g, r.gp.pid), goals: r.gp.goals || 0, assists: r.gp.assists || 0, when: when(r.g) })),
+          clips: pins.map((v) => cl.find((c) => c.game_id === v.g && c.at === v.at)).filter(Boolean) }));
+      }
+      if (name === 'my_clips') return ok(clipsOf(uid()));
+      if (name === 'set_pins') { if (!mine) return ok('no_profile'); const list = a.p_pins || []; if (list.length > 3) return ok('too_many'); const cl = clipsOf(uid());
+        if (!list.every((v) => cl.some((c) => c.game_id === v.g && c.at === +v.at))) return ok('not_yours'); mine.pins = list.map((v) => ({ g: v.g, at: +v.at })); store(d); return ok('ok'); }
+      if (name === 'follow') { if (!mine) return ok('no_profile'); const p = byName(a.p_username); if (!p || blocked(uid(), p.user_id)) return ok('missing'); if (p.user_id === uid()) return ok('self');
+        let f = d.follows.find((x) => x.follower === uid() && x.followee === p.user_id); if (!f) { f = { follower: uid(), followee: p.user_id, status: p.private ? 'pending' : 'accepted', at: Date.now() }; d.follows.push(f); } else if (f.status !== 'accepted') f.status = p.private ? 'pending' : 'accepted';
+        store(d); return ok(f.status); }
+      if (name === 'unfollow') { const p = byName(a.p_username); const n = d.follows.length; d.follows = d.follows.filter((f) => !(p && f.follower === uid() && f.followee === p.user_id)); store(d); return ok(d.follows.length < n); }
+      if (name === 'answer_follow') { const p = byName(a.p_username); if (!p) return ok(false); const f = d.follows.find((x) => x.follower === p.user_id && x.followee === uid()); if (!f) return ok(false);
+        if (a.p_accept) f.status = 'accepted'; else d.follows = d.follows.filter((x) => x !== f); store(d); return ok(true); }
+      if (name === 'my_follows') { const pub = (u) => { const p = prof(u) || {}; return { username: p.username, name: p.name }; };
+        return ok({ requests: d.follows.filter((f) => f.followee === uid() && f.status === 'pending').map((f) => pub(f.follower)),
+          followers: d.follows.filter((f) => f.followee === uid() && f.status === 'accepted').map((f) => pub(f.follower)),
+          following: d.follows.filter((f) => f.follower === uid()).map((f) => Object.assign(pub(f.followee), { status: f.status })) }); }
+      if (name === 'my_feed') {
+        const people = d.follows.filter((f) => f.follower === uid() && f.status === 'accepted' && !blocked(uid(), f.followee)).map((f) => prof(f.followee)).filter(Boolean), played = [];
+        people.forEach((pe) => d.players.filter((pl) => pl.user_id === pe.user_id).forEach((pl) => d.game_players.filter((gp) => gp.pid === pl.pid).forEach((gp) => { const g = d.games.find((x) => x.id === gp.game_id && x.team_id === pl.team_id);
+          if (g && !inTeam(g.team_id)) played.push({ g, pid: pl.pid, username: pe.username, name: pe.name, goals: gp.goals || 0, assists: gp.assists || 0 }); })));
+        const games = [...new Set(played.map((x) => x.g))].sort((x, y) => when(y) - when(x)).slice(0, 30);
+        return ok(games.map((g) => { const t = d.teams.find((x) => x.id === g.team_id) || {}, ps = played.filter((x) => x.g === g);
+          return { game_id: g.id, code: t.code, team: t.short, team_name: t.name, color: t.color, opp: g.opp, us: g.us, them: g.them, friendly: !!g.friendly, house: g.house ? { a: g.house.a, b: g.house.b } : null, when: when(g),
+            people: ps.map((x) => ({ username: x.username, name: x.name, goals: x.goals, assists: x.assists })),
+            clips: d.clips.filter((c) => c.game_id === g.id && c.at != null && ps.some((x) => (c.pids || []).includes(x.pid) && !(d.clip_hides || []).some((h) => h.game_id === c.game_id && h.at === c.at && h.pid === x.pid)))
+              .sort((x, y) => x.at - y.at).map((c) => ({ game_id: c.game_id, at: c.at, path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur })) }; }));
+      }
+      if (name === 'block_user') { const p = byName(a.p_username); if (!p || p.user_id === uid()) return ok(false);
+        if (a.p_block !== false) { if (!d.blocks.some((x) => x.blocker === uid() && x.blocked === p.user_id)) d.blocks.push({ blocker: uid(), blocked: p.user_id }); d.follows = d.follows.filter((f) => !((f.follower === uid() && f.followee === p.user_id) || (f.follower === p.user_id && f.followee === uid()))); }
+        else d.blocks = d.blocks.filter((x) => !(x.blocker === uid() && x.blocked === p.user_id));
+        store(d); return ok(true); }
+      if (name === 'my_blocks') return ok(d.blocks.filter((x) => x.blocker === uid()).map((x) => prof(x.blocked)).filter(Boolean).map((p) => ({ username: p.username, name: p.name })));
+      if (name === 'report_user') { const p = byName(a.p_username); if (!p || p.user_id === uid()) return ok(false); const r = d.profile_reports.find((x) => x.reporter === uid() && x.reported === p.user_id);
+        if (r) r.reason = String(a.p_reason || '').slice(0, 200); else d.profile_reports.push({ reporter: uid(), reported: p.user_id, reason: String(a.p_reason || '').slice(0, 200) }); store(d); return ok(true); }
     }
     if (name === 'hide_clip') { // Remove from my highlights (0022): only the player themselves, keyed by the game and the moment
       if (!uid()) return fail('Sign in first', '42501');
@@ -192,7 +269,7 @@
     return b;
   }
   const authCbs = [];
-  const session = () => uid() ? { user: { id: uid(), email: sessionStorage.getItem('__mockemail') } } : null;
+  const session = () => uid() ? { user: { id: uid(), email: sessionStorage.getItem('__mockemail'), user_metadata: (load().users.find((u) => u.id === uid()) || {}).meta || {} } } : null;
   const auth = {
     getSession: () => ok({ session: session() }),
     onAuthStateChange: (cb) => { authCbs.push(cb); return { data: { subscription: { unsubscribe() {} } } }; },
@@ -201,7 +278,7 @@
       if (!u) return { data: {}, error: { message: 'Invalid login credentials' } };
       sessionStorage.setItem('__mockuser', u.id); sessionStorage.setItem('__mockemail', email); authCbs.forEach((cb) => cb('SIGNED_IN', session())); return { data: { session: session() }, error: null };
     },
-    async signUp({ email, password }) { const d = load(); d.users.push({ id: crypto.randomUUID(), email, password }); store(d); return { data: { session: null, user: {} }, error: null }; },
+    async signUp({ email, password, options }) { const d = load(); d.users.push({ id: crypto.randomUUID(), email, password, meta: (options && options.data) || {} }); store(d); return { data: { session: null, user: {} }, error: null }; },
     async signOut() { sessionStorage.removeItem('__mockuser'); authCbs.forEach((cb) => cb('SIGNED_OUT', null)); return { error: null }; }
   };
   function channel(name) {

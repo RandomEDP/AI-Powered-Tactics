@@ -15,7 +15,7 @@ const view = () => A.evaluate(() => [...document.querySelectorAll('[id^="v-"]')]
 const calls = async () => (await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).calls || [])).filter((c) => c.body.kind === 'challenge').length;
 const signOut = async () => { if (await A.isVisible('#v-rivals .back')) { await A.click('#v-rivals .back'); await wait(300); } await A.click('#tabs [data-tab="options"]'); await wait(200); await A.click('#optSignOut'); await A.click('#optSignOut'); await wait(700); };
 const signIn = async (email, pass) => { await A.click('#acctBtn'); await A.fill('#aEmail', email); await A.fill('#aPass', pass); await A.click('#aSignIn'); await wait(900); if (await A.isVisible('#myTeams button')) { await A.click('#myTeams button'); await wait(700); } };
-const make = async (email, team, players) => { await A.click('#createBtn'); await A.fill('#aEmail', email); await A.fill('#aPass', 'longpassword'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
+const make = async (email, team, players) => { await A.click('#createBtn'); await A.fill('#aEmail', email); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', email.split('@')[0].replace(/[^A-Za-z0-9_]/g, '') + '_fc'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
   await A.fill('#tName', team); await A.fill('#tPlayers', players); await A.click('#tCreate'); await wait(500); await A.click('#v-code [data-go="home"]'); await wait(300); };
 const rivals = async () => { await A.click('#tabs [data-tab="games"]'); await wait(200); await A.click('#rivalsOpen'); await wait(600); };
 await A.goto(BASE); await wait(300);

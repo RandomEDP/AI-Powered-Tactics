@@ -13,7 +13,7 @@ const view = (p) => p.evaluate(() => [...document.querySelectorAll('[id^="v-"]')
 const out = process.argv[2];
 
 const A = await open('A');
-await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
+await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
 await A.fill('#tName', 'Sons of Pitches FC'); await A.fill('#tShort', 'SOP FC'); await A.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await A.click('#tCreate'); await wait(400);
 const code = await A.textContent('#codeBig'); await A.click('#v-code [data-go="home"]'); await wait(300);
 const B = await open('B');
