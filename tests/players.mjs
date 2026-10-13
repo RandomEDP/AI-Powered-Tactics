@@ -54,7 +54,7 @@ await shot(D, 'highlights-player');
 // gaffer sees the claim; third person sees Jake as taken
 await D.click('#v-highlights .back'); // pages in this test share one browser profile, so leave it on the home screen
 await A.reload(); await wait(700); console.log('gaffer sees squad:', (await A.$$eval('#squadList .prow', (r) => r.slice(0, 2).map((x) => x.textContent.replace(/\s+/g, ' ')))).join(' / '));
-await A.click('#mHighlights'); await wait(200); console.log('gaffer generate button:', await A.isVisible('#hlList [data-reel]')); await A.click('#hlList [data-reel]'); console.log(' ->', await view(A)); await A.click('#v-reel .back'); console.log(' back ->', await view(A));
+await A.click('#mHighlights'); await wait(200); console.log('gaffer: the old computer-script button is gone:', !(await A.isVisible('#hlList [data-reel]')));
 // same account on another device gets its teams back
 const E = await open('E', true);
 await E.click('#acctBtn'); await E.fill('#aEmail', 'jake@example.com'); await E.fill('#aPass', 'longenough1'); await E.click('#aSignIn'); await wait(700);

@@ -12,7 +12,7 @@ await ctx.addInitScript((base) => {
     pickVideo: async (o) => { window.__rc.push('pick ' + o.slot); if (window.__cancelPick) { window.__cancelPick = false; return { cancelled: true }; }
       return o.slot === 2 ? { path: '/tmp/half2.mov', duration: 1500, created: Date.now() - 20000 } : o.slot > 2 ? { path: '/tmp/cam' + o.slot + '.mov', duration: 1500, created: Date.now() - 120000 } : { path: '/tmp/game.mov', duration: 3000, created: Date.now() - 120000 }; },
     cut: async (o) => { window.__rc.push('cut ' + JSON.stringify(o)); RC.cb({ stage: 'cut', i: 0, n: o.clips.length, p: 0.5 });
-      return { clips: o.clips.map((c) => ({ file: c.file, path: '/tmp/' + c.file })), reel: { path: '/tmp/' + o.reelFile } }; },
+      return { clips: o.clips.map((c) => Object.assign({ file: c.file, path: '/tmp/' + c.file }, c.voice ? { voiced: { file: c.file.replace('.mp4', 'v.mp4'), path: '/tmp/' + c.file.replace('.mp4', 'v.mp4') } } : {})), reel: { path: '/tmp/' + o.reelFile } }; },
     share: async (o) => { window.__rc.push('share ' + o.path); }, cleanup: async () => { window.__rc.push('cleanup'); } };
   const none = async () => ({});
   window.Capacitor = { isNativePlatform: () => true, convertFileSrc: () => base + 'icons/icon-192.png',
@@ -68,10 +68,12 @@ console.log('done screen:', (await A.textContent('#cutBody')).replace(/\s+/g, ' 
 await shot(A, 'cut-done');
 const d = await db(A); const cutArg = JSON.parse((await A.evaluate(() => window.__rc)).find((x) => x.startsWith('cut ')).slice(4));
 console.log('plugin asked for:', JSON.stringify(cutArg.clips.map((c) => [c.path, Math.round(c.start), c.caption])), JSON.stringify(cutArg.outro));
-console.log('files:', JSON.stringify(d.files), '\nclip rows:', JSON.stringify((d.clips || []).map((c) => ({ seq: c.seq, path: c.path.replace(/^[^/]+/, '<team>'), label: c.label, dur: c.dur, pids: c.pids }))));
+console.log('files:', JSON.stringify(d.files), '\nclip rows:', JSON.stringify((d.clips || []).map((c) => ({ seq: c.seq, path: c.path.replace(/^[^/]+/, '<team>'), vpath: c.vpath && c.vpath.replace(/^[^/]+/, '<team>'), label: c.label, dur: c.dur, pids: c.pids }))));
 await A.click('#cutBody [data-cutdo="share"]'); await wait(200); await A.click('#cutBody [data-cutdo="finish"]'); await wait(400);
 console.log('plugin calls:', (await A.evaluate(() => window.__rc)).map((x) => x.split(' {')[0]).join(', '), '| view:', await view(A));
-console.log('commentary:', await A.$$eval('#hlList [data-clip]', (x) => x.map((y) => y.getAttribute('data-line'))), '| shown:', await A.textContent('#hlList .say'));
+const srcs = () => A.$$eval('#hlList .hcard:first-child [data-clip]', (x) => x.map((y) => y.getAttribute('data-src').replace(/^.*\//, '')));
+console.log('commentary:', await A.textContent('#hlList [data-say]'), await srcs()); await A.click('#hlList [data-say]'); await wait(200);
+console.log('commentary:', await A.textContent('#hlList [data-say]'), await srcs()); await A.click('#hlList [data-say]'); await wait(200);
 console.log('by game:', await A.$$eval('#hlList .vplayer video', (v) => v.map((x) => x.getAttribute('src').replace(/clips\/[^/]+/, 'clips/<team>'))), await A.$$eval('#hlList [data-clip]', (x) => x.map((y) => y.textContent)));
 await shot(A, 'hl-by-game');
 await A.click('#hlToggle [data-by="player"]'); await wait(300);

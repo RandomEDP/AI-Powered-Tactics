@@ -1,5 +1,7 @@
 // Turns commentary lines into speech for a highlight reel, using Google Cloud Text-to-Speech.
-// Called by a gaffer's app with { code, lines: [text, ...], voice?, style? }; answers { audio: [base64 MP3 or null, ...], engine } in the same order.
+// Called by a gaffer's app (a game's highlights) or a player's (their own reel) with { code, lines: [text, ...], voice?, style? };
+// answers { audio: [base64 MP3 or null, ...], engine } in the same order. Only the team's gaffers and players who have joined
+// the squad as themselves can use it.
 // style "hype" asks Gemini-TTS to perform the line like a live commentator; if that isn't available to the key, or style is "plain",
 // the same voice from the Chirp 3 HD set reads it straight.
 // Each team has a monthly allowance of characters, kept in public.voice_usage, so the bill can't run away.
@@ -66,7 +68,8 @@ Deno.serve(async (req: Request) => {
     const { data: team } = await db.from("teams").select("id").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
     if (!team) return json({ error: "No such team." });
     const { data: gaffer } = await db.from("team_members").select("user_id").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
-    if (!gaffer) return json({ error: "Only a gaffer can add commentary." });
+    const { data: player } = gaffer ? { data: null } : await db.from("players").select("pid").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
+    if (!gaffer && !player) return json({ error: "Only the team's gaffers and players can add commentary. Join the squad as yourself first." });
 
     const key = Deno.env.get("GOOGLE_TTS_KEY");
     if (!key) return json({ error: "The voice service hasn't been set up yet." });

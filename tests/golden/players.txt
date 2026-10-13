@@ -16,9 +16,7 @@ Settings for a player: v-options | team settings hidden: true | experimental sho
 highlights by game: v Dog & Bone 1–010 Oct, 2 moments1’Goal: Jake, set up by Ethan (1–0)1’Save by SpiceNo video for this game yet. Ask your gaffer to generate it.
 by player, first card: JakeYou1 moment this season, oldest firstv Dog & Bone, 10 Oct: 1’ GoalNo clips for Jake yet. They appear here when a game’s highli
 gaffer sees squad: EthanGafferYouNotifications offUp front, 0 G, 1 A / SpiceNot claimed0 G, 0 A
-gaffer generate button: true
- -> v-reel
- back -> v-highlights
+gaffer: the old computer-script button is gone: true
 new device, teams listed: Sons of Pitches FC<code>
 opens with stats: Your statsJake Smith, defender1Games15Mi
 errors: []

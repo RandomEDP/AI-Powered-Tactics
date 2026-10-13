@@ -23,6 +23,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         CAPPluginMethod(name: "pickVideo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cut", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "joinReel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cleanup", returnType: CAPPluginReturnPromise)
     ]
 
@@ -275,13 +276,32 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                     files.append(raw["file"] as? String ?? String(format: "clip_%02d.mp4", index + 1))
                 }
 
+                // Each clip is made without commentary, and (when there's a line for it) again with it: the app plays one
+                // or the other, as two sounds can't play at once on an iPhone. Each is made smaller for uploading.
                 var made: [[String: Any]] = []
                 for (index, segment) in segments.enumerated() {
                     let out = dir.appendingPathComponent(files[index])
-                    try self.export(segments: [segment], watermark: watermark, outro: nil, to: out) { fraction in
-                        self.notifyListeners("progress", data: ["stage": "cut", "i": index, "n": segments.count, "p": fraction])
+                    var clean = segment
+                    clean.voice = nil
+                    try self.export(segments: [clean], watermark: watermark, outro: nil, to: out) { fraction in
+                        self.notifyListeners("progress", data: ["stage": "cut", "i": index, "n": segments.count, "p": segment.voice == nil ? fraction : fraction / 2])
                     }
-                    made.append(["file": files[index], "path": out.path, "size": self.fileSize(out)])
+                    self.shrink(out)
+                    var entry: [String: Any] = ["file": files[index], "path": out.path, "size": self.fileSize(out)]
+                    if segment.voice != nil {
+                        let name = (files[index] as NSString).deletingPathExtension + "v.mp4"
+                        let voicedOut = dir.appendingPathComponent(name)
+                        do {
+                            try self.export(segments: [segment], watermark: watermark, outro: nil, to: voicedOut) { fraction in
+                                self.notifyListeners("progress", data: ["stage": "cut", "i": index, "n": segments.count, "p": 0.5 + fraction / 2])
+                            }
+                            self.shrink(voicedOut)
+                            entry["voiced"] = ["file": name, "path": voicedOut.path, "size": self.fileSize(voicedOut)]
+                        } catch {
+                            // the clip without commentary is still good
+                        }
+                    }
+                    made.append(entry)
                 }
 
                 var result: [String: Any] = ["clips": made]
@@ -290,10 +310,11 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                     // already in), not cut again from the whole game's video, which was slow enough to look stuck.
                     var pieces: [Segment] = []
                     for (index, segment) in segments.enumerated() {
-                        let clip = AVURLAsset(url: URL(fileURLWithPath: made[index]["path"] as? String ?? ""))
+                        let voiced = (made[index]["voiced"] as? [String: Any])?["path"] as? String
+                        let clip = AVURLAsset(url: URL(fileURLWithPath: voiced ?? made[index]["path"] as? String ?? ""))
                         let length = CMTimeGetSeconds(clip.duration)
                         guard length.isFinite, length > 0.5 else { continue }
-                        pieces.append(Segment(asset: clip, start: 0, dur: length, caption: "", voice: segment.voice, voiceAt: segment.voiceAt, voiced: true))
+                        pieces.append(Segment(asset: clip, start: 0, dur: length, caption: "", voice: voiced == nil ? nil : segment.voice, voiceAt: segment.voiceAt, voiced: true))
                     }
                     let out = dir.appendingPathComponent(reelFile)
                     do {
@@ -311,6 +332,139 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 call.reject(error.localizedDescription)
             }
         }
+    }
+
+    /// Makes a finished clip smaller (about 2 Mbit/s, which looks the same on a phone) by encoding it again, if it's
+    /// bigger than that. The export the clip comes from runs at about 5 Mbit/s, which filled the team's storage fast.
+    /// If anything goes wrong the clip is left as it was.
+    private func shrink(_ file: URL, bitRate: Int = 2_000_000) {
+        let asset = AVURLAsset(url: file)
+        let seconds = CMTimeGetSeconds(asset.duration)
+        guard seconds.isFinite, seconds > 0, Double(fileSize(file)) * 8 / seconds > Double(bitRate) * 1.3,
+              let track = asset.tracks(withMediaType: .video).first else { return }
+        let smaller = file.deletingLastPathComponent().appendingPathComponent("small-" + file.lastPathComponent)
+        try? FileManager.default.removeItem(at: smaller)
+        do {
+            let reader = try AVAssetReader(asset: asset)
+            let writer = try AVAssetWriter(outputURL: smaller, fileType: .mp4)
+            writer.shouldOptimizeForNetworkUse = true
+            let pictures = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange])
+            pictures.alwaysCopiesSampleData = false
+            guard reader.canAdd(pictures) else { return }
+            reader.add(pictures)
+            let size = track.naturalSize
+            let pictureIn = AVAssetWriterInput(mediaType: .video, outputSettings: [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: Int(size.width), AVVideoHeightKey: Int(size.height),
+                AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: bitRate, AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel, AVVideoMaxKeyFrameIntervalDurationKey: 2]
+            ])
+            pictureIn.transform = track.preferredTransform
+            guard writer.canAdd(pictureIn) else { return }
+            writer.add(pictureIn)
+            var pairs: [(AVAssetWriterInput, AVAssetReaderOutput)] = [(pictureIn, pictures)]
+            if let soundTrack = asset.tracks(withMediaType: .audio).first, let hint = soundTrack.formatDescriptions.first {
+                let sound = AVAssetReaderTrackOutput(track: soundTrack, outputSettings: nil) // the sound as it is
+                let soundIn = AVAssetWriterInput(mediaType: .audio, outputSettings: nil, sourceFormatHint: (hint as! CMFormatDescription))
+                if reader.canAdd(sound), writer.canAdd(soundIn) { reader.add(sound); writer.add(soundIn); pairs.append((soundIn, sound)) }
+            }
+            guard reader.startReading(), writer.startWriting() else { return }
+            writer.startSession(atSourceTime: .zero)
+            let group = DispatchGroup()
+            for (index, pair) in pairs.enumerated() {
+                group.enter()
+                let lane = DispatchQueue(label: "reelcutter.shrink.\(index)")
+                var finished = false
+                pair.0.requestMediaDataWhenReady(on: lane) {
+                    while !finished && pair.0.isReadyForMoreMediaData {
+                        if let sample = pair.1.copyNextSampleBuffer(), pair.0.append(sample) { continue }
+                        finished = true
+                        pair.0.markAsFinished()
+                        group.leave()
+                    }
+                }
+            }
+            guard group.wait(timeout: .now() + 600) == .success, reader.status == .completed else { reader.cancelReading(); writer.cancelWriting(); return }
+            let done = DispatchSemaphore(value: 0)
+            writer.finishWriting { done.signal() }
+            _ = done.wait(timeout: .now() + 120)
+            guard writer.status == .completed, fileSize(smaller) > 0, fileSize(smaller) < fileSize(file) else { try? FileManager.default.removeItem(at: smaller); return }
+            try FileManager.default.removeItem(at: file)
+            try FileManager.default.moveItem(at: smaller, to: file)
+        } catch {
+            try? FileManager.default.removeItem(at: smaller)
+        }
+    }
+
+    // MARK: - A reel from clips already made (anyone's phone)
+
+    /// Joins clips (web addresses of the team's uploaded clips, or files on the phone) into one reel with the outro card,
+    /// optionally with new commentary lines laid over them, and hands back where it is so it can be shared or saved.
+    ///   joinReel({ items: [{ url, voice?, voiceAt? }], introVoice?, outroVoice?, outro: { title, sub, color, ink }, file })
+    ///     -> { path, size }
+    /// Emits "progress" { stage: "fetch", i, n, p } while fetching the clips, then { stage: "reel", p }.
+    @objc public func joinReel(_ call: CAPPluginCall) {
+        guard let raw = call.options["items"] as? [[String: Any]], !raw.isEmpty else { call.reject("No clips to join"); return }
+        let outro = call.options["outro"] as? [String: Any]
+        let name = (call.getString("file") ?? "reel.mp4").replacingOccurrences(of: "/", with: "-")
+        queue.async {
+            do {
+                let dir = try self.ensureWorkDir().appendingPathComponent("reel", isDirectory: true)
+                try? FileManager.default.removeItem(at: dir)
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                var lines = 0
+                func voice(_ value: Any?) -> AVURLAsset? {
+                    guard let text = value as? String, let data = Data(base64Encoded: text), data.count > 200 else { return nil }
+                    lines += 1
+                    let url = dir.appendingPathComponent(String(format: "line_%02d.mp3", lines))
+                    do { try data.write(to: url) } catch { return nil }
+                    return AVURLAsset(url: url)
+                }
+                var pieces: [Segment] = []
+                for (index, item) in raw.enumerated() {
+                    guard let where_ = item["url"] as? String, !where_.isEmpty else { continue }
+                    var local: URL
+                    if where_.hasPrefix("http") {
+                        guard let remote = URL(string: where_) else { continue }
+                        local = dir.appendingPathComponent(String(format: "clip_%03d.mp4", index))
+                        try self.fetch(remote, to: local) { p in
+                            self.notifyListeners("progress", data: ["stage": "fetch", "i": index, "n": raw.count, "p": p])
+                        }
+                    } else {
+                        local = URL(fileURLWithPath: where_)
+                    }
+                    let clip = AVURLAsset(url: local)
+                    let length = CMTimeGetSeconds(clip.duration)
+                    guard length.isFinite, length > 0.5 else { continue }
+                    let line = voice(item["voice"])
+                    pieces.append(Segment(asset: clip, start: 0, dur: length, caption: "", voice: line, voiceAt: (item["voiceAt"] as? NSNumber)?.doubleValue ?? 0.7, voiced: line == nil))
+                }
+                guard !pieces.isEmpty else { throw CutError(message: "None of the clips could be fetched. Check your signal and try again.") }
+                let out = dir.appendingPathComponent(name.hasSuffix(".mp4") ? name : name + ".mp4")
+                try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: voice(call.options["introVoice"]), signOff: voice(call.options["outroVoice"])) { fraction in
+                    self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction])
+                }
+                call.resolve(["path": out.path, "size": self.fileSize(out)])
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
+    /// Downloads a file, waiting for it (this runs on the cutting queue, never the main thread).
+    private func fetch(_ remote: URL, to local: URL, progress: @escaping (Double) -> Void) throws {
+        let done = DispatchSemaphore(value: 0)
+        var failure: Error?
+        let task = URLSession.shared.downloadTask(with: remote) { file, response, error in
+            defer { done.signal() }
+            if let error = error { failure = error; return }
+            guard let file = file, ((response as? HTTPURLResponse)?.statusCode ?? 200) < 400 else { failure = CutError(message: "A clip couldn't be fetched (it may have been deleted)."); return }
+            do { try? FileManager.default.removeItem(at: local); try FileManager.default.moveItem(at: file, to: local) } catch { failure = error }
+        }
+        let watch = task.progress.observe(\.fractionCompleted) { value, _ in progress(value.fractionCompleted) }
+        task.resume()
+        if done.wait(timeout: .now() + 300) == .timedOut { task.cancel(); watch.invalidate(); throw CutError(message: "Fetching the clips took too long. Check your signal and try again.") }
+        watch.invalidate()
+        if let failure = failure { throw failure }
     }
 
     private func fileSize(_ url: URL) -> Int {

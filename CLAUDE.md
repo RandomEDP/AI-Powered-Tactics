@@ -108,7 +108,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0018`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0019`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -189,6 +189,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   except chat, which uses `default`. Phones on builds without the file fall back to the default sound.
   - Lock-screen game alerts (`syncAlerts`, LocalNotifications) also use `whistle.wav`.
   - The watch's own alerts are haptics.
+- **Turning them on:** iOS only lists Gaffer under Settings → Notifications once the app has asked. Settings in Gaffer
+  always has a Notifications section (`renderNotes`, `#ntfSec`) saying where things stand, with "Turn on notifications"
+  that has iOS ask there and then, or, if they were refused, exactly where in iOS Settings to switch them on. Josh
+  couldn't before (he'd said "Not now" to the pop-up). Test: `notify.test.mjs`.
 - **When notifications are off:** `pushCheck`/`pushOff` unregister the phone (delete its `push_tokens` row) if
   notifications are switched off in iOS Settings, so the nudge count stays honest.
   - The nudge response returns `people` and `sent`, and the UI shows a red mark next to players with no phone.
@@ -237,8 +241,22 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Reading the video:** with full Photos access (asked once, before the picker) the picked video is used where it is in
   the library (`inPlace`, `PHImageManager`, the version as it looks in Photos, else the original), so nothing is copied;
   otherwise it's copied into the working folder as before.
-- **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files, to cut again from scratch.
-- On a computer, the same screen writes an ffmpeg script instead (`reelScript`). That path is single-video.
+- **Timing:** each clip runs from `PRE` (8 s) before its moment to `POST` (6 s) after (Ethan cut it from 15 s before).
+- **Size:** every clip is re-encoded to about 2 Mbps H.264 after export (`shrink`), because the `clips` bucket is on the
+  Supabase free plan (1 GB; 417 MB was used by about 30 clips at the old ~14 MB each).
+- **Commentary** (in the highlight maker for gaffers, `hasGaffer()`; no longer experimental): an iPhone won't play a
+  second sound over a video, so a clip cut with commentary is kept twice: `path` without it and `vpath` (`<nn>v.mp4`,
+  `0019_clip_commentary.sql`) with it. "Commentary on/off" (`sayOn`, `apt-say` per phone) swaps which copy plays
+  (`clipSrc`). The phone never speaks over a clip itself.
+- **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies), to cut again
+  from scratch.
+- **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each
+  player's card (Highlights → By player: untick clips, preview, Goals only; gaffers and claimed players can add an AI
+  voice). Both are joined on that phone by `ReelCutter.joinReel({items:[{url,voice,voiceAt}], …})` from the clips'
+  public links, then the share sheet, so nothing extra is stored. Code: `gameReel`, `rbOpen`/`renderRB`/`rbMake`,
+  `clipRole`. Test: `reels.test.mjs`.
+- The old screens (the computer ffmpeg script, the season reels, watch-timecode import) are gone. A result's Highlights
+  button opens Highlights with that game picked out (`hlShow`).
 
 ### Live streaming (Gaffer tier; behind the experimental switch for gaffers) (`0017_live_streams.sql`, `live-stream`)
 - The GoPro (through GoPro Quik) or an iPhone (through a streaming app such as Larix Broadcaster) streams over RTMPS
@@ -276,8 +294,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - Secrets (Ethan sets them): `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN` (API token with Stream: Edit).
   Until they're set the app says "Live streaming isn't set up on Gaffer's server yet."
 
-### AI commentary (experimental, behind the experimental switch `A.exp.track`)
-- `reel-voice` edge function. Each team has a monthly character allowance in `voice_usage` (40,000).
+### AI commentary (Gaffer tier, in the highlight maker and the reel builder)
+- `reel-voice` edge function, for the team's gaffers and claimed players. Each team has a monthly character allowance in `voice_usage` (40,000).
 - **Engines:**
   - "Live commentator" uses Gemini TTS (`gemini-2.5-flash-tts`). It needs the `GOOGLE_SERVICE_ACCOUNT` secret: the
     whole JSON key of a service account with the **Vertex AI User** role. Plain API keys are refused for this model.
@@ -294,7 +312,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0018` are applied live. Add new ones as `supabase/migrations/0019_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0019` are applied live. Add new ones as `supabase/migrations/0020_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
@@ -304,7 +322,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v17 (kind `live` from any team member, sent once; same as the repo), `live-stream` v5,
-    `reel-voice` v10, `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v11 (players allowed too), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,

@@ -186,5 +186,17 @@ eq([row().notified_at, (await tell('tok-chaplin')).sent], [null, 3], 'the next g
 APNS.length = 0; await S('tok-ethan', 'stop');
 eq([(await tell('tok-jake')).reason, APNS.length], ['not_live', 0], 'and nothing once the stream has ended');
 
+// ---------- the commentary voice (reel-voice): the team's gaffers, and its players for their own reels; nobody else
+DB.voice_usage = [];
+const voiceFn = await load('reel-voice');
+ENV.GOOGLE_TTS_KEY = 'tts-key';
+const before = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => String(url).startsWith('https://texttospeech.googleapis.com/') ? new Response(JSON.stringify({ audioContent: 'QUFBQUFB' }), { status: 200 }) : before(url, init);
+const V = (who) => voiceFn(who, { code: 'sopfc1', lines: ['What a goal from Jake!'], style: 'plain' });
+eq([(await V('tok-ethan')).engine, (await V('tok-jake')).engine], ['chirp', 'chirp'], 'a gaffer gets commentary, and so does a player who has joined the squad as himself (for his own reel)');
+eq((await V('tok-rival')).error, "Only the team's gaffers and players can add commentary. Join the squad as yourself first.", 'someone who isn\'t in the team gets none');
+eq((await V(null)).error, 'Sign in first.', 'nor does anyone not signed in');
+eq(DB.voice_usage[0] && DB.voice_usage[0].chars, 2 * 'What a goal from Jake!'.length, 'both count against the team\'s monthly allowance');
+
 globalThis.fetch = realFetch;
 await done();

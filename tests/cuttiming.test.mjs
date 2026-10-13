@@ -78,7 +78,7 @@ eq([secs((await row(/Dog Squad/)).when), /^About/.test((await row(/Dog Squad/)).
 await A.page.evaluate(() => { window.__reelFail = 'It stopped making progress, so it was stopped. Keep Gaffer open on screen while it works, and try again.'; });
 await A.click('#cutBody [data-cutdo="go"]'); await A.run(3000);
 const cut = await A.page.evaluate(() => (window.__rc.filter((x) => x[0] === 'cut').pop() || [])[1]);
-eq(cut && cut.clips.map((c) => Math.round(c.start)), [g1 - 20 - 15, g2 + 10 - 15], 'each clip starts 15 seconds before its moment: the marked goal exactly, the other worked out from the marks');
+eq(cut && cut.clips.map((c) => Math.round(c.start)), [g1 - 20 - 8, g2 + 10 - 8], 'each clip starts 8 seconds before its moment: the marked goal exactly, the other worked out from the marks');
 eq([/2 clips are now in Highlights/.test(await A.text('#cutBody')), (w.db().clips || []).length, await A.text('#cutBody .msg.bad'), await A.visible('#cutBody [data-cutdo="share"]')],
   [true, 2, 'The full reel couldn’t be joined: It stopped making progress, so it was stopped. Keep Gaffer open on screen while it works, and try again. The clips are all in Highlights; cut again to try the reel once more.', false],
   'if the full reel can\'t be joined, the clips are still uploaded, and it says why the reel is missing');

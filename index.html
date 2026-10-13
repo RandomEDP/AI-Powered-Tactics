@@ -425,6 +425,14 @@ tr.past td { opacity: .45; }
 @media (prefers-reduced-motion: reduce) { #planPop, .planbox { animation: none; } }
 #livePop { position: fixed; inset: 0; z-index: 46; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #livePop[hidden] { display: none; }
+#reelPop { position: fixed; inset: 0; z-index: 46; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#reelPop[hidden] { display: none; }
+#reelPop .planbox { max-height: calc(100vh - 32px); overflow-y: auto; }
+#rbPrev { display: block; width: 100%; max-height: 220px; border-radius: 8px; background: #000; margin: 8px 0; }
+.rblist { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.rblist li { display: flex; align-items: center; gap: 8px; }
+.rblist li .check { flex: 1; margin: 0; }
+.rblist .kind { color: var(--muted); font-size: 13px; }
 .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; line-height: 1.4; }
 .marks { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
 .marks li { display: flex; gap: 8px; align-items: center; }
@@ -434,6 +442,7 @@ tr.past td { opacity: .45; }
 .marks li > .link { flex: none; }
 .marks li.on > button.plain { outline: 2px solid var(--ink); }
 .camtabs button[aria-pressed="true"] { outline: 2px solid var(--ink); }
+.hcard.focus { outline: 2px solid var(--ink); }
 .cutprev { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 10px 12px; margin: 12px 0; }
 .cutprev h3 { margin: 0 0 4px; font-size: 16px; }
 .cutprev video { display: block; width: 100%; max-height: 240px; border-radius: 8px; background: #000; margin-top: 8px; }
@@ -747,6 +756,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <li><b>Squad chat and nudges</b> from your gaffer</li></ul></div>
   <p>Your iPhone will ask next. You can change this any time in Settings.</p>
   <div class="actions"><button class="plain primary" id="pushYes" type="button">Turn on notifications</button><button class="plain" id="pushNo" type="button">Not now</button></div></div></div>
+<div id="reelPop" role="dialog" aria-labelledby="rbTitle" hidden><div class="planbox" id="rbBody"></div></div>
 <div id="livePop" role="dialog" aria-labelledby="liveTitle" hidden><div class="planbox" id="liveBody"></div></div>
 <div id="subPop" role="alertdialog" aria-labelledby="subPopTitle" hidden><div class="kickbox"><button class="subx" id="subPopLater" type="button" aria-label="Not yet">&times;</button><p id="subPopTitle">Time for subs</p><div id="subPopBody"></div>
   <div class="actions"><button class="plain primary" id="subPopDone" type="button">Subs done</button></div><p class="note">Close this if something’s happening on the pitch. The change waits until you tap Subs done.</p></div></div>
@@ -1009,70 +1019,16 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <p class="note" id="concNote" hidden>Conc. is goals the team let in while that player was on the pitch. It counts from games played after this was added; a dash means none yet.</p>
   </section>
   <section><h2>Results</h2><ul class="res" id="results"></ul><p class="note" id="resNote"></p></section>
-  <section><h2>Season reels</h2><p class="note">A highlights video for each player, cut from every recorded game.</p><div class="actions"><button class="plain" type="button" data-go="season">Make player reels</button></div></section>
-</div>
-
-<div class="view" id="v-reel" hidden>
-  <div class="bar"><button class="back" type="button" data-back="1">&lsaquo; Back</button><h1>Generate highlights</h1></div>
-  <p class="msg" id="reelTitle"></p>
-  <p class="note" id="reelCount"></p>
-  <section>
-    <h2>Line it up with the video</h2>
-    <p class="note">Play the GoPro or iPhone footage, find the moment of kick-off, and enter the time shown on the video. The script needs one continuous recording of the whole game. If the camera split it into several files, count from the start of the first one.</p>
-    <div class="three">
-      <label class="field" for="syncIn">Kick-off at<input id="syncIn" class="clock" type="text" inputmode="numeric" placeholder="mm:ss" maxlength="5" autocomplete="off"></label>
-      <label class="field" for="preIn">Seconds before<input id="preIn" type="number" inputmode="numeric" min="0" max="120"></label>
-      <label class="field" for="postIn">Seconds after<input id="postIn" type="number" inputmode="numeric" min="0" max="120"></label>
-    </div>
-    <label class="check" for="capIn"><input id="capIn" type="checkbox"><span>Show scorer and score on each clip</span></label>
-    <p class="msg bad" id="syncMsg"></p>
-  </section>
-  <section class="own">
-    <h2>Watch highlights</h2>
-    <p class="note">Paste the times your watch shortcut saved. Any that fall during this game are added as highlight clips.</p>
-    <label class="field" for="impWho">Whose highlights are these?<select id="impWho"></select></label>
-    <label class="field" for="impIn">Times, one per line<textarea id="impIn" rows="4" autocomplete="off" placeholder="2026-10-06T19:12:40+01:00"></textarea></label>
-    <div class="actions"><button class="plain" id="impBtn" type="button">Add watch highlights</button></div>
-    <p class="msg" id="impMsg"></p>
-  </section>
-  <section>
-    <h2>Make the reel</h2>
-    <ol class="steps">
-      <li>Copy the GoPro or iPhone footage into a folder named <code id="reelFolder"></code>. Using that exact name lets the season reels find this game later.</li>
-      <li>Copy the script below and save it in that folder as <code>highlights.sh</code>.</li>
-      <li>In a terminal in that folder, run <code>bash highlights.sh GX01*.MP4 GX02*.MP4</code> with your files in order. It needs ffmpeg installed.</li>
-    </ol>
-    <div class="actions"><button class="plain primary" id="copyScript" type="button">Copy script</button></div>
-    <div class="code"><pre id="scriptOut"></pre></div>
-  </section>
-  <section>
-    <h2>YouTube chapters</h2>
-    <p class="note">Paste these into the description if you upload the full match.</p>
-    <div class="actions"><button class="plain" id="copyChap" type="button">Copy chapters</button></div>
-    <div class="code"><pre id="chapOut"></pre></div>
-  </section>
-</div>
-
-<div class="view" id="v-season" hidden>
-  <div class="bar"><button class="back" type="button" data-back="1">&lsaquo; Back</button><h1>Player reels</h1></div>
-  <label class="field" for="seaWho">Reel for<select id="seaWho"></select></label>
-  <p class="msg" id="seaCount"></p>
-  <p class="note" id="seaMissing"></p>
-  <section>
-    <h2>Make the reels</h2>
-    <ol class="steps">
-      <li>Keep one folder per game inside a season folder. The folder names are listed below.</li>
-      <li>Copy the script and save it in the season folder as <code>season.sh</code>.</li>
-      <li>In a terminal in the season folder, run <code>bash season.sh</code>. You get one video per player, named after them.</li>
-    </ol>
-    <div class="actions"><button class="plain primary" id="copySeason" type="button">Copy script</button></div>
-    <div class="code"><pre id="seasonOut"></pre></div>
-  </section>
-  <section><h2>Game folders</h2><div class="code"><pre id="seaFolders"></pre></div></section>
+  <section><h2>Player reels</h2><p class="note">Every player’s clips, and a reel of their own to make and share, are in Highlights.</p><div class="actions"><button class="plain" type="button" id="toPlayerReels">Player highlights</button></div></section>
 </div>
 
 <div class="view" id="v-options" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Settings</h1></div>
+  <section id="ntfSec" hidden>
+    <h2>Notifications</h2>
+    <p class="note" id="ntfNote"></p>
+    <div class="actions"><button class="plain primary" id="ntfOn" type="button" hidden>Turn on notifications</button></div>
+  </section>
   <section>
     <h2>Experimental</h2>
     <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
@@ -1201,7 +1157,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var clips = []; // highlight clips stored for this team
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'reel', 'season', 'live'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1748,11 +1704,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'reel', 'season', 'options', 'live'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
-    if ((view === 'reel' || view === 'season' || view === 'cut') && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
+    if (view === 'cut' && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
+    if (view === 'highlights' && !hlKeep) hlFocus = null; hlKeep = false; // (only "Highlights" on a result picks out its game)
     if (view === 'cut' && !CUT) view = 'highlights';
     if (pick && view !== 'game') { pick = null; $('picker').innerHTML = ''; }
     if (view !== 'game') $('subPop').hidden = true;
@@ -1761,7 +1718,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
     if (!A.active && ['intro', 'welcome', 'join', 'create', 'account'].indexOf(view) < 0) view = 'welcome';
     if (view === 'create' && S.view !== 'create') resetCreate();
-    if (view === 'reel' && !S.results[reelIdx]) view = 'stats';
     if (view === 'game' && !S.match) view = 'home';
     if (view === 'mins' && !D) view = 'home';
     if (view === 'setup' && !(keep && D)) newDraft();
@@ -1796,8 +1752,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'game') renderGame();
     else if (S.view === 'stats') renderStats();
     else if (S.view === 'insights') renderInsights();
-    else if (S.view === 'reel') renderReel();
-    else if (S.view === 'season') renderSeason();
     else if (S.view === 'live') renderLive();
     else renderOptions();
     if (S.view !== 'game') syncAlerts();
@@ -2599,7 +2553,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('mInsights').addEventListener('click', function () { go('insights'); });
 
   // ---- highlights: every logged moment, by game and by player. Video appears here once a game's reel has been made.
-  var hlBy = 'game';
+  var hlBy = 'game', hlFocus = null, hlKeep = false;
+  function hlShow(r) { // a game's highlights, from its result: its clips and reel if they've been made, or where they will be
+    hlBy = 'game'; hlFocus = r || null; hlKeep = true; go('highlights');
+    var i = S.results.indexOf(r), el = i >= 0 && $('hlg-' + i); if (el) try { el.scrollIntoView({ block: 'start' }); } catch (e) {}
+  }
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var dayOf = function (r) { var t = r.koAt || r.at; if (!t) return ''; var d = new Date(t); return d.getDate() + ' ' + MON[d.getMonth()]; };
   var minOf = function (e) { return e.min == null ? '' : e.min + (e.x ? '+' + e.x : '') + '’'; };
@@ -2615,15 +2573,19 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function novid(text, btn) { return '<div class="novid"><span>' + text + '</span>' + (btn || '') + '</div>'; }
   var clipUrl = function (c) { return (CFG.url || '') + '/storage/v1/object/public/clips/' + String(c.path).split('/').map(encodeURIComponent).join('/'); };
-  function clipPlayer(list) { // one video that plays a list of clips back to back, with a line of commentary for each
-    var byId = {}; S.results.forEach(function (r) { byId[r.id] = r; });
-    var says = list.map(function (c) { var r = byId[c.game_id]; return r ? commentaryFor(r, c) : ''; });
-    return '<div class="vplayer"><video controls playsinline preload="metadata" src="' + esc(clipUrl(list[0])) + '"></video>' +
-      '<p class="say"' + (says[0] ? '' : ' hidden') + '>' + esc(says[0] || '') + '</p>' +
-      (says.some(Boolean) && window.speechSynthesis ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '') +
-      '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipUrl(c)) + '" data-line="' + esc(says[i] || '') + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
+  // A clip cut with AI commentary is kept twice, with it (vpath) and without (path): an iPhone won't play a voice over the
+  // video as a second sound, so "Commentary on" plays the other copy instead of speaking over it.
+  var sayOn = true; try { sayOn = localStorage.getItem('apt-say') !== '0'; } catch (e) {}
+  function clipSrc(c, voiced) { return clipUrl(voiced && c.vpath ? { path: c.vpath } : c); }
+  function clipPlayer(list) { // one video that plays a list of clips back to back
+    var voiced = list.some(function (c) { return c.vpath; }), on = voiced && sayOn;
+    return '<div class="vplayer"><video controls playsinline preload="metadata" src="' + esc(clipSrc(list[0], on)) + '"></video>' +
+      (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') +
+      '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipSrc(c, on)) + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
   var HLDEL = { i: -1, until: 0, msg: '', busy: false }; // Delete these highlights: armed by the first tap
+  var DL = { i: -1, busy: false, prog: '', msg: '', path: null, bad: false };
+  var RB = { pid: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false };
   function renderHighlights() {
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
     var own = role === 'owner', html = '', games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
@@ -2632,14 +2594,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       games.forEach(function (g) {
         var r = g.r, ms = momentsOf(r), timed = r.koAt && ms.length, vids = clips.filter(function (c) { return c.game_id === r.id; });
         var cutBtn = !own || !timed ? '' : NATIVE ? '<button class="plain primary" type="button" data-cut="' + g.i + '">' + (vids.length ? 'Cut again from a video' : 'Cut from a video on this phone') + '</button>' : '';
-        var pcBtn = own && timed ? '<button class="plain" type="button" data-reel="' + g.i + '">Make it on a computer</button>' : '';
-        html += '<div class="hcard"><h3>v ' + esc(r.opp) + ' ' + r.us + '–' + r.them + (r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
+        html += '<div class="hcard' + (hlFocus === r ? ' focus' : '') + '" id="hlg-' + g.i + '"><h3>v ' + esc(r.opp) + ' ' + r.us + '–' + r.them + (r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
         var delBtn = own && vids.length ? '<button class="plain" type="button" data-hldel="' + g.i + '"' + (HLDEL.busy ? ' disabled' : '') + '>' + (HLDEL.i === g.i && Date.now() < HLDEL.until ? 'Tap again to delete them' : 'Delete these highlights') + '</button>' : '';
-        if (vids.length) html += clipPlayer(vids) + (cutBtn || delBtn ? '<div class="actions">' + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '');
+        var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
+        if (vids.length) html += clipPlayer(vids) + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
+          (DL.i === g.i && (DL.msg || DL.prog) ? '<p class="msg' + (DL.bad ? ' bad' : '') + '" role="status" id="dlMsg">' + esc(DL.prog || DL.msg) + '</p>' + (DL.path && !DL.busy ? '<div class="actions"><button class="plain primary" type="button" data-dlshare="1">Share or save it</button></div>' : '') : '');
         else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
             : own ? (NATIVE ? 'No video for this game yet.' : 'No video for this game yet. Open the iPhone app to cut it from a video on your phone.') : 'No video for this game yet. Ask your gaffer to generate it.',
-            cutBtn + pcBtn);
+            cutBtn);
         html += '</div>';
       });
     } else {
@@ -2657,15 +2620,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       }).sort(function (a, b) { return ((b.p.id === myPid) - (a.p.id === myPid)) || (b.vids.length - a.vids.length) || (b.list.length - a.list.length); }).forEach(function (x) {
         html += '<div class="hcard"><h3>' + esc(nm(x.p.id)) + ((roster[x.p.id] || {}).gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (x.p.id === myPid ? '<span class="badge you">You</span>' : '') + '</h3>' +
           '<p class="note">' + (x.vids.length ? x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ' this season, oldest first' : x.list.length ? x.list.length + (x.list.length === 1 ? ' moment' : ' moments') + ' this season, oldest first' : 'No moments yet') + '</p>';
-        if (x.vids.length) html += clipPlayer(x.vids);
+        if (x.vids.length) html += clipPlayer(x.vids) + (RCp() ? '<div class="actions"><button class="plain primary" type="button" data-preel="' + x.p.id + '">Make a reel</button></div>' : '');
         else if (x.list.length) html += '<ul>' + x.list.map(function (m) { return '<li class="wide"><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' +
-          novid('No clips for ' + esc(nm(x.p.id)) + ' yet. They appear here when a game’s highlights are cut.', own ? '<button class="plain" type="button" data-season="' + x.p.id + '">Make a reel on a computer</button>' : '');
+          novid('No clips for ' + esc(nm(x.p.id)) + ' yet. They appear here when a game’s highlights are cut.');
         html += '</div>';
       });
     }
     $('hlList').innerHTML = html;
     Array.prototype.forEach.call($('hlList').querySelectorAll('.vplayer video'), function (v) { // play the next clip when one ends
-      v.addEventListener('play', function () { if (v.currentTime < 1) { var cur = v.parentNode.querySelector('[data-clip][aria-pressed="true"]'); sayLine(cur ? cur.getAttribute('data-line') : ''); } });
       v.addEventListener('ended', function () {
         var btns = v.parentNode.querySelectorAll('[data-clip]'), cur = 0;
         Array.prototype.forEach.call(btns, function (b, i) { if (b.getAttribute('aria-pressed') === 'true') cur = i; });
@@ -2676,7 +2638,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   async function hlDelete(r, i) { // so a game's highlights can be cut again from scratch
     if (!sb || !r.id || role !== 'owner') return;
     HLDEL.busy = true; HLDEL.msg = 'Deleting…'; renderHighlights();
-    var paths = clips.filter(function (c) { return c.game_id === r.id; }).map(function (c) { return c.path; });
+    var paths = []; clips.forEach(function (c) { if (c.game_id === r.id) { paths.push(c.path); if (c.vpath) paths.push(c.vpath); } });
     try {
       await q(sb.from('clips').delete().eq('game_id', r.id));
       try { if (paths.length) await q(sb.storage.from('clips').remove(paths)); } catch (e) {} // (a file left behind is never shown: the rows are what list them)
@@ -2685,24 +2647,125 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     } catch (e) { HLDEL = { i: i, until: 0, msg: 'Couldn’t delete them. Check your signal and try again.', busy: false }; }
     renderHighlights();
   }
+  // ---- reels anyone can make on their iPhone from the team's clips: a game's, to download, and a player's own
+  function inkColour() { return getComputedStyle(document.documentElement).getPropertyValue('--team-ink').trim() || '#ffffff'; }
+  function spokenLine(w) { // written for the eye; say scores the way a commentator would, and the team's full name
+    w = String(w || '').replace(/(\d+)–(\d+)/g, function (m0, x, y) { return x === y ? (x === '0' ? 'nil nil' : x + ' all') : (x === '0' ? 'nil' : x) + ' ' + (y === '0' ? 'nil' : y); });
+    return teamShort() !== teamName() ? w.split(teamShort()).join(teamName()) : w;
+  }
+  function canVoice() { return hasGaffer() && !!sb && !!me && (role === 'owner' || myPid != null); } // the voice is for the team's gaffers and players
+  async function gameReel(i) { // the game's clips joined into one reel on this phone, then the share sheet (save to Photos, send on)
+    var r = S.results[i], rc = RCp(); if (!r || !rc || DL.busy) return;
+    var list = clips.filter(function (c) { return c.game_id === r.id; }).sort(function (a, b) { return a.seq - b.seq; }); if (!list.length) return;
+    var voiced = sayOn && list.some(function (c) { return c.vpath; });
+    DL = { i: i, busy: true, prog: 'Starting…', msg: '', path: null, bad: false }; renderHighlights();
+    try {
+      var res = await rc.joinReel({ items: list.map(function (c) { return { url: clipSrc(c, voiced) }; }), file: folderOf(r) + '-highlights.mp4',
+        outro: { title: teamName() + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: 'Made with Gaffer', color: S.color, ink: inkColour() } });
+      DL.path = res && res.path; DL.msg = 'The reel is ready' + (voiced ? ', with commentary' : '') + '.';
+      if (DL.path) rc.share({ path: DL.path }).catch(function () {});
+    } catch (e) { DL.msg = (e && e.message) || 'Couldn’t make the reel.'; DL.bad = true; }
+    DL.busy = false; DL.prog = ''; if (S.view === 'highlights') renderHighlights();
+  }
+  function clipRole(c, pid) { // what a clip is for one player: their goal, their assist, their save or another highlight of theirs
+    var r = S.results.filter(function (x) { return x.id === c.game_id; })[0], from = (c.at || 0) - 1500, to = (c.at || 0) + (c.dur || 21) * 1000, rank = 0, out = '';
+    if (!r) return '';
+    (r.ev || []).forEach(function (e) {
+      if (typeof e.at !== 'number' || e.at < from || e.at > to) return;
+      var k = !e.hl && e.us && e.p === pid ? [4, 'Goal'] : !e.hl && e.us && e.a === pid ? [3, 'Assist'] : e.hl && e.p === pid ? [2, e.k === 'save' ? 'Save' : 'Highlight'] : null;
+      if (k && k[0] > rank) { rank = k[0]; out = k[1]; }
+    });
+    return out;
+  }
+  function rbList() { // the player's clips, oldest first, each with what it is for them (only goals, if asked)
+    var byId = {}; S.results.forEach(function (r) { byId[r.id] = r; });
+    return clips.filter(function (c) { return (c.pids || []).indexOf(RB.pid) >= 0; }).sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).map(function (c) {
+      var r = byId[c.game_id];
+      return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: clipRole(c, RB.pid), title: (r ? 'v ' + r.opp + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label });
+    }).filter(function (c) { return !RB.goals || c.kind === 'Goal'; });
+  }
+  function rbOpen(pid) { RB = { pid: pid, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false }; $('reelPop').hidden = false; renderRB(); }
+  function renderRB() {
+    if ($('reelPop').hidden) return;
+    var list = rbList(), on = list.filter(function (c) { return RB.pick[c.key] !== false; }), secs = 0, pv = list.filter(function (c) { return c.key === RB.pv; })[0] || list[0], who = nm(RB.pid);
+    on.forEach(function (c) { secs += c.dur || 0; });
+    var html = '<h2 id="rbTitle">Reel for ' + esc(who) + '</h2><p class="note">Untick any clips to leave out. Preview plays one here.</p>' +
+      (pv ? '<video id="rbPrev" playsinline controls preload="metadata" src="' + esc(clipSrc(pv, false)) + '"></video>' : '') +
+      '<label class="check" for="rbGoals"><input id="rbGoals" type="checkbox"' + (RB.goals ? ' checked' : '') + '><span>Goals only <small>(leaves out assists, saves and other highlights)</small></span></label>';
+    html += list.length ? '<ol class="rblist">' + list.map(function (c, i) {
+      return '<li><label class="check" for="rbp-' + i + '"><input id="rbp-' + i + '" type="checkbox" data-rbpick="' + esc(c.key) + '"' + (RB.pick[c.key] !== false ? ' checked' : '') + '><span>' + esc(c.title) + (c.kind ? ' <span class="kind">' + esc(c.kind) + '</span>' : '') + '</span></label>' +
+        '<button class="link" type="button" data-rbprev="' + esc(c.key) + '">Preview</button></li>';
+    }).join('') + '</ol>' : '<p class="note">' + (RB.goals ? 'None of ' + esc(who) + '’s clips is a goal of theirs yet.' : 'No clips yet.') + '</p>';
+    if (canVoice()) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
+      (RB.voice ? '<div class="two"><label class="field" for="rbVoiceName">Voice<select id="rbVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
+        '<label class="field" for="rbVoiceStyle">Delivery<select id="rbVoiceStyle"><option value="hype"' + (voicePick().style === 'hype' ? ' selected' : '') + '>Live commentator</option><option value="plain"' + (voicePick().style === 'plain' ? ' selected' : '') + '>Read it straight</option></select></label></div>' : '');
+    html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
+      '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
+      '<div class="actions">' + (RB.path && !RB.busy ? '<button class="plain primary" type="button" id="rbShare">Share or save it</button>' : '<button class="plain primary" type="button" id="rbMake"' + (RB.busy || !on.length ? ' disabled' : '') + '>Make the reel</button>') +
+      '<button class="plain" type="button" id="rbClose">Close</button></div>';
+    $('rbBody').innerHTML = html;
+  }
+  async function rbMake() {
+    var rc = RCp(); if (!rc || RB.busy) return;
+    var list = rbList().filter(function (c) { return RB.pick[c.key] !== false; }), who = nm(RB.pid), byId = {}; if (!list.length) return;
+    S.results.forEach(function (r) { byId[r.id] = r; });
+    RB.busy = true; RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
+    var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
+    if (RB.voice && canVoice()) {
+      var lines = [who + '’s highlights, for ' + teamName() + '.'].concat(list.map(function (c) { return byId[c.game_id] ? commentaryFor(byId[c.game_id], c) : ''; }), ['That’s ' + who + '. What a player.']).map(spokenLine);
+      try {
+        var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
+        if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) {
+          intro = vd.audio[0] || null; signOff = vd.audio[lines.length - 1] || null;
+          items.forEach(function (it, i) { if (vd.audio[i + 1]) { it.voice = vd.audio[i + 1]; it.voiceAt = Math.max(0.5, (list[i].dur || 14) - POST + 0.5); } }); // (just after the moment, which is 6 seconds from the end)
+        } else RB.note = 'The commentary couldn’t be added: ' + ((vd && vd.error) || 'the voice service didn’t answer.') + ' The reel was made without it.';
+      } catch (e) { RB.note = 'The commentary couldn’t be added: the voice service couldn’t be reached. The reel was made without it.'; }
+      RB.prog = 'Starting…'; var pg = $('rbProg'); if (pg) pg.textContent = RB.prog;
+    }
+    try {
+      var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, file: (slugify(who) || 'player') + '-highlights.mp4',
+        outro: { title: who + '’s highlights', sub: teamName() + ' · Made with Gaffer', color: S.color, ink: inkColour() } });
+      RB.path = res && res.path; RB.msg = 'The reel is ready.';
+      if (RB.path) rc.share({ path: RB.path }).catch(function () {});
+    } catch (e) { RB.msg = (e && e.message) || 'Couldn’t make the reel.'; RB.bad = true; }
+    RB.busy = false; RB.prog = ''; renderRB();
+  }
+  $('reelPop').addEventListener('click', function (e) {
+    if (e.target === $('reelPop')) { if (!RB.busy) $('reelPop').hidden = true; return; }
+    var b = e.target.closest('button'); if (!b || b.disabled) return;
+    if (b.id === 'rbClose') { if (!RB.busy) $('reelPop').hidden = true; }
+    else if (b.id === 'rbMake') rbMake();
+    else if (b.id === 'rbShare') { var rc = RCp(); if (rc && RB.path) rc.share({ path: RB.path }).catch(function () {}); }
+    else if (b.hasAttribute('data-rbprev')) { RB.pv = b.getAttribute('data-rbprev'); renderRB(); var v = $('rbPrev'); if (v) try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {} }
+  });
+  $('reelPop').addEventListener('change', function (e) {
+    var t = e.target; if (RB.busy) return;
+    if (t.id === 'rbGoals') RB.goals = t.checked;
+    else if (t.hasAttribute('data-rbpick')) RB.pick[t.getAttribute('data-rbpick')] = t.checked;
+    else if (t.id === 'rbVoice') RB.voice = t.checked;
+    else if (t.id === 'rbVoiceName' || t.id === 'rbVoiceStyle') { try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('rbVoiceName').value, style: $('rbVoiceStyle').value })); } catch (err) {} return; }
+    else return;
+    RB.path = null; RB.msg = ''; RB.note = ''; renderRB(); // (a change means the reel made before isn't this one)
+  });
+  $('toPlayerReels').addEventListener('click', function () { hlBy = 'player'; hlFocus = null; go('highlights'); });
   $('hlToggle').addEventListener('click', function (e) { var by = e.target.getAttribute('data-by'); if (by) { hlBy = by; renderHighlights(); } });
   $('hlList').addEventListener('click', function (e) {
-    var r = e.target.getAttribute('data-reel'), s = e.target.getAttribute('data-season'), c = e.target.getAttribute('data-clip'), cut = e.target.getAttribute('data-cut');
-    if (e.target.getAttribute('data-say')) { sayOn = !sayOn; try { localStorage.setItem('apt-say', sayOn ? '1' : '0'); if (!sayOn && window.speechSynthesis) speechSynthesis.cancel(); } catch (err) {} renderHighlights(); return; }
+    var c = e.target.getAttribute('data-clip'), cut = e.target.getAttribute('data-cut');
+    if (e.target.getAttribute('data-say')) { sayOn = !sayOn; try { localStorage.setItem('apt-say', sayOn ? '1' : '0'); } catch (err) {} renderHighlights(); return; }
     if (c !== null) {
       var box = e.target.closest('.vplayer'), v = box.querySelector('video');
       Array.prototype.forEach.call(box.querySelectorAll('[data-clip]'), function (b) { b.setAttribute('aria-pressed', b === e.target); });
-      var sayEl = box.querySelector('.say'), ln = e.target.getAttribute('data-line') || ''; if (sayEl) { sayEl.textContent = ln; sayEl.hidden = !ln; }
       v.src = e.target.getAttribute('data-src'); try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {}
     }
     else if (cut !== null) { CUT = cutStart(+cut); go('cut'); }
+    else if (e.target.getAttribute('data-dl') !== null) gameReel(+e.target.getAttribute('data-dl'));
+    else if (e.target.getAttribute('data-dlshare') !== null) { var rc2 = RCp(); if (rc2 && DL.path) rc2.share({ path: DL.path }).catch(function () {}); }
+    else if (e.target.getAttribute('data-preel') !== null) rbOpen(+e.target.getAttribute('data-preel'));
     else if (e.target.getAttribute('data-hldel') !== null) { // twice, then the game's clips go from Highlights and from storage
       var di = +e.target.getAttribute('data-hldel'), dr = S.results[di]; if (!dr || HLDEL.busy) return;
       if (HLDEL.i === di && Date.now() < HLDEL.until) { HLDEL.until = 0; hlDelete(dr, di); }
       else { HLDEL = { i: di, until: Date.now() + 3000, msg: '' }; renderHighlights(); setTimeout(function () { if (S.view === 'highlights') renderHighlights(); }, 3100); }
     }
-    else if (r !== null) { reelIdx = +r; go('reel'); }
-    else if (s !== null) { seaWho = s; go('season'); }
   });
 
   // ---- cutting highlights on the phone (iPhone app only): pick the recording, line it up, cut, upload the clips
@@ -2712,6 +2775,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (!d) return;
     var pct = Math.round((d.p || 0) * 100);
     if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
+    if (DL.busy) { DL.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var dm = $('dlMsg'); if (dm) dm.textContent = DL.prog; }
+    if (RB.busy) { RB.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var rm = $('rbProg'); if (rm) rm.textContent = RB.prog; }
     if (!CUT) return;
     CUT.prog = d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';
     var el = $('cutProg'); if (el) el.textContent = CUT.prog;
@@ -2721,6 +2786,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // any other highlight from the one nearest their goal. A camera whose video doesn't cover the moment is passed over.
   // Positions are in pitch lengths: u across (0 to 1 is touchline to touchline), v up and down (0 is their goal and 1 is
   // ours, in the first half); a camera can stand off the pitch.
+  var PRE = 8, POST = 6; // a clip runs from 8 seconds before its moment to 6 after (Ethan found 15 before dragged on)
   var CAM_MAX = 4, CP = { x: 18, y: 24, w: 64, h: 102 }; // where the pitch sits in the 100 by 150 drawing
   function cutGuess(src, at) { // where a moment falls in a video, going by when the recording started
     var g = src && typeof src.created === 'number' && at ? (at - src.created) / 1000 : null;
@@ -2770,7 +2836,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function cutPlan(r, cams, swap) { // the clips to cut, each from its camera's video
     var live = cams.filter(function (k) { return k.src; }); if (!live.length) return [];
-    var pre = r.pre != null ? r.pre : 15, post = r.post != null ? r.post : 6, BIG = 1e5; // (timed well clear of zero, so nothing is trimmed until it's in a video)
+    var pre = r.pre != null ? r.pre : PRE, post = r.post != null ? r.post : POST, BIG = 1e5; // (timed well clear of zero, so nothing is trimmed until it's in a video)
     var split = r.h2At && r.koAt && live.some(function (k) { return k.src2; }); // a half filmed as its own video starts its own clips
     var base = split ? reelClips(r, BIG, pre, post, function (e) { return e.at < r.h2At; }).concat(reelClips(r, BIG, pre, post, function (e) { return e.at >= r.h2At; }))
       : reelClips(r, BIG, pre, post);
@@ -2854,7 +2920,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         (live.length ? '<button class="plain primary" type="button" data-cutdo="next">Next</button>' : '') + '</div>' +
         '<p class="note">The cutting happens on this phone, and only the finished clips are uploaded.</p></section>';
     } else if (CUT.stage === 'sync') {
-      var many = live.length > 1, plan = cutPlan(r, CUT.cams, CUT.swap), n = plan.length, pre = r.pre != null ? r.pre : 15;
+      var many = live.length > 1, plan = cutPlan(r, CUT.cams, CUT.swap), n = plan.length, pre = r.pre != null ? r.pre : PRE;
       var lk = camById(CUT.lc), k = lk && lk.src ? lk : live[0], rows = cutRows(r, k), sel = rows.filter(function (x) { return x.key === CUT.sel; })[0] || rows[0];
       html += '<section><h2>Line up the video</h2><p class="note">Mark kick-off' + (rows.some(function (x) { return x.key === 'h2'; }) ? ', the second-half kick-off' : '') +
         ' and two or three goals. For each: pick it below, play or drag the video to the moment (for a goal, when the ball hits the net), and tap <b>It happens here</b>. Gaffer works out every other moment from them; each clip starts ' + pre + ' seconds before its moment.</p>';
@@ -2872,7 +2938,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (k.src2) html += '<div class="actions"><button class="plain" type="button" data-cutdo="drop2" data-cam="' + k.id + '">Remove the second-half video' + (many ? ' for camera ' + camNo(k) : '') + '</button></div>';
       else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button></div>';
       html += busy;
-      if (A.exp && A.exp.track) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(experimental: a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel)</small></span></label>' +
+      if (hasGaffer()) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel; the clips are kept with and without it, and everyone can switch it on or off)</small></span></label>' +
         '<div class="two"><label class="field" for="cutVoiceName">Voice<select id="cutVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
         '<label class="field" for="cutVoiceStyle">Delivery<select id="cutVoiceStyle"><option value="hype"' + (voicePick().style === 'hype' ? ' selected' : '') + '>Live commentator</option><option value="plain"' + (voicePick().style === 'plain' ? ' selected' : '') + '>Read it straight</option></select></label></div>' +
         '<div class="actions"><button class="plain" type="button" data-cutdo="hear">Hear this voice</button></div>' + (CUT.heard ? '<p class="msg" role="status">' + esc(CUT.heard) + '</p>' : '');
@@ -3002,14 +3068,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         var ink = getComputedStyle(document.documentElement).getPropertyValue('--team-ink').trim() || '#ffffff';
         // commentary: a line for each clip plus an intro and a sign-off, spoken by a cloud voice and mixed in on the phone
         var said = null; CUT.voiced = null;
-        if (CUT.voice && A.exp && A.exp.track) {
+        if (CUT.voice && hasGaffer()) {
           CUT.prog = 'Recording the commentary…'; var vp = $('cutProg'); if (vp) vp.textContent = CUT.prog;
           var words = [teamName() + ' against ' + r.opp + '. Here are the highlights.'].concat(list.map(function (c) { return commentaryFor(r, { at: c.at, dur: c.end - c.start }) || ''; }),
             ['Full time. ' + teamName() + ' ' + r.us + ', ' + r.opp + ' ' + r.them + '.']);
-          words = words.map(function (w) { // written for the eye; say scores the way a commentator would, and the team's full name
-            w = w.replace(/(\d+)–(\d+)/g, function (m0, x, y) { return x === y ? (x === '0' ? 'nil nil' : x + ' all') : (x === '0' ? 'nil' : x) + ' ' + (y === '0' ? 'nil' : y); });
-            return teamShort() !== teamName() ? w.split(teamShort()).join(teamName()) : w;
-          });
+          words = words.map(spokenLine);
           try {
             var vp2 = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words, voice: vp2.voice, style: vp2.style } }), vd = vr && vr.data;
             if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) { said = vd.audio; CUT.voiced = true; }
@@ -3022,11 +3085,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         var rows = [];
         for (var i = 0; i < res.clips.length; i++) {
           CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; var el = $('cutProg'); if (el) el.textContent = CUT.prog;
-          var blob = await (await fetch(window.Capacitor.convertFileSrc(res.clips[i].path))).blob();
-          blob = blob.slice(0, blob.size, 'video/mp4'); // the phone hands the file over untyped, and storage only accepts video
-          var path = teamId + '/' + folderOf(r) + '/' + res.clips[i].file;
-          await q(sb.storage.from('clips').upload(path, blob, { contentType: 'video/mp4', upsert: true }));
-          rows.push({ team_id: teamId, game_id: r.id, seq: i, path: path, label: list[i].labels.join(' / ').slice(0, 200), at: list[i].at || null, dur: list[i].end - list[i].start, pids: list[i].pids });
+          var up = async function (made) { // a clip file from the phone to the team's storage
+            var blob = await (await fetch(window.Capacitor.convertFileSrc(made.path))).blob();
+            blob = blob.slice(0, blob.size, 'video/mp4'); // the phone hands the file over untyped, and storage only accepts video
+            var to = teamId + '/' + folderOf(r) + '/' + made.file;
+            await q(sb.storage.from('clips').upload(to, blob, { contentType: 'video/mp4', upsert: true }));
+            return to;
+          };
+          var path = await up(res.clips[i]), vpath = res.clips[i].voiced ? await up(res.clips[i].voiced) : null;
+          rows.push({ team_id: teamId, game_id: r.id, seq: i, path: path, vpath: vpath, label: list[i].labels.join(' / ').slice(0, 200), at: list[i].at || null, dur: list[i].end - list[i].start, pids: list[i].pids });
         }
         await q(sb.from('clips').delete().eq('game_id', r.id));
         await q(sb.from('clips').insert(rows));
@@ -4003,7 +4070,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   $('insBody').addEventListener('click', function (e) { var g = e.target.getAttribute('data-ig'); if (g !== null && !e.target.disabled) { insGame = +g; renderInsights(); } });
 
-  // ---- commentary: a line for each highlight, shown under the clip and read out if switched on
+  // ---- commentary: a line for each highlight, spoken by the AI voice when a reel is made with commentary
   function commentaryFor(r, c) {
     var us = 0, them = 0, line = '', from = (c.at || 0) - 1500, to = (c.at || 0) + ((c.dur || 21) * 1000), pickOf = function (list, seed) { return list[Math.abs(seed) % list.length]; };
     (r.ev || []).slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).forEach(function (e, i) {
@@ -4016,10 +4083,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       else line = them > us ? r.opp + ' go in front. ' + sc + '.' : them === us ? r.opp + ' level it at ' + sc + '.' : r.opp + ' pull one back. ' + sc + '.';
     });
     return line;
-  }
-  var sayOn = false; try { sayOn = localStorage.getItem('apt-say') === '1'; } catch (e) {}
-  function sayLine(t) {
-    try { if (!sayOn || !t || !window.speechSynthesis) return; speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(t); u.lang = 'en-GB'; u.rate = 1.08; u.pitch = 1.05; speechSynthesis.speak(u); } catch (e) {}
   }
 
 
@@ -4915,7 +4978,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('scopeRow').addEventListener('click', function (e) { var v = e.target.getAttribute('data-scope'); if (v === null) return; statScope = v || null; renderStats(); });
   $('showF').addEventListener('change', function (e) { showF = e.target.checked; renderStats(); });
   $('results').addEventListener('click', function (e) {
-    var rl = e.target.getAttribute('data-reel'); if (rl !== null) { reelIdx = +rl; go('reel'); return; }
+    var rl = e.target.getAttribute('data-reel'); if (rl !== null) { hlShow(S.results[+rl]); return; }
     var v = e.target.getAttribute('data-del'); if (v === null || role !== 'owner') return;
     var i = +v; clearTimeout(delT);
     if (delIdx !== i) { delIdx = i; delT = setTimeout(function () { delIdx = -1; renderStats(); }, 3000); renderStats(); return; }
@@ -4953,41 +5016,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     out.forEach(function (c) { c.labels = foldLabels(c.items); var main = c.items.filter(function (x) { return !x.plain; })[0] || c.items[0]; c.focus = main.focus; });
     return out;
   }
-  function reelScript(r, clips, captions) {
-    var L = [], pad = function (n) { return ('0' + n).slice(-2); }, clean = function (s) { return String(s).replace(/[\r\n]+/g, ' '); };
-    L.push('#!/usr/bin/env bash');
-    L.push('# ' + clean(teamName()) + ' v ' + clean(r.opp) + ' (' + r.us + '-' + r.them + ') highlights, made by Gaffer.');
-    L.push('# Run it with the GoPro or iPhone video files in recording order:  bash highlights.sh GX010001.MP4 GX020001.MP4');
-    L.push('set -euo pipefail');
-    L.push('[ "$#" -ge 1 ] || { echo "Give the GoPro or iPhone video files in order, e.g. bash highlights.sh GX01*.MP4 GX02*.MP4 (or IMG_1234.MOV)"; exit 1; }');
-    L.push('CAPTIONS=' + (captions ? 1 : 0) + '   # set to 0 if ffmpeg complains about drawtext');
-    L.push('W=sop_work; mkdir -p "$W"');
-    L.push('if [ "$#" -gt 1 ]; then');
-    L.push('  : > "$W/in.txt"');
-    L.push('  for f in "$@"; do printf "file \'%s\'\\n" "$(cd "$(dirname "$f")" && pwd)/$(basename "$f")" >> "$W/in.txt"; done');
-    L.push('  echo "Joining the video files (GoPro chapters or iPhone clips)..."');
-    L.push('  ffmpeg -y -loglevel error -stats -f concat -safe 0 -i "$W/in.txt" -map 0:v:0 -map "0:a:0?" -c copy "$W/full.mp4"');
-    L.push('  SRC="$W/full.mp4"');
-    L.push('else SRC="$1"; fi');
-    L.push('clip() { # number, start seconds, length seconds');
-    L.push('  local n="$1" vf="null"');
-    L.push('  if [ "$CAPTIONS" = 1 ]; then vf="drawtext=textfile=$W/cap_$n.txt:expansion=none:fontsize=h/24:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=16:x=40:y=h-th-40"; fi');
-    L.push('  echo "Cutting clip $n..."');
-    L.push('  ffmpeg -y -loglevel error -stats -ss "$2" -i "$SRC" -t "$3" -vf "$vf" -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 160k -ar 48000 "$W/clip_$n.mp4"');
-    L.push('  printf "file \'clip_%s.mp4\'\\n" "$n" >> "$W/list.txt"');
-    L.push('}');
-    L.push(': > "$W/list.txt"');
-    clips.forEach(function (c, i) {
-      var n = pad(i + 1);
-      L.push('cat > "$W/cap_' + n + '.txt" <<\'CAPTION_END\'');
-      c.labels.forEach(function (t) { L.push(clean(t)); });
-      L.push('CAPTION_END');
-      L.push('clip ' + n + ' ' + c.start.toFixed(1) + ' ' + (c.end - c.start).toFixed(1));
-    });
-    L.push('ffmpeg -y -loglevel error -stats -f concat -safe 0 -i "$W/list.txt" -c copy highlights.mp4');
-    L.push('echo "Done: highlights.mp4 (' + clips.length + ' clip' + (clips.length === 1 ? '' : 's') + ')"');
-    return L.join('\n') + '\n';
-  }
   function hms(sec) {
     sec = Math.max(0, Math.round(sec));
     var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
@@ -5006,176 +5034,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     for (var i = 0; i < parts.length; i++) { var n = Number(parts[i]); if (parts[i] === '' || !isFinite(n) || n < 0) return null; t = t * 60 + n; }
     return parts.length > 3 ? null : t;
   }
-  function reelChapters(r, clips, sync) {
-    var L = ['0:00 Warm-up'];
-    if (sync >= 10) L.push(hms(sync) + ' Kick-off');
-    clips.forEach(function (c) { if (c.start > 0) L.push(hms(c.start) + ' ' + c.labels.join(' / ').replace(/\s+/g, ' ')); });
-    return L.join('\n');
-  }
-
-  function parseStamp(line, day) {
-    line = String(line).trim(); if (!line) return null;
-    var m = line.match(/(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})\D+(\d{1,2}):(\d{2})(?::(\d{2}))?/); // UK day-first dates
-    if (m) return new Date(+m[3] < 100 ? 2000 + +m[3] : +m[3], m[2] - 1, +m[1], +m[4], +m[5], +(m[6] || 0)).getTime();
-    m = line.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/); // time only: assume the day of the game
-    if (m) { var d = new Date(day); d.setHours(+m[1], +m[2], +(m[3] || 0), 0); return d.getTime(); }
-    var t = Date.parse(line); return isNaN(t) ? null : t;
-  }
-  function minFor(r, at) { // minute label for a time on the wall clock
-    var half = r.half || 15, o = {}, e;
-    if (r.h2At && at >= r.h2At) { e = (at - r.h2At) / 60000; o.min = half + Math.min(half, Math.floor(e) + 1); if (e >= half) o.x = Math.floor(e - half) + 1; }
-    else if (r.htAt && at >= r.htAt) o.min = half;
-    else { e = Math.max(0, (at - r.koAt) / 60000); o.min = Math.min(half, Math.floor(e) + 1); if (e >= half) o.x = Math.floor(e - half) + 1; }
-    return o;
-  }
-  $('impBtn').addEventListener('click', function () {
-    var r = S.results[reelIdx]; if (!r || role !== 'owner') return;
-    var lines = $('impIn').value.split(/\n+/).filter(function (l) { return l.trim(); }), added = 0, outside = 0, bad = 0;
-    var end = (r.ftAt || r.koAt + 3 * 3600000) + 60000, who = +$('impWho').value || null;
-    if (who && S.me !== who) S.me = who;
-    lines.forEach(function (l) {
-      var t = parseStamp(l, r.koAt);
-      if (t === null) { bad++; return; }
-      if (t < r.koAt - 60000 || t > end) { outside++; return; }
-      if (r.ev.some(function (e) { return e.hl && Math.abs(e.at - t) < 2000; })) return;
-      var o = minFor(r, t); o.hl = true; o.at = t; o.w = true; if (who) o.p = who; r.ev.push(o); added++;
-    });
-    $('impMsg').textContent = !lines.length ? 'Paste the times first.' : added + ' added' + (outside ? ', ' + outside + ' ignored (not during this game)' : '') + (bad ? ', ' + bad + ' not recognised as a time' : '') + '.';
-    if (added) { $('impIn').value = ''; save(); reelOut(); }
-  });
-  // ---- season reels: one reel per player, cut from every game folder
   var slugify = function (s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); };
-  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   function folderOf(r) {
     var d = new Date(r.koAt || r.at || 0), p2 = function (n) { return ('0' + n).slice(-2); };
     return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + (slugify(r.opp) || 'game');
   }
-  function evLabel(e, pid) { // what this event was, from one player's point of view
-    if (e.hl) return e.k === 'save' ? 'Save' : 'Highlight';
-    if (e.p === pid) return 'Goal';
-    return 'Assist for ' + (e.p != null ? nm(e.p) : 'a goal');
-  }
-  function seasonClips(results, pid, pre, post) {
-    var out = [];
-    results.slice().sort(function (a, b) { return (a.koAt || 0) - (b.koAt || 0); }).forEach(function (r) {
-      if (typeof r.koAt !== 'number' || typeof r.sync !== 'number' || !r.ev) return;
-      var d = new Date(r.koAt), head = 'v ' + r.opp + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()], last = null;
-      r.ev.slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).forEach(function (e) {
-        var mine = e.hl ? e.p === pid : (e.us && (e.p === pid || e.a === pid));
-        if (!mine || typeof e.at !== 'number') return;
-        var t = (e.at - r.koAt) / 1000 + r.sync, start = Math.max(0, t - pre), end = start + pre + post, label = head + '  ' + (e.min != null ? ml(e) + ' ' : '') + evLabel(e, pid);
-        var plain = !!e.hl && e.k !== 'save';
-        if (plain) { // their highlight right next to a goal or save is about that moment: stretch the clip to show it and say so
-          var nb = null;
-          r.ev.forEach(function (o) { if (o !== e && (!o.hl || o.k === 'save') && typeof o.at === 'number' && Math.abs(o.at - e.at) <= 20000 && (!nb || Math.abs(o.at - e.at) < Math.abs(nb.at - e.at))) nb = o; });
-          if (nb) {
-            var nt = (nb.at - r.koAt) / 1000 + r.sync;
-            start = Math.max(0, Math.min(start, nt - pre)); end = Math.max(end, nt + post);
-            label += ', ' + (nb.hl ? nm(nb.p) + '\u2019s save' : !nb.us ? 'goal for ' + r.opp : nb.p != null ? nm(nb.p) + '\u2019s goal' : 'our goal');
-          }
-        }
-        var item = { text: label, plain: plain };
-        if (last && start <= last.end) { last.end = Math.max(last.end, end); last.items.push(item); }
-        else { last = { folder: folderOf(r), start: start, end: end, items: [item] }; out.push(last); }
-      });
-    });
-    out.forEach(function (c) { c.labels = foldLabels(c.items); });
-    return out;
-  }
-  function seasonScript(people) { // people: [{ slug, name, clips }]
-    var L = [], clean = function (s) { return String(s).replace(/[\r\n]+/g, ' '); }, n = 0;
-    L.push('#!/usr/bin/env bash');
-    L.push('# ' + clean(teamName()) + ' season reels, made by Gaffer.');
-    L.push('# Run it from the folder that holds one folder per game:  bash season.sh');
-    L.push('set -euo pipefail');
-    L.push('CAPTIONS=1   # set to 0 if ffmpeg complains about drawtext');
-    L.push('W=sop_work; mkdir -p "$W"; rm -f "$W"/*_list.txt');
-    L.push('src() { # game folder -> one video file for that game (GoPro chapters or iPhone clips joined once, then reused)');
-    L.push('  local d="$1" files=()');
-    L.push('  [ -d "$d" ] || return 1');
-    L.push('  for f in "$d"/*.[mM][pP]4 "$d"/*.[mM][oO][vV]; do [ -f "$f" ] && files+=("$f"); done');
-    L.push('  [ "${#files[@]}" -ge 1 ] || return 1');
-    L.push('  if [ "${#files[@]}" -eq 1 ]; then printf "%s" "${files[0]}"; return 0; fi');
-    L.push('  if [ ! -f "$W/$d.mp4" ]; then');
-    L.push('    : > "$W/$d.txt"; for f in "${files[@]}"; do printf "file \'%s\'\\n" "$(pwd)/$f" >> "$W/$d.txt"; done');
-    L.push('    echo "Joining the video files for $d (GoPro chapters or iPhone clips)..." >&2');
-    L.push('    ffmpeg -y -loglevel error -f concat -safe 0 -i "$W/$d.txt" -map 0:v:0 -map "0:a:0?" -c copy "$W/$d.mp4" >&2');
-    L.push('  fi');
-    L.push('  printf "%s" "$W/$d.mp4"');
-    L.push('}');
-    L.push('clip() { # player, clip number, game folder, start seconds, length seconds');
-    L.push('  local s vf="scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30"');
-    L.push('  if ! s="$(src "$3")"; then echo "Skipping $3: no video files found in that folder"; return 0; fi');
-    L.push('  if [ "$CAPTIONS" = 1 ]; then vf="$vf,drawtext=textfile=$W/cap_$2.txt:expansion=none:fontsize=44:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=16:x=40:y=h-th-40"; fi');
-    L.push('  echo "$1: cutting clip $2 from $3..."');
-    L.push('  ffmpeg -y -loglevel error -ss "$4" -i "$s" -t "$5" -vf "$vf" -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 160k -ar 48000 -ac 2 "$W/clip_$2.mp4"');
-    L.push('  printf "file \'clip_%s.mp4\'\\n" "$2" >> "$W/$1_list.txt"');
-    L.push('}');
-    L.push('reel() { if [ -s "$W/$1_list.txt" ]; then ffmpeg -y -loglevel error -f concat -safe 0 -i "$W/$1_list.txt" -c copy "$1.mp4"; echo "Done: $1.mp4"; else echo "No clips for $1"; fi; }');
-    people.forEach(function (p) {
-      L.push('');
-      L.push('# ' + clean(p.name));
-      p.clips.forEach(function (c) {
-        var id = ('000' + (++n)).slice(-4);
-        L.push('cat > "$W/cap_' + id + '.txt" <<\'CAPTION_END\'');
-        c.labels.forEach(function (t) { L.push(clean(t)); });
-        L.push('CAPTION_END');
-        L.push('clip ' + p.slug + ' ' + id + ' ' + c.folder + ' ' + c.start.toFixed(1) + ' ' + (c.end - c.start).toFixed(1));
-      });
-      L.push('reel ' + p.slug);
-    });
-    return L.join('\n') + '\n';
-  }
-
-  var seaWho = 'all';
-  function renderSeason() {
-    var recorded = S.results.filter(function (r) { return typeof r.koAt === 'number' && r.ev; });
-    var ready = recorded.filter(function (r) { return typeof r.sync === 'number'; }), need = recorded.filter(function (r) { return typeof r.sync !== 'number'; });
-    $('seaWho').innerHTML = '<option value="all">Everyone, one reel each</option>' + S.players.map(function (p) { return '<option value="' + p.id + '"' + (String(seaWho) === String(p.id) ? ' selected' : '') + '>' + esc(nm(p.id)) + '</option>'; }).join('');
-    var used = {}, people = [], total = 0;
-    S.players.forEach(function (p) {
-      if (seaWho !== 'all' && String(seaWho) !== String(p.id)) return;
-      var clips = seasonClips(ready, p.id, 15, 6), slug = slugify(nm(p.id)) || 'player';
-      if (used[slug]) slug += '-' + p.id; used[slug] = 1;
-      if (clips.length || seaWho !== 'all') { people.push({ slug: slug, name: nm(p.id), clips: clips }); total += clips.length; }
-    });
-    $('seaCount').textContent = !recorded.length ? 'No timed games yet. Reels are built from games finished from now on.'
-      : total + ' clip' + (total === 1 ? '' : 's') + ' across ' + ready.length + ' game' + (ready.length === 1 ? '' : 's') + (seaWho === 'all' ? ', for ' + people.length + ' player' + (people.length === 1 ? '' : 's') : '') + '.';
-    $('seaMissing').textContent = need.length ? 'Left out until you enter a kick-off time on their Highlights screen: ' + listAnd(need.map(function (r) { return 'v ' + r.opp; })) + '.' : '';
-    $('seasonOut').textContent = seasonScript(people);
-    $('seaFolders').textContent = recorded.map(function (r) { return folderOf(r) + '    v ' + r.opp + ' (' + r.us + '-' + r.them + ')'; }).join('\n') || 'None yet';
-  }
-  $('seaWho').addEventListener('change', function (e) { seaWho = e.target.value; renderSeason(); });
-  var reelIdx = -1, reelBack = 'stats';
-  function reelOut() {
-    var r = S.results[reelIdx]; if (!r) return;
-    var sync = typeof r.sync === 'number' ? r.sync : null, pre = r.pre != null ? r.pre : 15, post = r.post != null ? r.post : 6;
-    var clips = reelClips(r, sync || 0, pre, post), secs = 0;
-    clips.forEach(function (c) { secs += c.end - c.start; });
-    $('reelCount').textContent = clips.length ? clips.length + ' clip' + (clips.length === 1 ? '' : 's') + ', about ' + hms(secs) + ' in total.' : 'No timed goals or highlights were logged in this game.';
-    $('syncMsg').hidden = sync !== null;
-    $('syncMsg').textContent = 'Enter the kick-off time first. Until then the clips assume the video starts exactly at kick-off.';
-    $('scriptOut').textContent = reelScript(r, clips, r.cap !== false);
-    $('chapOut').textContent = reelChapters(r, clips, sync || 0);
-  }
-  function renderReel() {
-    var r = S.results[reelIdx]; if (!r) { go('stats'); return; }
-    $('reelTitle').textContent = teamShort() + ' ' + r.us + '–' + r.them + ' ' + r.opp;
-    $('impWho').innerHTML = '<option value="">Nobody in particular</option>' + S.players.map(function (p) { return '<option value="' + p.id + '"' + (S.me === p.id ? ' selected' : '') + '>' + esc(nm(p.id)) + '</option>'; }).join('');
-    $('reelFolder').textContent = folderOf(r);
-    $('syncIn').value = typeof r.sync === 'number' ? mmss(r.sync) : '';
-    $('preIn').value = r.pre != null ? r.pre : 15; $('postIn').value = r.post != null ? r.post : 6;
-    $('capIn').checked = r.cap !== false; $('impMsg').textContent = '';
-    reelOut();
-  }
-  function reelEdit() {
-    var r = S.results[reelIdx]; if (!r) return;
-    var t = parseClock($('syncIn').value), a = Math.round(+$('preIn').value), b = Math.round(+$('postIn').value);
-    if (t === null) delete r.sync; else r.sync = t;
-    r.pre = a >= 0 && a <= 120 ? a : 15; r.post = b >= 0 && b <= 120 ? b : 6; r.cap = $('capIn').checked;
-    save(); reelOut();
-  }
-  ['syncIn', 'preIn', 'postIn', 'capIn'].forEach(function (id) { $(id).addEventListener(id === 'capIn' ? 'change' : 'input', reelEdit); });
   function copyFrom(btn, pre) {
     btn.addEventListener('click', function () {
       var done = function (ok) { var o = btn.textContent; btn.textContent = ok ? 'Copied' : 'Select the text below and copy it'; setTimeout(function () { btn.textContent = o; }, 2500); };
@@ -5183,10 +5046,34 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       try { navigator.clipboard.writeText(pre.textContent).then(function () { done(true); }, sel); } catch (e) { sel(); }
     });
   }
-  copyFrom($('copyScript'), $('scriptOut')); copyFrom($('copyChap'), $('chapOut')); copyFrom($('copySeason'), $('seasonOut'));
 
   // ---- options
+  // Settings: whether this phone gets the team's notifications, and a way to turn them on that's always there. iOS only
+  // lists Gaffer under Settings, Notifications once the app has asked; before, the only way to be asked was the pop-up,
+  // which waits a week after "Not now" and never shows during a game (Josh had no way to turn them on).
+  function renderNotes() {
+    var P = plugin('PushNotifications'), btn = $('ntfOn'); $('ntfSec').hidden = !P; if (!P) return;
+    var say = function (t, ask) { $('ntfNote').textContent = t; btn.hidden = !ask; };
+    if (!sb || !me) { say('Sign in and join the squad as yourself to be told about game polls, kick-off, goals, highlights and the squad chat.'); return; }
+    if (myPid == null && role !== 'owner') { say('Join the squad as yourself (on the team’s Home screen) to be told about game polls, kick-off, goals, highlights and the squad chat.'); return; }
+    say('');
+    try {
+      P.checkPermissions().then(function (r) {
+        var st = r && r.receive;
+        if (st === 'granted') say('On. This iPhone is told about game polls, kick-off, goals, highlights and the squad chat.');
+        else if (st === 'denied') say('Off. Notifications were turned off for Gaffer, so your iPhone won’t ask again. To turn them on: open the Settings app, scroll down to Gaffer, tap Notifications, and switch on Allow Notifications.');
+        else say('Not on yet. Game polls, kick-off, goals, highlights and the squad chat can come to this iPhone.', true);
+      }, function () { say('Couldn’t check whether notifications are on.', true); });
+    } catch (e) { say('', true); }
+  }
+  $('ntfOn').addEventListener('click', function () {
+    var P = plugin('PushNotifications'); if (!P) return;
+    try { localStorage.setItem('apt-push-asked', String(Date.now())); } catch (e) {} // (so the pop-up doesn't ask as well)
+    pushSetup(); // listens for this phone's address before iOS is asked, so it's saved the moment it's given
+    try { P.requestPermissions().then(function (r) { if (r && r.receive === 'granted') P.register(); renderNotes(); }, function () { renderNotes(); }); } catch (e) { renderNotes(); }
+  });
   function renderOptions() {
+    renderNotes();
     var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = $('soonOpen').hidden = $('planOpen').hidden = !ex.track;
     $('optAccount').hidden = !(sb && me); $('optSignedAs').textContent = me && me.email ? 'Signed in as ' + me.email + '. Your team and stats stay put; sign back in to pick up where you left off.' : '';
     renderTeamOpts();
@@ -5263,7 +5150,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // boot
   upgrade(S.match);
   if (S.match) lastBlock = curSeg(S.match);
-  var first = !A.introSeen ? 'intro' : !A.active ? 'welcome' : S.view === 'reel' ? 'stats' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
+  var first = !A.introSeen ? 'intro' : !A.active ? 'welcome' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
   go(first);
   setSync();
   connect();

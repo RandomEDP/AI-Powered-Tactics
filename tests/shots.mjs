@@ -43,7 +43,7 @@ await p.click('#swapBody button[data-q="on"]'); await shot('game-swap-popup'); a
 await p.click('#outBtn'); await shot('game-out-popup'); await p.click('#outPicker button[data-cancel]');
 await p.click('#v-game .back'); await p.click('#mStats'); await shot('stats', true);
 await p.click('#results button[data-reel]'); await shot('highlights', true);
-await p.click('#v-reel .back'); await p.click('#v-stats .back'); await p.click('#mOptions'); await shot('options', true);
+await p.click('#v-highlights .back'); await p.click('#mOptions'); await shot('options', true);
 await p.click('#v-options .back'); await p.click('#mSwitch'); await shot('welcome-teams', true);
 await p.click('#acctBtn'); await shot('account');
 console.log('errors:', JSON.stringify(errs)); await b.close();
