@@ -108,7 +108,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0026`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0027`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -316,17 +316,20 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   before get the pop-up (`#unamePop`, `unameOpen`) each time the app opens until they pick one ("Not now" puts it off).
 - **Kept-back names** are in `reserved_usernames`: `edp`, `ethan`, `ethandp`, `e_d_p_1` belong to Ethan's account
   (the `user_id` is set in the live database only, never in a file); `gaffer`, `admin`, `support`, `official` nobody can have.
-- **Profiles** (People → a person, `v-profile`, `renderProfile`, RPC `get_profile`): name, @username, follower counts,
-  their teams, stats (games, wins, goals, assists), the last 10 results, and up to 3 clips they choose from all their
-  teams (`my_clips`, `set_pins`, kept by game and moment like `clip_hides`). **Never upcoming games.** Public: anyone
-  signed in sees it all. Private (`profiles.private`): only the name and counts until they accept you.
+- **Profiles** (the Profile tab for your own, `openMe`; a name anywhere for someone else's; `v-profile`, `renderProfile`,
+  RPCs `get_profile` and `user_posts`), laid out like Instagram's: a big letter avatar (`avatar`) with posts, followers
+  and following, the name, their teams, a stats line (games, wins, goals, assists), Edit profile (yours) or Follow
+  (theirs), then tabs: Posts (a 3-wide grid, `.pgrid`; a tile opens the post, `#postView`), Pinned (up to 3 clips they
+  choose from all their teams, `my_clips`, `set_pins`, kept by game and moment like `clip_hides`) and Results (the last
+  10). **Never upcoming games.** Public: anyone signed in sees it all. Private (`profiles.private`): only the name and
+  counts until they accept you.
 - **Following** (`follows`, `pending`/`accepted`): `follow` is straight away for public, a request for private;
-  `answer_follow` accepts, declines or removes a follower; going public accepts everyone waiting. A gold badge on People
-  (`.pplBadge`) shows requests waiting. No push for requests yet.
-- **People screen** (`v-people`, `renderPeople`, Home menu `mPeople` and the welcome screen `pplBtn`): your card, requests,
-  search (`find_people`, by username or name, 2+ letters), the feed, following/followers lists, blocked list.
-- **Feed** (`my_feed`): games from the last 60 days played by people you follow, one card a game with their goals,
-  assists and clips. Teams you're in are left out on the server, and teams this phone follows are left out in the app
+  `answer_follow` accepts, declines or removes a follower; going public accepts everyone waiting. A gold badge on the heart at
+  the top of Home (`#fdReq`, `.pplBadge`) shows requests waiting. No push for requests yet.
+- **Find people** (`v-people`, `renderPeople`, the search icon on Home `#fdFind`): requests, search (`find_people`, by
+  username or name, 2+ letters), following/followers lists, blocked list. Back goes to Home.
+- **Game cards in the feed** (`my_feed`): games from the last 60 days played by people you follow, one card a game with
+  their goals, assists and clips, mixed into Home with the posts. Teams you're in are left out on the server, and teams this phone follows are left out in the app
   (`A.teams` codes), because you've seen those. "New" marks games since you last looked (`apt-feed-seen`).
 - **Block and report** (Apple needs both for anything between strangers): `block_user` hides you from each other
   everywhere and ends following both ways; `my_blocks` lists them to unblock. `report_user` stores one report per person
@@ -338,9 +341,30 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   code** (Ethan: to join you still need it from the gaffer), nor upcoming games, chat, the live game or guests' names.
   `teams.listed` (default true) is the gaffer's switch in Options, "Let people find this team" (`#oFind`, `S.listed`,
   written with the team row); an unlisted team only opens for its own squad and gaffers.
-- Tests: `people.test.mjs` (47 checks) and `db.test.mjs`. The mock has all of it (`tests/mock-supabase.js`, `PEOPLE`).
+- Tests: `people.test.mjs`, `posts.test.mjs` and `db.test.mjs`. The mock has all of it (`tests/mock-supabase.js`, `PEOPLE`).
 - Applying it live: the Supabase MCP `apply_migration` times out (asking for a confirmation nobody sees) on anything
   containing `delete`, so `unfollow`, `answer_follow` and `block_user` went in through the SQL editor.
+
+### The bottom bar, Home and posts (`0027_posts.sql`; like Instagram, Ethan asked)
+- **The bar** (`#tabs`, `renderTabs`): Home (`feed`), Team (`home`, the team page, or the welcome screen with no team
+  open), Games, Chat, Profile. Games and Chat only show with a team open. Tactics board (`#mBoard`) and Team settings
+  (`#mOptions`) are on the Team page now; Settings also opens from the gear on your own profile (`#prGear`), and its back
+  button (`#optBack`) goes back to wherever it came from (`optFrom`). Without a team open, the gear opens Account.
+- **Home** (`v-feed`, `fdLoad`, `renderFeed`): the brand and three icons at the top: + (new post, `#fdNew`), the heart
+  (follow requests, `#fdReq`) and search (Find people, `#fdFind`). Underneath, posts from people you follow and your own
+  (`get_feed`, 20 at a time, newest first, blocked people left out) mixed with the game cards above.
+- **Posting** (`#postPop`, `postOpen`, `renderNP`): pick one of your own clips (Your clips: clips you're tagged in, from
+  `my_clips`) or one of your player reels (Your reels, `my_reels`), add a caption (300 characters), Share
+  (`create_post(p_kind, p_team, p_game, p_at, p_caption)`; `kind` clip or reel). The server checks it's yours
+  (`not_yours`), you have a username (`no_profile`) and you haven't posted 30 in the last day (`too_many`). A post points at
+  the clip or reel; nothing is copied (`private.post_json` builds the video link). A posted player reel isn't deleted
+  when a new one replaces it (`save_player_reel` leaves the file).
+- **Post cards** (`postCard`): name (opens their profile), the video, like (`like_post`, a `liked` flag rather than
+  deleting a row), the caption, and ⋯: Delete for your own (two taps, `remove_post`, which sets `removed_at`) or Report
+  with a reason (`report_post`, `post_reports`). Who can see a post follows who can see the profile (`can_see`).
+- No comments or photo avatars yet (letters on the team colour instead).
+- Applying it live: soft-delete and the `liked` flag keep `delete` out of the SQL, so it all went through the MCP (in
+  three parts).
 
 ### Games among the squad, with guests (`0020_games_among_the_squad.sql`)
 - New game → "Among ourselves" (`#gKind`, `D.kind = 'house'`, `renderHouse`): two named sides (Bibs and Shirts to start),
@@ -421,7 +445,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0026` are applied live. Add new ones as `supabase/migrations/0027_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0027` are applied live. Add new ones as `supabase/migrations/0028_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.

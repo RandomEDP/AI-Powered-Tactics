@@ -59,7 +59,7 @@
       p.user_id = uid(); p.last_name = a.p_last_name || null; p.position = a.p_position; store(d); return ok('ok');
     }
     // ---------- profiles and following (0023), as the real functions behave
-    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team'];
+    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team', 'create_post', 'remove_post', 'like_post', 'report_post', 'get_feed', 'user_posts', 'my_reels'];
     if (PEOPLE.includes(name)) {
       const RESERVED = d.reserved_usernames || ['edp', 'ethan', 'ethandp', 'e_d_p_1', 'gaffer', 'admin', 'support', 'official'].map((h) => ({ handle: h, user_id: null }));
       const prof = (u) => d.profiles.find((p) => p.user_id === u), byName = (n) => d.profiles.find((p) => p.username.toLowerCase() === String(n || '').trim().toLowerCase());
@@ -104,6 +104,31 @@
           clips: pins.map((v) => cl.find((c) => c.game_id === v.g && c.at === v.at)).filter(Boolean) }));
       }
       if (name === 'my_clips') return ok(clipsOf(uid()));
+      // posts (0027)
+      d.posts = d.posts || []; d.post_likes = d.post_likes || []; d.post_reports = d.post_reports || [];
+      const postJson = (x) => { const pr = prof(x.user_id), t = d.teams.find((y) => y.id === x.team_id) || {}; if (!pr) return null;
+        const c = x.kind === 'clip' ? d.clips.filter((y) => y.game_id === x.game_id && y.at === x.at).sort((a1, b1) => a1.seq - b1.seq)[0] : null;
+        return { id: x.id, kind: x.kind, caption: x.caption, at: x.created_at, username: pr.username, name: pr.name, mine: x.user_id === uid(), team: t.name, short: t.short, color: t.color,
+          video: x.kind === 'reel' ? { path: x.path, store: x.store, label: 'Player reel' } : c ? { path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur } : null,
+          likes: d.post_likes.filter((l) => l.post_id === x.id && l.liked).length, liked: d.post_likes.some((l) => l.post_id === x.id && l.user_id === uid() && l.liked) }; };
+      const live = (x) => !x.removed_at;
+      if (name === 'create_post') { if (!mine) return ok({ error: 'no_profile' }); let team = null, path = null, st = null;
+        if (a.p_kind === 'clip') { const c = clipsOf(uid()).find((y) => y.game_id === a.p_game && y.at === a.p_at); if (c) team = (d.clips.find((y) => y.game_id === c.game_id && y.at === c.at) || {}).team_id; }
+        else if (a.p_kind === 'reel') { const r = (d.player_reels || []).find((y) => y.team_id === a.p_team && y.path && d.players.some((pl) => pl.team_id === y.team_id && pl.pid === y.pid && pl.user_id === uid())); if (r) { team = r.team_id; path = r.path; st = r.store; } }
+        if (!team) return ok({ error: 'not_yours' });
+        const row = { id: crypto.randomUUID(), user_id: uid(), team_id: team, kind: a.p_kind, game_id: a.p_kind === 'clip' ? a.p_game : null, at: a.p_kind === 'clip' ? a.p_at : null, path, store: st, caption: String(a.p_caption || '').replace(/\s+/g, ' ').trim().slice(0, 300), created_at: Date.now() + d.posts.length, removed_at: null };
+        d.posts.push(row); store(d); return ok({ id: row.id }); }
+      if (name === 'remove_post') { const x = d.posts.find((y) => y.id === a.p_id && y.user_id === uid() && live(y)); if (!x) return ok(false); x.removed_at = Date.now(); store(d); return ok(true); }
+      if (name === 'like_post') { const x = d.posts.find((y) => y.id === a.p_id && live(y)); const au = x && prof(x.user_id); if (!x || !au || !seeable(au) || blocked(uid(), x.user_id)) return ok(null);
+        let l = d.post_likes.find((y) => y.post_id === x.id && y.user_id === uid()); if (!l) { l = { post_id: x.id, user_id: uid() }; d.post_likes.push(l); } l.liked = a.p_like !== false; store(d);
+        return ok({ likes: d.post_likes.filter((y) => y.post_id === x.id && y.liked).length, liked: l.liked }); }
+      if (name === 'report_post') { const x = d.posts.find((y) => y.id === a.p_id); if (!x) return ok(false); const r = d.post_reports.find((y) => y.post_id === x.id && y.user_id === uid());
+        if (r) r.reason = String(a.p_reason || ''); else d.post_reports.push({ post_id: x.id, user_id: uid(), reason: String(a.p_reason || '') }); store(d); return ok(true); }
+      if (name === 'get_feed') return ok(d.posts.filter((x) => live(x) && (x.user_id === uid() || fol(uid(), x.user_id) === 'accepted') && !blocked(uid(), x.user_id)).sort((x, y) => y.created_at - x.created_at).slice(0, 20).map(postJson).filter((x) => x));
+      if (name === 'user_posts') { const pr = byName(a.p_username); if (!pr || blocked(uid(), pr.user_id) || !seeable(pr)) return ok(null);
+        return ok(d.posts.filter((x) => live(x) && x.user_id === pr.user_id).sort((x, y) => y.created_at - x.created_at).map(postJson).filter((x) => x)); }
+      if (name === 'my_reels') return ok((d.player_reels || []).filter((r) => r.path && d.players.some((pl) => pl.team_id === r.team_id && pl.pid === r.pid && pl.user_id === uid()))
+        .map((r) => { const t = d.teams.find((y) => y.id === r.team_id) || {}; return { team_id: r.team_id, team: t.name, short: t.short, path: r.path, store: r.store || null, moments: (r.marks || []).length, made_at: r.made_at }; }));
       if (name === 'search_teams') { const t = String(a.p_query || '').trim().toLowerCase(); if (t.length < 2) return ok([]);
         return ok(d.teams.filter((x) => x.listed !== false && (x.name.toLowerCase().includes(t) || (x.short || '').toLowerCase().includes(t))).slice(0, 20)
           .map((x) => ({ id: x.id, name: x.name, short: x.short, color: x.color, crest: x.crest || null, players: d.players.filter((p) => p.team_id === x.id).length, games: d.games.filter((g) => g.team_id === x.id).length }))); }
@@ -154,7 +179,7 @@
       d.player_reels = d.player_reels || []; let r = d.player_reels.find((x) => x.team_id === t.id && x.pid === a.p_pid); const old = r ? r.path : null;
       if (!r) { r = { team_id: t.id, pid: a.p_pid }; d.player_reels.push(r); }
       Object.assign(r, { path: a.p_path ?? null, store: a.p_store === 'r2' ? 'r2' : null, marks: a.p_path == null ? [] : a.p_marks || [], made_by: uid(), made_at: Date.now() });
-      store(d); return ok({ ok: true, old: old !== (a.p_path ?? null) ? old : null });
+      store(d); return ok({ ok: true, old: old !== (a.p_path ?? null) && !(d.posts || []).some((x) => x.path === old && !x.removed_at) ? old : null });
     }
     if (name === 'hide_clip') { // Remove from my highlights (0022): only the player themselves, keyed by the game and the moment
       if (!uid()) return fail('Sign in first', '42501');

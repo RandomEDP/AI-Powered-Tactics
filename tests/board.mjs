@@ -10,7 +10,7 @@ const wait = (ms) => pg.waitForTimeout(ms), shot = async (n) => { if (out) { fs.
 const pcs = () => pg.$$eval('#tbSvg [data-pc]', (g) => g.map((x) => x.getAttribute('data-pc') + '@' + x.getAttribute('transform').replace(/translate\(|\)/g, '')));
 await pg.goto(BASE); await wait(300);
 await pg.click('#createBtn'); await pg.fill('#tName', 'Test United'); await pg.fill('#tPlayers', 'Marsh\nTobi\nDev\nKofi\nLuca\nAsh\nNiko\nEzra'); await pg.click('#tCreate'); await pg.click('#v-code [data-go="home"]');
-await pg.click('#tabs [data-tab="board"]'); await wait(300);
+await pg.click('#mBoard'); await wait(300);
 console.log('board:', (await pcs()).length, 'pieces | shapes:', await pg.$$eval('[data-tbform]', (x) => x.map((y) => y.textContent)));
 await pg.click('[data-tbform="1-2-1"]'); console.log('diamond:', (await pcs()).slice(1, 5).join(' '));
 await pg.click('[data-tb="best"]'); console.log('named:', await pg.$$eval('#tbSvg [data-pc] text:last-child', (t) => t.map((x) => x.textContent)), '|', await pg.textContent('.tbout'));

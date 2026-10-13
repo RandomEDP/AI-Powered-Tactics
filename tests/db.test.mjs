@@ -24,7 +24,7 @@ eq(await d.rpc(null, 'get_team', { p_code: 'ZZZZZZ' }), null, 'a wrong code open
 // ---------- nobody can go round the app and read or change tables directly
 for (const [who, label] of [[null, 'someone not signed in'], [sam, 'a signed-in stranger'], [jake, 'a signed-in stranger (later a player)']]) {
   const seen = [];
-  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests', 'team_streams', 'clip_hides', 'profiles', 'follows', 'blocks', 'profile_reports']) seen.push(await count(who, 'public.' + table));
+  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests', 'team_streams', 'clip_hides', 'profiles', 'follows', 'blocks', 'profile_reports', 'posts', 'post_likes']) seen.push(await count(who, 'public.' + table));
   check(seen.every((n) => n === 0 || n === 'denied'), `${label} reading the tables directly sees nothing (${seen.join(',')})`);
 }
 await d.as(sam, `update public.teams set name = 'Hacked FC'`).catch(() => {});
@@ -406,6 +406,38 @@ eq([pr.ok, pr.old, (await reelOf(jake, 3)).path], [true, `${sop.id}/players/3/re
 pr = await d.rpc(jake, 'save_player_reel', { p_code: sop.code, p_pid: 3, p_path: null });
 eq([pr.old, await reelOf(jake, 3)], [`${sop.id}/players/3/reel-2.mp4`, null], 'and it can be taken off the card');
 eq(await count(jake, 'public.player_reels'), 0, 'nobody reads the table directly');
+
+// ---------- posts (0027): share your own moments; Home shows posts from people you follow
+let post = await d.rpc(jake, 'create_post', { p_kind: 'clip', p_game: hg, p_at: 1000, p_caption: '  Top bins   from the edge  ' });
+check(typeof post.id === 'string', 'a player posts one of his own clips');
+eq((await d.rpc(ethan, 'create_post', { p_kind: 'clip', p_game: hg, p_at: 1000 })).error, 'not_yours', 'nobody can post a clip that isn\'t theirs');
+eq((await d.rpc(third, 'create_post', { p_kind: 'clip', p_game: hg, p_at: 1000 })).error, 'no_profile', 'and you need a username to post');
+let feedE = await d.rpc(ethan, 'get_feed');
+eq(feedE.map((x) => [x.username, x.caption, x.team, x.kind, x.video && x.video.path.endsWith('01.mp4'), x.likes, x.liked, x.mine]), [['Chappers', 'Top bins from the edge', 'Sons of Pitches', 'clip', true, 0, false, false]],
+  'it shows on Home for people who follow him, with the clip, caption and team');
+eq((await d.rpc(jake, 'get_feed')).map((x) => x.mine), [true], 'and on his own Home');
+eq(await d.rpc(sam, 'get_feed'), [], 'not for people who don\'t follow him');
+eq((await d.rpc(sam, 'user_posts', { p_username: 'chappers' })).length, 1, 'but his profile shows it to anyone who can see his profile');
+eq([await d.rpc(sam, 'like_post', { p_id: post.id }), await d.rpc(ethan, 'like_post', { p_id: post.id, p_like: true })].map((x) => x.likes), [1, 2], 'posts can be liked');
+eq((await d.rpc(sam, 'like_post', { p_id: post.id, p_like: false })).likes, 1, 'and unliked');
+eq([(await d.rpc(ethan, 'get_feed'))[0].likes, (await d.rpc(ethan, 'get_feed'))[0].liked], [1, true], 'the feed says how many, and whether you have');
+await d.rpc(jake, 'block_user', { p_username: 'samwise' });
+eq([await d.rpc(sam, 'user_posts', { p_username: 'chappers' }), await d.rpc(sam, 'like_post', { p_id: post.id })], [null, null], 'blocked people can\'t see or like each other\'s posts');
+await d.rpc(jake, 'block_user', { p_username: 'samwise', p_block: false });
+eq(await d.rpc(sam, 'report_post', { p_id: post.id, p_reason: 'Not his clip' }), true, 'a post can be reported');
+eq((await d.admin(`select count(*)::int as n from public.post_reports`))[0].n, 1, 'and the report is kept for Gaffer to read');
+eq([await d.rpc(sam, 'remove_post', { p_id: post.id }), (await d.rpc(ethan, 'get_feed')).length], [false, 1], 'nobody else can take a post down');
+eq([await d.rpc(jake, 'remove_post', { p_id: post.id }), await d.rpc(ethan, 'get_feed'), await d.rpc(jake, 'user_posts', { p_username: 'chappers' })], [true, [], []], 'but its author can');
+// a player reel, posted, keeps its file when a new reel replaces it
+await d.rpc(jake, 'save_player_reel', { p_code: sop.code, p_pid: 3, p_path: `${sop.id}/players/3/reel-3.mp4`, p_store: 'r2', p_marks: marks });
+const reels = await d.rpc(jake, 'my_reels');
+eq(reels.map((r) => [r.team_id === sop.id, r.path.endsWith('reel-3.mp4'), r.moments]), [[true, true, 2]], 'he can pick from his own reels');
+post = await d.rpc(jake, 'create_post', { p_kind: 'reel', p_team: sop.id, p_caption: 'My season' });
+eq((await d.rpc(ethan, 'get_feed')).map((x) => [x.kind, x.video.path.endsWith('reel-3.mp4'), x.video.label]), [['reel', true, 'Player reel']], 'and post his reel');
+eq((await d.rpc(ethan, 'create_post', { p_kind: 'reel', p_team: sop.id })).error, 'not_yours', 'only his own');
+eq((await d.rpc(jake, 'save_player_reel', { p_code: sop.code, p_pid: 3, p_path: `${sop.id}/players/3/reel-4.mp4`, p_store: 'r2', p_marks: marks })).old, null, 'a new reel doesn\'t throw away one that\'s been posted');
+eq((await d.rpc(ethan, 'get_feed'))[0].video.path.endsWith('reel-3.mp4'), true, 'which still plays in the post');
+for (const t of ['posts', 'post_likes', 'post_reports']) eq(await count(sam, 'public.' + t), 0, `nobody reads ${t} directly`);
 
 // ---------- deleting an account
 eq(await d.rpc(jake, 'delete_my_account'), 0, 'a player deleting their account takes no team with it');

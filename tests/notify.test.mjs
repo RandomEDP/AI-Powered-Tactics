@@ -27,7 +27,7 @@ await J.page.fill('#joinCode', code); await J.click('#joinBtn'); await J.run(500
 await J.page.evaluate(() => { const b = document.querySelector('[data-go="options"]'); if (b) b.click(); }); await J.run(300);
 eq([await J.visible('#ntfSec'), await J.text('#ntfNote'), await J.visible('#ntfOn')], [true, 'Sign in and join the squad as yourself to be told about game polls, kick-off, goals, highlights and the squad chat.', false],
   'before signing in, Settings says what it takes to get notifications');
-await J.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]'); if (b) b.click(); }); await J.run(300);
+await J.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]') || document.querySelector('.view:not([hidden]) .back'); if (b) b.click(); }); await J.run(300);
 await J.click('#meCard [data-me="pick"]'); await J.run(300);
 await J.click('#joinList [data-pid="2"]'); await J.page.fill('#jLast', 'Smith'); await J.page.fill('#jNum', '7'); await J.click('#joinList [data-pos="fwd"]');
 await J.page.fill('#jEmail', 'josh@example.com'); await J.page.fill('#jUser', 'josh_j'); await J.page.fill('#jPass', 'longpassword'); await J.click('#joinList [data-do="up"]'); await J.run(800);
@@ -44,7 +44,7 @@ eq([await J.page.evaluate(() => window.__p), tokens(), await J.visible('#pushPop
 eq([await J.text('#ntfNote'), await J.visible('#ntfOn')], ['On. This iPhone is told about game polls, kick-off, goals, highlights and the squad chat.', false], 'and Settings says they\'re on');
 
 // ---------- switched off in the iPhone's Settings: how to switch them back on
-await J.page.evaluate(() => window.__setPerm('denied')); await J.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]'); if (b) b.click(); }); await J.run(300);
+await J.page.evaluate(() => window.__setPerm('denied')); await J.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]') || document.querySelector('.view:not([hidden]) .back'); if (b) b.click(); }); await J.run(300);
 await J.page.evaluate(() => { const b = document.querySelector('[data-go="options"]'); if (b) b.click(); }); await J.run(400);
 eq([await J.text('#ntfNote'), await J.visible('#ntfOn')], ['Off. Notifications were turned off for Gaffer, so your iPhone won’t ask again. To turn them on: open the Settings app, scroll down to Gaffer, tap Notifications, and switch on Allow Notifications.', false],
   'turned off in the iPhone\'s Settings: it says exactly where to turn them back on');

@@ -429,6 +429,40 @@ tr.past td { opacity: .45; }
 .prres .wl { font-weight: 800; color: var(--muted); } .prres .W { color: var(--on); } .prres small { display: block; color: var(--muted); font-size: 13px; }
 .pins label { display: flex; gap: 10px; align-items: flex-start; padding-block: 8px; border-bottom: 1px solid var(--line); } .pins input { width: 22px; height: 22px; flex: none; }
 .feedcard .badge.new { background: #ffc83d; color: #2a2100; }
+.fdtop { display: flex; align-items: center; justify-content: space-between; padding: 6px 0 10px; }
+.fdtop .brand { font-size: 24px; } .fdicons, .baricons { display: flex; gap: 4px; margin-left: auto; }
+.fdicons button, .baricons button { position: relative; width: 44px; height: 44px; border: 0; background: none; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; }
+.fdicons svg, .baricons svg { width: 26px; height: 26px; } .fdicons .pplBadge { position: absolute; top: 2px; right: 0; margin: 0; }
+.post { background: var(--surface); border-radius: var(--r-card); overflow: hidden; margin-bottom: 14px; }
+.post header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.post header .who { flex: 1; display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 0; text-align: left; color: var(--ink); font: inherit; }
+.post header small { display: block; color: var(--muted); font-size: 13px; }
+.av { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; flex: none; }
+.av.big { width: 84px; height: 84px; font-size: 36px; }
+.post video { width: 100%; display: block; background: #000; aspect-ratio: 16 / 9; }
+.pbar { display: flex; align-items: center; gap: 12px; padding: 8px 12px 0; }
+.pbar button { border: 0; background: none; font: inherit; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 4px; }
+.pbar button svg { width: 26px; height: 26px; } .pbar button[aria-pressed="true"] { color: #e0245e; } .pbar button[aria-pressed="true"] path { fill: currentColor; }
+.pbar small { margin-left: auto; color: var(--muted); }
+.post .cap { padding: 4px 12px 12px; margin: 0; overflow-wrap: anywhere; } .post .cap.empty { padding-bottom: 6px; }
+.post .pmenu { padding: 0 12px 12px; }
+.ighead { display: flex; align-items: center; gap: 18px; margin: 4px 0 10px; }
+.igcounts { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; }
+.igcounts b { display: block; font-size: 20px; } .igcounts small { color: var(--muted); font-size: 13px; }
+.igname { margin-bottom: 10px; } .igname b { font-size: 17px; } .igname > small { display: block; color: var(--muted); margin-top: 6px; }
+.igname .prteams { margin-top: 8px; }
+.igtabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); margin: 14px 0 10px; }
+.igtabs button { border: 0; background: none; font: inherit; font-weight: 700; color: var(--muted); min-height: 44px; border-bottom: 2px solid transparent; }
+.igtabs button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.pgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.ptile { position: relative; aspect-ratio: 1; border: 0; padding: 0; background: #111; overflow: hidden; border-radius: 4px; }
+.ptile video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.ptile span { position: absolute; left: 6px; bottom: 4px; color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+#postPop, #postView { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#postPop[hidden], #postView[hidden] { display: none; }
+#postView .post { margin: 0; } #postView .planbox { padding: 12px; }
+.nplist { display: flex; flex-direction: column; max-height: 34vh; overflow-y: auto; } .nplist label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 2px; border-bottom: 1px solid var(--line); } .nplist input { width: 22px; height: 22px; flex: none; }
+#npPrev { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 16 / 9; }
 .allclips summary { font-weight: 700; color: var(--muted); cursor: pointer; padding-block: 8px; }
 .prteams button { border: 0; border-radius: 999px; padding: 6px 12px; font: inherit; font-weight: 700; font-size: 14px; }
 .tdot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
@@ -733,7 +767,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <section id="myTeamsSec" hidden><h2>Your teams</h2><div class="menu" id="myTeams"></div></section>
   <div class="card"><h2>Start a team</h2><p class="note">Running a team? Set up your squad and colours, then share the code with your players.</p>
     <div class="actions"><button class="plain" id="createBtn" type="button">Create a team</button></div></div>
-  <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button><button class="plain" id="pplBtn" type="button">People<span class="pplBadge" hidden></span></button></div></div>
+  <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button><button class="plain" id="pplBtn" type="button">Your feed<span class="pplBadge" hidden></span></button></div></div>
   <p class="note" id="sync2"></p>
   <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a></p>
 </div>
@@ -788,13 +822,34 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <p class="note">Anyone with the code can follow live games and see the stats. To add another gaffer, share the gaffer code from Options.</p>
 </div>
 
+<div class="view" id="v-feed" hidden>
+  <div class="fdtop"><span class="brand"><img src="icons/icon-192.png" alt="">Gaffer</span><span class="fdicons">
+    <button type="button" id="fdNew" aria-label="Post a highlight"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <button type="button" id="fdReq" aria-label="Follow requests"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.4-7.5-10A4.2 4.2 0 0 1 12 7.3 4.2 4.2 0 0 1 19.5 10c0 5.6-7.5 10-7.5 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><b class="pplBadge" hidden></b></button>
+    <button type="button" id="fdFind" aria-label="Find people and teams"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15 15 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  </span></div>
+  <div id="fdBody"></div>
+</div>
+
+<div id="postPop" role="dialog" aria-labelledby="npTitle" hidden><div class="planbox">
+  <h2 id="npTitle">New post</h2>
+  <p>Share one of your moments with the people who follow you.</p>
+  <div class="toggle" id="npKind"><button type="button" data-k="clip" aria-pressed="true">Your clips</button><button type="button" data-k="reel" aria-pressed="false">Your reels</button></div>
+  <div id="npList"></div>
+  <label class="field" for="npCap">Caption<textarea id="npCap" rows="2" maxlength="300" placeholder="Say something about it"></textarea></label>
+  <p class="msg bad" id="npMsg" hidden></p>
+  <div class="actions"><button class="plain primary" id="npPost" type="button">Share</button><button class="link" id="npCancel" type="button">Cancel</button></div>
+</div></div>
+
+<div id="postView" role="dialog" aria-label="Post" hidden><div class="planbox"><div id="pvBody"></div><div class="actions"><button class="link" id="pvClose" type="button">Close</button></div></div></div>
+
 <div class="view" id="v-people" hidden>
-  <div class="bar"><button class="back" type="button" id="pplBack">&lsaquo; Back</button><h1>People</h1></div>
+  <div class="bar"><button class="back" type="button" id="pplBack">&lsaquo; Home</button><h1>Find people</h1></div>
   <div id="pplBody"></div>
 </div>
 
 <div class="view" id="v-profile" hidden>
-  <div class="bar"><button class="back" type="button" data-go="people">&lsaquo; People</button><h1 id="prTitle">Profile</h1></div>
+  <div class="bar"><button class="back" type="button" id="prBack">&lsaquo; Back</button><h1 id="prTitle">Profile</h1><span class="baricons"><button type="button" id="prNew" aria-label="Post a highlight" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button type="button" id="prGear" aria-label="Settings" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></span></div>
   <div id="prBody"></div>
 </div>
 
@@ -869,7 +924,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 </div>
 
 <div class="view" id="v-board" hidden>
-  <div class="bar"><h1>Tactics board</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Team</button><h1>Tactics board</h1></div>
   <p class="note">A sandbox for line-ups, shapes and set pieces. Nothing here changes your real games. Record a play and you can send it to the squad chat.</p>
   <div id="boardBody"></div>
 </div>
@@ -877,11 +932,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 <nav id="tabs" aria-label="Main" hidden>
   <p class="msg" id="tabMsg" role="status"></p>
   <div class="tabrow">
-    <button type="button" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Home</span></button>
+    <button type="button" data-tab="feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Home</span><b class="pplBadge" hidden></b></button>
+    <button type="button" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.9 7.5-9.5V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Team</span></button>
     <button type="button" data-tab="games"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Games</span><b id="tabBadge" hidden></b></button>
     <button type="button" data-tab="chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Chat</span><b id="chatBadge" hidden></b></button>
-    <button type="button" data-tab="board"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="9" r="1.6" fill="currentColor"/><path d="M14 8l3 3M17 8l-3 3M9 13.5c0 2.5 2 3.5 5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Tactics</span></button>
-    <button type="button" id="mOptions" data-tab="options"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Settings</span></button>
+    <button type="button" data-tab="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20.5c1.4-3.6 4.4-5.5 8-5.5s6.6 1.9 8 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Profile</span></button>
   </div>
 </nav>
 
@@ -937,7 +992,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <button id="mStats" type="button">Stats</button>
     <button id="mHighlights" type="button">Highlights</button>
     <button id="mInsights" type="button">Insights</button>
-    <button id="mPeople" type="button">People<span class="pplBadge" hidden></span></button>
+    <button id="mBoard" type="button">Tactics board</button>
+    <button id="mOptions" type="button">Team settings</button>
   </div>
   <p class="msg" id="lockMsg" role="status"></p>
   <button class="soon-pill" id="soonPill" type="button" data-go="soon" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI reports and commentary</small></button>
@@ -1111,7 +1167,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 </div>
 
 <div class="view" id="v-options" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Settings</h1></div>
+  <div class="bar"><button class="back" type="button" id="optBack">&lsaquo; Back</button><h1>Settings</h1></div>
   <section id="ntfSec" hidden>
     <h2>Notifications</h2>
     <p class="note" id="ntfNote"></p>
@@ -1252,7 +1308,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var preels = []; // players' reels kept on their cards: [{pid, path, store, marks: [{t, label}], made_at}]
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live'];
   function setRole(r) {
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
@@ -1806,7 +1862,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live'];
   function go(view, keep) {
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -1818,14 +1874,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (view !== 'live') livePlayer(null); // stop the picture (and its data) once the stream is off screen
     if (view === 'soon' && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome';
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
-    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'people', 'profile', 'teamview'].indexOf(view) < 0) view = 'welcome';
+    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'feed', 'people', 'profile', 'teamview'].indexOf(view) < 0) view = 'welcome';
     if (view === 'create' && S.view !== 'create') resetCreate();
     if (view === 'game' && !S.match) view = 'home';
     if (view === 'mins' && !D) view = 'home';
     if (view === 'setup' && !(keep && D)) newDraft();
     S.view = view; saveLocal();
     if (view === 'join') applyTheme(J.d.team.color);
-    else if (view === 'intro' || view === 'welcome' || view === 'account' || view === 'people' || view === 'profile') applyTheme(DEFAULT_COLOR); else if (view === 'teamview') applyTheme(TV && TV.d && TV.d.team.color || DEFAULT_COLOR); else if (view !== 'create') applyTheme();
+    else if (view === 'intro' || view === 'welcome' || view === 'account' || view === 'feed' || view === 'people' || view === 'profile') applyTheme(DEFAULT_COLOR); else if (view === 'teamview') applyTheme(TV && TV.d && TV.d.team.color || DEFAULT_COLOR); else if (view !== 'create') applyTheme();
     var fresh = $('v-' + view).hidden;
     VIEWS.forEach(function (v) { $('v-' + v).hidden = v !== view; });
     if (view === 'intro' && fresh) { $('introTrack').scrollLeft = 0; introPaint(); }
@@ -1841,6 +1897,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'poll') renderPoll();
     else if (S.view === 'cut') renderCut();
     else if (S.view === 'account') renderAccount();
+    else if (S.view === 'feed') renderFeed();
     else if (S.view === 'people') renderPeople();
     else if (S.view === 'profile') renderProfile();
     else if (S.view === 'teamview') renderTeamView();
@@ -2105,7 +2162,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (!MYP) unameOpen(true, want, 'Someone took @' + want + ' before your account was ready. Pick another.');
     } else if (!MYP) unameOpen(true);
     if (A.wantName) { A.wantName = null; saveApp(); }
-    pplBadges(); if (S.view === 'people') renderPeople();
+    pplBadges(); if (S.view === 'people') renderPeople(); else if (S.view === 'feed') renderFeed(); else if (S.view === 'profile' && PF.tab && !PF.u && MYP) { PF.u = MYP.username; renderProfile(); }
   }
   function myName() { var p = myPid != null ? P(myPid) : null; return p ? [p.name, (roster[myPid] || {}).last_name || ''].join(' ').trim() : ''; }
   function unameOpen(first, want, why) {
@@ -2132,13 +2189,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var r = await q(sb.rpc('set_profile', { p_username: u, p_name: $('unName').value.trim(), p_private: unPriv }));
       if (r.data !== 'ok') { say(UN_SAY[r.data] || 'That didn’t work. Try again.'); $('unSave').disabled = false; return; }
       MYP = (await q(sb.rpc('my_profile'))).data || null; $('unamePop').hidden = true; pplBadges();
-      if (S.view === 'people') renderPeople(); else if (S.view === 'profile') { PF.u = MYP.username; prLoad(); }
+      if (S.view === 'people') renderPeople(); else if (S.view === 'feed') renderFeed(); else if (S.view === 'profile' && (PF.tab || (PF.d && PF.d.me))) { PF.u = MYP.username; PF.loaded = false; renderProfile(); }
     } catch (e) { say('Couldn’t save that. Check your signal and try again.'); $('unSave').disabled = false; }
   });
   function pplOpen() { PPL.msg = ''; go('people'); }
-  $('mPeople').addEventListener('click', pplOpen); $('pplBtn').addEventListener('click', pplOpen);
-  $('pplBack').addEventListener('click', function () { go(A.active ? 'home' : 'welcome'); });
-  function openProfile(u, back) { PF = { u: u, d: null, msg: '', pins: null, mine: null, report: false, back: back || S.view }; go('profile'); }
+  $('pplBtn').addEventListener('click', function () { go('feed'); });
+  $('pplBack').addEventListener('click', function () { go('feed'); });
+  function openProfile(u, back) { if (MYP && u && u.toLowerCase() === MYP.username.toLowerCase()) { openMe(); return; } PF = { u: u, d: null, msg: '', pins: null, mine: null, report: false, back: back || S.view, ptab: 'posts' }; go('profile'); }
   async function pplLoad() {
     if (!sb || !me || !MYP || PPL.busy) return;
     PPL.busy = true;
@@ -2174,8 +2231,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (MYP === undefined) { html = '<p class="note">Loading…</p>'; profileCheck(); }
     else if (!MYP) html = '<div class="card"><h2>Pick a username</h2><p class="note">You need one to have a profile and follow people.</p><div class="actions"><button class="plain primary" type="button" data-pp="pick">Pick a username</button></div></div>';
     else {
-      html += '<div class="card"><div class="prhead"><h2>' + esc(MYP.name || MYP.username) + '</h2><span class="at">@' + esc(MYP.username) + (MYP.private ? ' · Private' : ' · Public') + '</span><span class="counts">' + MYP.followers + ' following you · following ' + MYP.following + '</span></div>' +
-        '<div class="actions"><button class="plain primary" type="button" data-prof="' + esc(MYP.username) + '">My profile</button><button class="plain" type="button" data-pp="pick">Edit</button></div></div>';
       var f = PPL.follows;
       if (f && f.requests.length) html += '<section><h2>Asking to follow you</h2><div class="card">' + f.requests.map(function (x) { return personRow(x, '<button class="plain primary" type="button" data-acc="' + esc(x.username) + '">Accept</button><button class="plain" type="button" data-dec="' + esc(x.username) + '">Decline</button>'); }).join('') + '</div></section>';
       html += '<section><h2>Find people and teams</h2><div class="joinrow"><input id="pplQ" type="search" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Name, username or team" aria-label="Find people and teams" value="' + esc(PPL.q) + '"><button class="plain primary" id="pplGo" type="button">Search</button></div>';
@@ -2183,14 +2238,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (PPL.teams) html += '<div class="card" id="pplTeams">' + (PPL.teams.length ? '<h3>Teams</h3>' + PPL.teams.map(function (t) {
         return '<div class="prow"><button class="who" type="button" data-team="' + esc(t.id) + '"><b><span class="tdot" style="background:' + teamCol(t.color) + '"></span>' + esc(t.name) + '</b><small>' + t.players + (t.players === 1 ? ' player' : ' players') + ' · ' + t.games + (t.games === 1 ? ' game' : ' games') + '</small></button><button class="plain" type="button" data-team="' + esc(t.id) + '">Look</button></div>';
       }).join('') : '<p class="note">No teams found by that name.</p>') + '</div>';
-      html += '</section><section><h2>From people you follow</h2>';
-      if (!PPL.feed) html += '<p class="note">Loading…</p>';
-      else if (!PPL.feed.length) html += '<p class="note">When people you follow play for teams you don’t follow, their games and clips show here.</p>';
-      else PPL.feed.forEach(function (x) {
-        html += '<div class="card feedcard"><h3>' + esc(scoreText(x)) + (x.when > PPL.seenAt && PPL.seenAt ? '<span class="badge new">New</span>' : '') + '</h3><p class="note">' + esc([x.team_name, dayText(x.when)].filter(Boolean).join(', ')) + '</p>' +
-          (x.people || []).map(function (p) { return personRow(p, '<span class="note">' + esc(didText(p)) + '</span>'); }).join('') +
-          (x.clips && x.clips.length ? clipPlayer(x.clips.map(function (c) { return Object.assign({}, c, { title: c.label }); })) : '') + '</div>';
-      });
       html += '</section>';
       if (f) {
         html += '<details class="card"><summary>Following (' + f.following.length + ')</summary>' + (f.following.map(function (x) { return personRow(x, folBtn({ username: x.username, follow: x.status })); }).join('') || '<p class="note">Nobody yet. Find people above.</p>') + '</details>';
@@ -2240,6 +2287,141 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (g('data-unblock')) { try { await q(sb.rpc('block_user', { p_username: g('data-unblock'), p_block: false })); } catch (err) {} PPL.follows = null; pplLoad(); }
   });
 
+  // ---- Home: the feed, like Instagram (0027). Posts from people you follow, and your own: each is one of someone's own
+  // clips or their player reel, with a caption, likes, and a menu to take your own down or report someone else's. Games
+  // played by the people you follow (in teams you're not in or following already) come in between, as before.
+  var FD = { posts: null, games: null, busy: false, msg: '', open: null, arm: null, seenAt: 0 };
+  var HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.4-7.5-10A4.2 4.2 0 0 1 12 7.3 4.2 4.2 0 0 1 19.5 10c0 5.6-7.5 10-7.5 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+  function postSrc(x) { var v = x.video || {}; return clipUrl(v.vpath && sayOn ? { path: v.vpath, store: v.store } : { path: v.path, store: v.store }); }
+  function postCard(x) {
+    var open = FD.open === x.id, armed = FD.arm === x.id;
+    return '<article class="post" data-post="' + esc(x.id) + '"><header><button class="who" type="button" data-prof="' + esc(x.username) + '">' + avatar(x.name || x.username, x.color) +
+      '<span><b>' + esc(x.username) + '</b><small>' + esc([x.team, x.kind === 'reel' ? 'Player reel' : (x.video && x.video.label) || ''].filter(Boolean).join(' · ')) + '</small></span></button>' +
+      '<button class="link" type="button" data-pmore="' + esc(x.id) + '" aria-label="More">⋯</button></header>' +
+      '<video controls playsinline preload="metadata" src="' + esc(postSrc(x)) + '"></video>' +
+      '<div class="pbar"><button type="button" data-like="' + esc(x.id) + '" aria-pressed="' + !!x.liked + '" aria-label="Like">' + HEART + '<span>' + x.likes + '</span></button><small>' + esc(dayText(x.at)) + '</small></div>' +
+      '<p class="cap' + (x.caption ? '' : ' empty') + '">' + (x.caption ? '<b>' + esc(x.username) + '</b> ' + esc(x.caption) : '') + '</p>' +
+      (open ? '<div class="pmenu">' + (x.mine ? '<button class="plain" type="button" data-pdel="' + esc(x.id) + '">' + (armed ? 'Tap again to delete it' : 'Delete this post') + '</button>'
+        : '<p class="note">Report this post? Gaffer looks at every report.</p><div class="chips">' + ['Not their clip', 'Offensive', 'Spam', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-preport="' + esc(x.id) + '" data-why="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>') + '</div>' : '') +
+      '</article>';
+  }
+  function gameCard(x) {
+    return '<div class="card feedcard"><h3>' + esc(scoreText(x)) + (x.when > FD.seenAt && FD.seenAt ? '<span class="badge new">New</span>' : '') + '</h3><p class="note">' + esc([x.team_name, dayText(x.when)].filter(Boolean).join(', ')) + '</p>' +
+      (x.people || []).map(function (p) { return personRow(p, '<span class="note">' + esc(didText(p)) + '</span>'); }).join('') +
+      (x.clips && x.clips.length ? clipPlayer(x.clips.map(function (c) { return Object.assign({}, c, { title: c.label }); })) : '') + '</div>';
+  }
+  async function fdLoad() {
+    if (!sb || !me || !MYP || FD.busy) return;
+    FD.busy = true;
+    try {
+      var r = await Promise.all([q(sb.rpc('get_feed', {})), q(sb.rpc('my_feed')), q(sb.rpc('my_profile'))]);
+      FD.posts = r[0].data || []; MYP = r[2].data || MYP;
+      var mine = A.teams.map(function (t) { return t.code; }); // teams this phone follows already: their games are in the team's own screens
+      FD.games = (r[1].data || []).filter(function (x) { return mine.indexOf(x.code) < 0; });
+      var seen = 0; try { seen = +localStorage.getItem('apt-feed-seen') || 0; } catch (e) {}
+      FD.seenAt = seen; var top = FD.games.reduce(function (m, x) { return Math.max(m, x.when || 0); }, seen);
+      try { localStorage.setItem('apt-feed-seen', String(top)); } catch (e) {}
+      FD.msg = '';
+    } catch (e) { FD.msg = 'Couldn’t load your feed. Check your signal.'; }
+    FD.busy = false; pplBadges(); if (S.view === 'feed') renderFeed();
+  }
+  function renderFeed() {
+    var html = '';
+    if (!sb) html = '<div class="card"><p class="note">Home needs an internet connection and an account.</p></div>';
+    else if (!me) html = '<div class="card"><h2>Welcome to Gaffer</h2><p class="note">Sign in to share your moments, follow people and see their highlights here.</p><div class="actions"><button class="plain primary" type="button" data-fd="signin">Sign in</button>' + (A.active ? '' : '<button class="plain" type="button" data-fd="teams">Your teams</button>') + '</div></div>';
+    else if (MYP === undefined) { html = '<p class="note">Loading…</p>'; profileCheck(); }
+    else if (!MYP) html = '<div class="card"><h2>Pick a username</h2><p class="note">You need one to share your moments and follow people.</p><div class="actions"><button class="plain primary" type="button" data-fd="pick">Pick a username</button></div></div>';
+    else if (!FD.posts) { html = '<p class="note">Loading…</p>'; fdLoad(); }
+    else {
+      var items = FD.posts.map(function (x) { return { at: x.at, html: postCard(x) }; }).concat((FD.games || []).map(function (x) { return { at: x.when || 0, html: gameCard(x) }; }));
+      items.sort(function (a, b) { return b.at - a.at; });
+      if (!items.length) html = '<div class="card"><h2>Nothing here yet</h2><p class="note">Follow people to see their moments here, and share your own with the + at the top.</p><div class="actions"><button class="plain primary" type="button" data-fd="find">Find people</button><button class="plain" type="button" data-fd="post">Post a highlight</button></div></div>';
+      else html = items.map(function (x) { return x.html; }).join('');
+    }
+    if (FD.msg) html += '<p class="msg" role="status" id="fdMsg">' + esc(FD.msg) + '</p>';
+    $('fdBody').innerHTML = html;
+  }
+  $('fdFind').addEventListener('click', function () { PPL.msg = ''; go('people'); });
+  $('fdReq').addEventListener('click', function () { PPL.msg = ''; PPL.follows = null; go('people'); });
+  $('fdNew').addEventListener('click', function () { postOpen(); });
+  $('fdBody').addEventListener('click', function (e) {
+    if (clipTap(e)) return;
+    var b = e.target.closest('button'); if (!b) return; var a = b.getAttribute('data-fd');
+    if (a === 'signin') { A.after = 'feed'; go('account'); } else if (a === 'teams') go('welcome'); else if (a === 'pick') unameOpen(false);
+    else if (a === 'find') go('people'); else if (a === 'post') postOpen();
+    else if (b.getAttribute('data-prof')) openProfile(b.getAttribute('data-prof'), 'feed');
+  });
+
+  // Likes, the ⋯ menu, deleting and reporting work the same wherever a post is shown (Home, a profile, a post on its own).
+  function postsEverywhere(id) { return [].concat(FD.posts || [], PF.posts || [], PV.post ? [PV.post] : []).filter(function (x) { return x.id === id; }); }
+  function postsRedraw() { if (S.view === 'feed') renderFeed(); if (S.view === 'profile') renderProfile(); if (PV.post) renderPV(); }
+  var PV = { post: null };
+  function renderPV() { $('pvBody').innerHTML = PV.post ? postCard(PV.post) : ''; }
+  $('pvClose').addEventListener('click', function () { PV.post = null; $('postView').hidden = true; });
+  $('postView').addEventListener('click', function (e) { if (e.target === $('postView')) { PV.post = null; $('postView').hidden = true; } });
+  document.body.addEventListener('click', async function (e) {
+    var b = e.target.closest('[data-like],[data-pmore],[data-pdel],[data-preport],[data-openpost]'); if (!b || !sb || !me) return;
+    var id;
+    if ((id = b.getAttribute('data-openpost'))) { PV.post = (PF.posts || []).filter(function (x) { return x.id === id; })[0] || null; FD.open = null; renderPV(); $('postView').hidden = !PV.post; return; }
+    if ((id = b.getAttribute('data-like'))) {
+      var now = b.getAttribute('aria-pressed') !== 'true';
+      postsEverywhere(id).forEach(function (x) { x.liked = now; x.likes = Math.max(0, x.likes + (now ? 1 : -1)); }); postsRedraw(); // (straight away; the server's count follows)
+      try { var lr = (await q(sb.rpc('like_post', { p_id: id, p_like: now }))).data; if (lr) postsEverywhere(id).forEach(function (x) { x.likes = lr.likes; x.liked = lr.liked; }); } catch (err) {}
+      postsRedraw(); return;
+    }
+    if ((id = b.getAttribute('data-pmore'))) { FD.open = FD.open === id ? null : id; FD.arm = null; postsRedraw(); return; }
+    if ((id = b.getAttribute('data-pdel'))) {
+      if (FD.arm !== id) { FD.arm = id; postsRedraw(); setTimeout(function () { if (FD.arm === id) { FD.arm = null; postsRedraw(); } }, 3000); return; }
+      try { await q(sb.rpc('remove_post', { p_id: id })); } catch (err) {}
+      var drop = function (l) { return (l || []).filter(function (x) { return x.id !== id; }); };
+      FD.posts = FD.posts ? drop(FD.posts) : FD.posts; PF.posts = PF.posts ? drop(PF.posts) : PF.posts; FD.open = FD.arm = null;
+      if (PV.post && PV.post.id === id) { PV.post = null; $('postView').hidden = true; }
+      postsRedraw(); return;
+    }
+    if ((id = b.getAttribute('data-preport'))) {
+      try { await q(sb.rpc('report_post', { p_id: id, p_reason: b.getAttribute('data-why') || '' })); FD.msg = 'Thanks. Gaffer will look at that post.'; } catch (err) { FD.msg = 'Couldn’t send that. Check your signal.'; }
+      FD.open = null; if (S.view === 'profile') PF.msg = FD.msg; postsRedraw();
+    }
+  });
+
+  // ---- a new post: one of your clips, or your player reel, with a caption
+  var NP = { kind: 'clip', clips: null, reels: null, pick: null, busy: false };
+  async function postOpen() {
+    if (!sb || !me) { A.after = 'feed'; go('account'); return; }
+    if (!MYP) { unameOpen(false); return; }
+    NP = { kind: 'clip', clips: null, reels: null, pick: null, busy: false }; $('npCap').value = ''; $('npMsg').hidden = true; $('postPop').hidden = false; renderNP();
+    try { var r = await Promise.all([q(sb.rpc('my_clips')), q(sb.rpc('my_reels'))]); NP.clips = r[0].data || []; NP.reels = r[1].data || []; } catch (e) { NP.clips = NP.clips || []; NP.reels = NP.reels || []; $('npMsg').textContent = 'Couldn’t load your clips. Check your signal.'; $('npMsg').hidden = false; }
+    if (!NP.clips.length && NP.reels.length) NP.kind = 'reel';
+    renderNP();
+  }
+  function npItems() { return NP.kind === 'reel' ? (NP.reels || []).map(function (r) { return { key: 'r:' + r.team_id, label: 'Your player reel · ' + r.team + ' · ' + r.moments + (r.moments === 1 ? ' moment' : ' moments'), src: clipUrl({ path: r.path, store: r.store }), r: r }; })
+    : (NP.clips || []).map(function (c) { return { key: 'c:' + c.game_id + ':' + c.at, label: scoreText(c) + ': ' + c.label, src: clipSrc(c, false), c: c }; }); }
+  function renderNP() {
+    Array.prototype.forEach.call($('npKind').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-k') === NP.kind); });
+    var list = npItems(), have = NP.kind === 'reel' ? NP.reels : NP.clips, html = '';
+    if (!have) html = '<p class="note">Loading your ' + (NP.kind === 'reel' ? 'reels' : 'clips') + '…</p>';
+    else if (!list.length) html = '<p class="note">' + (NP.kind === 'reel' ? 'You haven’t a player reel yet. Make one in Highlights, By player, then post it here.' : 'You haven’t any clips yet. They appear once a game you played in is cut into highlights.') + '</p>';
+    else {
+      var cur = list.filter(function (x) { return x.key === NP.pick; })[0] || list[0]; NP.pick = cur.key;
+      html = '<video id="npPrev" controls playsinline preload="metadata" src="' + esc(cur.src) + '"></video><div class="nplist">' + list.map(function (x) { return '<label><input type="radio" name="npPick" data-np="' + esc(x.key) + '"' + (x.key === NP.pick ? ' checked' : '') + '><span>' + esc(x.label) + '</span></label>'; }).join('') + '</div>';
+    }
+    $('npList').innerHTML = html; $('npPost').disabled = NP.busy || !list.length;
+  }
+  $('npKind').addEventListener('click', function (e) { var b = e.target.closest('[data-k]'); if (!b) return; NP.kind = b.getAttribute('data-k'); NP.pick = null; renderNP(); });
+  $('npList').addEventListener('change', function (e) { var k = e.target.getAttribute('data-np'); if (k) { NP.pick = k; renderNP(); } });
+  $('npCancel').addEventListener('click', function () { if (!NP.busy) $('postPop').hidden = true; });
+  $('npPost').addEventListener('click', async function () {
+    var it = npItems().filter(function (x) { return x.key === NP.pick; })[0]; if (!it || NP.busy) return;
+    NP.busy = true; renderNP(); $('npMsg').hidden = true;
+    var args = it.r ? { p_kind: 'reel', p_team: it.r.team_id, p_caption: $('npCap').value } : { p_kind: 'clip', p_game: it.c.game_id, p_at: it.c.at, p_caption: $('npCap').value };
+    try {
+      var res = (await q(sb.rpc('create_post', args))).data || {};
+      if (res.error) throw new Error(res.error === 'too_many' ? 'That’s a lot of posts today. Try again tomorrow.' : res.error === 'no_profile' ? 'Pick a username first.' : 'That isn’t one of yours any more.');
+      $('postPop').hidden = true; NP.busy = false; FD.posts = null; FD.msg = 'Shared.';
+      if (S.view === 'profile' && PF.d && PF.d.me) { PF.loaded = false; renderProfile(); } else go('feed');
+    } catch (e) { NP.busy = false; $('npMsg').textContent = (e && e.message) || 'Couldn’t share it. Check your signal.'; $('npMsg').hidden = false; renderNP(); }
+  });
+
   // ---- looking at a team found in search or on a profile: squad, results, highlights. Never its code: to follow or join,
   // people still need the code from the team's gaffer.
   var TV = { id: null, d: null, loaded: false, msg: '', back: 'people' };
@@ -2282,36 +2464,60 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   // ---- a profile
   async function prLoad() {
     if (!sb || !me || !PF.u) return;
-    try { PF.d = (await q(sb.rpc('get_profile', { p_username: PF.u }))).data; PF.msg = PF.d ? PF.msg : ''; } catch (e) { PF.msg = 'Couldn’t load that profile. Check your signal.'; }
+    try {
+      var r = await Promise.all([q(sb.rpc('get_profile', { p_username: PF.u })), q(sb.rpc('user_posts', { p_username: PF.u }))]);
+      PF.d = r[0].data; PF.posts = r[1].data || null; PF.msg = PF.d ? PF.msg : '';
+    } catch (e) { PF.msg = 'Couldn’t load that profile. Check your signal.'; }
     PF.loaded = true; if (S.view === 'profile') renderProfile();
   }
+  function openMe() { // the Profile tab: your own profile
+    PF = { u: MYP ? MYP.username : null, d: null, msg: '', pins: null, mine: null, report: false, back: 'feed', tab: true, ptab: 'posts' };
+    if (me && MYP === undefined) profileCheck();
+    go('profile');
+  }
+  $('prBack').addEventListener('click', function () { go(PF.back && PF.back !== 'profile' ? PF.back : 'feed'); });
+  $('prGear').addEventListener('click', function () { if (A.active) { optFrom = 'profile'; go('options'); } else { A.after = null; go('account'); } });
+  $('prNew').addEventListener('click', function () { postOpen(); });
+  function avatar(name, color, big) { var c = teamCol(color); return '<span class="av' + (big ? ' big' : '') + '" style="background:' + c + ';color:' + inkFor(c) + '">' + esc(((name || '?').trim()[0] || '?').toUpperCase()) + '</span>'; }
   function renderProfile() {
-    var d = PF.d, html = '';
-    $('prTitle').textContent = d ? (d.me ? 'My profile' : d.name || '@' + d.username) : 'Profile';
-    if (!me) html = '<p class="note">Sign in to see profiles.</p>';
+    var d = PF.d, html = '', mine = !!(d && d.me);
+    $('prTitle').textContent = d ? '@' + d.username : 'Profile';
+    $('prBack').hidden = !!PF.tab; $('prGear').hidden = !(PF.tab || mine) || !me; $('prNew').hidden = !mine;
+    if (!me) html = '<div class="card"><h2>Your profile</h2><p class="note">Sign in to have a profile: pick a username, share your moments and follow people.</p><div class="actions"><button class="plain primary" type="button" data-pr="signin">Sign in</button></div></div>';
+    else if (PF.tab && !PF.u && MYP === undefined) html = '<p class="note">Loading…</p>';
+    else if (PF.tab && !PF.u) html = '<div class="card"><h2>Pick a username</h2><p class="note">You need one to have a profile, share your moments and follow people.</p><div class="actions"><button class="plain primary" type="button" data-pr="edit">Pick a username</button></div></div>';
     else if (!PF.loaded) { html = '<p class="note">Loading…</p>'; prLoad(); }
     else if (!d) html = '<div class="card"><p class="note">' + esc(PF.msg || 'That profile isn’t there any more.') + '</p></div>';
     else {
-      html += '<div class="card"><div class="prhead"><h2>' + esc(d.name || d.username) + '</h2><span class="at">@' + esc(d.username) + (d.private ? ' · Private' : '') + '</span><span class="counts">' + d.followers + (d.followers === 1 ? ' follower' : ' followers') + ' · following ' + d.following + '</span></div><div class="actions">' +
-        (d.me ? '<button class="plain" type="button" data-pr="edit">Edit profile</button>' : folBtn(d)) +
-        (d.follows_me === 'pending' ? '<button class="plain primary" type="button" data-pr="accept">Accept their request</button>' : '') + '</div></div>';
-      if (!d.can_see) html += '<div class="card"><p class="note">' + (d.follow === 'pending' ? 'Waiting for @' + esc(d.username) + ' to accept. Their teams, results and clips show once they do.' : '@' + esc(d.username) + '’s profile is private. Ask to follow to see their teams, results and clips.') + '</p></div>';
+      var st = d.stats || {}, col = ((d.teams || [])[0] || {}).color, posts = PF.posts;
+      html += '<div class="ighead">' + avatar(d.name || d.username, col, true) + '<div class="igcounts"><div><b>' + (posts ? posts.length : d.can_see ? '…' : '–') + '</b><small>posts</small></div><div><b>' + d.followers + '</b><small>followers</small></div><div><b>' + d.following + '</b><small>following</small></div></div></div>' +
+        '<div class="igname"><b>' + esc(d.name || d.username) + '</b>' + (d.private ? ' <span class="badge">Private</span>' : '') +
+        (d.can_see ? '<div class="prteams">' + (d.teams || []).map(function (t) { var stl = ' style="background:' + teamCol(t.color) + ';color:' + inkFor(teamCol(t.color)) + '"'; return t.id ? '<button type="button" data-team="' + esc(t.id) + '"' + stl + '>' + esc(t.name) + ' ›</button>' : '<span' + stl + '>' + esc(t.name) + '</span>'; }).join('') + '</div>' +
+          '<small>' + [st.games + (st.games === 1 ? ' game' : ' games'), st.wins + (st.wins === 1 ? ' win' : ' wins'), st.goals + (st.goals === 1 ? ' goal' : ' goals'), st.assists + (st.assists === 1 ? ' assist' : ' assists')].join(' · ') + '</small>' : '') + '</div>' +
+        '<div class="actions igbtns">' + (mine ? '<button class="plain" type="button" data-pr="edit">Edit profile</button><button class="plain" type="button" data-pr="find">Find people</button>' : folBtn(d)) +
+        (d.follows_me === 'pending' ? '<button class="plain primary" type="button" data-pr="accept">Accept their request</button>' : '') + '</div>';
+      if (!d.can_see) html += '<div class="card"><p class="note">' + (d.follow === 'pending' ? 'Waiting for @' + esc(d.username) + ' to accept. Their posts, teams and results show once they do.' : 'This account is private. Ask to follow @' + esc(d.username) + ' to see their posts, teams and results.') + '</p></div>';
       else {
-        var st = d.stats || {};
-        html += '<div class="card"><h3>Teams</h3><div class="prteams">' + ((d.teams || []).map(function (t) { var st = ' style="background:' + teamCol(t.color) + ';color:' + inkFor(teamCol(t.color)) + '"'; return t.id ? '<button type="button" data-team="' + esc(t.id) + '"' + st + '>' + esc(t.name) + ' ›</button>' : '<span' + st + '>' + esc(t.name) + '</span>'; }).join('') || '<span class="note">Not in a squad yet.</span>') + '</div>' +
-          '<div class="prstats"><div><b>' + (st.games || 0) + '</b><small>Games</small></div><div><b>' + (st.wins || 0) + '</b><small>Wins</small></div><div><b>' + (st.goals || 0) + '</b><small>Goals</small></div><div><b>' + (st.assists || 0) + '</b><small>Assists</small></div></div></div>';
-        html += '<div class="card"><h3>Clips</h3>';
-        if (PF.pins) html += pinPicker();
-        else {
-          html += (d.clips || []).length ? clipPlayer(d.clips.map(function (c) { return Object.assign({}, c, { title: scoreText(c) + ': ' + c.label }); })) : '<p class="note">' + (d.me ? 'Pick up to three of your clips to show here.' : 'No clips picked yet.') + '</p>';
-          if (d.me) html += '<div class="actions"><button class="plain" type="button" data-pr="pins">Choose clips (up to 3)</button></div>';
-        }
-        html += '</div><div class="card"><h3>Results</h3>' + ((d.results || []).length ? '<ul class="prres">' + d.results.map(function (r) {
-          var won = r.house ? (r.house.side === 'b' ? r.them > r.us : r.us > r.them) : r.us > r.them, lost = r.house ? (r.house.side === 'b' ? r.them < r.us : r.us < r.them) : r.us < r.them;
-          return '<li><span class="wl ' + (won ? 'W' : lost ? 'L' : 'D') + '">' + (won ? 'W' : lost ? 'L' : 'D') + '</span><span>' + esc(scoreText(r)) + '<small>' + esc([dayText(r.when), r.house ? 'among ' + r.team_name : r.friendly ? 'friendly' : '', didText(r)].filter(Boolean).join(' · ')) + '</small></span></li>';
-        }).join('') + '</ul>' : '<p class="note">No games yet.</p>') + '</div>';
+        var tab = PF.ptab || 'posts';
+        html += '<div class="igtabs">' + [['posts', 'Posts'], ['pinned', 'Pinned'], ['results', 'Results']].map(function (x) { return '<button type="button" data-ptab="' + x[0] + '" aria-pressed="' + (tab === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div>';
+        if (tab === 'posts') {
+          if (!posts) html += '<p class="note">Loading…</p>';
+          else if (!posts.length) html += mine ? '<div class="card"><p class="note">Share your first moment: one of your clips, or your player reel.</p><div class="actions"><button class="plain primary" type="button" data-pr="post">Post a highlight</button></div></div>' : '<p class="note">No posts yet.</p>';
+          else html += '<div class="pgrid">' + posts.map(function (x) { return '<button class="ptile" type="button" data-openpost="' + esc(x.id) + '" aria-label="' + esc(x.caption || 'Post') + '"><video muted playsinline preload="metadata" src="' + esc(postSrc(x) + '#t=1') + '"></video><span>♥ ' + x.likes + '</span></button>'; }).join('') + '</div>';
+        } else if (tab === 'pinned') {
+          html += '<div class="card">';
+          if (PF.pins) html += pinPicker();
+          else {
+            html += (d.clips || []).length ? clipPlayer(d.clips.map(function (c) { return Object.assign({}, c, { title: scoreText(c) + ': ' + c.label }); })) : '<p class="note">' + (mine ? 'Pick up to three of your clips to keep at the top of your profile.' : 'No clips pinned yet.') + '</p>';
+            if (mine) html += '<div class="actions"><button class="plain" type="button" data-pr="pins">Choose clips (up to 3)</button></div>';
+          }
+          html += '</div>';
+        } else html += '<div class="card">' + ((d.results || []).length ? '<ul class="prres">' + d.results.map(function (r) {
+            var won = r.house ? (r.house.side === 'b' ? r.them > r.us : r.us > r.them) : r.us > r.them, lost = r.house ? (r.house.side === 'b' ? r.them < r.us : r.us < r.them) : r.us < r.them;
+            return '<li><span class="wl ' + (won ? 'W' : lost ? 'L' : 'D') + '">' + (won ? 'W' : lost ? 'L' : 'D') + '</span><span>' + esc(scoreText(r)) + '<small>' + esc([dayText(r.when), r.house ? 'among ' + r.team_name : r.friendly ? 'friendly' : '', didText(r)].filter(Boolean).join(' · ')) + '</small></span></li>';
+          }).join('') + '</ul>' : '<p class="note">No games yet.</p>') + '</div>';
       }
-      if (!d.me) {
+      if (!mine) {
         html += '<div class="card"><div class="actions"><button class="link" type="button" data-pr="report">Report @' + esc(d.username) + '</button><button class="link" type="button" data-pr="block">' + (PF.armBlock ? 'Tap again to block @' + esc(d.username) : 'Block @' + esc(d.username)) + '</button></div>';
         if (PF.report) html += '<p class="note">What’s wrong? Gaffer looks at every report.</p><div class="chips">' + ['Offensive name or clips', 'Pretending to be someone else', 'Spam or a fake account', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-why="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>';
         html += '<p class="note">Blocking hides you from each other and ends any following between you.</p></div>';
@@ -2336,10 +2542,16 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   });
   $('prBody').addEventListener('click', async function (e) {
     if (clipTap(e)) return;
-    var b = e.target.closest('button'); if (!b || !PF.d) return; var act = b.getAttribute('data-pr'), u = PF.d.username;
+    var b = e.target.closest('button'); if (!b) return; var act = b.getAttribute('data-pr');
+    if (!PF.d) { if (act === 'signin') { A.after = 'feed'; go('account'); } else if (act === 'edit') unameOpen(false); return; }
+    var u = PF.d.username;
     if (b.getAttribute('data-fol')) { followTap(u, !!PF.d.follow); return; }
     if (b.getAttribute('data-team')) { openTeamView(b.getAttribute('data-team')); return; }
     if (b.getAttribute('data-why')) { try { await q(sb.rpc('report_user', { p_username: u, p_reason: b.getAttribute('data-why') })); PF.msg = 'Thanks. Gaffer will look at @' + u + '’s profile. Block them too if you’d rather not see them.'; } catch (err) { PF.msg = 'Couldn’t send that. Check your signal.'; } PF.report = false; renderProfile(); return; }
+    if (b.getAttribute('data-ptab')) { PF.ptab = b.getAttribute('data-ptab'); renderProfile(); return; }
+    if (act === 'signin') { A.after = 'feed'; go('account'); return; }
+    if (act === 'find') { go('people'); return; }
+    if (act === 'post') { postOpen(); return; }
     if (act === 'edit') unameOpen(false);
     else if (act === 'accept') { try { await q(sb.rpc('answer_follow', { p_username: u, p_accept: true })); } catch (err) {} prLoad(); }
     else if (act === 'report') { PF.report = !PF.report; renderProfile(); }
@@ -2403,7 +2615,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     me = null; closeTeam();
     A.teams.slice().forEach(function (t) { forgetTeam(t.code); });
     A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; preels = []; crest = null; J = null;
-    MYP = undefined; profAsked = null; PPL = { q: '', found: null, teams: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; $('unamePop').hidden = true; pplBadges();
+    MYP = undefined; profAsked = null; PPL = { q: '', found: null, teams: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; FD = { posts: null, games: null, busy: false, msg: '', open: null, arm: null, seenAt: 0 }; $('unamePop').hidden = true; $('postPop').hidden = true; pplBadges();
     CH = { code: null, list: [], unread: 0 }; RV = { code: null, list: [], home: null, near: [], q: '', form: null, msg: '' }; myAsk = null; asks = []; askMsg = ''; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
     saveApp(); applyTheme(); go('welcome');
   }
@@ -2772,9 +2984,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('gamesNew').addEventListener('click', function () { if (role !== 'owner') return; fxEdit = null; pollBack = 'games'; go('poll'); });
   // ---- the bar along the bottom: Home, Games, Settings
   function renderTabs() {
-    var show = !!A.active && ['home', 'games', 'chat', 'board', 'options'].indexOf(S.view) >= 0, own = role === 'owner';
+    var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = role === 'owner';
     $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
-    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === S.view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    var cur = S.view === 'profile' ? (PF.tab ? 'profile' : '') : S.view === 'options' ? (optFrom === 'profile' ? 'profile' : 'home') : S.view === 'people' || S.view === 'teamview' ? 'feed' : S.view === 'account' ? 'profile' : S.view;
+    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === cur) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); if (v === 'games' || v === 'chat') b.hidden = !A.active; });
     $('optViewer').hidden = own;
     var todo = myPid == null ? 0 : fixtures.filter(function (f) { return !(f.votes || []).some(function (v) { return v.pid === myPid; }); }).length;
     $('tabBadge').hidden = !todo; $('tabBadge').textContent = todo;
@@ -2798,8 +3011,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('tabs').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
     if (b.classList.contains('locked')) { $('tabMsg').textContent = 'Only the gaffer can change the settings.'; $('lockMsg').textContent = $('tabMsg').textContent; clearTimeout(lockT); lockT = setTimeout(function () { $('tabMsg').textContent = ''; $('lockMsg').textContent = ''; }, 4000); return; }
-    go(b.getAttribute('data-tab'));
+    var tab = b.getAttribute('data-tab');
+    if (tab === 'profile') openMe();
+    else if (tab === 'home') go(A.active ? 'home' : 'welcome');
+    else go(tab);
   });
+  var optFrom = 'home'; // where Settings was opened from: the team page, or your profile
+  $('mOptions').addEventListener('click', function () { optFrom = 'home'; go('options'); });
+  $('mBoard').addEventListener('click', function () { go('board'); });
+  $('optBack').addEventListener('click', function () { if (optFrom === 'profile') openMe(); else go('home'); });
   function startFromPoll(f) { // carry the poll straight into the new game screen
     if (S.match) { fxSay('Finish or scrap the game in progress first.'); return; }
     var s = fxSides(f);

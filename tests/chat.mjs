@@ -26,7 +26,7 @@ await A.click('#tabs [data-tab="chat"]'); await wait(400); console.log('chat:', 
 await A.fill('#chatText', 'Tuesday, 7:30. Who is driving?'); await A.press('#chatText', 'Enter'); await wait(500);
 console.log('sent:', (await A.$$eval('.cmsg', (m) => m.map((x) => x.textContent))).join(' / '), '| notify:', JSON.stringify((await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).calls || [])).filter((c) => c.body.kind === 'chat').map((c) => Object.keys(c.body))));
 // record a play
-await A.click('#tabs [data-tab="board"]'); await wait(300); await A.click('[data-tb="rec"]'); await wait(200); console.log('recording bar:', await A.isVisible('.tbrec'));
+await A.click('#tabs [data-tab="home"]'); await A.click('#mBoard'); await wait(300); await A.click('[data-tb="rec"]'); await wait(200); console.log('recording bar:', await A.isVisible('.tbrec'));
 const box = await (await A.$('#tbSvg')).boundingBox(), at = (x, y) => [box.x + box.width * x / 100, box.y + box.height * y / 140];
 const drag = async (from, to, steps = 8) => { await A.mouse.move(...at(...from)); await A.mouse.down(); for (let i = 1; i <= steps; i++) { await A.mouse.move(...at(from[0] + (to[0] - from[0]) * i / steps, from[1] + (to[1] - from[1]) * i / steps)); await wait(40); } await A.mouse.up(); };
 await drag([30, 60], [20, 30]); await wait(150);
@@ -62,7 +62,7 @@ await A.click('#gamesTrack .fxc [data-vote="in"]'); await wait(600); console.log
 if (out) await A.screenshot({ path: `${out}/cal-ask.png` });
 await A.click('#askNo'); await A.click('#gamesTrack .fxc [data-vote="gk"]'); await wait(500); console.log('asked again for the same game:', await A.isVisible('#askPop'));
 // sign out leaves nothing behind
-await A.click('#mOptions'); await wait(200); await A.click('#optSignOut'); await A.click('#optSignOut'); await wait(700);
+await A.click('#tabs [data-tab="home"]'); await A.click('#mOptions'); await wait(200); await A.click('#optSignOut'); await A.click('#optSignOut'); await wait(700);
 console.log('signed out ->', await view(A), '| teams listed:', await A.$$eval('#myTeams button', (x) => x.length), '| stored:', await A.evaluate(() => JSON.stringify([JSON.parse(localStorage.getItem('apt-app')).teams.length, JSON.parse(localStorage.getItem('apt-app')).active])));
 await A.reload(); await wait(500); console.log('after reload:', await view(A), '| tab bar:', await A.isVisible('#tabs'));
 await A.click('#acctBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.click('#aSignIn'); await wait(900);

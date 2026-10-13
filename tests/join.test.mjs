@@ -43,7 +43,7 @@ eq([d.players.length, !!wp && wp.pid, wp && wp.position, wp && wp.shirt_number, 
 eq([await A.visible('#askCard [data-askyes]'), /Woody is in the squad/.test(await A.text('#askCard')), (await A.team()).players.length, /Woody/.test(await A.text('#squadList'))], [false, true, 7, true], 'the gaffer\'s card clears and the squad list has them');
 eq([/Your stats/.test(await W.text('#meCard')), /Woody Wood, defender/i.test(await W.text('#meCard')), (await W.team()).players.length], [true, true, 7], 'Woody\'s phone turns into a player\'s, with their own card, without them doing anything');
 // the gaffer's phone keeps the new player when it next saves, and numbers its own next player after them
-await A.click('#tabs [data-tab="options"]');
+await A.click('#tabs [data-tab="home"]'); await A.click('#mOptions');
 check(await A.visible('#v-options'), 'gaffer opens settings');
 await w.run(500);
 const t2 = await A.team(); eq([t2.nextId, t2.players.some((p) => p.id === 7 && p.name === 'Woody')], [8, true], 'the gaffer\'s phone has Woody as player 7 and will number its next player 8');

@@ -25,7 +25,7 @@ await A.click('#createBtn'); await A.signUp('gaffer@example.com');
 await p.fill('#tName', 'Sons of Pitches FC'); await p.fill('#tShort', 'SOP FC'); await A.click('#tColors button[data-c="#4c2bb0"]');
 await p.fill('#tPlayers', 'Ezra\nDev\nTobi\nKofi\nLuca\nAsh\nNiko\nMarsh'); await A.click('#tCreate'); await A.run(600);
 await A.click('#v-code [data-go="home"]');
-await A.click('#tabs [data-tab="options"]'); await p.check('#expTrack'); await A.run(300); await A.click('#tabs [data-tab="home"]');
+await A.click('#tabs [data-tab="home"]'); await A.click('#mOptions'); await p.check('#expTrack'); await A.run(300); await A.click('#tabs [data-tab="home"]');
 
 // ---------- a game: 7:44 played, 2–1 up
 await A.newGame('Borussia Teeth'); await A.click('#go');
@@ -45,7 +45,7 @@ await A.click('#liveClose'); await A.click('#v-game .back'); await A.run(1500);
 await shot('live-home');
 
 // ---------- the Gaffer tier
-await A.click('#tabs [data-tab="options"]'); await A.click('#planOpen'); await shot('plans', ' .view { visibility: hidden; }'); // (just the pop-up, over the dimmed screen)
+await A.click('#tabs [data-tab="home"]'); await A.click('#mOptions'); await A.click('#planOpen'); await shot('plans', ' .view { visibility: hidden; }'); // (just the pop-up, over the dimmed screen)
  await A.click('#planOk'); await A.click('#tabs [data-tab="home"]');
 
 // ---------- highlights: finish the game, then cut it from two cameras

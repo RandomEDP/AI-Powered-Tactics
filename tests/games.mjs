@@ -35,6 +35,6 @@ console.log('votes in db:', JSON.stringify(votes));
 await A.click('#tabs [data-tab="home"]'); await wait(300); console.log('home card:', (await A.textContent('#fxCard')).replace(/\s+/g, ' '));
 if (out) await A.screenshot({ path: `${out}/home-tabs.png` });
 await A.click('#fxCard [data-fx="all"]'); await wait(200); console.log('see all ->', await view(A));
-await A.click('#mOptions'); await wait(200); console.log('settings tab ->', await view(A), '| bar still shown:', await A.isVisible('#tabs'));
+await A.click('#tabs [data-tab="home"]'); await A.click('#mOptions'); await wait(200); console.log('settings tab ->', await view(A), '| bar still shown:', await A.isVisible('#tabs'));
 await A.click('#tabs [data-tab="home"]'); await A.click('#mStats'); await wait(200); console.log('bar on stats:', await A.isVisible('#tabs'));
 console.log('errors:', JSON.stringify(errs)); await b.close();

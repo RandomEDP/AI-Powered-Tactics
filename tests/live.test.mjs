@@ -31,7 +31,7 @@ const quiet = () => B.page.evaluate(() => window.__quiet.slice(-1)[0] || null);
 
 await A.newGame('Dog'); await A.run(1000);
 eq([await A.view(), await A.visible('#liveRow'), await A.visible('#streamBtn')], ['game', false, false], 'with the experimental switch off, the game screen has no streaming');
-await A.click('#v-game .back'); await A.click('#tabs [data-tab="options"]'); await A.page.check('#expTrack'); await A.run(300); await A.click('#tabs [data-tab="home"]'); await A.click('#mResume');
+await A.click('#v-game .back'); await A.click('#tabs [data-tab="home"]'); await A.click('#mOptions'); await A.page.check('#expTrack'); await A.run(300); await A.click('#tabs [data-tab="home"]'); await A.click('#mResume');
 eq([await A.visible('#streamBtn'), await A.text('#streamBtn'), await A.visible('#watchBtn')], [true, 'Stream this game', false], 'switched on: the gaffer can stream the game');
 eq(await A.page.evaluate(() => /Stream your games live/.test(document.querySelector('#planPop .pro').textContent)), true, 'and it is listed in the Gaffer tier');
 

@@ -9,6 +9,8 @@ const w = await world();
 const out = process.argv[2], shot = async (P, name) => { if (out) await P.page.screenshot({ path: `${out}/${name}.png`, fullPage: true }); };
 const home = (P) => P.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]') || document.querySelector('.view:not([hidden]) .back'); if (b) b.click(); });
 const msg = (P) => P.text('#aMsg');
+// People (search, requests, lists) is reached from Home's search icon
+const toPeople = async (P) => { if (await P.view() === 'people') return; if (await P.visible('#tabs [data-tab="feed"]')) await P.click('#tabs [data-tab="feed"]'); else await P.click('#pplBtn'); await P.run(500); await P.click('#fdFind'); await P.run(600); };
 
 // ---------- signing up asks for a username, and keeps Ethan's back
 const A = await w.phone({ db: true, label: 'ethan' });
@@ -61,15 +63,15 @@ eq(await J2.visible('#unamePop'), false, 'on another phone too, once he has one'
 await J2.close();
 
 // ---------- Ethan's names are his
-await A.click('#mPeople'); await A.run(800);
-check(/@gaffer_ethan · Public/.test(await A.text('#pplBody')), 'People shows your own card');
-await A.click('#pplBody [data-pp="pick"]'); await A.page.fill('#unUser', 'EDP'); await A.click('#unSave'); await A.run(800);
+await A.click('#tabs [data-tab="profile"]'); await A.run(800);
+eq(await A.text('#prTitle'), '@gaffer_ethan', 'the Profile tab is your own profile');
+await A.click('#prBody [data-pr="edit"]'); await A.page.fill('#unUser', 'EDP'); await A.click('#unSave'); await A.run(800);
 eq(w.db().profiles.find((p) => p.user_id === db.users[0].id).username, 'EDP', 'Ethan can take one of the names kept for him');
 
 // ---------- Sam (no team in common) finds Jake and asks to follow
 const S = await w.phone({ db: true, label: 'sam' });
 await S.click('#acctBtn'); await S.signUp('sam@example.com', 'samwise'); await S.run(500);
-await S.click('#pplBtn'); await S.run(800);
+await toPeople(S);
 await S.page.fill('#pplQ', 'chap'); await S.click('#pplGo'); await S.run(500);
 eq(await S.page.$$eval('#pplFound .prow .who', (b) => b.map((x) => x.textContent)), ['Jake Smith Private@Chappers'], 'people are found by name or username');
 eq(await S.text('#pplBody [data-fol="Chappers"]'), 'Ask to follow', 'someone private is asked');
@@ -82,7 +84,7 @@ await shot(S, 'profile-private');
 // ---------- Jake accepts
 await J.page.reload(); await J.run(1500);
 eq(await J.page.$eval('#pplBtn .pplBadge', (b) => b.hidden ? '' : b.textContent), '1', 'Jake sees a request waiting');
-await J.click('#pplBtn'); await J.run(800);
+await toPeople(J);
 check(/Asking to follow you/.test(await J.text('#pplBody')) && /@samwise/.test(await J.text('#pplBody')), 'with who it\'s from');
 await J.click('#pplBody [data-acc="samwise"]'); await J.run(800);
 eq(w.db().follows.map((f) => f.status), ['accepted'], 'he accepts');
@@ -90,44 +92,46 @@ eq(w.db().follows.map((f) => f.status), ['accepted'], 'he accepts');
 // ---------- what Sam sees now
 await S.page.reload(); await S.run(1500);
 const prof = async (P, u) => { await P.page.evaluate((x) => { const b = document.createElement('button'); b.setAttribute('data-prof', x); document.getElementById('pplBody').appendChild(b); b.click(); }, u); await P.run(800); };
-if (await S.view() !== 'profile') { await S.click('#pplBtn'); await S.run(500); await prof(S, 'Chappers'); } else { await S.page.evaluate(() => {}); }
+if (await S.view() !== 'profile') { await toPeople(S); await prof(S, 'Chappers'); }
 await S.run(800);
 const body = await S.text('#prBody');
-check(/Sons of Pitches FC/.test(body) && /Games/.test(body) && /Goals/.test(body), `his teams and stats show (${body.slice(0, 160)})`);
-eq(await S.page.$$eval('#prBody .prstats b', (b) => b.map((x) => +x.textContent)), [1, 1, 1, 0], 'one game, a win, a goal, no assists');
-check(/SOP FC 1–0 Dog Squad/.test(body) && /1 goal/.test(body), 'and his results, with what he did');
-check(/No clips picked yet/.test(body), 'no clips until he picks some');
+check(/Sons of Pitches FC/.test(body), `his teams show (${body.slice(0, 160)})`);
+eq(await S.text('#prBody .igname > small'), '1 game · 1 win · 1 goal · 0 assists', 'one game, a win, a goal, no assists');
+await S.click('#prBody [data-ptab="results"]');
+check(/SOP FC 1–0 Dog Squad/.test(await S.text('#prBody')) && /1 goal/.test(await S.text('#prBody')), 'and his results, with what he did');
+await S.click('#prBody [data-ptab="pinned"]');
+check(/No clips pinned yet/.test(await S.text('#prBody')), 'no clips until he picks some');
 check(!/Next game|Upcoming|Kick-off at/i.test(body), 'never upcoming games');
 await shot(S, 'profile');
 
 // ---------- Jake picks a clip for his profile
-await J.click('#pplBody [data-prof="Chappers"]'); await J.run(800);
-await J.click('#prBody [data-pr="pins"]'); await J.run(800);
+await J.click('#tabs [data-tab="profile"]'); await J.run(800);
+await J.click('#prBody [data-ptab="pinned"]'); await J.click('#prBody [data-pr="pins"]'); await J.run(800);
 eq(await J.page.$$eval('#prBody [data-pin]', (x) => x.length), 1, 'he chooses from his clips (from all his teams)');
 await J.page.check('#prBody [data-pin]'); await J.click('#prBody [data-pr="pinsave"]'); await J.run(1000);
 eq(w.db().profiles.find((p) => p.user_id === 'u-jake').pins, [{ g: game.id, at: 1791660000000 }], 'and it\'s saved');
-await S.page.reload(); await S.run(1500); if (await S.view() !== 'profile') { await S.click('#pplBtn'); await S.run(500); await prof(S, 'Chappers'); }
-await S.run(800);
+await S.page.reload(); await S.run(1500); if (await S.view() !== 'profile') { await toPeople(S); await prof(S, 'Chappers'); }
+await S.run(800); await S.click('#prBody [data-ptab="pinned"]');
 eq(await S.page.$$eval('#prBody .vplayer [data-clip]', (b) => b.map((x) => x.textContent)), ['SOP FC 1–0 Dog Squad: 2\' Goal: Jake'], 'Sam can watch it on his profile');
 
 // ---------- the feed
-await S.tap('#v-profile .back'); await S.run(1200);
-eq(await S.page.$$eval('#pplBody .feedcard h3', (h) => h.map((x) => x.textContent.replace('New', '').trim())), ['SOP FC 1–0 Dog Squad'], 'Sam\'s feed has the game Jake played');
-check(/1 goal/.test(await S.text('#pplBody .feedcard')) && await S.page.$$eval('#pplBody .feedcard [data-clip]', (b) => b.length) === 1, 'with his goal and his clip');
+await S.click('#tabs [data-tab="feed"]'); await S.run(1200);
+eq(await S.page.$$eval('#fdBody .feedcard h3', (h) => h.map((x) => x.textContent.replace('New', '').trim())), ['SOP FC 1–0 Dog Squad'], 'Sam\'s feed has the game Jake played');
+check(/1 goal/.test(await S.text('#fdBody .feedcard')) && await S.page.$$eval('#fdBody .feedcard [data-clip]', (b) => b.length) === 1, 'with his goal and his clip');
 await shot(S, 'feed');
 db = w.db(); db.follows.push({ follower: db.users[0].id, followee: 'u-jake', status: 'accepted' }); w.setDb(db);
-await A.page.reload(); await A.run(1500); if (await A.view() !== 'people') { await home(A); await A.run(300); await A.click('#mPeople'); } await A.run(1200);
-eq(await A.page.$$eval('#pplBody .feedcard', (c) => c.length), 0, 'but Ethan, in Jake\'s team, doesn\'t get his own team\'s game again');
+await A.page.reload(); await A.run(1500); await A.click('#tabs [data-tab="feed"]'); await A.run(1200);
+eq(await A.page.$$eval('#fdBody .feedcard', (c) => c.length), 0, 'but Ethan, in Jake\'s team, doesn\'t get his own team\'s game again');
 const F = await w.phone({ db: true, label: 'follower of the team' }); // someone who follows SOP on this phone and follows Jake
 await F.page.fill('#joinCode', code); await F.click('#joinBtn'); await F.run(500); await F.click('#jFollow'); await F.run(800);
 await home(F); await F.run(300); await F.page.evaluate(() => { document.querySelector('[data-go="welcome"], #mSwitch') && document.querySelector('#mSwitch').click(); }); await F.run(300);
 await F.click('#acctBtn'); await F.signUp('fan@example.com', 'sop_fan'); await F.run(500);
 db = w.db(); const fan = db.users.find((u) => u.email === 'fan@example.com'); db.follows.push({ follower: fan.id, followee: 'u-jake', status: 'accepted' }); w.setDb(db);
 await F.click('#pplBtn'); await F.run(1200);
-eq(await F.page.$$eval('#pplBody .feedcard', (c) => c.length), 0, 'nor does someone who follows the team on their phone: they\'ve seen it there');
+eq(await F.page.$$eval('#fdBody .feedcard', (c) => c.length), 0, 'nor does someone who follows the team on their phone: they\'ve seen it there');
 
 // ---------- report and block
-await S.click('#pplBody [data-prof="Chappers"]'); await S.run(800);
+await prof(S, 'Chappers');
 await S.click('#prBody [data-pr="report"]'); await S.click('#prBody [data-why="Spam or a fake account"]'); await S.run(800);
 eq(w.db().profile_reports.map((r) => [r.reporter === 'u-jake', r.reason]), [[false, 'Spam or a fake account']], 'anyone can be reported, with a reason');
 check(/Gaffer will look at @Chappers/.test(await S.text('#prMsg')), 'which says what happens next');
@@ -135,7 +139,7 @@ await S.click('#prBody [data-pr="block"]'); eq(/Tap again to block/.test(await S
 await S.click('#prBody [data-pr="block"]'); await S.run(1200);
 eq([await S.view(), w.db().blocks.length, w.db().follows.filter((f) => f.followee === 'u-jake' && f.follower !== 'u-jake').length], ['people', 1, 2], 'blocked: back to People, and Sam no longer follows him');
 check(/Blocked @Chappers/.test(await S.text('#pplMsg')) && /Blocked \(1\)/.test(await S.text('#pplBody')), 'with an Unblock list');
-if (await J.view() !== 'people') { await J.tap('#v-profile .back'); await J.run(1000); }
+await toPeople(J);
 await J.page.fill('#pplQ', 'sam'); await J.click('#pplGo'); await J.run(500);
 eq(await J.page.$$eval('#pplFound .prow .who', (b) => b.length), 0, 'and Jake can\'t find Sam either');
 await S.click('#pplBody details:last-of-type summary'); await S.click('#pplBody [data-unblock="Chappers"]'); await S.run(1000);
@@ -143,7 +147,7 @@ eq(w.db().blocks.length, 0, 'unblocking puts things back (without following agai
 
 // ---------- going public accepts anyone waiting; public profiles are followed straight away
 db = w.db(); db.follows.push({ follower: fan.id, followee: 'u-jake', status: 'pending' }); db.follows = db.follows.filter((f, i, all) => all.findIndex((x) => x.follower === f.follower && x.followee === f.followee) === i); w.setDb(db);
-await J.click('#pplBody [data-pp="pick"]'); await J.click('#unPriv [data-priv="0"]'); await J.click('#unSave'); await J.run(800);
+await J.click('#tabs [data-tab="profile"]'); await J.run(600); await J.click('#prBody [data-pr="edit"]'); await J.click('#unPriv [data-priv="0"]'); await J.click('#unSave'); await J.run(800);
 check(w.db().follows.filter((f) => f.followee === 'u-jake').every((f) => f.status === 'accepted'), 'going public accepts every request waiting');
 await S.page.fill('#pplQ', 'chap'); await S.click('#pplGo'); await S.run(500);
 eq(await S.text('#pplBody [data-fol="Chappers"]'), 'Follow', 'someone public just has Follow');
@@ -168,15 +172,15 @@ eq([await S.view(), await S.text('#tvTitle')], ['teamview', 'Sons of Pitches FC'
 await S.tap('#tvBack'); await S.run(500);
 // the gaffer takes the team out of search
 await home(A); await A.run(300); if (await A.view() !== 'home') { await A.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) .back'); if (b) b.click(); }); await A.run(300); }
-await A.click('#tabs [data-tab="options"]'); await A.run(300);
+await A.click('#tabs [data-tab="home"]'); await A.run(300); await A.click('#mOptions'); await A.run(300);
 eq(await A.page.isChecked('#oFind'), true, 'every team starts findable');
 await A.page.uncheck('#oFind'); await A.run(2500);
 eq(w.db().teams[0].listed, false, 'a gaffer can take their team out of search');
 await S.page.reload(); await S.run(1500);
-if (await S.view() !== 'profile') { if (await S.view() !== 'people') await S.click('#pplBtn'); await S.run(500); await prof(S, 'Chappers'); }
+if (await S.view() !== 'profile') { await toPeople(S); await prof(S, 'Chappers'); }
 await S.run(800);
 eq(await S.page.$$eval('#prBody .prteams [data-team]', (b) => b.length), 0, 'then it isn\'t a link on profiles');
-await S.tap('#v-profile .back'); await S.run(800);
+await toPeople(S);
 await S.page.fill('#pplQ', 'pitches'); await S.click('#pplGo'); await S.run(500);
 check(/No teams found/.test(await S.text('#pplTeams')), 'or found in search');
 await A.page.check('#oFind'); await A.run(2500);
@@ -184,7 +188,7 @@ await A.page.check('#oFind'); await A.run(2500);
 // ---------- signed out, People asks you to sign in
 const N = await w.phone({ db: true, label: 'nobody' });
 await N.click('#pplBtn'); await N.run(300);
-check(/Sign in to pick a username/.test(await N.text('#pplBody')), 'without an account, People says what it\'s for and asks you to sign in');
+check(/Sign in to share your moments/.test(await N.text('#fdBody')), 'without an account, Home says what it\'s for and asks you to sign in');
 
 await w.close();
 await done(A, J, S, F, N);

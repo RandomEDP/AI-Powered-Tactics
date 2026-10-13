@@ -29,7 +29,7 @@ await A.ctx.addInitScript(camera); await A.page.reload(); await A.run(500);
 await A.click('#createBtn'); await A.signUp('ethan@example.com');
 await A.page.fill('#tName', 'Sons of Pitches FC'); await A.page.fill('#tShort', 'SOP FC'); await A.page.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await A.click('#tCreate'); await A.run(600);
 const code = await A.text('#codeBig'); await A.click('#v-code [data-go="home"]');
-await A.click('#tabs [data-tab="options"]'); await A.page.check('#expTrack'); await A.run(300); await A.click('#tabs [data-tab="home"]');
+await A.click('#tabs [data-tab="home"]'); await A.click('#mOptions'); await A.page.check('#expTrack'); await A.run(300); await A.click('#tabs [data-tab="home"]');
 const B = await w.phone({ db: true, native: true, label: 'follower' });
 await B.page.fill('#joinCode', code); await B.click('#joinBtn'); await B.run(500); await B.click('#jFollow'); await B.run(800);
 await B.ctx.route('https://customer-test.cloudflarestream.com/*/lifecycle', (r) => {
