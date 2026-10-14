@@ -10,6 +10,8 @@
 #   ANDROID_KEY_ALIAS         the key's alias inside it
 #   ANDROID_KEY_PASSWORD      the key's own password, if it differs
 #   PLAY_SERVICE_ACCOUNT_JSON a Google Play service account allowed to release the app (only for uploading)
+# Notifications need GOOGLE_SERVICES_JSON: the google-services.json file from the Firebase console (Project settings,
+# the Android app com.randomedp.aipoweredtactics), pasted whole.
 # Without them the .apk is signed with a throwaway debug key: fine for trying it, but uninstall the last one before
 # installing the next, as each build's key differs.
 name: Android
@@ -60,6 +62,15 @@ jobs:
 
       - name: Copy the web app into the Android project
         run: npm run build:web && npx cap sync android
+
+      # Notifications on Android come through Firebase, which needs the team's Firebase file in the app. Without it the app
+      # still works, just without notifications.
+      - name: The Firebase file, for notifications
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json; echo "Notifications: on"
+          else echo "::warning::No GOOGLE_SERVICES_JSON secret, so this Android build has no notifications (see the top of android.yml)."; fi
 
       - name: The upload key
         if: env.HAS_KEY == 'true'

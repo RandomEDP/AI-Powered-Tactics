@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(GafferAndroidPlugin.class);
         super.onCreate(savedInstanceState);
         // Android's back button (or the swipe from the edge): the app closes whatever is open, or goes back a screen
         // (window.gafferBack in index.html). Once there's nowhere further back, Gaffer is put away, as other apps are.

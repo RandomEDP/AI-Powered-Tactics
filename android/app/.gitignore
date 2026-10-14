@@ -1,2 +1,5 @@
 /build/*
 !/build/.npmkeep
+
+# The team's Firebase file: written by android.yml from the GOOGLE_SERVICES_JSON secret, never committed
+google-services.json

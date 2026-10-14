@@ -112,7 +112,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0029`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0030`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -506,15 +506,32 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **The bar** is Team, Highlights (`.droidtab`, only shown on Android), Games, Chat and Account (the Profile tab opens the
   Account page there: sign out, delete my account). No feed, profiles, usernames pop-up (`plink` gives plain names) or
   intro swipe-through.
-- **Plugins:** only Haptics (`DROID_PLUGINS` in `plugin()`, and `capacitor.config.json` `android.includePlugins`), so the
-  iPhone-only parts (watch, cutting, filming, calendar sheet) fall back to what the website does. Add to calendar opens
+- **Plugins:** Haptics, PushNotifications and the app's own `GafferAndroid` (`DROID_PLUGINS` in `plugin()`, and
+  `capacitor.config.json` `android.includePlugins`), so the iPhone-only parts (watch, cutting, filming, calendar sheet)
+  fall back to what the website does. Add to calendar opens
   Google Calendar with the game filled in (Android's web view can't save an `.ics`).
 - **The back button:** `MainActivity` asks `window.gafferBack()` first (closes the whole-match player or a pop-up, else the
   screen's Back, else the team page); false puts the app away.
 - The app is served from `https://localhost`, so confirmation and reset emails use `CFG.siteUrl` (`NATIVE_SITE`), pages
   open on the website (`siteHref`), and the service worker isn't registered in the apps.
-- **Not yet:** push notifications (needs a Firebase project and `google-services.json`, then FCM in `team-notify` and a
-  platform column on `push_tokens`), and Google Play (see section 11).
+- **Notifications** (`0030_android_push.sql`): through Google's Firebase Cloud Messaging. A build only has them if it was
+  made with the team's Firebase file (`android.yml` writes the `GOOGLE_SERVICES_JSON` secret to
+  `android/app/google-services.json`, git-ignored). The app asks `GafferAndroid.pushReady()` (true when the build has the
+  `google_app_id` resource) before using `PushNotifications`, because asking Firebase for an address without it crashes
+  the app; without it there's no Notifications section and no pop-up. When ready it makes two channels (`game` with
+  `res/raw/whistle.wav`, `chat` with the phone's usual sound), then the usual `pushSetup`; `register_push(p_token,
+  p_platform: 'android')` marks the phone (the iPhone still calls the one-argument version, which means `ios`). Settings
+  isn't on Android, so `#ntfSec` is moved onto the Account page (`renderNotes`, worded for a phone). `team-notify` sends
+  Android phones only the players' kinds (`DROID_KINDS`: kickoff, goal, poll, nudge, highlights, chat), signed in to Google
+  as `GOOGLE_SERVICE_ACCOUNT` (or `FCM_SERVICE_ACCOUNT`) with the `firebase.messaging` scope, to that account's
+  `project_id`; addresses Google says are gone are deleted like Apple's. The status-bar icon is
+  `res/drawable/ic_stat_gaffer.xml`. Tests: `android.test.mjs` (`firebase: true` in `tests/lib.mjs`), `stream.test.mjs`
+  (the real function against a stand-in Google), `db.test.mjs`.
+- **Setting up Firebase (Ethan's, once):** Firebase console, Add project, pick the existing Google Cloud project the voice
+  uses; add an Android app `com.randomedp.aipoweredtactics`; download `google-services.json` and paste it whole into the
+  GitHub secret `GOOGLE_SERVICES_JSON`; in Google Cloud, IAM, give the voice's service account the role "Firebase Cloud
+  Messaging API Admin". The next Android build then has notifications.
+- **Not yet:** Google Play (see section 11).
 - Version: `package.json` `version`; build number: the Android workflow's run number.
 - Test: `android.test.mjs` (a gaffer on the iPhone and a player on Android through a week: join, poll, chat, highlights,
   the back button; a gaffer's account on Android writes nothing; no iPhone plugin is asked for). `tests/lib.mjs`
@@ -643,7 +660,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0029` are applied live. Add new ones as `supabase/migrations/0030_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0030` are applied live. Add new ones as `supabase/migrations/0031_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
@@ -652,15 +669,15 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Edge functions:** all five are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
-  - Deployed now: `team-notify` v21 (kind `live` from any team member, sent once; kind `report` tells the moderators; same as the repo), `live-stream` v5,
+  - Deployed now: `team-notify` v22 (kind `live` from any team member, sent once; kind `report` tells the moderators; Android phones through Firebase; same as the repo), `live-stream` v5,
     `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
   `GOOGLE_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `R2_ACCESS_KEY_ID`,
   `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan).
-- **GitHub repository secrets:** `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`. For Google Play (not set
-  yet; Ethan's to make): `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`,
+- **GitHub repository secrets:** `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`. For Android notifications:
+  `GOOGLE_SERVICES_JSON` (the Firebase file; Ethan's to add). For Google Play (not set yet; Ethan's to make): `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`,
   `PLAY_SERVICE_ACCOUNT_JSON`.
 - **Auth:** email and password. Site URL and redirect go to the GitHub Pages address.
 - **Any Google API key used by `reel-voice`** is server-side. Don't give it an iOS-app restriction (requests come from
@@ -771,7 +788,9 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
 ## 11. In flight / next up
 
 - **Android (players' app, first build October 2026):** Ethan to install the `.apk` from the Android workflow's artifacts
-  on an Android phone and check joining, polls, chat and highlights. Then: push notifications (Firebase), and Google Play:
+  on an Android phone and check joining, polls, chat and highlights. Notifications are built and live on the server; they
+  wait for Ethan's Firebase setup (section 6, "The Android app"), then a new Android build to send the player. Only one
+  player has Android, so Google Play waits; when it's wanted:
   a Play developer account ($25, Ethan's), an upload key (the secrets in section 7), and a new personal account must run a
   closed test with at least 12 testers for 14 days before going public. The store listing needs the Data safety form and
   a web link for deleting an account.

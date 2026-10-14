@@ -704,7 +704,7 @@ tr.past td { opacity: .45; }
 #tabs .tabrow { max-width: 552px; margin-inline: auto; display: grid; grid-template-columns: repeat(5, 1fr); }
 /* the Android app is for players: chat, polls and highlights, with nothing a gaffer does */
 html:not(.droid) #tabs .droidtab, html.droid #tabs [data-tab="feed"],
-html.droid :is(#wStart, #pplBtn, #introOpen, #aOrgSec, #mOptions, #mNew, #mResume, #mStats, #mInsights, #mBoard, #soonPill, #askCard, #liveCard, #squadSec, #homeNote, #gamesNew, #rivalsOpen, #kickPop, #pushPop, #unamePop) { display: none !important; }
+html.droid :is(#wStart, #pplBtn, #introOpen, #aOrgSec, #mOptions, #mNew, #mResume, #mStats, #mInsights, #mBoard, #soonPill, #askCard, #liveCard, #squadSec, #homeNote, #gamesNew, #rivalsOpen, #kickPop, #unamePop) { display: none !important; }
 #boardBody { display: flex; flex-direction: column; gap: 14px; }
 .tbsvg { width: 100%; display: block; border-radius: var(--r-card); touch-action: none; user-select: none; -webkit-user-select: none; }
 .campitch { width: 100%; max-width: 300px; align-self: center; display: block; border-radius: var(--r-card); touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair; }
@@ -1088,7 +1088,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <li><b>Kick-off and every goal.</b> Follow the score when you can’t be there</li>
     <li><b>Highlights.</b> Know the moment the clips are ready</li>
     <li><b>Squad chat and nudges</b> from your gaffer</li></ul></div>
-  <p>Your iPhone will ask next. You can change this any time in Settings.</p>
+  <p id="pushNext">Your iPhone will ask next. You can change this any time in Settings.</p>
   <div class="actions"><button class="plain primary" id="pushYes" type="button">Turn on notifications</button><button class="plain" id="pushNo" type="button">Not now</button></div></div></div>
 <div id="reelPop" role="dialog" aria-labelledby="rbTitle" hidden><div class="planbox" id="rbBody"></div></div>
 <div id="livePop" role="dialog" aria-labelledby="liveTitle" hidden><div class="planbox" id="liveBody"></div></div>
@@ -1479,7 +1479,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // (no team settings, games, cutting or streaming), and it never runs the team, even for a gaffer's account.
   var DROID = !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'android');
   var DROID_VIEWS = ['welcome', 'join', 'account', 'home', 'games', 'chat', 'highlights'];
-  if (DROID) { document.documentElement.classList.add('droid'); $('v-highlights').querySelector('.bar .back').hidden = true; } // (Highlights is a tab there)
+  if (DROID) { // (Highlights is a tab there, and Notifications are on the Account tab, as there's no Settings)
+    document.documentElement.classList.add('droid'); $('v-highlights').querySelector('.bar .back').hidden = true;
+    $('aIn').insertBefore($('ntfSec'), $('aSignOut').parentNode); $('pushNext').textContent = 'Your phone will ask next. You can change this any time on the Account tab.';
+  }
   var NATIVE_SITE = /^https?:/.test(location.protocol) && !DROID ? null : (CFG.siteUrl || null); // the apps send confirmation links to the website (Android's app is served from https://localhost)
 
   // ---- teams on this device. The team itself lives in the database; this device remembers which ones it follows
@@ -1867,7 +1870,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       P.addListener('registration', function (t) { // iOS has told the app this phone's address for notifications (it does so whether or not they are allowed)
         if (!t || !t.value || !me) return;
         pushToken = t.value; try { localStorage.setItem('apt-push-token', t.value); } catch (e) {}
-        var uid = me.id, on = function () { sb.rpc('register_push', { p_token: t.value }).then(function (r) { if (!r || !r.error) { pushSaved = uid; pushGone = null; } }, function () {}); };
+        var uid = me.id, on = function () { sb.rpc('register_push', DROID ? { p_token: t.value, p_platform: 'android' } : { p_token: t.value }).then(function (r) { if (!r || !r.error) { pushSaved = uid; pushGone = null; } }, function () {}); };
         try { P.checkPermissions().then(function (r) { if (r && r.receive === 'denied') pushOff(P); else on(); }, on); } catch (e) { on(); }
       });
       P.addListener('pushNotificationReceived', function (n) { var d = n && n.data; if (!d || d.code !== A.active) return; if (d.kind === 'chat') chatPull(); else if (d.kind === 'challenge') rivalsPull(); else if (d.kind === 'live') { streamPull(); refetch(); } else refetch(); }); // arrived with the app open
@@ -3084,7 +3087,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var out = !me || AM === 'new';
     $('aOut').hidden = !out; $('aIn').hidden = out;
     if (me) $('aWho').textContent = me.email || '';
-    if (!out) { $('aTitle').textContent = 'Your account'; return; }
+    if (!out) { $('aTitle').textContent = 'Your account'; if (DROID) renderNotes(); return; }
     var T = { in: ['Sign in', 'Welcome back. Sign in to get your teams, your player and your stats.'], up: ['Create an account', 'An account links you to your player on each team, and lets gaffers run their teams.'],
       forgot: ['Reset your password', 'Enter the email you signed up with and we’ll send you a link to choose a new password.'], new: ['Choose a new password', 'Pick a new password for ' + ((me && me.email) || 'your account') + '. At least 8 characters.'] }[AM] || ['Sign in', ''];
     $('aTitle').textContent = T[0]; $('aLead').textContent = T[1];
@@ -5582,13 +5585,31 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- extras when running as the iOS app: lock-screen alerts for changes, haptics, screen kept awake
   var NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  var DROID_PLUGINS = ['Haptics']; // what the Android app uses; everything else (the watch, cutting, filming, notifications until they're set up) is iPhone only
+  var DROID_PLUGINS = ['Haptics', 'GafferAndroid']; // what the Android app uses (and PushNotifications once the build has Firebase); everything else (the watch, cutting, filming) is iPhone only
   function plugin(name) {
     if (!NATIVE || (DROID && DROID_PLUGINS.indexOf(name) < 0)) return null;
     var C = window.Capacitor;
     try { return (C.Plugins && C.Plugins[name]) || (C.registerPlugin ? C.registerPlugin(name) : null); } catch (e) { return null; }
   }
   var Haptics = plugin('Haptics'), Notes = plugin('LocalNotifications'), KeepAwake = plugin('KeepAwake');
+  // Notifications on Android come through Google's Firebase, which is only in builds made with the team's Firebase file
+  // (android.yml, GOOGLE_SERVICES_JSON). The app asks its own small plugin whether it's there before using them: without
+  // it, asking for a phone's address would crash the app.
+  if (DROID) (function () {
+    var GA = plugin('GafferAndroid'); if (!GA) return;
+    try {
+      GA.pushReady().then(function (r) {
+        if (!r || !r.ready || DROID_PLUGINS.indexOf('PushNotifications') >= 0) return;
+        DROID_PLUGINS.push('PushNotifications');
+        var P = plugin('PushNotifications'); if (!P) return;
+        try { // Android plays a notification's sound by its channel: the whistle for the games, the phone's usual sound for the chat
+          P.createChannel({ id: 'game', name: 'Games and goals', description: 'Polls, kick-off, goals and highlights', importance: 4, sound: 'whistle.wav', vibration: true, visibility: 1 }).catch(function () {});
+          P.createChannel({ id: 'chat', name: 'Squad chat', description: 'Messages in the team’s chat', importance: 4, vibration: true, visibility: 1 }).catch(function () {});
+        } catch (e) {}
+        pushSetup(); if (S.view === 'account') renderAccount();
+      }, function () {});
+    } catch (e) {}
+  })();
   // ---- Apple Watch: the phone sends the game to the watch app, and the watch sends goals and highlights back
   var Watch = plugin('WatchLink'), watchLast = '', watchT = null, watchSeen = {}, watchSentAt = 0, watchQueue = [];
   try { watchSeen = JSON.parse(localStorage.getItem('apt-watch-seen')) || {}; } catch (e) {} // remembered across restarts, so a press the watch repeats is never counted twice
@@ -6970,14 +6991,16 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var P = plugin('PushNotifications'), btn = $('ntfOn'); $('ntfSec').hidden = !P; if (!P) return;
     var say = function (t, ask) { $('ntfNote').textContent = t; btn.hidden = !ask; };
     if (!sb || !me) { say('Sign in and join the squad as yourself to be told about game polls, kick-off, goals, highlights and the squad chat.'); return; }
-    if (myPid == null && role !== 'owner') { say('Join the squad as yourself (on the team’s Home screen) to be told about game polls, kick-off, goals, highlights and the squad chat.'); return; }
+    if (myPid == null && role !== 'owner') { say('Join the squad as yourself (on the ' + (DROID ? 'Team tab' : 'team’s Home screen') + ') to be told about game polls, kick-off, goals, highlights and the squad chat.'); return; }
     say('');
     try {
       P.checkPermissions().then(function (r) {
         var st = r && r.receive;
-        if (st === 'granted') say('On. This iPhone is told about game polls, kick-off, goals, highlights and the squad chat.');
-        else if (st === 'denied') say('Off. Notifications were turned off for Gaffer, so your iPhone won’t ask again. To turn them on: open the Settings app, scroll down to Gaffer, tap Notifications, and switch on Allow Notifications.');
-        else say('Not on yet. Game polls, kick-off, goals, highlights and the squad chat can come to this iPhone.', true);
+        var ph = DROID ? 'phone' : 'iPhone';
+        if (st === 'granted') say('On. This ' + ph + ' is told about game polls, kick-off, goals, highlights and the squad chat.');
+        else if (st === 'denied') say(DROID ? 'Off. Notifications were turned off for Gaffer. To turn them on: open your phone’s Settings, tap Apps, then Gaffer, then Notifications, and switch them on.'
+          : 'Off. Notifications were turned off for Gaffer, so your iPhone won’t ask again. To turn them on: open the Settings app, scroll down to Gaffer, tap Notifications, and switch on Allow Notifications.');
+        else say('Not on yet. Game polls, kick-off, goals, highlights and the squad chat can come to this ' + ph + '.', true);
       }, function () { say('Couldn’t check whether notifications are on.', true); });
     } catch (e) { say('', true); }
   }

@@ -34,7 +34,8 @@ async function serve() {
 
 /// One phone. `db: true` gives it the stand-in database (shared by every phone opened from the same `world`);
 /// without it the app runs on its own, as it does with no account. `native: true` makes it think it is the iOS app;
-/// `android: true` the Android app (which has none of the iPhone's plugins: anything it asks of them is noted in __t.asked).
+/// `android: true` the Android app (which has none of the iPhone's plugins: anything it asks of them is noted in __t.asked);
+/// `firebase: true` makes it a build with the team's Firebase file, so it has notifications (a stand-in for Firebase's, in __t.push).
 export async function world() {
   await serve();
   const local = '/opt/pw-browsers/chromium';
@@ -44,7 +45,7 @@ export async function world() {
   let held = null, release = () => {}; // live updates between phones can be held back for a moment, to make two things happen "at once"
   let worldT = T0 + 1500; // every phone in a world keeps the same time, as real phones do
   const advance = async (ms, skip) => { for (let left = ms; left > 0; left -= 250) for (const c of clocks) if (c !== skip) await c.runFor(Math.min(250, left)); worldT += ms; };
-  const phone = async ({ db = false, native = false, android = false, clock = true, label = 'phone', storage = null, viewport = { width: 390, height: 844 }, scale = 1 } = {}) => {
+  const phone = async ({ db = false, native = false, android = false, firebase = false, clock = true, label = 'phone', storage = null, viewport = { width: 390, height: 844 }, scale = 1 } = {}) => {
     const at = worldT - 1500;
     const ctx = await browser.newContext({ viewport, deviceScaleFactor: scale, storageState: storage || undefined, serviceWorkers: 'block', timezoneId: 'Europe/London', locale: 'en-GB' }); // (a bigger screen and scale: the App Store pictures, store/make.mjs)
     made.push(ctx);
@@ -71,14 +72,23 @@ export async function world() {
         schedule: async ({ notifications }) => { notifications.forEach((n) => { T.pending.push(n); T.notes.push({ title: n.title, body: n.body, at: +n.schedule.at }); }); } };
       window.Capacitor = { isNativePlatform: () => true, Plugins: { WatchLink: WL, LocalNotifications: LN, Haptics: { impact: async () => {}, notification: async (o) => { T.haptics.push(o.type); } }, KeepAwake: { keepAwake: async () => {}, allowSleep: async () => {} } } };
     });
-    if (android) await ctx.addInitScript(() => {
-      const T = window.__t = { asked: [], haptics: [] };
+    if (android) await ctx.addInitScript((fb) => {
+      const T = window.__t = { asked: [], haptics: [], push: { perm: 'prompt', calls: [], channels: [], on: {} } };
       const missing = (name) => new Proxy({}, { get: (o, k) => (k === 'then' ? undefined : (...a) => { T.asked.push(name + '.' + String(k)); return Promise.reject(new Error('"' + name + '" plugin is not implemented on android')); }) });
-      const have = { Haptics: { impact: async () => {}, notification: async (o) => { T.haptics.push(o.type); } } };
+      const have = { Haptics: { impact: async () => {}, notification: async (o) => { T.haptics.push(o.type); } }, GafferAndroid: { pushReady: async () => ({ ready: fb }) } };
+      const N = T.push; // Firebase's notifications, as the Capacitor plugin gives them to the web app
+      if (fb) have.PushNotifications = {
+        addListener: async (n, f) => { (N.on[n] = N.on[n] || []).push(f); return { remove() {} }; },
+        checkPermissions: async () => { N.calls.push('check'); return { receive: N.perm }; },
+        requestPermissions: async () => { N.calls.push('ask'); if (N.perm !== 'denied') N.perm = N.answer || 'granted'; return { receive: N.perm }; },
+        register: async () => { N.calls.push('register'); setTimeout(() => (N.on.registration || []).forEach((f) => f({ value: 'fcm-' + 'x'.repeat(150) })), 10); },
+        createChannel: async (c) => { N.channels.push(c); },
+      };
+      window.__tap = (data) => (N.on.pushNotificationActionPerformed || []).forEach((f) => f({ actionId: 'tap', notification: { data } }));
       // Capacitor's Android bridge: plugins it doesn't have still come back from registerPlugin, and fail only when used
       window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', isPluginAvailable: (n) => n in have, Plugins: new Proxy(have, { get: (o, k) => (k in o ? o[k] : typeof k === 'string' ? missing(k) : undefined) }),
         registerPlugin: (n) => have[n] || missing(n) };
-    });
+    }, firebase);
     if (db) {
       await ctx.addInitScript((url) => { window.__mockRemote = url; }, '/__db/' + id);
       const relay = (from, msg) => { for (const other of pages) if (other !== from && !frozen.has(other)) other.evaluate((m) => window.__rtRecv && !window.__offline && window.__rtRecv(m), msg).catch(() => {}); };

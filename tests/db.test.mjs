@@ -114,6 +114,13 @@ eq([await d.rpc(jake, 'register_push', { p_token: tok }), await d.rpc(jake, 'reg
 eq([await d.rpc(ethan, 'team_push', { p_code: sop.code }), await d.rpc(jake, 'team_push', { p_code: sop.code })], [[3], null], 'the gaffer is told which players have notifications on; players are not');
 eq([await d.rpc(sam, 'register_push', { p_token: tok }), await d.rpc(ethan, 'team_push', { p_code: sop.code })], [true, []], 'the same phone signing in as someone else moves to them');
 eq([await d.rpc(jake, 'unregister_push', { p_token: tok }), (await d.admin('select count(*)::int as n from public.push_tokens'))[0].n], [true, 1], 'signing out only removes your own registration');
+// the Android app (0030): its Firebase addresses are longer, and the phone is marked Android so the server sends through Google
+const fcmTok = 'f'.repeat(163), plat = async (t) => ((await d.admin(`select platform from public.push_tokens where token = '${t}'`))[0] || {}).platform;
+eq([await d.rpc(jake, 'register_push', { p_token: fcmTok, p_platform: 'android' }), await plat(fcmTok), await d.rpc(ethan, 'team_push', { p_code: sop.code })], [true, 'android', [3]], 'an Android phone registers as one, and counts for the gaffer like any other');
+eq([await d.rpc(jake, 'register_push', { p_token: 'g'.repeat(64), p_platform: 'windows' }), await d.rpc(jake, 'register_push', { p_token: 'g'.repeat(401), p_platform: 'android' })], [false, false], 'an unknown kind of phone or an over-long address is refused');
+eq([await d.rpc(sam, 'register_push', { p_token: 'b'.repeat(64) }), await plat('b'.repeat(64))], [true, 'ios'], 'older iPhone builds (no kind given) are iPhones');
+eq([await d.rpc(jake, 'unregister_push', { p_token: fcmTok }), await plat(fcmTok)], [true, undefined], 'and signing out takes the Android phone off too');
+await d.rpc(sam, 'unregister_push', { p_token: 'b'.repeat(64) });
 
 // ---------- a second gaffer
 eq(await d.rpc(third, 'join_as_organiser', { p_organiser_code: sop.organiser_code.toLowerCase() }), sop.code, 'the gaffer code lets a second gaffer in');

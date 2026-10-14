@@ -278,7 +278,7 @@
     }
     if (name === 'chat_delete') { const m = d.messages.find((x) => x.id === a.p_id); if (!m || (m.user_id !== uid() && !isOrg(d, m.team_id))) return ok(false); d.messages = d.messages.filter((x) => x.id !== a.p_id); store(d); return ok(true); }
     if (name === 'chat_report') { d.reports.push({ message_id: a.p_id, user_id: uid() }); store(d); return ok(true); }
-    if (name === 'register_push') { d.push = d.push || []; if (uid() && d.push.indexOf(uid()) < 0) d.push.push(uid()); store(d); return ok(true); }
+    if (name === 'register_push') { d.push = d.push || []; if (uid() && d.push.indexOf(uid()) < 0) d.push.push(uid()); d.pushOs = d.pushOs || {}; if (uid()) d.pushOs[uid()] = a.p_platform || 'ios'; store(d); return ok(true); }
     if (name === 'report_stream') { const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!uid()) return { data: null, error: { message: 'Sign in first' } }; if (!t) return ok(false); d.stream_reports = (d.stream_reports || []).filter((r) => !(r.team_id === t.id && r.user_id === uid())); d.stream_reports.push({ team_id: t.id, user_id: uid(), reason: a.p_reason || '' }); store(d); return ok(true); }
     if (name === 'delete_my_account') { // as the real one: teams you run on your own go with you, your player is unclaimed, your profile, follows and posts go
       const me = uid(); if (!me) return { data: null, error: { message: 'Sign in first' } };

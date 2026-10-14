@@ -202,6 +202,49 @@ eq([(await rep('tok-chaplin', 'chat')).sent, APNS[0].payload.aps.alert.body], [1
 eq((await rep(null, 'post')).status, 401, 'and nobody signed out can set it off');
 APNS.length = 0;
 
+// ---------- team-notify: Android phones (the players' app) are sent theirs through Google's Firebase Cloud Messaging
+const FCM = [], OAUTH = [], fcmDead = new Set();
+const preFcm = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => {
+  url = String(url);
+  if (url === 'https://oauth2.googleapis.com/token') { OAUTH.push(Object.fromEntries(new URLSearchParams(String(init.body)))); return new Response(JSON.stringify({ access_token: 'g-token', expires_in: 3600 }), { status: 200 }); }
+  const m = url.match(/^https:\/\/fcm\.googleapis\.com\/v1\/projects\/([^/]+)\/messages:send$/);
+  if (m) { const b = JSON.parse(init.body); FCM.push({ project: m[1], auth: init.headers.authorization, message: b.message });
+    return fcmDead.has(b.message.token) ? new Response(JSON.stringify({ error: { code: 404, status: 'NOT_FOUND', message: 'Requested entity was not found.', details: [{ errorCode: 'UNREGISTERED' }] } }), { status: 404 }) : new Response(JSON.stringify({ name: 'projects/x/messages/1' }), { status: 200 }); }
+  return preFcm(url, init);
+};
+const droid = 'fcm-' + 'j'.repeat(150);
+DB.push_tokens = DB.push_tokens.filter((t) => t.user_id !== 'u-jake').concat([{ user_id: 'u-jake', token: droid, platform: 'android' }]);
+const poll = () => notify('tok-ethan', { code: 'SOPFC1', kind: 'poll', title: 'SOP FC v Rovers', body: 'Wed 19:30. Are you in?' });
+r = await poll();
+eq([r.sent, FCM.length, APNS.map((a) => a.to).sort()], [2, 0, ['phone-chaplin', 'phone-dan']], 'without a Google service account the iPhones are still told; the Android phone is skipped, not the whole lot');
+APNS.length = 0;
+const { privateKey: saKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+ENV.GOOGLE_SERVICE_ACCOUNT = JSON.stringify({ type: 'service_account', project_id: 'gaffer-voice', client_email: 'voice@gaffer-voice.iam.gserviceaccount.com', private_key: saKey.export({ type: 'pkcs8', format: 'pem' }) });
+r = await poll();
+const f0 = FCM[0] || { message: { android: { notification: {} }, notification: {}, data: {} } };
+eq([r.sent, FCM.length, APNS.length, f0.project, f0.auth, f0.message.token], [3, 1, 2, 'gaffer-voice', 'Bearer g-token', droid], 'with it, Jake\'s Android phone goes through Firebase (signed in as the service account, in its project) and the iPhones through Apple');
+eq([f0.message.notification.title, f0.message.notification.body, f0.message.data, f0.message.android.notification.channel_id, f0.message.android.notification.sound, f0.message.android.priority],
+  ['SOP FC v Rovers', 'Wed 19:30. Are you in?', { code: 'SOPFC1', kind: 'poll' }, 'game', 'whistle', 'HIGH'], 'the same words, the team and kind for where tapping it goes, on the games channel with the whistle');
+const jwt = (OAUTH[0] || {}).assertion || '', claim = JSON.parse(Buffer.from((jwt.split('.')[1] || 'e30').replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString());
+eq([claim.iss, claim.scope, crypto.verify('sha256', Buffer.from(jwt.split('.').slice(0, 2).join('.')), crypto.createPublicKey(saKey), Buffer.from((jwt.split('.')[2] || '').replace(/-/g, '+').replace(/_/g, '/'), 'base64'))],
+  ['voice@gaffer-voice.iam.gserviceaccount.com', 'https://www.googleapis.com/auth/firebase.messaging', true], 'Google is asked for a Firebase Cloud Messaging sign-in, signed with the service account\'s own key');
+FCM.length = 0; APNS.length = 0;
+DB.messages = [{ id: 'm1', team_id: 't-sop', user_id: 'u-chaplin', name: 'Chaplin', body: 'Who is driving?', created_at: new Date().toISOString() }];
+await notify('tok-chaplin', { code: 'SOPFC1', kind: 'chat', message: 'm1' });
+eq([FCM.length, FCM[0] && FCM[0].message.android.notification.channel_id, FCM[0] && FCM[0].message.android.notification.sound], [1, 'chat', 'default'], 'the chat goes to the chat channel, with the phone\'s usual sound');
+FCM.length = 0; APNS.length = 0;
+const danDroid = 'fcm-' + 'd'.repeat(150), danWas = DB.push_tokens.find((t) => t.user_id === 'u-dan');
+DB.push_tokens = DB.push_tokens.filter((t) => t !== danWas).concat([{ user_id: 'u-dan', token: danDroid, platform: 'android' }]); // Dan, a gaffer, with the Android app
+await notify('tok-chaplin', { code: 'SOPFC1', kind: 'claimed' });
+eq([FCM.length, APNS.map((a) => a.to)], [0, ['phone-ethan']], 'a gaffer\'s own kind (a player claiming their profile) isn\'t sent to the Android app, which has no gaffer\'s side');
+DB.push_tokens = DB.push_tokens.filter((t) => t.token !== danDroid).concat([danWas]);
+FCM.length = 0; APNS.length = 0;
+fcmDead.add(droid); r = await poll();
+eq([r.sent, DB.push_tokens.some((t) => t.token === droid), DB.push_tokens.length], [2, false, 3], 'an Android phone Google says is gone (the app was uninstalled) is forgotten, like a dead iPhone');
+eq(OAUTH.length, 1, 'and Gaffer stays signed in to Google for the hour, not once a notification');
+globalThis.fetch = preFcm; delete ENV.GOOGLE_SERVICE_ACCOUNT; APNS.length = 0; reset();
+
 // ---------- the commentary voice (reel-voice): the team's gaffers, and its players for their own reels; nobody else
 DB.voice_usage = [];
 const voiceFn = await load('reel-voice');

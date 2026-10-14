@@ -3,7 +3,7 @@
   "appName": "Tactics",
   "webDir": "www",
   "android": {
-    "includePlugins": ["@capacitor/haptics"]
+    "includePlugins": ["@capacitor/haptics", "@capacitor/push-notifications"]
   },
   "ios": {
     "contentInset": "never",

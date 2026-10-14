@@ -78,7 +78,11 @@ polls for games and the squad chat. Nothing a gaffer does is in it, and it never
   run → Artifacts → `gaffer-android-<number>`, unzip it and open the `.apk` on the phone (Android asks to allow installs
   from that app the first time). Until the app has its Google Play upload key, each build is signed with a different
   throwaway key, so uninstall the old one first.
-- Not yet: notifications on Android (they need Firebase), and Google Play itself.
+- Notifications come through Google's Firebase. Once, in the Firebase console: add Firebase to the Google Cloud project the
+  AI voice uses, add an Android app `com.randomedp.aipoweredtactics`, download its `google-services.json` and paste it whole
+  into the repository secret `GOOGLE_SERVICES_JSON`; then in Google Cloud → IAM, give the voice's service account the role
+  "Firebase Cloud Messaging API Admin". Every Android build after that has notifications.
+- Not yet: Google Play itself.
 
 ## Security model
 

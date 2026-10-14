@@ -19,6 +19,9 @@
 //   APNS_KEY_P8   the contents of an Apple Push Notifications key (.p8)
 //   APNS_KEY_ID   that key's ID
 //   APPLE_TEAM_ID the Apple developer team ID
+// Android phones (push_tokens.platform 'android') are sent theirs through Google's Firebase Cloud Messaging, signed in as
+// the Google service account the voice uses (GOOGLE_SERVICE_ACCOUNT, which needs the "Firebase Cloud Messaging API Admin"
+// role, with Firebase added to its Google project), or FCM_SERVICE_ACCOUNT if Firebase is in a different project.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -39,6 +42,28 @@ async function apnsJwt(p8: string, keyId: string, teamId: string) {
   return head + "." + b64url(sig);
 }
 
+// Signs in to Google as the service account, for Firebase Cloud Messaging; kept for most of the hour it lasts.
+let fcm: { token: string; until: number; project: string } | null = null;
+async function fcmSignIn() {
+  const raw = (Deno.env.get("FCM_SERVICE_ACCOUNT") || Deno.env.get("GOOGLE_SERVICE_ACCOUNT") || "").trim();
+  if (!raw) return null;
+  if (fcm && Date.now() < fcm.until) return fcm;
+  const account = JSON.parse(raw) as { client_email?: string; private_key?: string; project_id?: string };
+  if (!account.client_email || !account.private_key || !account.project_id) throw new Error("the service account secret isn't a service account key file");
+  const der = Uint8Array.from(atob(account.private_key.replace(/-----[^-]+-----/g, "").replace(/\\n/g, "").replace(/\s+/g, "")), (c) => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const now = Math.floor(Date.now() / 1000);
+  const claim = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" })) + "." + b64url(JSON.stringify({ iss: account.client_email, scope: "https://www.googleapis.com/auth/firebase.messaging", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 }));
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(claim));
+  const res = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: claim + "." + b64url(signature) }) });
+  const out = await res.json().catch(() => ({}));
+  if (!out.access_token) throw new Error(`Google wouldn't sign the service account in: ${out.error_description || out.error || res.status}`);
+  fcm = { token: out.access_token, project: account.project_id, until: Date.now() + (Math.max(300, Number(out.expires_in) || 3600) - 120) * 1000 };
+  return fcm;
+}
+
+const DROID_KINDS = ["kickoff", "goal", "poll", "nudge", "highlights", "chat"];
 const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge", "join", "live", "report"];
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
@@ -56,16 +81,32 @@ Deno.serve(async (req: Request) => {
 
     const p8 = Deno.env.get("APNS_KEY_P8"), keyId = Deno.env.get("APNS_KEY_ID"), teamId = Deno.env.get("APPLE_TEAM_ID");
     let jwt = "";
-    // Sends one notification to every phone those people have signed up, and forgets phones Apple says are gone.
+    // Sends one notification to every phone those people have signed up, and forgets phones Apple or Google say are gone.
     const send = async (people: string[], code: string, as: string, heading: string, words: string) => {
       const users = [...new Set(people)].filter((u) => u && u !== who.user.id);
       if (!users.length) return 0;
-      const { data: phones } = await db.from("push_tokens").select("token").in("user_id", users);
-      if (!phones?.length) return 0;
+      const { data: all } = await db.from("push_tokens").select("token,platform").in("user_id", users);
+      if (!all?.length) return 0;
+      // (the Android app is for players: polls, the game, highlights and the chat, so the gaffers' own kinds and streams aren't sent to it)
+      const phones = all.filter((p) => p.platform !== "android"), droids = DROID_KINDS.includes(as) ? all.filter((p) => p.platform === "android") : [];
+      let sent = 0; const dead: string[] = [];
+      if (droids.length) { // Android: Firebase Cloud Messaging. The whistle and the chat's usual sound are the app's two channels.
+        let g: Awaited<ReturnType<typeof fcmSignIn>> = null;
+        try { g = await fcmSignIn(); } catch (e) { console.error("Android notifications: " + String((e as Error)?.message || e)); }
+        if (g) await Promise.all(droids.map(async (p) => {
+          const res = await fetch(`https://fcm.googleapis.com/v1/projects/${g!.project}/messages:send`, { method: "POST", headers: { authorization: `Bearer ${g!.token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ message: { token: p.token, notification: { title: heading, body: words }, data: { code: String(code || ""), kind: as },
+              android: { priority: "HIGH", ttl: "3600s", notification: { channel_id: as === "chat" ? "chat" : "game", icon: "ic_stat_gaffer", color: "#5629D7", sound: as === "chat" ? "default" : "whistle" } } } }) });
+          if (res.ok) { sent++; return; }
+          const r = await res.json().catch(() => ({})), err = (r as { error?: { status?: string; message?: string; details?: { errorCode?: string }[] } }).error || {};
+          if (res.status === 404 || err.status === "NOT_FOUND" || (err.details || []).some((d) => d.errorCode === "UNREGISTERED") || /registration token/i.test(String(err.message || ""))) dead.push(p.token);
+          else console.error(`Android notification refused (${res.status}): ${err.message || ""}`);
+        }));
+      }
+      if (!phones.length) { if (dead.length) await db.from("push_tokens").delete().in("token", dead); return sent; }
       if (!jwt) jwt = await apnsJwt(p8!, keyId!, teamId!);
       // a referee's whistle (bundled with the app; phones on an older version without it get the usual sound), except for chat
       const payload = JSON.stringify({ aps: { alert: { title: heading, body: words }, sound: as === "chat" ? "default" : "whistle.wav" }, code, kind: as });
-      let sent = 0; const dead: string[] = [];
       await Promise.all(phones.map(async (p) => {
         const res = await fetch(`https://api.push.apple.com/3/device/${p.token}`, { method: "POST", body: payload,
           headers: { authorization: `bearer ${jwt}`, "apns-topic": BUNDLE, "apns-push-type": "alert", "apns-priority": "10", "apns-expiration": String(Math.floor(Date.now() / 1000) + 3600) } });

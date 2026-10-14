@@ -119,6 +119,7 @@ eq([await back(J), await J.view()], [false, 'home'], 'and back on the team page 
 // ---------- the account: signing out and deleting it are a tap away
 await J.click('#tabs [data-tab="profile"]'); await J.run(400);
 eq([await J.view(), await J.visible('#aDelete'), await J.visible('#aSignOut'), await J.visible('#aOrgSec')], ['account', true, true, false], 'Account has Sign out and Delete my account, and no joining as a gaffer');
+eq([await J.visible('#ntfSec'), await J.page.evaluate(() => window.__t.push.calls.length)], [false, 0], 'a build without the team\'s Firebase file offers no notifications, and never asks Firebase for anything (it would crash)');
 
 await shot(J, 'account');
 // ---------- nothing else can be reached, even by a link
@@ -138,8 +139,43 @@ await G.run(5000);
 eq(JSON.stringify([w.db().teams, w.db().players, w.db().games, w.db().fixtures]), before, 'and it never writes the team, its players, games or polls');
 check(!(await G.page.$('#termsPop:not([hidden])')), 'no pop-ups');
 
-// ---------- none of the iPhone's plugins are asked for (Android hasn't got them; notifications aren't set up there yet)
-for (const P of [J, G]) eq(await P.page.evaluate(() => window.__t.asked), [], P.label + ': no iPhone-only plugin was used');
-for (const P of [A, J, G]) eq(P.errs, [], P.label + ': no errors');
+// ---------- notifications, in a build with the team's Firebase file: Chaplin on another Android phone
+const C = await w.phone({ db: true, android: true, firebase: true, label: 'chaplin (android)' });
+await C.page.fill('#joinCode', code); await C.click('#joinBtn'); await C.run(500);
+await C.click('#joinList [data-pid="3"]'); await C.page.fill('#jLast', 'Chaplin'); await C.page.fill('#jNum', '9'); await C.click('#joinList [data-pos="def"]');
+await C.page.fill('#jEmail', 'chaplin@example.com'); await C.page.fill('#jUser', 'chaplin_c'); await C.page.fill('#jPass', 'longpassword'); await C.check('#jTerms'); await C.click('#joinList [data-do="up"]'); await C.run(800);
+await C.click('#pendCard [data-go="account"]'); await C.page.fill('#aEmail', 'chaplin@example.com'); await C.page.fill('#aPass', 'longpassword'); await C.click('#aSignIn'); await C.run(2500);
+const chans = await C.page.evaluate(() => window.__t.push.channels);
+eq(chans.map((c) => [c.id, c.sound || null, c.importance]), [['game', 'whistle.wav', 4], ['chat', null, 4]], 'the app makes Android\'s two channels: games with the referee\'s whistle, the chat with the phone\'s usual sound');
+eq([await C.visible('#pushPop'), await C.text('#pushNext')], [true, 'Your phone will ask next. You can change this any time on the Account tab.'], 'once Chaplin is in the squad, Gaffer says what the notifications are for before Android asks');
+check(!(await C.page.evaluate(() => window.__t.push.calls.includes('register'))), 'nothing is registered before he says yes');
+await C.click('#pushYes'); await C.run(800);
+const os = () => (w.db().pushOs || {})[w.db().users.find((u) => u.email === 'chaplin@example.com').id];
+eq([await C.page.evaluate(() => window.__t.push.calls.filter((x) => x === 'ask' || x === 'register')), os()], [['ask', 'register'], 'android'], 'Yes: Android asks, and the phone is saved as an Android one (so the server sends it through Google)');
+await C.click('#tabs [data-tab="profile"]'); await C.run(400);
+eq([await C.visible('#ntfSec'), await C.text('#ntfNote'), await C.visible('#ntfOn')], [true, 'On. This phone is told about game polls, kick-off, goals, highlights and the squad chat.', false], 'the Account tab says notifications are on');
+await shot(C, 'notifications');
+// the gaffer's squad list stops saying Chaplin's notifications are off (Jake's phone, without them, still says so)
+await A.page.reload(); await A.run(2500); await A.click('#tabs [data-tab="home"]'); await A.run(500);
+const rowOf = async (n) => (await A.page.$$eval('#squadList .prow', (r) => r.map((x) => x.textContent))).find((x) => x.startsWith(n)) || '';
+eq([/Notifications off/.test(await rowOf('Chaplin')), /Notifications off/.test(await rowOf('Jake'))], [false, true], 'the gaffer\'s squad list: Chaplin\'s notifications are on, Jake\'s (no Firebase in his build) are off');
+// tapping one
+await C.page.evaluate((c) => window.__tap({ code: c, kind: 'chat' }), code); await C.run(800);
+eq(await C.view(), 'chat', 'tapping a chat notification opens the chat');
+await C.page.evaluate((c) => window.__tap({ code: c, kind: 'nudge' }), code); await C.run(800);
+eq(await C.view(), 'games', 'a nudge opens Games, to say if he\'s in');
+await C.page.evaluate((c) => window.__tap({ code: c, kind: 'highlights' }), code); await C.run(800);
+eq(await C.view(), 'highlights', 'highlights open Highlights');
+await C.page.evaluate((c) => window.__tap({ code: c, kind: 'goal' }), code); await C.run(1500);
+eq(await C.view(), 'home', 'a goal opens the team page (there\'s no game screen on Android)');
+// switched off in Android's settings: the phone is taken off, so the gaffer's list and nudge count stay honest
+await C.page.evaluate(() => { window.__t.push.perm = 'denied'; document.dispatchEvent(new Event('visibilitychange')); }); await C.run(1500);
+check(!(w.db().push || []).includes(w.db().users.find((u) => u.email === 'chaplin@example.com').id), 'notifications switched off in Android\'s settings: the phone is taken off the list');
+await C.click('#tabs [data-tab="home"]'); await C.click('#tabs [data-tab="profile"]'); await C.run(600);
+eq(await C.text('#ntfNote'), 'Off. Notifications were turned off for Gaffer. To turn them on: open your phone’s Settings, tap Apps, then Gaffer, then Notifications, and switch them on.', 'and the Account tab says exactly where to switch them back on');
+
+// ---------- none of the iPhone's plugins are asked for (Android hasn't got them)
+for (const P of [J, G, C]) eq(await P.page.evaluate(() => window.__t.asked), [], P.label + ': no iPhone-only plugin was used');
+for (const P of [A, J, G, C]) eq(P.errs, [], P.label + ': no errors');
 await w.close();
 done();
