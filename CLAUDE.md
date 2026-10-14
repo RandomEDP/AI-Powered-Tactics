@@ -202,6 +202,17 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Tapping a notification** routes by kind: chat → chat, challenge → rivals, poll/nudge → games, highlights →
   highlights, join → home, live → the stream.
 
+### Signing in and making an account (two pages; Ethan asked)
+- The welcome screen's Account card has **Sign in** (`#acctBtn`) and **Create account** (`#acctNew`); Create a team when
+  signed out opens Create account. Both are the one `v-account` view in a mode (`AM`, `acctOpen(mode)`, `renderAccount`):
+  `in` (email, password, Sign in, Forgot your password?), `up` (email, password, username, the terms box, Create account),
+  `forgot` (email, Send me a reset link: `resetPasswordForEmail`, back to the website) and `new` (choose a new password,
+  `updateUser({password})`). Opening the reset link signs them in for it and Supabase says `PASSWORD_RECOVERY`, which
+  opens `new`. After making an account (email still to confirm) it moves on to Sign in with the email kept.
+- The reset email is Supabase's own template and goes out through Supabase's mail, which has a small hourly limit on the
+  free plan (shared with confirmation emails). Tests: `signin.test.mjs`; the mock has `resetPasswordForEmail` and
+  `window.__recover(email)` for the link being opened.
+
 ### Ask to join (`0016_join_requests.sql`)
 - Someone with the team code whose name isn't in the squad still makes an account and fills in their details.
   `request_join` creates a pending request, and `team-notify` kind `join` tells the gaffers once per request.

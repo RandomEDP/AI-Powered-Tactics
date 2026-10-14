@@ -14,7 +14,7 @@ const toPeople = async (P) => { if (await P.view() === 'people') return; if (awa
 
 // ---------- signing up asks for a username, and keeps Ethan's back
 const A = await w.phone({ db: true, label: 'ethan' });
-await A.click('#acctBtn');
+await A.click('#acctNew');
 await A.page.fill('#aEmail', 'ethan@example.com'); await A.page.fill('#aPass', 'longpassword');
 await A.check('#aTerms'); await A.click('#aSignUp'); await A.run(300);
 eq(await msg(A), 'Pick a username for your account.', 'creating an account needs a username');
@@ -77,7 +77,7 @@ eq(w.db().profiles.find((p) => p.user_id === db.users[0].id).username, 'EDP', 'E
 
 // ---------- Sam (no team in common) finds Jake and asks to follow
 const S = await w.phone({ db: true, label: 'sam' });
-await S.click('#acctBtn'); await S.signUp('sam@example.com', 'samwise'); await S.run(500);
+await S.click('#acctNew'); await S.signUp('sam@example.com', 'samwise'); await S.run(500);
 await toPeople(S);
 await S.page.fill('#pplQ', 'chap'); await S.click('#pplGo'); await S.run(500);
 eq(await S.page.$$eval('#pplFound .prow .who', (b) => b.map((x) => x.textContent)), ['Jake Smith Private@Chappers'], 'people are found by name or username');
@@ -132,7 +132,7 @@ eq(await A.page.$$eval('#fdBody .feedcard', (c) => c.length), 0, 'but Ethan, in 
 const F = await w.phone({ db: true, label: 'follower of the team' }); // someone who follows SOP on this phone and follows Jake
 await F.page.fill('#joinCode', code); await F.click('#joinBtn'); await F.run(500); await F.click('#jFollow'); await F.run(800);
 await home(F); await F.run(300); await F.page.evaluate(() => { document.querySelector('[data-go="welcome"], #mSwitch') && document.querySelector('#mSwitch').click(); }); await F.run(300);
-await F.click('#acctBtn'); await F.signUp('fan@example.com', 'sop_fan'); await F.run(500);
+await F.click('#acctNew'); await F.signUp('fan@example.com', 'sop_fan'); await F.run(500);
 db = w.db(); const fan = db.users.find((u) => u.email === 'fan@example.com'); db.follows.push({ follower: fan.id, followee: 'u-jake', status: 'accepted' }); w.setDb(db);
 await F.click('#pplBtn'); await F.run(1200);
 eq(await F.page.$$eval('#fdBody .feedcard', (c) => c.length), 0, 'nor does someone who follows the team on their phone: they\'ve seen it there');

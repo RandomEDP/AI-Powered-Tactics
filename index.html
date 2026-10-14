@@ -905,7 +905,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <section id="myTeamsSec" hidden><h2>Your teams</h2><div class="menu" id="myTeams"></div></section>
   <div class="card"><h2>Start a team</h2><p class="note">Running a team? Set up your squad and colours, then share the code with your players.</p>
     <div class="actions"><button class="plain" id="createBtn" type="button">Create a team</button></div></div>
-  <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button></div></div>
+  <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button><button class="plain" id="acctNew" type="button">Create account</button></div></div>
   <button class="plain quiet" id="pplBtn" type="button">Open your feed<span class="pplBadge" hidden></span></button>
   <p class="note" id="sync2"></p>
   <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a> · <a class="plink" data-site="terms.html" href="terms.html">Terms of use</a></p>
@@ -920,16 +920,29 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 </div>
 
 <div class="view" id="v-account" hidden>
-  <div class="bar"><button class="back" type="button" data-go="welcome">Teams</button><h1>Your account</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="welcome">Teams</button><h1 id="aTitle">Your account</h1></div>
   <div id="aOut">
-    <p class="note">An account links you to your player on each team, and lets gaffers run their teams.</p>
-    <label class="field" for="aEmail">Email<input id="aEmail" type="email" autocomplete="email" inputmode="email"></label>
-    <label class="field" for="aPass">Password<input id="aPass" type="password" autocomplete="current-password" minlength="8"></label>
-    <label class="field" for="aUser">Username, for a new account<input id="aUser" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. jake_9"></label>
-    <p class="note">Only needed when you create an account: 3 to 20 letters, numbers or _. It’s how people find and follow you.</p>
-    <label class="check" for="aTerms"><input id="aTerms" type="checkbox"><span>I agree to the <a class="plink" data-site="terms.html" href="terms.html">Terms of use</a> <small>(needed to create an account: no abuse or offensive content, and reports are acted on within 24 hours)</small></span></label>
-    <div class="actions"><button class="plain primary" id="aSignIn" type="button">Sign in</button><button class="plain" id="aSignUp" type="button">Create account</button></div>
-    <p class="note">New accounts get a confirmation email. Tap the link once, then sign in here.</p>
+    <p class="note" id="aLead"></p>
+    <label class="field" for="aEmail" id="aEmailBox">Email<input id="aEmail" type="email" autocomplete="email" inputmode="email"></label>
+    <label class="field" for="aPass" id="aPassBox"><span id="aPassLabel">Password</span><input id="aPass" type="password" autocomplete="current-password" minlength="8"></label>
+    <div class="aup">
+      <label class="field" for="aUser">Username<input id="aUser" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. jake_9"></label>
+      <p class="note">3 to 20 letters, numbers or _. It’s how people find and follow you.</p>
+      <label class="check" for="aTerms"><input id="aTerms" type="checkbox"><span>I agree to the <a class="plink" data-site="terms.html" href="terms.html">Terms of use</a> <small>(no abuse or offensive content, and reports are acted on within 24 hours)</small></span></label>
+      <div class="actions"><button class="plain primary" id="aSignUp" type="button">Create account</button></div>
+      <p class="note">You’ll get a confirmation email. Tap the link once, then sign in.</p>
+      <p class="note">Already have an account? <button class="link" id="aToIn" type="button">Sign in</button></p>
+    </div>
+    <div class="ain">
+      <div class="actions"><button class="plain primary" id="aSignIn" type="button">Sign in</button><button class="link" id="aForgot" type="button">Forgot your password?</button></div>
+      <p class="note">New to Gaffer? <button class="link" id="aToUp" type="button">Create an account</button></p>
+    </div>
+    <div class="aforgot">
+      <div class="actions"><button class="plain primary" id="aResetSend" type="button">Send me a reset link</button><button class="link" id="aForgotBack" type="button">Back to sign in</button></div>
+    </div>
+    <div class="anew">
+      <div class="actions"><button class="plain primary" id="aNewSave" type="button">Save my new password</button></div>
+    </div>
   </div>
   <div id="aIn" hidden>
     <p class="msg">Signed in as <span id="aWho"></span></p>
@@ -1889,6 +1902,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!sb) { role = 'owner'; document.body.className = ''; setSync('local'); render(); return; }
     sb.auth.getSession().then(function (r) { me = r.data && r.data.session ? r.data.session.user : null; afterAuth(); });
     sb.auth.onAuthStateChange(function (ev, session) {
+      if (ev === 'PASSWORD_RECOVERY') { AM = 'new'; setTimeout(function () { aSay(''); go('account'); }, 0); } // (opened from the reset email)
       var was = me && me.id; me = session ? session.user : null;
       if ((me && me.id) !== was) afterAuth();
     });
@@ -2130,6 +2144,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- navigation
   var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live'];
   function go(view, keep) {
+    if (view !== 'account' && AM === 'new') AM = 'in'; // (choosing a new password is only ever where the reset link lands)
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
     if (view === 'cut' && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
@@ -2281,8 +2296,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       return '<button type="button" data-team="' + esc(t.code) + '"' + (t.code === A.active ? ' class="primary"' : '') + '>' + esc(t.name || t.code) +
         '<small class="code">' + esc(t.code) + (t.org && me ? ', gaffer' : '') + '</small></button>';
     }).join('');
-    $('acctLine').textContent = me ? 'Signed in as ' + (me.email || 'you') + '.' : 'Already joined a team or run one? Sign in to get your teams back.';
-    $('acctBtn').textContent = me ? 'Account' : 'Sign in';
+    $('acctLine').textContent = me ? 'Signed in as ' + (me.email || 'you') + '.' : 'New here? Create an account. Already joined a team or run one? Sign in to get your teams back.';
+    $('acctBtn').textContent = me ? 'Account' : 'Sign in'; $('acctNew').hidden = !!me;
     setSync(sb ? (me ? 'ok' : 'watch') : 'local');
     if (sb && me && myTeams === null) { // every team this account plays for or runs, wherever it was joined
       myTeams = [];
@@ -2302,7 +2317,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('joinBtn').addEventListener('click', joinTeam);
   $('joinCode').addEventListener('keydown', function (e) { if (e.key === 'Enter') joinTeam(); });
   $('mSwitch').addEventListener('click', function () { go('welcome'); });
-  $('createBtn').addEventListener('click', function () { if (me || !sb) go('create'); else { A.after = 'create'; go('account'); } });
+  $('createBtn').addEventListener('click', function () { if (me || !sb) go('create'); else { A.after = 'create'; acctOpen('up'); } });
 
   // ---- joining a team as a player: find the team by code, pick your player, make an account
   var J = null; // { code, d (what the database returned), team, open (pid being claimed), mode ('up' | 'in') }
@@ -3003,11 +3018,46 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- account: sign in with email and password
   function aSay(t, bad) { var el = $('aMsg'); el.textContent = t || ''; el.className = 'msg' + (bad ? ' bad' : ''); el.hidden = !t; }
+  // Signing in and making an account are two pages (Ethan): the same email and password boxes, with what each needs.
+  // 'in' sign in (with Forgot your password?), 'up' create an account, 'forgot' send a reset link, 'new' choose a new
+  // password (the reset link from the email opens Gaffer signed in for just that).
+  var AM = 'in';
+  function acctOpen(mode) { AM = mode || 'in'; aSay(''); go('account'); }
   function renderAccount() {
     var el = $('v-account'); if (!el) return;
-    $('aOut').hidden = !!me; $('aIn').hidden = !me;
+    var out = !me || AM === 'new';
+    $('aOut').hidden = !out; $('aIn').hidden = out;
     if (me) $('aWho').textContent = me.email || '';
+    if (!out) { $('aTitle').textContent = 'Your account'; return; }
+    var T = { in: ['Sign in', 'Welcome back. Sign in to get your teams, your player and your stats.'], up: ['Create an account', 'An account links you to your player on each team, and lets gaffers run their teams.'],
+      forgot: ['Reset your password', 'Enter the email you signed up with and we’ll send you a link to choose a new password.'], new: ['Choose a new password', 'Pick a new password for ' + ((me && me.email) || 'your account') + '. At least 8 characters.'] }[AM] || ['Sign in', ''];
+    $('aTitle').textContent = T[0]; $('aLead').textContent = T[1];
+    [['aup', 'up'], ['ain', 'in'], ['aforgot', 'forgot'], ['anew', 'new']].forEach(function (x) { el.querySelector('.' + x[0]).hidden = AM !== x[1]; });
+    $('aEmailBox').hidden = AM === 'new'; $('aPassBox').hidden = AM === 'forgot';
+    $('aPassLabel').textContent = AM === 'new' ? 'New password' : 'Password';
+    $('aPass').setAttribute('autocomplete', AM === 'in' ? 'current-password' : 'new-password');
   }
+  $('aToUp').addEventListener('click', function () { AM = 'up'; aSay(''); renderAccount(); });
+  $('aToIn').addEventListener('click', function () { AM = 'in'; aSay(''); renderAccount(); });
+  $('aForgot').addEventListener('click', function () { AM = 'forgot'; aSay(''); renderAccount(); });
+  $('aForgotBack').addEventListener('click', function () { AM = 'in'; aSay(''); renderAccount(); });
+  $('aResetSend').addEventListener('click', async function () {
+    var email = $('aEmail').value.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { aSay('Enter the email you signed up with.', true); return; }
+    aSay('Sending…');
+    try {
+      var r = await sb.auth.resetPasswordForEmail(email, { redirectTo: NATIVE_SITE || (location.origin + location.pathname) });
+      if (r && r.error) throw r.error;
+      aSay('If there’s an account for ' + email + ', a reset link is on its way. Open it on this phone, choose a new password, then sign in. Check your junk folder if it hasn’t come in a few minutes.');
+    } catch (e) { var m = (e && e.message) || ''; aSay(/rate|seconds/i.test(m) ? 'A reset link was sent a moment ago. Wait a minute before asking for another.' : 'Couldn’t send it. Check your signal and try again.', true); }
+  });
+  $('aNewSave').addEventListener('click', async function () {
+    var pw = $('aPass').value;
+    if (pw.length < 8) { aSay('Passwords need at least 8 characters.', true); return; }
+    aSay('Saving…');
+    try { var r = await sb.auth.updateUser({ password: pw }); if (r && r.error) throw r.error; $('aPass').value = ''; AM = 'in'; renderAccount(); aSay('Your new password is saved, and you’re signed in.'); }
+    catch (e) { aSay(/same|different/i.test((e && e.message) || '') ? 'That’s your old password. Choose a different one.' : 'Couldn’t save it. The reset link may have run out: ask for a new one.', true); }
+  });
   async function authDo(kind) {
     var email = $('aEmail').value.trim(), pw = $('aPass').value;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { aSay('Enter your email address.', true); return; }
@@ -3019,7 +3069,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (kind === 'up') {
         var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: NATIVE_SITE || (location.origin + location.pathname), data: { username: auser, terms: TERMS_V } } });
         if (r1.error) throw r1.error;
-        if (!r1.data.session) { aSay('Check your email and tap the link to confirm your account, then sign in here.'); return; }
+        if (!r1.data.session) { AM = 'in'; renderAccount(); aSay('Account made. Check your email and tap the link to confirm it, then sign in here.'); return; }
       } else {
         var r2 = await sb.auth.signInWithPassword({ email: email, password: pw });
         if (r2.error) throw r2.error;
@@ -3069,7 +3119,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   armed($('oDelete'), 'Tap again to delete it for good', function () { deleteMe(oSay); });
   // the privacy policy lives on the website; the iOS app opens it there
   document.querySelectorAll('[data-privacy],[data-site]').forEach(function (a) { a.href = siteHref(a.getAttribute('data-site') || 'privacy.html'); });
-  $('acctBtn').addEventListener('click', function () { go('account'); });
+  $('acctBtn').addEventListener('click', function () { acctOpen('in'); });
+  $('acctNew').addEventListener('click', function () { acctOpen('up'); });
   $('aOrgJoin').addEventListener('click', async function () {
     var c = $('aOrgCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (c.length !== 10) { aSay('Gaffer codes are 10 letters and numbers.', true); return; }
