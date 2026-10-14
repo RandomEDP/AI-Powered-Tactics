@@ -68,6 +68,18 @@ Everything is built on GitHub's Macs, so no Mac is needed.
 
 Never put the `.p8` key, or any secret, in the code or in chat. GitHub secrets are encrypted and only available to the build.
 
+## Android app (for players)
+
+The Android app is the same web app in Capacitor's Android shell, cut down for players: the team, its highlights, the
+polls for games and the squad chat. Nothing a gaffer does is in it, and it never changes the team.
+
+- `android/` is the Android project. `npx cap sync android` copies the web app into it.
+- `.github/workflows/android.yml` tests and builds it on every push. To try it: GitHub → Actions → Android → the latest
+  run → Artifacts → `gaffer-android-<number>`, unzip it and open the `.apk` on the phone (Android asks to allow installs
+  from that app the first time). Until the app has its Google Play upload key, each build is signed with a different
+  throwaway key, so uninstall the old one first.
+- Not yet: notifications on Android (they need Firebase), and Google Play itself.
+
 ## Security model
 
 - All tables have row level security. Only a team's organisers can read or change its rows directly.

@@ -18,7 +18,7 @@ await A.click('#meCard [data-me="pick"]'); await wait(300); await A.click('#join
 // shirt numbers, set in Settings, replace the initials on the line-up map
 await A.click('#mOptions'); await A.fill('#squad [data-shirt="8"]', '9'); await A.fill('#squad [data-shirt="1"]', '13'); await wait(1200); await A.click('#tabs [data-tab="home"]'); await wait(200);
 console.log('shirt numbers in db:', JSON.stringify((await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).players.filter((p) => p.shirt_number != null).map((p) => p.name + ' ' + p.shirt_number)))));
-console.log('bar on home:', await A.isVisible('#tabs'), '|', (await A.textContent('#tabs .tabrow')).replace(/\s+/g, ' ').trim());
+console.log('bar on home:', await A.isVisible('#tabs'), '|', (await A.$$eval('#tabs .tabrow button:not([hidden])', (b) => b.map((x) => x.textContent).join(' '))).replace(/\s+/g, ' ').trim()); // (only the tabs that show)
 await A.click('#tabs [data-tab="games"]'); await wait(300); console.log('games, empty:', await view(A), '|', await A.textContent('#gamesEmpty'));
 for (const [opp, date] of [['Athletico Pathetico', '2026-10-13'], ['Borussia Teeth', '2026-10-20'], ['Inter Row Z', '2026-10-27']]) {
   await A.click('#gamesNew'); await A.fill('#pOpp', opp); await A.fill('#pDate', date); await A.fill('#pTime', '19:30'); await A.click('#pSave'); await wait(700);

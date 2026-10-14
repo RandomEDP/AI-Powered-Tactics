@@ -2,6 +2,9 @@
   "appId": "com.randomedp.aipoweredtactics",
   "appName": "Tactics",
   "webDir": "www",
+  "android": {
+    "includePlugins": ["@capacitor/haptics"]
+  },
   "ios": {
     "contentInset": "never",
     "backgroundColor": "#1f6b4a",

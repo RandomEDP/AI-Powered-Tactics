@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gaffer</string>
+    <string name="title_activity_main">Gaffer</string>
+    <string name="package_name">com.randomedp.aipoweredtactics</string>
+    <string name="custom_url_scheme">com.randomedp.aipoweredtactics</string>
+</resources>

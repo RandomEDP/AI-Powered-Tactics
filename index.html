@@ -693,6 +693,9 @@ tr.past td { opacity: .45; }
 #tabs button[aria-current="page"] svg :is(path, rect, circle) { fill: currentColor; fill-opacity: .22; }
 #tabs[hidden] { display: none; }
 #tabs .tabrow { max-width: 552px; margin-inline: auto; display: grid; grid-template-columns: repeat(5, 1fr); }
+/* the Android app is for players: chat, polls and highlights, with nothing a gaffer does */
+html:not(.droid) #tabs .droidtab, html.droid #tabs [data-tab="feed"],
+html.droid :is(#wStart, #pplBtn, #introOpen, #aOrgSec, #mOptions, #mNew, #mResume, #mStats, #mInsights, #mBoard, #soonPill, #askCard, #liveCard, #squadSec, #homeNote, #gamesNew, #rivalsOpen, #kickPop, #pushPop, #unamePop) { display: none !important; }
 #boardBody { display: flex; flex-direction: column; gap: 14px; }
 .tbsvg { width: 100%; display: block; border-radius: var(--r-card); touch-action: none; user-select: none; -webkit-user-select: none; }
 .campitch { width: 100%; max-width: 300px; align-self: center; display: block; border-radius: var(--r-card); touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair; }
@@ -947,7 +950,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   </div>
   <div id="aIn" hidden>
     <p class="msg">Signed in as <span id="aWho"></span></p>
-    <section><h2>Join a team as a gaffer</h2><p class="note">Another gaffer can give you the team's 10-character gaffer code from Options.</p>
+    <section id="aOrgSec"><h2>Join a team as a gaffer</h2><p class="note">Another gaffer can give you the team's 10-character gaffer code from Options.</p>
       <div class="joinrow"><input id="aOrgCode" type="text" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Gaffer code"><button class="plain primary" id="aOrgJoin" type="button">Join</button></div></section>
     <div class="actions"><button class="plain" id="aSignOut" type="button">Sign out</button></div>
     <section><h2>Delete account</h2>
@@ -1117,9 +1120,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div class="tabrow">
     <button type="button" data-tab="feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Home</span><b class="pplBadge" hidden></b></button>
     <button type="button" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.9 7.5-9.5V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Team</span></button>
+    <button type="button" data-tab="highlights" class="droidtab" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>Highlights</span></button>
     <button type="button" data-tab="games"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Games</span><b id="tabBadge" hidden></b></button>
     <button type="button" data-tab="chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Chat</span><b id="chatBadge" hidden></b></button>
-    <button type="button" data-tab="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20.5c1.4-3.6 4.4-5.5 8-5.5s6.6 1.9 8 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Profile</span></button>
+    <button type="button" data-tab="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20.5c1.4-3.6 4.4-5.5 8-5.5s6.6 1.9 8 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span id="tabMe">Profile</span></button>
   </div>
 </nav>
 
@@ -1454,7 +1458,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   try { if (window.supabase && CFG.url && CFG.key) sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }); } catch (e) { sb = null; }
   var SESSION = Math.random().toString(36).slice(2, 10); // tells this device's own broadcasts apart from others'
   var me = null; // the signed-in gaffer account, if any
-  var NATIVE_SITE = /^https?:/.test(location.protocol) ? null : (CFG.siteUrl || null); // the iOS app sends confirmation links to the website
+  // The Android app is for players: the team's chat, answering polls and watching highlights. Nothing a gaffer does is in it
+  // (no team settings, games, cutting or streaming), and it never runs the team, even for a gaffer's account.
+  var DROID = !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'android');
+  var DROID_VIEWS = ['welcome', 'join', 'account', 'home', 'games', 'chat', 'highlights'];
+  if (DROID) { document.documentElement.classList.add('droid'); $('v-highlights').querySelector('.bar .back').hidden = true; } // (Highlights is a tab there)
+  var NATIVE_SITE = /^https?:/.test(location.protocol) && !DROID ? null : (CFG.siteUrl || null); // the apps send confirmation links to the website (Android's app is served from https://localhost)
 
   // ---- teams on this device. The team itself lives in the database; this device remembers which ones it follows
   // and keeps a copy of each so the app opens instantly and works with no signal.
@@ -1521,6 +1530,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
   var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live'];
   function setRole(r) {
+    if (DROID) r = 'viewer'; // (the Android app only ever follows the team)
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
     if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
   }
@@ -1687,7 +1697,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (S.view === 'home' || S.view === 'games') renderFixture();
       renderTabs(); tpLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
-      var org = !!d.is_organiser;
+      var org = !DROID && !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
       if (org && (dirty || syncing)) { if (!syncing) { clearTimeout(wt); wt = setTimeout(syncAll, 300); } return; } // our own edits are on their way up (sent now if they were waiting for this); theirs will arrive after
       var remote = fromRemote(d);
@@ -1706,7 +1716,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (org) { try { if (!localStorage.getItem(TKEY + code + ':scoreOn')) { localStorage.setItem(TKEY + code + ':scoreOn', '1'); flipScore = !S.followersCanScore; } } catch (e) {} }
       if (org) { try { localStorage.setItem(TKEY + code + ':synced', JSON.stringify(synced)); } catch (e) {} }
       setRole(org ? 'owner' : remote.followersCanScore ? 'scorer' : 'viewer');
-      setSync(org ? 'ok' : remote.followersCanScore ? 'watchS' : 'watch');
+      setSync(org ? 'ok' : remote.followersCanScore && !DROID ? 'watchS' : 'watch');
       if (org) pullGoals();
       if (flipScore) { S.followersCanScore = true; save(); } // teams made before everyone could log goals: switched on once, and Options can switch it off
       if (wantGame === code) { wantGame = null; if (S.match) go('game'); }
@@ -1784,7 +1794,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     try { crest = localStorage.getItem(TKEY + code + ':crest'); } catch (e) { crest = null; }
     try { var rc = JSON.parse(localStorage.getItem(TKEY + code + ':roster')) || {}; roster = rc.roster || {}; myPid = me && rc.myPid != null ? rc.myPid : null; fixtures = rc.fixtures || []; clips = rc.clips || []; preels = rc.reels || []; } catch (e) { roster = {}; myPid = null; fixtures = []; clips = []; preels = []; }
     applyTheme(); renderCrest(); upgrade(S.match); lastBlock = S.match ? curSeg(S.match) : -1; pick = null; outPick = null;
-    var org = !!(meta && meta.org && me);
+    var org = !DROID && !!(meta && meta.org && me);
     role = org ? 'owner' : 'viewer'; document.body.className = org ? '' : 'ro';
     saveLocal(); go(S.view);
     watchPush(); // anything the watch sent before this app knew who it was can be dealt with now
@@ -1817,7 +1827,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- "game started": a pop-up for everyone with the team open, and a notification for everyone else
   var wantGame = null, pushOn = false, pushSaved = null, pushToken = null, pushPids = {}, pushFor = null; // pushPids: claimed players with notifications on, as far as a gaffer is told
   function gameStarted(g) {
-    if (role === 'owner' || S.view === 'game' || S.view === 'live') { refetch(); return; } // (watching the stream: the picture shows the kick-off soon enough)
+    if (role === 'owner' || DROID || S.view === 'game' || S.view === 'live') { refetch(); return; } // (watching the stream: the picture shows the kick-off soon enough)
     $('kickPopText').textContent = 'Game started' + (g.opp ? ' v ' + g.opp : '') + '. Watch along.';
     $('kickPop').hidden = false; refetch();
   }
@@ -1945,7 +1955,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- the Terms of use: agreed to when the account is made (kept with the account), or, for accounts made before them,
   // in a pop-up the first time they open the app signed in. Apple's 1.2: everyone agrees there's no tolerance for abuse.
   var TERMS_V = 1, TERMS_SAY = 'Tick the box to agree to the Terms of use first.';
-  function siteHref(f) { return !/^https?:/.test(location.protocol) && CFG.siteUrl ? CFG.siteUrl + f : f; } // (the iOS app opens the website's copy)
+  function siteHref(f) { return (!/^https?:/.test(location.protocol) || DROID) && CFG.siteUrl ? CFG.siteUrl + f : f; } // (the apps open the website's copy)
   function termsBox(id) { return '<label class="check" for="' + id + '"><input id="' + id + '" type="checkbox"><span>I agree to the <a class="plink" href="' + esc(siteHref('terms.html')) + '">Terms of use</a> <small>(no abuse or offensive content, and reports are acted on within 24 hours)</small></span></label>'; }
   function termsMine() {
     if (!me) return true;
@@ -2148,6 +2158,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (view !== 'account' && AM === 'new') AM = 'in'; // (choosing a new password is only ever where the reset link lands)
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
+    if (DROID && DROID_VIEWS.indexOf(view) < 0) view = A.active ? 'home' : 'welcome';
     if (view === 'cut' && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
     if (view === 'highlights' && !hlKeep) hlFocus = null; hlKeep = false; // (only "Highlights" on a result picks out its game)
     if (view === 'cut' && !CUT) view = 'highlights';
@@ -2206,6 +2217,17 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var b = back(); if (dx > 80 && b) b.click();
     });
   })();
+  // The Android back button (MainActivity asks here first): closes what's open, then goes back a screen, then to the team
+  // page. False lets Android put the app away.
+  window.gafferBack = function () {
+    if (MH) { mhClose(); return true; }
+    if (!$('askPop').hidden) { $('askNo').click(); return true; }
+    if (!$('postView').hidden) { $('postView').hidden = true; PV.post = null; return true; }
+    var bar = curBar(), b = bar && bar.querySelector('.back');
+    if (b && !b.hidden && b.offsetParent !== null) { b.click(); return true; }
+    if (S.view !== 'home' && S.view !== 'welcome') { go(A.active ? 'home' : 'welcome'); return true; }
+    return false;
+  };
   function render() {
     renderTabs();
     if (S.view === 'intro') return;
@@ -2486,8 +2508,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var want = A.wantName || (me.user_metadata && me.user_metadata.username) || '';
     if (!MYP && want) {
       try { var r = await q(sb.rpc('set_profile', { p_username: want, p_name: myName(), p_private: false })); if (r.data === 'ok') MYP = (await q(sb.rpc('my_profile'))).data || null; } catch (e) {}
-      if (!MYP) unameOpen(true, want, 'Someone took @' + want + ' before your account was ready. Pick another.');
-    } else if (!MYP) unameOpen(true);
+      if (!MYP && !DROID) unameOpen(true, want, 'Someone took @' + want + ' before your account was ready. Pick another.');
+    } else if (!MYP && !DROID) unameOpen(true); // (the Android app has no profiles to show, so it doesn't ask)
     if (A.wantName) { A.wantName = null; saveApp(); }
     pplBadges(); if (S.view === 'people') renderPeople(); else if (S.view === 'feed') renderFeed(); else if (S.view === 'profile' && PF.tab && !PF.u && MYP) { PF.u = MYP.username; renderProfile(); }
   }
@@ -2525,7 +2547,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('pplBack').addEventListener('click', function () { go('feed'); });
   // ---- names that open profiles: which of the squad have a profile (team_people), so a name can be tapped through to it
   var TP = { code: null, map: {}, at: 0 };
-  function plink(pid, html) { var u = me && TP.code === A.active && TP.map[pid]; return u ? '<button type="button" class="plink" data-plink="' + esc(u) + '">' + html + '</button>' : html; }
+  function plink(pid, html) { var u = !DROID && me && TP.code === A.active && TP.map[pid]; return u ? '<button type="button" class="plink" data-plink="' + esc(u) + '">' + html + '</button>' : html; }
   async function tpLoad(force) {
     var code = A.active; if (!sb || !me || !code) return;
     if (!force && TP.code === code && Date.now() - TP.at < 60000) return;
@@ -3379,6 +3401,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       catch (e) { fxSay((e && e.message) || 'Couldn’t open your calendar.'); }
       return;
     }
+    if (DROID) { // Android's web view can't save a file, so Google Calendar opens with the game filled in
+      var gz = function (ms) { return new Date(ms).toISOString().replace(/[-:]|\.\d{3}/g, ''); };
+      window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(f.kind === 'tournament' ? teamName() + ': ' + f.opp : teamName() + ' vs ' + (f.opp || 'TBC')) +
+        '&dates=' + gz(f.ko_at) + '/' + gz(f.ko_at + (f.kind === 'tournament' ? 3 : 1) * 3600000) + (f.location ? '&location=' + encodeURIComponent(f.location) : '') + (f.cost ? '&details=' + encodeURIComponent('Cost: ' + f.cost) : ''), '_blank');
+      return;
+    }
     var a = document.createElement('a');
     a.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsFor(f)); a.download = (teamShort() + ' vs ' + (f.opp || 'game')).replace(/[^\w ]+/g, '').trim().replace(/\s+/g, '-') + '.ics';
     document.body.appendChild(a); a.click(); a.remove();
@@ -3483,9 +3511,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function renderTabs() {
     if (AUTO.io) setTimeout(feedPick, 0); // (leaving the feed stops its video)
     var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = role === 'owner';
+    if (DROID) show = !!A.active && DROID_VIEWS.indexOf(S.view) >= 0 && ['welcome', 'join'].indexOf(S.view) < 0; // (Team, Highlights, Games, Chat and Account)
+    $('tabMe').textContent = DROID ? 'Account' : 'Profile';
     $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
     var cur = S.view === 'profile' ? (PF.tab ? 'profile' : '') : S.view === 'options' ? (optFrom === 'profile' ? 'profile' : 'home') : S.view === 'people' || S.view === 'teamview' ? 'feed' : S.view === 'account' ? 'profile' : S.view;
-    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === cur) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); if (v === 'games' || v === 'chat') b.hidden = !A.active; });
+    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === cur) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); if (v === 'games' || v === 'chat') b.hidden = !A.active; if (v === 'highlights') b.hidden = !DROID || !A.active; if (v === 'feed') b.hidden = DROID; });
     $('optViewer').hidden = own;
     var todo = myPid == null ? 0 : fixtures.filter(function (f) { return !(f.votes || []).some(function (v) { return v.pid === myPid; }); }).length;
     $('tabBadge').hidden = !todo; $('tabBadge').textContent = todo;
@@ -3510,7 +3540,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var b = e.target.closest('button'); if (!b) return;
     if (b.classList.contains('locked')) { $('tabMsg').textContent = 'Only the gaffer can change the settings.'; $('lockMsg').textContent = $('tabMsg').textContent; clearTimeout(lockT); lockT = setTimeout(function () { $('tabMsg').textContent = ''; $('lockMsg').textContent = ''; }, 4000); return; }
     var tab = b.getAttribute('data-tab');
-    if (tab === 'profile') openMe();
+    if (tab === 'profile') { if (DROID) go('account'); else openMe(); }
     else if (tab === 'home') go(A.active ? 'home' : 'welcome');
     else go(tab);
   });
@@ -5506,8 +5536,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- extras when running as the iOS app: lock-screen alerts for changes, haptics, screen kept awake
   var NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  var DROID_PLUGINS = ['Haptics']; // what the Android app uses; everything else (the watch, cutting, filming, notifications until they're set up) is iPhone only
   function plugin(name) {
-    if (!NATIVE) return null;
+    if (!NATIVE || (DROID && DROID_PLUGINS.indexOf(name) < 0)) return null;
     var C = window.Capacitor;
     try { return (C.Plugins && C.Plugins[name]) || (C.registerPlugin ? C.registerPlugin(name) : null); } catch (e) { return null; }
   }
@@ -6477,7 +6508,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       form.hidden = false;
       if (CH.err) html += '<p class="msg bad">Couldn’t load the chat. Check your signal.</p>';
       if (mk.length) html += '<div class="cacts">' + mk.map(function (k) { return '<button type="button" data-chunmute="' + esc(k) + '">Unblock ' + esc(muted[k]) + '</button>'; }).join('') + '</div>';
-      if (!CH.list.length && !CH.err) html += '<p class="note">Nothing yet. Say something, or record a play on the Tactics tab and send it here. Be decent: anyone can report a message, and the gaffer can remove it.</p>';
+      if (!CH.list.length && !CH.err) html += '<p class="note">Nothing yet. Say something' + (DROID ? '' : ', or record a play on the Tactics tab and send it here') + '. Be decent: anyone can report a message, and the gaffer can remove it.</p>';
       html += '<div class="chatlist">' + CH.list.map(function (m) {
         var o = '<div class="cmsg' + (m.mine ? ' mine' : '') + '"><small>' + (m.mine ? 'You' : m.pid != null ? plink(m.pid, esc(m.name || 'Player')) : esc(m.name || 'Player')) + ' · ' + chatWhen(m.at) + '</small>';
         var play = m.play ? tbClean(m.play) : null;
@@ -6995,11 +7026,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   } catch (e) {}
   upgrade(S.match);
   if (S.match) lastBlock = curSeg(S.match);
-  var first = !A.introSeen ? 'intro' : !A.active ? 'welcome' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
+  var first = !A.introSeen && !DROID ? 'intro' : !A.active ? 'welcome' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
   go(first);
   setSync();
   connect();
-  if ('serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js'); } catch (e) {} }
+  if ('serviceWorker' in navigator && location.protocol === 'https:' && !NATIVE) { try { navigator.serviceWorker.register('sw.js'); } catch (e) {} } // (not in the apps: they carry their own copy, and a cached one could outlive an update)
 })();
 </script>
 </body>

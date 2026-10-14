@@ -1,0 +1,104 @@
+# Builds the Android app (the players' app: chat, polls and highlights) on GitHub's Linux machines.
+# - Every push to main: tests the Android app in a headless browser, builds it, and keeps the result under the run's
+#   Artifacts: gaffer-android-<run>.apk to install on a phone (Android may ask to allow installs from your browser or
+#   files app), and the .aab that Google Play takes.
+# - Run manually ("Run workflow") with "Upload to Google Play" ticked: also sends the .aab to Google Play's internal
+#   testing track.
+# Signing for Google Play needs these repository secrets (set on GitHub, never in the repo or in chat):
+#   ANDROID_KEYSTORE_B64      the upload key's keystore file, base64
+#   ANDROID_KEYSTORE_PASSWORD its password
+#   ANDROID_KEY_ALIAS         the key's alias inside it
+#   ANDROID_KEY_PASSWORD      the key's own password, if it differs
+#   PLAY_SERVICE_ACCOUNT_JSON a Google Play service account allowed to release the app (only for uploading)
+# Without them the .apk is signed with a throwaway debug key: fine for trying it, but uninstall the last one before
+# installing the next, as each build's key differs.
+name: Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      play:
+        description: Upload to Google Play (internal testing)
+        type: boolean
+        default: false
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
+      HAS_PLAY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install
+        run: npm ci
+
+      # The Android app is the web app with the gaffer's parts left out; this plays a week of it against an iPhone gaffer.
+      - name: Test the Android app
+        run: |
+          (cd tests && npm ci && npx playwright install --with-deps chromium)
+          node tests/run.mjs android
+
+      - name: Copy the web app into the Android project
+        run: npm run build:web && npx cap sync android
+
+      - name: The upload key
+        if: env.HAS_KEY == 'true'
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+
+      - name: Build
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ "$HAS_KEY" = true ]; then ./gradlew --no-daemon assembleRelease bundleRelease; APK=app/build/outputs/apk/release/app-release.apk
+          else ./gradlew --no-daemon assembleDebug bundleRelease; APK=app/build/outputs/apk/debug/app-debug.apk; fi
+          mkdir -p ../out
+          cp "$APK" "../out/gaffer-android-${GITHUB_RUN_NUMBER}.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "../out/gaffer-android-${GITHUB_RUN_NUMBER}.aab"
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging "../out/gaffer-android-${GITHUB_RUN_NUMBER}.apk" | grep -E "^package|application-label:" || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gaffer-android-${{ github.run_number }}
+          path: out/
+          retention-days: 30
+
+      - name: Upload to Google Play (internal testing)
+        if: github.event_name == 'workflow_dispatch' && inputs.play && env.HAS_KEY == 'true' && env.HAS_PLAY == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.randomedp.aipoweredtactics
+          releaseFiles: out/gaffer-android-${{ github.run_number }}.aab
+          track: internal
+          status: draft
+
+      - name: Say why it wasn't uploaded
+        if: github.event_name == 'workflow_dispatch' && inputs.play && (env.HAS_KEY != 'true' || env.HAS_PLAY != 'true')
+        run: echo "::warning::Not uploaded to Google Play. It needs the repository secrets ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and PLAY_SERVICE_ACCOUNT_JSON (see the top of android.yml)."
