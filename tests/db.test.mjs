@@ -372,6 +372,14 @@ eq(await d.rpc(sam, 'report_user', { p_username: 'chappers', p_reason: 'Rude cli
 eq((await d.admin(`select count(*)::int as n, max(reason) as r from public.profile_reports`))[0], { n: 1, r: 'Rude clip, again' }, 'once per person');
 for (const t of ['profiles', 'follows', 'blocks', 'profile_reports', 'reserved_usernames']) eq(await count(sam, 'public.' + t), 0, `nobody reads ${t} directly`);
 
+// reporting a team's live stream (0029), and the moderators list nobody can read
+eq(await d.rpc(sam, 'report_stream', { p_code: sop.code, p_reason: 'Something nasty on the stream' }), true, 'anyone signed in can report a team\'s live stream');
+eq(await d.rpc(sam, 'report_stream', { p_code: sop.code, p_reason: 'Still there' }), true, 'and again, which updates it');
+eq(await d.rpc(sam, 'report_stream', { p_code: 'NOSUCH' }), false, 'not a team that doesn\'t exist');
+check(/permission denied|Sign in/i.test(await d.fails(d.rpc(null, 'report_stream', { p_code: sop.code }))), 'nor without signing in');
+eq((await d.admin(`select count(*)::int as n, max(reason) as r from public.stream_reports`))[0], { n: 1, r: 'Still there' }, 'kept once per person a team');
+for (const t of ['stream_reports', 'moderators']) eq(await count(sam, 'public.' + t), 0, `nobody reads ${t} directly`);
+
 // ---------- finding teams (0024): search by name, look at a team from search or a profile, never its code
 let found = await d.rpc(sam, 'search_teams', { p_query: 'pitch' });
 eq(found.map((t) => [t.id === sop.id, t.name, t.players, t.games]), [[true, 'Sons of Pitches', squadNow, 1]], 'anyone signed in can find a team by name');

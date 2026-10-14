@@ -30,7 +30,7 @@ eq([await J.visible('#ntfSec'), await J.text('#ntfNote'), await J.visible('#ntfO
 await J.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]') || document.querySelector('.view:not([hidden]) .back'); if (b) b.click(); }); await J.run(300);
 await J.click('#meCard [data-me="pick"]'); await J.run(300);
 await J.click('#joinList [data-pid="2"]'); await J.page.fill('#jLast', 'Smith'); await J.page.fill('#jNum', '7'); await J.click('#joinList [data-pos="fwd"]');
-await J.page.fill('#jEmail', 'josh@example.com'); await J.page.fill('#jUser', 'josh_j'); await J.page.fill('#jPass', 'longpassword'); await J.click('#joinList [data-do="up"]'); await J.run(800);
+await J.page.fill('#jEmail', 'josh@example.com'); await J.page.fill('#jUser', 'josh_j'); await J.page.fill('#jPass', 'longpassword'); await J.check('#jTerms'); await J.click('#joinList [data-do="up"]'); await J.run(800);
 await J.click('#pendCard [data-go="account"]'); await J.page.fill('#aEmail', 'josh@example.com'); await J.page.fill('#aPass', 'longpassword'); await J.click('#aSignIn'); await J.run(1500); // (the email confirmed)
 if (await J.visible('#pushPop')) await J.click('#pushNo');
 await J.run(300);

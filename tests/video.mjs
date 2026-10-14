@@ -25,7 +25,7 @@ const view = (p) => p.evaluate(() => [...document.querySelectorAll('[id^="v-"]')
 const db = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')));
 
 const A = await ctx.newPage(); A.on('pageerror', (e) => errs.push(String(e))); await A.goto(BASE); await wait(300);
-await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
+await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.check('#aTerms'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
 await A.fill('#tName', 'Sons of Pitches FC'); await A.fill('#tShort', 'SOP FC'); await A.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await A.click('#tCreate'); await wait(400);
 await A.click('#v-code [data-go="home"]'); await wait(300);
 await A.click('#mNew'); await A.fill('#opp', 'Dog'); await A.click('#startGame'); await A.click('#kick'); await A.click('#go'); await wait(300);
@@ -61,7 +61,7 @@ await A.click('#cutBody [data-cutdo="vid2"]'); await wait(400);
 console.log('second video:', await marks());
 await mark('h2', 5); console.log('second half marked at 0:05 in it ->', await marks()); await shot(A, 'cut-two');
 console.log('commentary switch:', await A.isVisible('#cutVoice')); await A.check('#cutVoice');
-await A.click('#cutBody [data-cutdo="go"]'); await wait(2500);
+await A.click('#cutBody [data-cutdo="go"]'); await wait(300); await A.click('#aiYes'); await wait(2500);
 { const c = JSON.parse((await A.evaluate(() => window.__rc)).filter((x) => x.startsWith('cut ')).pop().slice(4)); const v = (await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).calls)).filter((x) => x.name === 'reel-voice').pop();
   console.log('lines sent for speech:', JSON.stringify(v.body.lines)); console.log('cut with voice: intro', !!c.introVoice, '| sign-off', !!c.outroVoice, '| clips', c.clips.map((x) => (x.voice ? 'voice@' + x.voiceAt.toFixed(1) : 'none')).join(' ')); }
 console.log('done screen:', (await A.textContent('#cutBody')).replace(/\s+/g, ' '));

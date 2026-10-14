@@ -50,7 +50,11 @@ await shot(A, 'cut-voice');
 eq(await A.visible('#cutVoice'), true, 'the highlight maker offers AI commentary');
 check(/kept with and without/.test(await A.text('#cutBody')), 'and says the clips are kept with and without it');
 await A.page.check('#cutVoice'); await A.run(300);
-await A.click('#cutBody [data-cutdo="go"]'); await A.run(3000);
+await A.click('#cutBody [data-cutdo="go"]'); await A.run(300);
+eq([await A.visible('#aiPop'), (w.db().calls || []).filter((x) => x.name === 'reel-voice').length, (await calls(A, 'cut')).length], [true, 0, 0], 'before any line goes to Google for the voice, it asks, and the cut waits (Apple\'s 5.1.2: permission before sharing with a third-party AI)');
+check(/Google/.test(await A.text('#aiPop')) && /first names or nicknames, the team names, the score and the minute/.test(await A.text('#aiPop')) && /change your mind at any time in Settings/.test(await A.text('#aiPop')), 'saying exactly what is sent, to whom, and that it can be changed');
+await shot(A, 'ai-ask');
+await A.click('#aiYes'); await A.run(3000);
 const cut = (await calls(A, 'cut')).pop();
 eq(cut.clips.map((c) => !!c.voice), [true, true, true], 'each clip is cut with a commentary line');
 const rows = () => (w.db().clips || []).slice().sort((a, b) => a.seq - b.seq);
@@ -263,8 +267,21 @@ eq([(w.db().player_reels || []).find((x) => x.pid === 3).path, (w.db().files || 
 
 // ---------- deleting the game's highlights takes both copies
 await A.click('#hlToggle [data-by="game"]');
+// switched off again: asked again, and "Not now" sends nothing to Google
+await A.page.evaluate(() => localStorage.removeItem('apt-ai'));
+const vcalls = () => (w.db().calls || []).filter((x) => x.name === 'reel-voice').length, vbefore = vcalls();
+const byNow = await A.page.$eval('#hlToggle [aria-pressed="true"]', (b) => b.getAttribute('data-by')).catch(() => 'game');
+await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-preel="3"]'); await A.run(300);
+if (!(await A.page.isChecked('#rbVoice'))) await A.page.check('#rbVoice');
+await A.click('#rbMake'); await A.run(300);
+eq(await A.visible('#aiPop'), true, 'not allowed on this phone: making a reel with commentary asks first');
+await A.click('#aiNo'); await A.run(4000);
+join = (await calls(A, 'join')).pop();
+eq([vcalls() - vbefore, join.items.some((x) => x.voice), /chose not to send the lines to Google/.test(await A.text('#rbBody'))], [0, false, true], '"Not now": nothing is sent, and the reel is made without commentary, saying why');
+await A.click('#rbClose'); await A.run(800);
+await A.click('#hlToggle [data-by="' + byNow + '"]'); await A.run(300);
 await A.click('#hlList [data-hldel]'); await A.click('#hlList [data-hldel]'); await A.run(1500);
-eq([rows().length, files()], [0, 0], 'deleting a game\'s highlights removes the copies with commentary too');
+eq([rows().length, (w.db().files || []).filter((f) => f.bucket === 'r2' && !/\/players\//.test(f.path)).length], [0, 0], 'deleting a game\'s highlights removes the copies with commentary too (a player\'s own reel stays on his card)');
 
 await w.close();
 await done(A, F);

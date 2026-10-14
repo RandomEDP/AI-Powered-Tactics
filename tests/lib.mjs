@@ -96,6 +96,7 @@ export async function world() {
       sleep: async (ms) => { await advance(ms, page.clock); await page.clock.fastForward(ms); await advance(300); },
       now: () => page.evaluate(() => Date.now()),
       click: async (sel) => { await page.click(sel); if (clock) await advance(300); },
+      check: (sel) => page.check(sel),
       /// A tap that goes through even if the button is greyed out or covered.
       tap: async (sel) => { await page.evaluate((x) => document.querySelector(x).click(), sel); if (clock) await advance(300); },
       text: async (sel) => ((await page.textContent(sel)) || '').replace(/\s+/g, ' ').trim(),
@@ -123,7 +124,7 @@ export async function world() {
       },
       /// Sets a game up against `opp` and stops on the game screen, before kick-off.
       newGame: async (opp = 'Dog') => { await P.click('#mNew'); await page.fill('#opp', opp); await P.click('#startGame'); await P.click('#kick'); },
-      signUp: async (email, user) => { await page.fill('#aEmail', email); await page.fill('#aPass', 'longpassword'); await page.fill('#aUser', user || email.split('@')[0].replace(/[^A-Za-z0-9_]/g, '').slice(0, 16) + '_fc'); await P.click('#aSignUp'); await P.click('#aSignIn'); await P.run(500); },
+      signUp: async (email, user) => { await page.fill('#aEmail', email); await page.fill('#aPass', 'longpassword'); await page.fill('#aUser', user || email.split('@')[0].replace(/[^A-Za-z0-9_]/g, '').slice(0, 16) + '_fc'); await page.check('#aTerms'); await P.click('#aSignUp'); await P.click('#aSignIn'); await P.run(500); },
     };
     return P;
   };

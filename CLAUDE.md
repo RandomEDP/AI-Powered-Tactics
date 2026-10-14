@@ -108,7 +108,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0028`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0029`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -184,7 +184,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - They are sent by the `team-notify` edge function using an APNs JWT. Secrets: `APNS_KEY_P8`, `APNS_KEY_ID`,
   `APPLE_TEAM_ID`.
 - **Kinds:** kickoff, goal, poll, highlights, nudge (only to players who haven't answered the poll), claimed, chat,
-  challenge, join, live.
+  challenge, join, live, report (to Gaffer's moderators, see "Looking after what people share").
   - The function writes the wording for claimed, chat, challenge, join and live itself; the others come from the caller.
 - **Sound:** the payload uses `whistle.wav` (a synthesised referee's pea whistle bundled in the app) for everything
   except chat, which uses `default`. Phones on builds without the file fall back to the default sound.
@@ -419,6 +419,36 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - Applying it live: soft-delete and the `liked` flag keep `delete` out of the SQL, so it all went through the MCP (in
   three parts).
 
+### Looking after what people share (Apple's 1.2) and asking before AI (5.1.2) (`0029_moderation.sql`, `terms.html`)
+- Apple turns down apps with posts, chat or streams between people unless they have: terms everyone agrees to with zero
+  tolerance for abuse, a filter, reporting, blocking, and the developer acting on reports quickly. Gaffer has all five.
+- **Terms of use** (`terms.html`, bundled and on the website; linked from the Account page, Settings and the pages): a
+  new account needs the box ticked (`#aTerms` on the Account page, `#jTerms` when joining a team, `termsBox`); the
+  agreement goes in the sign-up metadata (`terms: TERMS_V`). An account from before gets `#termsPop` on sign-in
+  (`termsCheck`, `termsMine`) until it agrees (`updateUser`, also remembered on the phone in `apt-terms`) or signs out.
+  Raise `TERMS_V` to ask everyone again after a real change.
+- **The word filter** (`rude(text, strict)`, lists in `RUDE`, ROT13'd so the source isn't a page of slurs; tests call
+  `window.gafferRude`): hate, slurs, sexual words and threats are stopped everywhere, chat included; with `strict` the
+  strongest swearing is also stopped (usernames, profile names, captions, team and short names, join-request names). The
+  squad chat can still swear about the football. It matches through accents, l33t, spaced letters and stretching, and
+  whole words or prefixes so real names pass (Scunthorpe, Cockney, Nazir, Greg Dyke, Hancock are tested). It runs in the
+  app only; the server doesn't check it.
+- **Reporting:** posts, profiles, chat messages and now live streams (Report this stream under the stream, two taps,
+  `report_stream`, `stream_reports`). Every report calls `reported(what)` → `team-notify` kind `report`, which checks the
+  caller really reported something in the last 10 minutes and pushes "Something was reported in Gaffer" to everyone in
+  `moderators` (Ethan's account; the row was added in the live database by his kept-back username, never an id in a
+  file). Reports are read in the dashboard tables (`post_reports`, `profile_reports`, `message_reports`,
+  `stream_reports`); act within 24 hours (the terms promise it): remove the content and, if needed, the account.
+- **Blocking:** from a profile (as before), and now from any chat message: Block hides their messages on this phone
+  (the old Mute) and, if they have a profile, calls `block_user` (`chUser` asks `team_people` for the username if the
+  phone doesn't know it; it's kept in `chatMutedU` because the server won't say who a blocked person is). Unblock undoes both.
+- **AI commentary asks first** (`aiAsk`, `#aiPop`, `apt-ai` per phone): before any line goes to `reel-voice` (cutting
+  with commentary, a reel with a voice, Hear this voice), saying what is sent (first names, team names, score, minute),
+  to Google, and that it isn't used for training. Not now: nothing is sent and it's made without commentary (`AI_NO`).
+  Settings → AI commentary (`#optAI`) shows where it stands and allows or stops it. The privacy page covers Google.
+- Tests: `safety.test.mjs`, `reels.test.mjs` (the ask), `live.test.mjs` (stream reports), `stream.test.mjs` (kind
+  `report`), `db.test.mjs` (`report_stream`), `people.test.mjs` (an older account agreeing).
+
 ### Games among the squad, with guests (`0020_games_among_the_squad.sql`)
 - New game → "Among ourselves" (`#gKind`, `D.kind = 'house'`, `renderHouse`): two named sides (Bibs and Shirts to start),
   any size, at least 2 a side, no fixed keeper and no subs plan. Squad players are set to a side or Out; guests are added
@@ -509,7 +539,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0028` are applied live. Add new ones as `supabase/migrations/0029_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0029` are applied live. Add new ones as `supabase/migrations/0030_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
@@ -518,7 +548,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Edge functions:** all five are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
-  - Deployed now: `team-notify` v17 (kind `live` from any team member, sent once; same as the repo), `live-stream` v5,
+  - Deployed now: `team-notify` v21 (kind `live` from any team member, sent once; kind `report` tells the moderators; same as the repo), `live-stream` v5,
     `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
@@ -542,6 +572,11 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     (`#optAccount`: who you're signed in as, Sign out, Delete my account `#oDelete`, two taps, `deleteMe`), and the
     Account page keeps its own. After deleting, the phone is signed out and keeps nothing (`signOutAll`). Every table
     pointing at `auth.users` cascades or sets null (checked live). Test: `account.test.mjs`. Keep it easy to find.
+  - Checked against the guidelines (October 2026) before resubmitting: user content (1.2) and AI data to Google (5.1.2(i))
+    are handled (see "Looking after what people share"). Still open: Plans "£4.99 coming soon" and "What's being worked
+    on" behind the Experimental switch (2.1/2.2/2.3.1 risk: hide them in the store build), the hand-drawn App Store badge
+    with the Apple logo on the reel end card (use Apple's badge or drop the logo), and in App Store Connect the age rating
+    (Sweary 18+, chat, posts, streams), the privacy labels (now including Google for the voice) and specific review notes.
 - **Version and build:** the marketing version comes from `package.json` `version`. The build number is the GitHub
   Actions run number.
 - **Builds:**

@@ -16,7 +16,7 @@ const J = await w.phone({ db: true, label: 'jake' });
 await J.page.fill('#joinCode', code); await J.click('#joinBtn'); await J.run(500); await J.click('#jFollow'); await J.run(800);
 await J.click('#meCard [data-me="pick"]'); await J.run(300);
 await J.click('#joinList [data-pid="2"]'); await J.page.fill('#jLast', 'Smith'); await J.page.fill('#jNum', '7'); await J.click('#joinList [data-pos="fwd"]');
-await J.page.fill('#jEmail', 'jake@example.com'); await J.page.fill('#jUser', 'jake_s'); await J.page.fill('#jPass', 'longpassword'); await J.click('#joinList [data-do="up"]'); await J.run(800);
+await J.page.fill('#jEmail', 'jake@example.com'); await J.page.fill('#jUser', 'jake_s'); await J.page.fill('#jPass', 'longpassword'); await J.check('#jTerms'); await J.click('#joinList [data-do="up"]'); await J.run(800);
 await J.click('#pendCard [data-go="account"]'); await J.page.fill('#aEmail', 'jake@example.com'); await J.page.fill('#aPass', 'longpassword'); await J.click('#aSignIn'); await J.run(2000);
 let db = w.db(); const team = db.teams[0], jakeId = db.users.find((u) => u.email === 'jake@example.com').id;
 eq(db.players.find((p) => p.team_id === team.id && p.pid === 2).user_id, jakeId, 'Jake is in the squad as himself, with the team open');
@@ -53,7 +53,7 @@ eq([await A.view(), await A.text('#aMsg'), await teamsOnPhone(A)], ['account', '
 
 // ---------- signed in with no team open: the gear on your profile goes straight to the Account page, which has it
 const S = await w.phone({ db: true, label: 'sam' });
-await S.click('#acctBtn'); await S.page.fill('#aEmail', 'sam@example.com'); await S.page.fill('#aPass', 'longpassword'); await S.page.fill('#aUser', 'samwise'); await S.click('#aSignUp'); await S.run(300); await S.click('#aSignIn'); await S.run(1500);
+await S.click('#acctBtn'); await S.page.fill('#aEmail', 'sam@example.com'); await S.page.fill('#aPass', 'longpassword'); await S.page.fill('#aUser', 'samwise'); await S.check('#aTerms'); await S.click('#aSignUp'); await S.run(300); await S.click('#aSignIn'); await S.run(1500);
 if (await S.visible('#unamePop')) { await S.page.evaluate(() => { const b = document.querySelector('#unamePop [data-un="later"]') || document.querySelector('#unamePop .link'); if (b) b.click(); }); await S.run(300); }
 eq([await S.view(), await S.visible('#acctBtn')], ['welcome', true], 'signed in with no team: the welcome screen has the Account card');
 await S.click('#acctBtn'); await S.run(300);

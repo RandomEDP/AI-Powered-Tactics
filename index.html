@@ -413,6 +413,9 @@ tr.past td { opacity: .45; }
 #planPop[hidden] { display: none; }
 #unamePop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #unamePop[hidden] { display: none; }
+#termsPop, #aiPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#termsPop[hidden], #aiPop[hidden] { display: none; }
+.tmlist { margin: 0 0 12px; padding-left: 20px; }
 .pplBadge { margin-left: 8px; min-width: 20px; height: 20px; border-radius: 10px; background: #ffc83d; color: #2a2100; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; } .pplBadge[hidden] { display: none; }
 .prow { display: flex; align-items: center; gap: 10px; padding-block: 10px; border-bottom: 1px solid var(--line); }
 .prow:last-child { border-bottom: 0; }
@@ -790,7 +793,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <div class="actions"><button class="plain" id="createBtn" type="button">Create a team</button></div></div>
   <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button><button class="plain" id="pplBtn" type="button">Your feed<span class="pplBadge" hidden></span></button></div></div>
   <p class="note" id="sync2"></p>
-  <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a></p>
+  <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a> · <a class="plink" data-site="terms.html" href="terms.html">Terms of use</a></p>
 </div>
 
 <div class="view" id="v-join" hidden>
@@ -809,6 +812,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <label class="field" for="aPass">Password<input id="aPass" type="password" autocomplete="current-password" minlength="8"></label>
     <label class="field" for="aUser">Username, for a new account<input id="aUser" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. jake_9"></label>
     <p class="note">Only needed when you create an account: 3 to 20 letters, numbers or _. It’s how people find and follow you.</p>
+    <label class="check" for="aTerms"><input id="aTerms" type="checkbox"><span>I agree to the <a class="plink" data-site="terms.html" href="terms.html">Terms of use</a> <small>(needed to create an account: no abuse or offensive content, and reports are acted on within 24 hours)</small></span></label>
     <div class="actions"><button class="plain primary" id="aSignIn" type="button">Sign in</button><button class="plain" id="aSignUp" type="button">Create account</button></div>
     <p class="note">New accounts get a confirmation email. Tap the link once, then sign in here.</p>
   </div>
@@ -822,7 +826,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       <div class="actions"><button class="plain" id="aDelete" type="button">Delete my account</button></div></section>
   </div>
   <p class="msg" id="aMsg" hidden></p>
-  <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a></p>
+  <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a> · <a class="plink" data-site="terms.html" href="terms.html">Terms of use</a></p>
 </div>
 
 <div class="view" id="v-create" hidden>
@@ -898,6 +902,23 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="field"><span>Who can see your teams, results and clips?</span><div class="toggle" id="unPriv"><button type="button" data-priv="0" aria-pressed="true">Anyone</button><button type="button" data-priv="1" aria-pressed="false">Only people I accept</button></div></div>
   <p class="msg bad" id="unMsg" hidden></p>
   <div class="actions"><button class="plain primary" id="unSave" type="button">Save</button><button class="link" id="unLater" type="button">Not now</button></div>
+</div></div>
+
+<div id="termsPop" role="dialog" aria-labelledby="tmTitle" hidden><div class="planbox">
+  <h2 id="tmTitle">Gaffer’s Terms of use</h2>
+  <p>Before you carry on: Gaffer has zero tolerance for abuse and offensive content, in posts, captions, chat, names, clips and live streams.</p>
+  <ul class="tmlist"><li>No abuse, threats or bullying, and nothing aimed at anyone for who they are.</li><li>Nothing sexual, violent or illegal.</li><li>Only film and post people who are happy to be filmed.</li></ul>
+  <p>Report anything that breaks the rules (⋯ on a post or profile, tap a chat message, or Report under a live stream) and block anyone you’d rather not see. Reports are looked at within 24 hours, and accounts that break the rules are removed.</p>
+  <p><a class="plink" data-site="terms.html" href="terms.html">Read the Terms of use</a></p>
+  <div class="actions"><button class="plain primary" id="tmAgree" type="button">I agree</button><button class="link" id="tmOut" type="button">Sign out</button></div>
+</div></div>
+
+<div id="aiPop" role="dialog" aria-labelledby="aiTitle" hidden><div class="planbox">
+  <h2 id="aiTitle">The commentary is made by Google’s AI</h2>
+  <p>To make the commentator’s voice, Gaffer sends the lines it has written to Google (its Gemini and Text-to-Speech AI), through Gaffer’s server. The lines have players’ first names or nicknames, the team names, the score and the minute.</p>
+  <p>Google turns them into speech and sends the sound back. It doesn’t use them to train its AI. Nothing else goes: no video, no emails, no accounts.</p>
+  <p class="note">You can change your mind at any time in Settings. <a class="plink" data-site="privacy.html" href="privacy.html">Privacy policy</a></p>
+  <div class="actions"><button class="plain primary" id="aiYes" type="button">Allow</button><button class="link" id="aiNo" type="button">Not now</button></div>
 </div></div>
 
 <div id="planPop" role="dialog" aria-labelledby="planTitle" hidden><div class="planbox">
@@ -1008,6 +1029,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <ul class="events" id="lvEvents"></ul>
   <p class="note">Watching uses mobile data (roughly 1 GB an hour), so Wi-Fi is best if there is any.</p>
   <div class="actions" id="lvOwn" hidden><button class="plain" type="button" id="lvManage">Stream settings</button></div>
+  <div class="actions"><button class="link" type="button" id="lvReport">Report this stream</button></div>
+  <p class="msg" id="lvRepMsg" hidden></p>
 </div>
 
 <div class="view" id="v-home">
@@ -1211,6 +1234,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <div class="actions"><button class="plain" id="optSignOut" type="button">Sign out</button><button class="plain" id="oDelete" type="button">Delete my account</button></div>
     <p class="note">Deletes your account for good, straight away: your email and sign-in, your username and profile, your posts, likes, follows and tags. Your player on each team becomes unclaimed, and the team keeps their stats. Teams you run on your own are deleted too, with their games and stats. Teams with other gaffers carry on without you.</p>
     <p class="msg" id="oAcctMsg" hidden></p>
+  </section>
+  <section id="optAI" hidden>
+    <h2>AI commentary</h2>
+    <p class="note" id="optAINote"></p>
+    <div class="actions"><button class="plain" id="optAIBtn" type="button"></button></div>
   </section>
   <section>
     <h2>Experimental</h2>
@@ -1732,11 +1760,80 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   }
   function afterAuth() {
     myTeams = null; renderAccount(); TP = { code: null, map: {}, at: 0 };
-    if (me) setTimeout(profileCheck, 0); else { MYP = undefined; profAsked = null; pplBadges(); }
+    if (me) { setTimeout(profileCheck, 0); setTimeout(termsCheck, 0); } else { MYP = undefined; profAsked = null; pplBadges(); $('termsPop').hidden = true; }
     if (me && A.pending) { finishPending(); return; }
     if (A.active) openTeam(A.active, S.view);
     else { role = me ? 'owner' : 'viewer'; document.body.className = me ? '' : 'ro'; renderWelcome(); }
   }
+
+  // ---- words Gaffer doesn't allow (Apple's guideline 1.2: what people share needs a filter). Two lists: hate, slurs,
+  // sexual words and threats are never allowed anywhere; the strongest swearing is also kept out of anything public
+  // (usernames, names, captions, team names), but the squad's own chat can swear about the football. Kept ROT13'd so the
+  // source doesn't read as a list of slurs. '*w*' anywhere in a word, 'w*' a word starting with it, 'w' the whole word,
+  // 'a b' words next to each other. Letters are matched through accents, l33t and stretched letters ("fuuuck").
+  var RUDE = (function () {
+    var rot = function (t) { return t.replace(/[a-z]/g, function (c) { return String.fromCharCode((c.charCodeAt(0) - 84) % 26 + 97); }); };
+    return { hate: rot("*avttre*|*avttn*|*snttbg*|snt|sntf|snttl|genaal|genaavrf|ergneq*|fcnfgvp*|fcnm|fcnmm|fcnpxre|zbat|zbatf|zbatbybvq*|cnxv|cnxvf|puvax|puvaxf|tbbx|tbbxf|pbba|pbbaf|jbt|jbtf|xvxr|xvxrf|fcvp|fcvpf|enturnq*|gbjryurnq*|tlcb|tlccb|cvxrl|cvxrlf|tbyyvjbt*|fnzob|ornare*|jrgonpx*|wvtnobb*|qnexvr*|encr|encrq|encrf|encvat|encvfg*|cnrqb*|crqb|crqbf|crqbcuvyr*|cnrqbcuvyr*|cbea*|*phzfubg*|oybjwbo*|unaqwbo*|qvyqb*|chffl|chffvrf|pbpx|pbpxf|pbpxfhpxre*|gvgf|gvggvrf|uvgyre|urvy|xvyy lbhefrys|xvyy hefrys|xlf|tb qvr|arpx lbhefrys|unat lbhefrys|anmv|anmvf|arbanmv*|arb anmv").split('|'), strong: rot("*shpx*|spx|spxvat|phag*|gjng*|jnax*|oryyraq*|qvpxurnq*|ovgpu*|fyhg*|juber*|*zbgures*").split('|') };
+  })();
+  function rude(text, strict) {
+    var n = String(text || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      .replace(/[0134578@$!|]/g, function (c) { return { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i', '|': 'i' }[c]; })
+      .replace(/[^a-z]+/g, ' ').trim();
+    if (!n) return false;
+    n = n.replace(/\b([a-z])((?: [a-z]\b){2,})/g, function (m) { return m.replace(/ /g, ''); }); // "f a g" spelt out a letter at a time
+    var one = function (w) { return w.replace(/(.)\1+/g, '$1'); }, toks = n.split(' '), lines = [' ' + n + ' ', ' ' + toks.map(one).join(' ') + ' '];
+    return (strict ? RUDE.hate.concat(RUDE.strong) : RUDE.hate).some(function (e) {
+      if (e.indexOf(' ') > 0) return lines.some(function (l) { return l.indexOf(' ' + e + ' ') >= 0; });
+      var any = e.charAt(0) === '*', pre = e.charAt(e.length - 1) === '*', w = e.replace(/\*/g, '');
+      var hit = function (x, y) { return any ? x.indexOf(y) >= 0 : pre ? x.indexOf(y) === 0 : x === y; };
+      return toks.some(function (t) { return hit(t, w) || hit(one(t), w) || (/(.)\1\1/.test(t) && hit(one(t), one(w))); }); // (stretched on purpose: "faggggot")
+    });
+  }
+  var RUDE_SAY = 'That has a word Gaffer doesn’t allow. Please change it.';
+  window.gafferRude = rude; // (the tests check the lists through this)
+
+  // ---- the Terms of use: agreed to when the account is made (kept with the account), or, for accounts made before them,
+  // in a pop-up the first time they open the app signed in. Apple's 1.2: everyone agrees there's no tolerance for abuse.
+  var TERMS_V = 1, TERMS_SAY = 'Tick the box to agree to the Terms of use first.';
+  function siteHref(f) { return !/^https?:/.test(location.protocol) && CFG.siteUrl ? CFG.siteUrl + f : f; } // (the iOS app opens the website's copy)
+  function termsBox(id) { return '<label class="check" for="' + id + '"><input id="' + id + '" type="checkbox"><span>I agree to the <a class="plink" href="' + esc(siteHref('terms.html')) + '">Terms of use</a> <small>(no abuse or offensive content, and reports are acted on within 24 hours)</small></span></label>'; }
+  function termsMine() {
+    if (!me) return true;
+    if ((+((me.user_metadata || {}).terms) || 0) >= TERMS_V) return true;
+    try { return (JSON.parse(localStorage.getItem('apt-terms') || '{}')[me.id] || 0) >= TERMS_V; } catch (e) { return false; }
+  }
+  function termsCheck() { $('termsPop').hidden = termsMine(); }
+  $('tmAgree').addEventListener('click', async function () {
+    if (!me) { $('termsPop').hidden = true; return; }
+    try { var tk = JSON.parse(localStorage.getItem('apt-terms') || '{}'); tk[me.id] = TERMS_V; localStorage.setItem('apt-terms', JSON.stringify(tk)); } catch (e) {}
+    me.user_metadata = Object.assign({}, me.user_metadata, { terms: TERMS_V }); $('termsPop').hidden = true;
+    try { await sb.auth.updateUser({ data: { terms: TERMS_V } }); } catch (e) {} // (kept with the account; this phone remembers it meanwhile)
+  });
+  $('tmOut').addEventListener('click', function () { $('termsPop').hidden = true; signOutAll(); });
+
+  // ---- AI commentary goes to Google: asked once, before anything is sent (Apple's 5.1.2(i)), and changeable in Settings
+  function aiAllowed() { try { return localStorage.getItem('apt-ai') === 'yes'; } catch (e) { return false; } }
+  function aiSet(on) { try { if (on) localStorage.setItem('apt-ai', 'yes'); else localStorage.removeItem('apt-ai'); } catch (e) {} }
+  var aiWait = null;
+  function aiAsk() { // resolves true once the person has allowed it (straight away if they already have)
+    if (aiAllowed()) return Promise.resolve(true);
+    return new Promise(function (res) { aiWait = res; $('aiPop').hidden = false; });
+  }
+  function aiAnswer(yes) { aiSet(yes); $('aiPop').hidden = true; var w = aiWait; aiWait = null; if (w) w(yes); if (S.view === 'options') renderOptions(); }
+  $('aiYes').addEventListener('click', function () { aiAnswer(true); });
+  $('aiNo').addEventListener('click', function () { aiAnswer(false); });
+  var AI_NO = 'you chose not to send the lines to Google, which makes the voice.';
+  $('optAIBtn').addEventListener('click', function () { aiSet(!aiAllowed()); renderOptions(); });
+
+  function lvSay(t, bad) { $('lvRepMsg').textContent = t; $('lvRepMsg').className = 'msg' + (bad ? ' bad' : ''); $('lvRepMsg').hidden = !t; }
+  armed($('lvReport'), 'Tap again to report it', async function () {
+    if (!sb || !me) { lvSay('Sign in first to report a stream.', true); return; }
+    try { var rr = await q(sb.rpc('report_stream', { p_code: A.active, p_reason: 'From the live stream screen' })); if (!rr.data) throw new Error('no');
+      lvSay('Reported. Thanks, Gaffer will look at it within 24 hours.'); reported('stream');
+    } catch (e) { lvSay('Couldn’t send the report. Check your signal and try again.', true); }
+  });
+  // ---- a report tells Gaffer's moderators straight away, so it's dealt with within a day (the server checks it's real)
+  function reported(what) { if (sb && sb.functions) { try { sb.functions.invoke('team-notify', { body: { kind: 'report', what: what } }).then(function () {}, function () {}); } catch (e) {} } }
 
   var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var P = function (id) { for (var i = 0; i < S.players.length; i++) if (S.players[i].id === id) return S.players[i]; return null; };
@@ -2085,7 +2182,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (me) html += '<div class="actions"><button class="plain primary" type="button" data-do="claim">Join as ' + esc(p.name) + '</button></div>';
         else html += '<div class="toggle"><button type="button" data-mode="up" aria-pressed="' + (J.mode === 'up') + '">New account</button><button type="button" data-mode="in" aria-pressed="' + (J.mode === 'in') + '">I have an account</button></div>' +
           '<label class="field" for="jEmail">Email<input id="jEmail" type="email" autocomplete="email" inputmode="email"></label>' +
-          '<label class="field" for="jPass">Password<input id="jPass" type="password" autocomplete="' + (J.mode === 'up' ? 'new-password' : 'current-password') + '" minlength="8"></label>' + jUserField() +
+          '<label class="field" for="jPass">Password<input id="jPass" type="password" autocomplete="' + (J.mode === 'up' ? 'new-password' : 'current-password') + '" minlength="8"></label>' + jUserField() + (J.mode === 'up' ? termsBox('jTerms') : '') +
           '<div class="actions"><button class="plain primary" type="button" data-do="' + J.mode + '">' + (J.mode === 'up' ? 'Create account and join' : 'Sign in and join') + '</button></div>';
         html += '<p class="msg" id="jMsg"></p></div>';
       }
@@ -2105,7 +2202,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       if (me) html += '<div class="actions"><button class="plain primary" type="button" data-do="claim">Ask to join</button></div>';
       else html += '<div class="toggle"><button type="button" data-mode="up" aria-pressed="' + (J.mode === 'up') + '">New account</button><button type="button" data-mode="in" aria-pressed="' + (J.mode === 'in') + '">I have an account</button></div>' +
         '<label class="field" for="jEmail">Email<input id="jEmail" type="email" autocomplete="email" inputmode="email"></label>' +
-        '<label class="field" for="jPass">Password<input id="jPass" type="password" autocomplete="' + (J.mode === 'up' ? 'new-password' : 'current-password') + '" minlength="8"></label>' + jUserField() +
+        '<label class="field" for="jPass">Password<input id="jPass" type="password" autocomplete="' + (J.mode === 'up' ? 'new-password' : 'current-password') + '" minlength="8"></label>' + jUserField() + (J.mode === 'up' ? termsBox('jTerms') : '') +
         '<div class="actions"><button class="plain primary" type="button" data-do="' + J.mode + '">' + (J.mode === 'up' ? 'Create account and ask to join' : 'Sign in and ask to join') + '</button></div>';
       html += '<p class="msg" id="jMsg"></p></div>';
     }
@@ -2118,10 +2215,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (ps) { J.pos = ps; Array.prototype.forEach.call(b.parentNode.children, function (x) { x.setAttribute('aria-pressed', x === b); }); return; }
     if (b.getAttribute('data-ask')) { J.open = J.open === 'ask' ? null : 'ask'; J.pos = null; renderJoin(); if (J.open) { var ff = $('jFirst'); if (ff) ff.focus(); } return; }
     if (pid !== null) { J.open = J.open === +pid ? null : +pid; J.pos = null; renderJoin(); if (J.open != null) { var f = $('jLast'); if (f) f.focus(); } return; }
-    if (mode) { var keep = { f: $('jFirst') ? $('jFirst').value : '', l: $('jLast').value, n: $('jNum').value, e: $('jEmail').value, p: $('jPass').value, u: $('jUser') ? $('jUser').value : '' }; J.mode = mode; renderJoin(); if ($('jFirst')) $('jFirst').value = keep.f; $('jLast').value = keep.l; $('jNum').value = keep.n; $('jEmail').value = keep.e; $('jPass').value = keep.p; if ($('jUser')) $('jUser').value = keep.u; return; }
+    if (mode) { var keep = { f: $('jFirst') ? $('jFirst').value : '', l: $('jLast').value, n: $('jNum').value, e: $('jEmail').value, p: $('jPass').value, u: $('jUser') ? $('jUser').value : '', t: $('jTerms') ? $('jTerms').checked : false }; J.mode = mode; renderJoin(); if ($('jTerms')) $('jTerms').checked = keep.t; if ($('jFirst')) $('jFirst').value = keep.f; $('jLast').value = keep.l; $('jNum').value = keep.n; $('jEmail').value = keep.e; $('jPass').value = keep.p; if ($('jUser')) $('jUser').value = keep.u; return; }
     if (!act) return;
     var asking = J.open === 'ask', p = asking ? { pid: null, name: $('jFirst').value.replace(/\s+/g, ' ').trim().slice(0, 40), position: null } : J.d.players.filter(function (x) { return x.pid === J.open; })[0]; if (!p) return;
     if (asking && !p.name) { jSay('Enter your first name.', true); return; }
+    if ((asking && rude(p.name, true)) || rude($('jLast').value, true)) { jSay(RUDE_SAY, true); return; }
     var pos = J.pos || p.position || null;
     if (!pos) { jSay('Pick where you play.', true); return; }
     var jn = ($('jNum').value || '').replace(/\D/g, '');
@@ -2132,11 +2230,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { jSay('Enter your email address.', true); return; }
     if (pw.length < 8) { jSay('Passwords need at least 8 characters.', true); return; }
     var juser = act === 'up' && $('jUser') ? $('jUser').value.trim() : '';
-    if (act === 'up') { jSay('Checking your username…'); var jbad = await unameProblem(juser); if (jbad) { jSay(jbad, true); return; } A.wantName = juser; }
+    if (act === 'up') { jSay('Checking your username…'); var jbad = await unameProblem(juser); if (jbad) { jSay(jbad, true); return; } if (!$('jTerms') || !$('jTerms').checked) { jSay(TERMS_SAY, true); return; } A.wantName = juser; }
     A.pending = pend; saveApp(); jSay(act === 'up' ? 'Creating your account…' : 'Signing in…');
     try {
       if (act === 'up') {
-        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: NATIVE_SITE || (location.origin + location.pathname), data: { username: juser } } });
+        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: NATIVE_SITE || (location.origin + location.pathname), data: { username: juser, terms: TERMS_V } } });
         if (r1.error) throw r1.error;
         if (!r1.data.session) { rememberTeam(pend.code, pend.team, false); openTeam(pend.code); } // email still to confirm: follow the team meanwhile
       } else {
@@ -2184,6 +2282,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   var UN_SAY = { invalid: 'Usernames are 3 to 20 letters, numbers or _, with no spaces.', taken: 'Someone already has that username. Try another.', reserved: 'That username is kept back. Try another.' };
   async function unameProblem(u) { // why this username can't be had, or '' (if the server can't be asked, it's checked again later)
     if (!/^[A-Za-z0-9_]{3,20}$/.test(u || '')) return u ? UN_SAY.invalid : 'Pick a username for your account.';
+    if (rude(u, true)) return 'That username has a word Gaffer doesn’t allow. Pick another.';
     try { var r = await q(sb.rpc('username_status', { p_username: u })); return UN_SAY[r.data] || ''; } catch (e) { return ''; }
   }
   function pplBadges() { var n = MYP && MYP.requests ? MYP.requests : 0; Array.prototype.forEach.call(document.querySelectorAll('.pplBadge'), function (b) { b.hidden = !n; b.textContent = n; }); }
@@ -2219,6 +2318,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('unSave').addEventListener('click', async function () {
     var u = $('unUser').value.trim(), say = function (t) { $('unMsg').textContent = t; $('unMsg').hidden = !t; };
     if (!/^[A-Za-z0-9_]{3,20}$/.test(u)) { say(UN_SAY.invalid); return; }
+    if (rude(u, true) || rude($('unName').value, true)) { say(RUDE_SAY); return; }
     $('unSave').disabled = true; say('');
     try {
       var r = await q(sb.rpc('set_profile', { p_username: u, p_name: $('unName').value.trim(), p_private: unPriv }));
@@ -2497,7 +2597,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       postsRedraw(); return;
     }
     if ((id = b.getAttribute('data-preport'))) {
-      try { await q(sb.rpc('report_post', { p_id: id, p_reason: b.getAttribute('data-why') || '' })); FD.msg = 'Thanks. Gaffer will look at that post.'; } catch (err) { FD.msg = 'Couldn’t send that. Check your signal.'; }
+      try { await q(sb.rpc('report_post', { p_id: id, p_reason: b.getAttribute('data-why') || '' })); FD.msg = 'Thanks. Gaffer will look at that post within 24 hours.'; reported('post'); } catch (err) { FD.msg = 'Couldn’t send that. Check your signal.'; }
       FD.open = null; if (S.view === 'profile') PF.msg = FD.msg; postsRedraw();
     }
   });
@@ -2557,6 +2657,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('npCancel').addEventListener('click', function () { if (!NP.busy) $('postPop').hidden = true; });
   $('npPost').addEventListener('click', async function () {
     var it = npItems().filter(function (x) { return x.key === NP.pick; })[0]; if (!it || NP.busy) return;
+    if (rude($('npCap').value, true)) { $('npMsg').textContent = 'Your caption has a word Gaffer doesn’t allow. Please change it.'; $('npMsg').hidden = false; return; }
     NP.busy = true; renderNP(); $('npMsg').hidden = true;
     var args = it.r ? { p_kind: 'reel', p_team: it.r.team_id, p_caption: $('npCap').value } : { p_kind: 'clip', p_game: it.c.game_id, p_at: it.c.at, p_caption: $('npCap').value };
     try {
@@ -2699,7 +2800,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var u = PF.d.username;
     if (b.getAttribute('data-fol')) { followTap(u, !!PF.d.follow); return; }
     if (b.getAttribute('data-team')) { openTeamView(b.getAttribute('data-team')); return; }
-    if (b.getAttribute('data-why')) { try { await q(sb.rpc('report_user', { p_username: u, p_reason: b.getAttribute('data-why') })); PF.msg = 'Thanks. Gaffer will look at @' + u + '’s profile. Block them too if you’d rather not see them.'; } catch (err) { PF.msg = 'Couldn’t send that. Check your signal.'; } PF.report = false; renderProfile(); return; }
+    if (b.getAttribute('data-why')) { try { await q(sb.rpc('report_user', { p_username: u, p_reason: b.getAttribute('data-why') })); PF.msg = 'Thanks. Gaffer will look at @' + u + '’s profile within 24 hours. Block them too if you’d rather not see them.'; reported('profile'); } catch (err) { PF.msg = 'Couldn’t send that. Check your signal.'; } PF.report = false; renderProfile(); return; }
     if (b.getAttribute('data-ptab')) { PF.ptab = b.getAttribute('data-ptab'); renderProfile(); return; }
     if (act === 'signin') { A.after = 'feed'; go('account'); return; }
     if (act === 'find') { go('people'); return; }
@@ -2733,11 +2834,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { aSay('Enter your email address.', true); return; }
     if (pw.length < 8) { aSay('Passwords need at least 8 characters.', true); return; }
     var auser = $('aUser').value.trim();
-    if (kind === 'up') { aSay('Checking your username…'); var abad = await unameProblem(auser); if (abad) { aSay(abad, true); return; } A.wantName = auser; saveApp(); }
+    if (kind === 'up') { aSay('Checking your username…'); var abad = await unameProblem(auser); if (abad) { aSay(abad, true); return; } if (!$('aTerms').checked) { aSay(TERMS_SAY, true); return; } A.wantName = auser; saveApp(); }
     aSay(kind === 'up' ? 'Creating your account…' : 'Signing in…');
     try {
       if (kind === 'up') {
-        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: NATIVE_SITE || (location.origin + location.pathname), data: { username: auser } } });
+        var r1 = await sb.auth.signUp({ email: email, password: pw, options: { emailRedirectTo: NATIVE_SITE || (location.origin + location.pathname), data: { username: auser, terms: TERMS_V } } });
         if (r1.error) throw r1.error;
         if (!r1.data.session) { aSay('Check your email and tap the link to confirm your account, then sign in here.'); return; }
       } else {
@@ -2788,7 +2889,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function oSay(t, bad) { var el = $('oAcctMsg'); el.textContent = t || ''; el.className = 'msg' + (bad ? ' bad' : ''); el.hidden = !t; }
   armed($('oDelete'), 'Tap again to delete it for good', function () { deleteMe(oSay); });
   // the privacy policy lives on the website; the iOS app opens it there
-  document.querySelectorAll('[data-privacy]').forEach(function (a) { if (!/^https?:/.test(location.protocol) && CFG.siteUrl) a.href = CFG.siteUrl + 'privacy.html'; });
+  document.querySelectorAll('[data-privacy],[data-site]').forEach(function (a) { a.href = siteHref(a.getAttribute('data-site') || 'privacy.html'); });
   $('acctBtn').addEventListener('click', function () { go('account'); });
   $('aOrgJoin').addEventListener('click', async function () {
     var c = $('aOrgCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -2855,7 +2956,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('tCreate').addEventListener('click', async function () {
     var name = $('tName').value.trim();
     if (!name) { tSay('Give the team a name.'); $('tName').focus(); return; }
+    if (rude(name, true) || rude($('tShort').value, true)) { tSay('That team name has a word Gaffer doesn’t allow. Please change it.'); return; }
     var names = $('tPlayers').value.split('\n').map(function (x) { return x.trim().slice(0, 24); }).filter(Boolean).slice(0, 40);
+    if (names.some(function (n) { return rude(n); })) { tSay('One of the player names has a word Gaffer doesn’t allow. Please change it.'); return; }
     if (!names.length) for (var i = 1; i <= 8; i++) names.push('Player ' + i);
     var t = blankTeam();
     t.name = name; t.short = $('tShort').value.trim() || initials(name); t.color = draft.color;
@@ -3753,7 +3856,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     S.results.forEach(function (r) { byId[r.id] = r; });
     RB.busy = true; RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
     var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
-    if (RB.voice && canVoice()) {
+    if (RB.voice && canVoice() && !(await aiAsk())) RB.note = 'No commentary: ' + AI_NO + ' The reel was made without it.';
+    else if (RB.voice && canVoice()) {
       var sw = swears(), lines = [sw ? who + '’s highlights. Brace yourselves, this is absolute filth.' : who + '’s highlights, for ' + teamName() + '.'].concat(list.map(function (c) { return byId[c.game_id] ? commentaryFor(byId[c.game_id], c, sw) : ''; }), [sw ? 'That’s ' + who + '. What a fucking player.' : 'That’s ' + who + '. What a player.']).map(spokenLine);
       try {
         var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
@@ -4167,7 +4271,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       CUT.sel = next ? next.key : key; renderCut();
     }
     else if (act === 'hear') { // a sample line in the chosen voice, played straight away
-      cutKeep(); CUT.heard = 'Fetching the voice…'; renderCut();
+      cutKeep();
+      if (!(await aiAsk())) { CUT.heard = 'Not played: ' + AI_NO; renderCut(); return; }
+      CUT.heard = 'Fetching the voice…'; renderCut();
       try {
         var hv = voicePick(), hr = await sb.functions.invoke('reel-voice', { body: { code: A.active, voice: hv.voice, style: hv.style, lines: [hv.style === 'sweary' ? 'HOW THE FUCK has ' + (S.players.length ? nm(S.players[0].id) : 'the number nine') + ' scored that? ' + teamName() + ' lead 2 1!' : 'What a finish from ' + (S.players.length ? nm(S.players[0].id) : 'the number nine') + '! ' + teamName() + ' lead 2 1!'] } }), hd = hr && hr.data;
         if (hd && hd.audio && hd.audio[0]) { new Audio('data:audio/mpeg;base64,' + hd.audio[0]).play().catch(function () {}); CUT.heard = hd.engine === 'gemini' || hv.style === 'plain' ? 'Playing.' : 'Playing, read straight: the live-commentator delivery isn’t available to this key yet (' + (hd.note || 'no reason given') + ').'; }
@@ -4196,13 +4302,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         cutKeep(); CUT.msg = 'Gaffer can’t open ' + (many ? listAnd(lost.map(function (k) { return 'camera ' + camNo(k) + '’s video'; })) : 'the video') + ' any more. Tap Back to the cameras, choose it again with Change video (your marks stay), and cut straight away. If it still won’t open, check it plays in the Photos app.';
         renderCut(); return;
       }
+      var aiYes = !(CUT.voice && hasGaffer()) || await aiAsk(); // (asked before the cut starts, not halfway through)
       CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; renderCut();
       try {
         var b0 = camBase(r, live[0], false, false); if (b0 != null) r.sync = Math.max(0, Math.round(b0)); save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
         if (dirty || !r.id) throw new Error('Couldn’t save the game to the database. Check your signal and try again.');
         // commentary: a line for each clip plus an intro and a sign-off, spoken by a cloud voice and mixed in on the phone
         var said = null; CUT.voiced = null;
-        if (CUT.voice && hasGaffer()) {
+        if (CUT.voice && hasGaffer() && !aiYes) CUT.voiced = AI_NO;
+        else if (CUT.voice && hasGaffer()) {
           CUT.prog = 'Recording the commentary…'; var vp = $('cutProg'); if (vp) vp.textContent = CUT.prog;
           var sw = swears(), ft = 'Full time. ' + usFull(r) + ' ' + r.us + ', ' + r.opp + ' ' + r.them + '.';
           var words = [sw ? usFull(r) + ' against ' + r.opp + '. Strap in, this gets fucking mental.' : usFull(r) + ' against ' + r.opp + '. Here are the highlights.'].concat(list.map(function (c) { return commentaryFor(r, { at: c.at, dur: c.end - c.start }, sw) || ''; }),
@@ -4470,7 +4578,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('hKick').disabled = !ok;
   }
   function houseAdd(side) {
-    var el = $('hGuest'), name = el.value.trim().replace(/\s+/g, ' ').slice(0, 30); if (!name) { el.focus(); return; }
+    var el = $('hGuest'), name = el.value.trim().replace(/\s+/g, ' ').slice(0, 30); if (!name || rude(name, true)) { el.value = ''; el.placeholder = name ? 'That name isn’t allowed' : el.placeholder; el.focus(); return; }
     D.house.guests.push({ id: guestId(), name: name, side: side }); el.value = ''; renderHouseList(); el.focus();
   }
   function houseKick() {
@@ -6000,7 +6108,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else {
       form.hidden = false;
       if (CH.err) html += '<p class="msg bad">Couldn’t load the chat. Check your signal.</p>';
-      if (mk.length) html += '<div class="cacts">' + mk.map(function (k) { return '<button type="button" data-chunmute="' + esc(k) + '">Unmute ' + esc(muted[k]) + '</button>'; }).join('') + '</div>';
+      if (mk.length) html += '<div class="cacts">' + mk.map(function (k) { return '<button type="button" data-chunmute="' + esc(k) + '">Unblock ' + esc(muted[k]) + '</button>'; }).join('') + '</div>';
       if (!CH.list.length && !CH.err) html += '<p class="note">Nothing yet. Say something, or record a play on the Tactics tab and send it here. Be decent: anyone can report a message, and the gaffer can remove it.</p>';
       html += '<div class="chatlist">' + CH.list.map(function (m) {
         var o = '<div class="cmsg' + (m.mine ? ' mine' : '') + '"><small>' + (m.mine ? 'You' : m.pid != null ? plink(m.pid, esc(m.name || 'Player')) : esc(m.name || 'Player')) + ' · ' + chatWhen(m.at) + '</small>';
@@ -6008,15 +6116,20 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (play) o += '<div class="cplay"><b>' + esc(m.play_name || 'A play') + '</b><svg viewBox="0 0 100 140" data-chsvg="' + m.id + '" role="img" aria-label="Recorded play">' + tbSvg(false, tbFrame(play, tbTracks(play), 0)) + '</svg><div class="cacts"><button type="button" data-chplay="' + m.id + '">▶ Play, ' + Math.max(1, Math.round(play.dur / 1000)) + ' s</button></div></div>';
         if (m.body) o += '<button type="button" class="bubble" data-chmsg="' + m.id + '">' + esc(m.body) + '</button>';
         else if (play) o += '<div class="cacts"><button type="button" data-chmsg="' + m.id + '">…</button></div>';
-        if (chOpen === m.id) o += '<div class="cacts">' + (m.can_delete ? '<button type="button" data-chdel="' + m.id + '">Delete</button>' : '') + (m.mine ? '' : '<button type="button" data-chrep="' + m.id + '">Report</button>' + (m.pid != null ? '<button type="button" data-chmute="' + m.pid + '" data-n="' + esc(m.name || 'Player') + '">Mute ' + esc(m.name || 'Player') + '</button>' : '')) + '</div>';
+        if (chOpen === m.id) o += '<div class="cacts">' + (m.can_delete ? '<button type="button" data-chdel="' + m.id + '">Delete</button>' : '') + (m.mine ? '' : '<button type="button" data-chrep="' + m.id + '">Report</button>' + (m.pid != null ? '<button type="button" data-chmute="' + m.pid + '" data-n="' + esc(m.name || 'Player') + '">Block ' + esc(m.name || 'Player') + '</button>' : '')) + '</div>';
         return o + '</div>';
       }).join('') + '</div>';
       if (CH.note) html += '<p class="msg" role="status">' + esc(CH.note) + '</p>';
     }
     $('chatBody').innerHTML = html;
   }
+  async function chUser(pid) { // a squad player's username, asked for there and then if this phone doesn't know it yet
+    if (TP.code === A.active && TP.map[pid]) return TP.map[pid];
+    try { var tp = (await q(sb.rpc('team_people', { p_code: A.active }))).data || []; var hit = tp.filter(function (x) { return x.pid === pid; })[0]; return hit ? hit.username : null; } catch (e) { return null; }
+  }
   $('chatForm').addEventListener('submit', async function (e) {
     e.preventDefault(); var el = $('chatText'), v = el.value.trim(); if (!v) return;
+    if (rude(v)) { CH.note = 'That message has a word Gaffer doesn’t allow, so it wasn’t sent. Please change it.'; renderChat(); return; }
     el.value = ''; CH.note = ''; var ok = await chatSend(v);
     if (!ok) { el.value = v; CH.note = 'That didn’t send. Check your signal and try again.'; renderChat(); }
   });
@@ -6025,9 +6138,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if ((v = g('data-chmsg')) !== null) { chOpen = chOpen === v ? null : v; renderChat(); }
     else if ((v = g('data-chplay')) !== null) { var m = CH.list.filter(function (x) { return x.id === v; })[0], play = m && tbClean(m.play), el = $('chatBody').querySelector('[data-chsvg="' + v + '"]'); if (!play || !el || chAnim) return; chAnim = 1; tbRun(el, play, function () { chAnim = 0; }); }
     else if ((v = g('data-chdel')) !== null) { try { await q(sb.rpc('chat_delete', { p_id: v })); ping('chat'); } catch (err) {} chOpen = null; chatPull(); }
-    else if ((v = g('data-chrep')) !== null) { try { await q(sb.rpc('chat_report', { p_id: v })); CH.note = 'Reported. Thanks, it will be looked at.'; } catch (err) { CH.note = 'Couldn’t send the report. Try again.'; } chOpen = null; renderChat(); }
-    else if ((v = g('data-chmute')) !== null) { var mu = chStore('Muted') || {}; mu[v] = g('data-n') || 'Player'; chStore('Muted', mu); chOpen = null; chatPull(); }
-    else if ((v = g('data-chunmute')) !== null) { var mu2 = chStore('Muted') || {}; delete mu2[v]; chStore('Muted', mu2); chatPull(); }
+    else if ((v = g('data-chrep')) !== null) { try { await q(sb.rpc('chat_report', { p_id: v })); CH.note = 'Reported. Thanks, Gaffer will look at it within 24 hours.'; reported('chat'); } catch (err) { CH.note = 'Couldn’t send the report. Try again.'; } chOpen = null; renderChat(); }
+    else if ((v = g('data-chmute')) !== null) { // their messages go from this phone's chat; with a profile, they're blocked everywhere too
+      var mu = chStore('Muted') || {}, bn = g('data-n') || 'Player', bu = await chUser(+v); mu[v] = bn; chStore('Muted', mu); chOpen = null;
+      CH.note = 'Blocked ' + bn + '. You won’t see their messages' + (bu ? ', posts or profile' : '') + '. Unblock them at the top of the chat.';
+      if (bu) { var bus = chStore('MutedU') || {}; bus[v] = bu; chStore('MutedU', bus); try { await q(sb.rpc('block_user', { p_username: bu, p_block: true })); } catch (err) {} } // (kept: once blocked, the server won't say who they are)
+      chatPull();
+    }
+    else if ((v = g('data-chunmute')) !== null) { var mu2 = chStore('Muted') || {}, us2 = chStore('MutedU') || {}, ub = us2[v] || await chUser(+v); delete us2[v]; chStore('MutedU', us2); delete mu2[v]; chStore('Muted', mu2); CH.note = ''; if (ub) { try { await q(sb.rpc('block_user', { p_username: ub, p_block: false })); } catch (err) {} } chatPull(); }
   });
   // ================= end of squad chat
   // ================= tactics board: a sandbox. Everything in this block stands alone and is kept on this phone only.
@@ -6420,6 +6538,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function renderOptions() {
     renderNotes();
     var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = $('soonOpen').hidden = $('planOpen').hidden = !ex.track;
+    var aiOn = aiAllowed(); $('optAI').hidden = !(sb && me);
+    $('optAINote').textContent = aiOn ? 'Allowed on this phone: when you add commentary, the lines (players’ first names, the team names, the score and the minute) are sent to Google’s AI to make the voice.' : 'Not allowed on this phone: nothing is sent to Google. You’ll be asked when you add commentary.';
+    $('optAIBtn').textContent = aiOn ? 'Stop sending to Google' : 'Allow it';
     $('optAccount').hidden = !(sb && me); $('optSignedAs').textContent = me && me.email ? 'Signed in as ' + me.email + '. Your team and stats stay put; sign back in to pick up where you left off.' : '';
     renderTeamOpts();
     var html = '', busy = !!S.match;
@@ -6475,8 +6596,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     renderCrest();
   }
   function oSay(t) { $('oMsg').textContent = t; $('oMsg').hidden = !t; }
-  $('oName').addEventListener('input', function (e) { S.name = e.target.value; if (A.active) rememberTeam(A.active, S.name.trim() || A.active); save(); });
-  $('oShort').addEventListener('input', function (e) { S.short = e.target.value; save(); });
+  function oRude(v) { var bad = rude(v, true); $('oMsg').textContent = bad ? 'That name has a word Gaffer doesn’t allow, so it hasn’t been saved. Please change it.' : ''; $('oMsg').hidden = !bad; return bad; }
+  $('oName').addEventListener('input', function (e) { if (oRude(e.target.value)) return; S.name = e.target.value; if (A.active) rememberTeam(A.active, S.name.trim() || A.active); save(); });
+  $('oShort').addEventListener('input', function (e) { if (oRude(e.target.value)) return; S.short = e.target.value; save(); });
   $('oScore').addEventListener('change', function (e) { S.followersCanScore = e.target.checked; save(); });
   $('oFind').addEventListener('change', function (e) { S.listed = e.target.checked; save(); });
   $('oCrest').addEventListener('change', function (e) {

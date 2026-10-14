@@ -16,7 +16,7 @@ const shot = async (p, name) => { if (out) { fs.mkdirSync(out, { recursive: true
 
 // gaffer creates the team and plays a game
 const A = await open('A');
-await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
+await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.check('#aTerms'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
 await A.fill('#tName', 'Sons of Pitches FC'); await A.fill('#tShort', 'SOP FC'); await A.click('#tColors button[data-c="#4c2bb0"]'); await A.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await A.click('#tCreate'); await wait(400);
 const code = await A.textContent('#codeBig'); await A.click('#v-code [data-go="home"]'); await wait(300);
 await A.click('#mNew'); await A.fill('#opp', 'Dog & Bone'); await A.click('#startGame'); await A.click('#kick'); await A.click('#go');
@@ -37,8 +37,8 @@ console.log('picker:', await view(D), '|', await D.textContent('#jName'), '| row
 await D.click('#joinList [data-pid="2"]'); await wait(100);
 console.log('expanded stats:', (await D.textContent('#joinList .statgrid')).replace(/\s+/g, ' '));
 await shot(D, 'join');
-await D.fill('#jLast', 'Smith'); await D.fill('#jEmail', 'jake@example.com'); await D.fill('#jPass', 'short'); await D.click('#joinList [data-do="up"]'); console.log('short password:', await D.textContent('#jMsg'));
-await D.fill('#jPass', 'longenough1'); await D.fill('#jUser', 'jake_s'); await D.click('#joinList [data-do="up"]'); console.log('no position:', await D.textContent('#jMsg')); await D.click('#joinList [data-pos="def"]'); await D.click('#joinList [data-do="up"]'); await wait(600);
+await D.fill('#jLast', 'Smith'); await D.fill('#jEmail', 'jake@example.com'); await D.fill('#jPass', 'short'); await D.check('#jTerms'); await D.click('#joinList [data-do="up"]'); console.log('short password:', await D.textContent('#jMsg'));
+await D.fill('#jPass', 'longenough1'); await D.fill('#jUser', 'jake_s'); await D.check('#jTerms'); await D.click('#joinList [data-do="up"]'); console.log('no position:', await D.textContent('#jMsg')); await D.click('#joinList [data-pos="def"]'); await D.check('#jTerms'); await D.click('#joinList [data-do="up"]'); await wait(600);
 console.log('after sign-up:', await view(D), '| pending card:', await D.isVisible('#pendCard'), await D.textContent('#pendTitle'));
 await D.click('#pendCard [data-go="account"]'); await D.fill('#aEmail', 'jake@example.com'); await D.fill('#aPass', 'longenough1'); await D.click('#aSignIn'); await wait(800);
 console.log('after confirming and signing in:', await view(D), '|', (await D.textContent('#meCard')).replace(/\s+/g, ' ').slice(0, 80));

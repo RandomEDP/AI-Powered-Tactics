@@ -11,7 +11,10 @@
 // Anyone in the team (a gaffer or a player) whose phone sees the team's live stream getting through calls it with
 // { code, kind: "live" }: the server checks with Cloudflare that the picture really is getting through, then tells
 // everyone else, once per stream however many phones ask.
-// The wording of those five is written here, not by the caller.
+// Anyone who has just reported something (a post, a profile, a chat message or a live stream) calls it with
+// { kind: "report", what }: Gaffer's moderators are told straight away, so it's looked at within a day. It only goes if
+// the caller really did report something in the last 10 minutes.
+// The wording of those six is written here, not by the caller.
 // Needs these secrets (Edge Functions > Secrets):
 //   APNS_KEY_P8   the contents of an Apple Push Notifications key (.p8)
 //   APNS_KEY_ID   that key's ID
@@ -36,7 +39,7 @@ async function apnsJwt(p8: string, keyId: string, teamId: string) {
   return head + "." + b64url(sig);
 }
 
-const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge", "join", "live"];
+const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge", "join", "live", "report"];
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
 Deno.serve(async (req: Request) => {
@@ -45,16 +48,11 @@ Deno.serve(async (req: Request) => {
     const input = await req.json();
     const kind = KINDS.includes(input.kind) ? input.kind : "kickoff";
     let title = clean(input.title, 80), text = clean(input.body, 180);
-    if (!["claimed", "chat", "challenge", "join", "live"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
+    if (!["claimed", "chat", "challenge", "join", "live", "report"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
     if (!who?.user) return json({ error: "Sign in first" }, 401);
-
-    const { data: team } = await db.from("teams").select("id,code,name,short").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
-    if (!team) return json({ error: "No such team" }, 404);
-    const { data: gaffers } = await db.from("team_members").select("user_id").eq("team_id", team.id);
-    const isGaffer = (gaffers || []).some((g) => g.user_id === who.user.id);
 
     const p8 = Deno.env.get("APNS_KEY_P8"), keyId = Deno.env.get("APNS_KEY_ID"), teamId = Deno.env.get("APPLE_TEAM_ID");
     let jwt = "";
@@ -76,6 +74,24 @@ Deno.serve(async (req: Request) => {
       if (dead.length) await db.from("push_tokens").delete().in("token", dead);
       return sent;
     };
+
+    if (kind === "report") { // somebody has just reported something: tell the moderators, if they really did
+      const since = Date.now() - 600000, me = who.user.id, recent = (rows: { created_at: string }[] | null) => (rows || []).some((r) => new Date(r.created_at).getTime() > since);
+      const [a, b, c, d] = await Promise.all([
+        db.from("post_reports").select("created_at").eq("user_id", me), db.from("profile_reports").select("created_at").eq("reporter", me),
+        db.from("message_reports").select("created_at").eq("user_id", me), db.from("stream_reports").select("created_at").eq("user_id", me)]);
+      if (![a.data, b.data, c.data, d.data].some(recent)) return json({ error: "Nothing reported" }, 404);
+      if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
+      const what = ({ post: "A post", profile: "A profile", chat: "A chat message", stream: "A live stream" } as Record<string, string>)[String(input.what)] || "Something";
+      const { data: mods } = await db.from("moderators").select("user_id");
+      return json({ sent: await send((mods || []).map((m) => m.user_id as string), "", "report", "Something was reported in Gaffer", `${what} was reported. Have a look and deal with it within 24 hours.`) });
+    }
+
+    const { data: team } = await db.from("teams").select("id,code,name,short").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
+    if (!team) return json({ error: "No such team" }, 404);
+    const { data: gaffers } = await db.from("team_members").select("user_id").eq("team_id", team.id);
+    const isGaffer = (gaffers || []).some((g) => g.user_id === who.user.id);
+
     const everyone = async (id: string) => {
       const [{ data: ps }, { data: gs }] = await Promise.all([
         db.from("players").select("user_id").eq("team_id", id).not("user_id", "is", null),

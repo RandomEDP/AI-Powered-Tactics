@@ -15,7 +15,7 @@ const G = async (p) => { if (!(await p.isVisible('#v-games'))) { await p.click('
 const fx = async (p) => (await p.textContent((await p.isVisible('#v-games')) ? '#gamesTrack .fxc' : '#fxCard')).replace(/\s+/g, ' ');
 
 const ctx = await mk(); const A = await ctx.newPage(); A.on('pageerror', (e) => errs.push('A: ' + e)); await A.goto(BASE); await wait(300);
-await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
+await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.check('#aTerms'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
 await A.fill('#tName', 'Sons of Pitches FC'); await A.fill('#tShort', 'SOP FC'); await A.click('#tColors button[data-c="#4c2bb0"]');
 await A.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan\nAli\nAdrian\nMark'); await A.click('#tCreate'); await wait(400);
 const code = await A.textContent('#codeBig'); await A.click('#v-code [data-go="home"]'); await wait(300);
@@ -49,7 +49,7 @@ await A.click('#gamesTrack .pitchmap [data-dot="2"]'); await wait(400); console.
 const ctx2 = await mk(); const D = await ctx2.newPage(); D.on('pageerror', (e) => errs.push('D: ' + e));
 await D.addInitScript((db) => { if (!localStorage.getItem('__mockdb')) localStorage.setItem('__mockdb', db); }, await A.evaluate(() => localStorage.getItem('__mockdb')));
 await D.goto(BASE); await wait(300); await D.fill('#joinCode', code); await D.click('#joinBtn'); await wait(400);
-await D.click('#joinList [data-pid="9"]'); await D.fill('#jLast', 'Khan'); await D.click('#joinList [data-pos="mix"]'); await D.fill('#jEmail', 'ali@example.com'); await D.fill('#jUser', 'ali_k'); await D.fill('#jPass', 'longenough1'); await D.click('#joinList [data-do="up"]'); await wait(500);
+await D.click('#joinList [data-pid="9"]'); await D.fill('#jLast', 'Khan'); await D.click('#joinList [data-pos="mix"]'); await D.fill('#jEmail', 'ali@example.com'); await D.fill('#jUser', 'ali_k'); await D.fill('#jPass', 'longenough1'); await D.check('#jTerms'); await D.click('#joinList [data-do="up"]'); await wait(500);
 await D.click('#pendCard [data-go="account"]'); await D.fill('#aEmail', 'ali@example.com'); await D.fill('#aPass', 'longenough1'); await D.click('#aSignIn'); await wait(800);
 console.log('player sees on home:', (await fx(D)).slice(0, 160)); await shot(D, 'home-compact'); await D.click('#fxCard [data-fx="all"]'); await wait(300); console.log('button ->', await view(D));
 console.log('player buttons: in disabled', await D.isDisabled('#gamesTrack .fxc [data-vote="in"]'), '| gk disabled', await D.isDisabled('#gamesTrack .fxc [data-vote="gk"]'), '| gaffer tools:', await D.isVisible('#gamesTrack .fxc [data-fx="start"]').catch(() => false));

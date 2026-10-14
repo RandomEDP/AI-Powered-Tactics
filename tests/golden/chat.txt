@@ -15,9 +15,9 @@ Ali unread badge: 2 visible true
 Ali sees: Ethan,Ethan | badge gone: true
 Ali plays it: translate(<x y>)
 gaffer sees it: Tuesday, 7:30. Who is driving? / I can drive
-actions on someone else’s: Report,Mute Ethan,▶ Play, 5 s,…
-report: Reported. Thanks, it will be looked at.
-after mute: 1 messages | Unmute Ethan
+actions on someone else’s: Report,Block Ethan,▶ Play, 5 s,…
+report: Reported. Thanks, Gaffer will look at it within 24 hours.
+after mute: 1 messages | Unblock Ethan
 gaffer deleted Ali’s: 2 left
 calendar prompt: true | You’re in for v Athletico Pathetico, Tue 13 Oct, 19:30. Add it to your calendar?
 asked again for the same game: false

@@ -13,7 +13,7 @@ await ctx.addInitScript(() => { window.__p = []; let perm = sessionStorage.getIt
 await ctx.route('**/*', (r) => { const u = r.request().url(); if (u.includes('vendor/supabase.js')) return r.fulfill({ contentType: 'application/javascript', body: MOCK }); return u.startsWith(BASE) ? r.continue() : r.abort(); });
 const A = await ctx.newPage(); const errs = []; A.on('pageerror', (e) => errs.push(String(e))); const wait = (ms) => A.waitForTimeout(ms);
 await A.goto(BASE); await wait(300);
-await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
+await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.check('#aTerms'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
 await A.fill('#tName', 'Sons of Pitches FC'); await A.fill('#tShort', 'SOP FC'); await A.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac'); await A.click('#tCreate'); await wait(700);
 console.log('explainer shown:', await A.isVisible('#pushPop'), '| iOS asked yet:', JSON.stringify(await A.evaluate(() => window.__p)), '|', (await A.textContent('#pushPop .tier')).replace(/\s+/g, ' ').trim().slice(0, 90));
 if (out) { fs.mkdirSync(out, { recursive: true }); await A.screenshot({ path: `${out}/push-why.png` }); }

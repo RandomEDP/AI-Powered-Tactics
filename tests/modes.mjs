@@ -12,7 +12,7 @@ const view = (p) => p.evaluate(() => [...document.querySelectorAll('[id^="v-"]')
 const db = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')));
 const shot = async (n, full) => { if (out) { fs.mkdirSync(out, { recursive: true }); await A.waitForTimeout(400); await A.screenshot({ path: `${out}/${n}.png`, fullPage: !!full }); } };
 const A = await ctx.newPage(); A.on('pageerror', (e) => errs.push(String(e))); await A.goto(BASE); await wait(300);
-await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
+await A.click('#createBtn'); await A.fill('#aEmail', 'gaffer@example.com'); await A.fill('#aPass', 'longpassword'); await A.fill('#aUser', 'gaffer_fc'); await A.check('#aTerms'); await A.click('#aSignUp'); await A.click('#aSignIn'); await wait(300);
 await A.fill('#tName', 'Sons of Pitches FC'); await A.fill('#tShort', 'SOP FC'); await A.fill('#tPlayers', 'K\nA\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nL'); await A.click('#tCreate'); await wait(400);
 await A.click('#v-code [data-go="home"]'); await wait(300);
 await A.click('#meCard [data-me="pick"]'); await wait(300); await A.click('#joinList [data-pid="2"]'); await A.click('#joinList [data-pos="fwd"]'); await A.click('#joinList [data-do="claim"]'); await wait(600);

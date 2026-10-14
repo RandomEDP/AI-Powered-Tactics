@@ -16,16 +16,16 @@ const toPeople = async (P) => { if (await P.view() === 'people') return; if (awa
 const A = await w.phone({ db: true, label: 'ethan' });
 await A.click('#acctBtn');
 await A.page.fill('#aEmail', 'ethan@example.com'); await A.page.fill('#aPass', 'longpassword');
-await A.click('#aSignUp'); await A.run(300);
+await A.check('#aTerms'); await A.click('#aSignUp'); await A.run(300);
 eq(await msg(A), 'Pick a username for your account.', 'creating an account needs a username');
-await A.page.fill('#aUser', 'my name'); await A.click('#aSignUp'); await A.run(300);
+await A.page.fill('#aUser', 'my name'); await A.check('#aTerms'); await A.click('#aSignUp'); await A.run(300);
 eq(await msg(A), 'Usernames are 3 to 20 letters, numbers or _, with no spaces.', 'and says what a username can be');
 for (const u of ['EDP', 'Ethan', 'ethandp', 'E_D_P_1']) {
-  await A.page.fill('#aUser', u); await A.click('#aSignUp'); await A.run(300);
+  await A.page.fill('#aUser', u); await A.check('#aTerms'); await A.click('#aSignUp'); await A.run(300);
   eq(await msg(A), 'That username is kept back. Try another.', `${u} is kept back`);
 }
 eq((w.db().users || []).length, 0, 'and no account was made with any of those');
-await A.page.fill('#aUser', 'gaffer_ethan'); await A.click('#aSignUp'); await A.run(300); await A.click('#aSignIn'); await A.run(1000);
+await A.page.fill('#aUser', 'gaffer_ethan'); await A.check('#aTerms'); await A.click('#aSignUp'); await A.run(300); await A.click('#aSignIn'); await A.run(1000);
 eq(w.db().profiles.map((p) => [p.username, p.private]), [['gaffer_ethan', false]], 'a new account gets the username it picked, as soon as it signs in (public to start with)');
 eq(await A.visible('#unamePop'), false, 'so it isn\'t asked again');
 
@@ -46,6 +46,13 @@ w.setDb(db);
 // ---------- an account from before profiles gets the pop-up next time
 const J = await w.phone({ db: true, label: 'jake' });
 await J.click('#acctBtn'); await J.page.fill('#aEmail', 'jake@example.com'); await J.page.fill('#aPass', 'longpassword'); await J.click('#aSignIn'); await J.run(1500);
+// made before the Terms of use too: agreeing comes first (Apple's 1.2), on top of everything, until he does
+eq([await J.visible('#termsPop'), /zero tolerance/.test(await J.text('#termsPop'))], [true, true], 'an account from before the Terms of use is asked to agree to them, which say there\'s zero tolerance for abuse');
+await shot(J, 'terms-agree');
+await J.click('#tmAgree'); await J.run(600);
+eq([await J.visible('#termsPop'), (w.db().users.find((u) => u.id === 'u-jake').meta || {}).terms], [false, 1], 'I agree: it\'s kept with his account');
+await J.page.reload(); await J.run(1500);
+eq(await J.visible('#termsPop'), false, 'and he isn\'t asked again');
 eq([await J.visible('#unamePop'), await J.text('#unTitle')], [true, 'Pick a username'], 'an account without a username is asked for one when the app opens');
 await shot(J, 'pick-username');
 await J.page.fill('#unUser', 'edp'); await J.run(600);

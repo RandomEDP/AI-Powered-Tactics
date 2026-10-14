@@ -25,7 +25,7 @@ const J = await w.phone({ db: true, label: 'jake' });
 await J.page.fill('#joinCode', code); await J.click('#joinBtn'); await J.run(500); await J.click('#jFollow'); await J.run(800);
 await J.click('#meCard [data-me="pick"]'); await J.run(300);
 await J.click('#joinList [data-pid="2"]'); await J.page.fill('#jLast', 'Smith'); await J.page.fill('#jNum', '7'); await J.click('#joinList [data-pos="fwd"]');
-await J.page.fill('#jEmail', 'jake@example.com'); await J.page.fill('#jUser', 'Chappers'); await J.page.fill('#jPass', 'longpassword'); await J.click('#joinList [data-do="up"]'); await J.run(800);
+await J.page.fill('#jEmail', 'jake@example.com'); await J.page.fill('#jUser', 'Chappers'); await J.page.fill('#jPass', 'longpassword'); await J.check('#jTerms'); await J.click('#joinList [data-do="up"]'); await J.run(800);
 await J.click('#pendCard [data-go="account"]'); await J.page.fill('#aEmail', 'jake@example.com'); await J.page.fill('#aPass', 'longpassword'); await J.click('#aSignIn'); await J.run(2000);
 db = w.db(); const jakeId = db.users.find((u) => u.email === 'jake@example.com').id;
 eq(db.players.find((p) => p.team_id === team.id && p.pid === 2).user_id, jakeId, 'Jake joins as himself');

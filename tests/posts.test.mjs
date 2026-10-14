@@ -28,6 +28,7 @@ w.setDb(db);
 // ---------- Jake posts his goal from Home's +
 const J = await w.phone({ db: true, label: 'jake' });
 await J.click('#acctBtn'); await J.page.fill('#aEmail', 'jake@example.com'); await J.page.fill('#aPass', 'longpassword'); await J.click('#aSignIn'); await J.run(1500);
+await J.click('#tmAgree'); await J.run(300); // (an account from before the Terms of use agrees to them first)
 await J.click('#pplBtn'); await J.run(1000);
 eq([await J.view(), await tabs(J)], ['feed', ['Home', 'Team', 'Profile']], 'Home is a feed; without a team open the bar has Home, Team and Profile');
 check(/Nothing here yet/.test(await J.text('#fdBody')), 'with nothing in it yet, it says how to fill it');
@@ -58,15 +59,17 @@ const ids = await A.page.$$eval('#fdBody .post', (x) => x.map((y) => y.getAttrib
 const vattrs = await A.page.$$eval('#fdBody .post video', (v) => v.map((x) => [x.muted, x.loop, x.hasAttribute('playsinline'), /#t=0\.1$/.test(x.getAttribute('src')), x.hasAttribute('controls')]));
 eq(vattrs, [[true, true, true, true, false], [true, true, true, true, false]], 'each post\'s video shows its first frame as a thumbnail, muted and looping, with no play button over it');
 const playing = () => A.page.evaluate(() => { const on = {}; window.__p.forEach((x) => { on[x[1]] = x[0] === 'play'; }); return Object.keys(on).filter((k) => on[k]); });
+// the screen watcher reports on the browser's real drawing cycle, which a slow machine (CI) gets to late: wait for it, up to 3 s
+const playingSoon = async (want) => { let got; for (let i = 0; i < 30; i++) { got = await playing(); if (JSON.stringify(got) === JSON.stringify(want)) break; await A.page.waitForTimeout(100); await A.run(50); } return got; };
 eq(await playing(), [ids[0]], 'the top video on screen plays by itself');
 await A.page.evaluate(() => { document.querySelector('#fdBody').style.paddingBottom = '900px'; const v = document.querySelectorAll('#fdBody .post video')[1]; window.scrollTo(0, v.getBoundingClientRect().top + window.scrollY - 80); });
 await A.run(800);
-eq(await playing(), [ids[1]], 'scrolling down: the next one plays and the one above stops');
+eq(await playingSoon([ids[1]]), [ids[1]], 'scrolling down: the next one plays and the one above stops');
 check(await A.page.evaluate(() => window.__p.filter((x) => x[0] === 'play').every((x) => x[2] === true)), 'muted to start with');
 await A.click('#fdBody .post:nth-of-type(2) [data-snd]'); await A.run(200);
 eq([await A.text('#fdBody .post:nth-of-type(2) [data-snd]'), await A.page.$$eval('#fdBody .post video', (v) => v.map((x) => x.muted))], ['Sound on', [false, false]], 'a tap turns the sound on, for the ones after it too');
 await A.page.evaluate(() => window.scrollTo(0, 0)); await A.run(600);
-eq(await playing(), [ids[0]], 'scrolling back up plays the top one again');
+eq(await playingSoon([ids[0]]), [ids[0]], 'scrolling back up plays the top one again');
 await A.click('#fdBody .post:nth-of-type(1) video'); await A.run(800);
 eq([await playing(), await A.page.$$eval('#fdBody .pvid.held', (x) => x.length)], [[], 1], 'one tap on the video that\'s playing pauses it, with a play sign over it');
 await A.page.evaluate(() => window.scrollBy(0, 30)); await A.run(600);

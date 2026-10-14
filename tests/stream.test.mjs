@@ -186,6 +186,22 @@ eq([row().notified_at, (await tell('tok-chaplin')).sent], [null, 3], 'the next g
 APNS.length = 0; await S('tok-ethan', 'stop');
 eq([(await tell('tok-jake')).reason, APNS.length], ['not_live', 0], 'and nothing once the stream has ended');
 
+// ---------- team-notify: a report tells Gaffer's moderators straight away (Apple's 1.2: reports looked at within a day)
+Object.assign(DB, { moderators: [{ user_id: 'u-ethan' }], post_reports: [], profile_reports: [], message_reports: [], stream_reports: [] });
+const rep = (who, what) => notify(who, { kind: 'report', what });
+APNS.length = 0;
+eq([(await rep('tok-jake', 'post')).status, APNS.length], [404, 0], 'nobody is told unless the caller really has just reported something');
+DB.post_reports.push({ user_id: 'u-jake', created_at: new Date(Date.now() - 3600000).toISOString() });
+eq([(await rep('tok-jake', 'post')).status, APNS.length], [404, 0], 'nor for a report from an hour ago');
+DB.stream_reports.push({ user_id: 'u-rival', created_at: new Date().toISOString() });
+r = await rep('tok-rival', 'stream');
+eq([r.sent, APNS.map((a) => a.to)], [1, ['phone-ethan']], 'someone from any team reporting a live stream: the moderator\'s phone is told, and only it');
+eq([APNS[0].payload.kind, APNS[0].payload.aps.alert.title, APNS[0].payload.aps.alert.body], ['report', 'Something was reported in Gaffer', 'A live stream was reported. Have a look and deal with it within 24 hours.'], 'worded by the server');
+APNS.length = 0; DB.message_reports.push({ user_id: 'u-chaplin', created_at: new Date().toISOString() });
+eq([(await rep('tok-chaplin', 'chat')).sent, APNS[0].payload.aps.alert.body], [1, 'A chat message was reported. Have a look and deal with it within 24 hours.'], 'a chat message too');
+eq((await rep(null, 'post')).status, 401, 'and nobody signed out can set it off');
+APNS.length = 0;
+
 // ---------- the commentary voice (reel-voice): the team's gaffers, and its players for their own reels; nobody else
 DB.voice_usage = [];
 const voiceFn = await load('reel-voice');

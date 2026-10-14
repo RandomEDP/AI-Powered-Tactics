@@ -81,7 +81,7 @@ check(!!jakeClip, `${NAMES[P1]}'s highlight is cut as a clip under his name (${J
 const total = rows().length;
 
 // ---------- Jake, on his own phone, takes it out of his highlights
-const db = w.db(); const jakeUser = { id: 'u-jake', email: 'jake@example.com', password: 'longpassword' };
+const db = w.db(); const jakeUser = { id: 'u-jake', email: 'jake@example.com', password: 'longpassword', meta: { terms: 1 } };
 db.users.push(jakeUser); db.players.find((p) => p.pid === P1).user_id = 'u-jake'; db.profiles = (db.profiles || []).concat({ user_id: 'u-jake', username: 'jake_p', name: 'Jake', private: false, pins: [] }); w.setDb(db);
 const J = await w.phone({ db: true, native: true, label: 'jake' });
 await J.ctx.addInitScript(cutter); await J.page.reload(); await J.run(500);

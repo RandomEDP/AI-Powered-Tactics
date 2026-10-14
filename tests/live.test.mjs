@@ -122,5 +122,17 @@ check(/Waiting for the camera|Loading|dropped/.test(await C.text('#lvWait')), `u
 await C.click('#v-live .back');
 eq(await C.page.evaluate(() => document.querySelector('#lvVideo').getAttribute('src')), null, 'and stops when left');
 
+// ---------- reporting a stream (Apple's 1.2): anyone signed in, and Gaffer's moderators are told straight away
+await C.click('#liveCard [data-go="live"]'); await C.run(300);
+await C.click('#lvReport'); await C.click('#lvReport'); await C.run(300);
+eq([await C.text('#lvRepMsg'), (w.db().stream_reports || []).length], ['Sign in first to report a stream.', 0], 'someone following with no account is told to sign in first');
+await C.click('#v-live .back');
+await C.page.evaluate(async () => { const sb = window.supabase.createClient(); await sb.auth.signUp({ email: 'cee@example.com', password: 'longpassword', options: { data: { terms: 1 } } }); await sb.auth.signInWithPassword({ email: 'cee@example.com', password: 'longpassword' }); });
+await C.page.reload(); await C.run(1500); if (await C.visible('#unamePop')) await C.click('#unLater'); // (now signed in)
+await C.click('#liveCard [data-go="live"]'); await C.run(300);
+await C.click('#lvReport'); eq(await C.text('#lvReport'), 'Tap again to report it', 'Report this stream asks you to be sure');
+await C.click('#lvReport'); await C.run(800);
+eq([(w.db().stream_reports || []).length, calls('report').map((c) => c.body.what), await C.text('#lvRepMsg')], [1, ['stream'], 'Reported. Thanks, Gaffer will look at it within 24 hours.'], 'signed in, it\'s reported, and Gaffer is told straight away');
+
 await w.close();
 await done(A, B, C);
