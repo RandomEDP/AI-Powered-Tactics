@@ -15,6 +15,10 @@ import UniformTypeIdentifiers
 ///   share({ path })                                the share sheet (save to Photos, send to a chat)
 ///   shareText({ text, url })                       the share sheet for a message with a link
 ///   joinReel({ items: [{ url, voice?, voiceAt? }], outro, file })   a reel from clips already made -> { path, size, marks }
+///   relabel({ url, lower, look?, voice?, voiceAt?, file })   a goal put right after the clips were made: that one clip
+///                                                  again, its bar along the bottom drawn over with the right names
+///                                                  (lower.over is the old bar), and with a new commentary line if one
+///                                                  is sent -> { path, size, voiced?: { path, size } }
 ///   upload({ path, url, contentType? })            sends a file to an upload link in the background (it carries on with
 ///                                                  the app put away or closed) -> { status, ok }; "upload" events { p }
 ///   cleanup()                                      deletes the working files
@@ -31,6 +35,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         CAPPluginMethod(name: "shareText", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readable", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "upload", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "relabel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cleanup", returnType: CAPPluginReturnPromise)
     ]
 
@@ -486,6 +491,66 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 }
                 if call.getBool("shrink") ?? false { self.shrink(out) } // (one that's uploaded for the team to watch, like the cut's reel)
                 call.resolve(["path": out.path, "size": self.fileSize(out), "marks": marks])
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
+    /// One clip made again after a goal was put right (who scored or set it up): the finished clip, fetched from its
+    /// address, with the new bar along the bottom drawn over the old one at the same moment, so nothing else about it
+    /// changes and the rest of the game's clips are left alone. With a commentary line, a second copy has it spoken over.
+    @objc public func relabel(_ call: CAPPluginCall) {
+        guard let link = call.getString("url"), !link.isEmpty, let lower = ReelGraphics.lower(call.options["lower"]) else {
+            call.reject("Nothing to put right"); return
+        }
+        let look = ReelGraphics.look(call.options["look"])
+        let name = (call.getString("file") ?? "fixed.mp4").replacingOccurrences(of: "/", with: "-")
+        let voiceAt = (call.options["voiceAt"] as? NSNumber)?.doubleValue ?? 0.7
+        var spare: UIBackgroundTaskIdentifier = .invalid
+        let begin = { spare = UIApplication.shared.beginBackgroundTask(withName: "Putting a clip right") { UIApplication.shared.endBackgroundTask(spare) } }
+        if Thread.isMainThread { begin() } else { DispatchQueue.main.sync(execute: begin) }
+        let finished = { DispatchQueue.main.async { if spare != .invalid { UIApplication.shared.endBackgroundTask(spare); spare = .invalid } } }
+        queue.async {
+            defer { finished() }
+            do {
+                let dir = try self.ensureWorkDir().appendingPathComponent("fix", isDirectory: true)
+                try? FileManager.default.removeItem(at: dir)
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let local: URL
+                if link.hasPrefix("http") {
+                    guard let remote = URL(string: link) else { throw CutError(message: "That clip's address isn't right.") }
+                    local = dir.appendingPathComponent("was.mp4")
+                    try self.fetch(remote, to: local) { p in self.notifyListeners("progress", data: ["stage": "fetch", "i": 0, "n": 1, "p": p]) }
+                } else {
+                    local = URL(fileURLWithPath: link)
+                }
+                let clip = AVURLAsset(url: local)
+                let length = CMTimeGetSeconds(clip.duration)
+                guard length.isFinite, length > 0.5 else { throw CutError(message: "That clip couldn't be read. Check your signal and try again.") }
+                var plain = Segment(asset: clip, start: 0, dur: length, caption: "")
+                plain.lower = lower
+                let base = (name as NSString).deletingPathExtension
+                let out = dir.appendingPathComponent(base + ".mp4")
+                try self.export(segments: [plain], watermark: "", outro: nil, to: out, look: look) { fraction in
+                    self.notifyListeners("progress", data: ["stage": "fix", "i": 0, "n": 1, "p": fraction])
+                }
+                self.shrink(out)
+                var result: [String: Any] = ["path": out.path, "size": self.fileSize(out)]
+                if let text = call.getString("voice"), let data = Data(base64Encoded: text), data.count > 200 {
+                    let line = dir.appendingPathComponent("line.mp3")
+                    try data.write(to: line)
+                    var spoken = plain
+                    spoken.voice = AVURLAsset(url: line)
+                    spoken.voiceAt = voiceAt
+                    let voicedOut = dir.appendingPathComponent(base + "v.mp4")
+                    do {
+                        try self.export(segments: [spoken], watermark: "", outro: nil, to: voicedOut, look: look) { _ in }
+                        self.shrink(voicedOut)
+                        result["voiced"] = ["path": voicedOut.path, "size": self.fileSize(voicedOut)]
+                    } catch {} // (the clip without commentary is still put right)
+                }
+                call.resolve(result)
             } catch {
                 call.reject(error.localizedDescription)
             }

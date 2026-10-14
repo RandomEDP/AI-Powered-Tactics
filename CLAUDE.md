@@ -317,6 +317,17 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   and its public address answers a HEAD (`mkResume`). `joinReel` asks iOS for background time like the cut; if iOS
   stops it anyway (put away too long), it says "Paused…" and starts again by itself when Gaffer is back
   (`visibilitychange`, `MK.again`). Not used: iOS 26's continued-processing tasks (reported not to fire on release).
+- **Fix a goal** (Ethan: "pressed it wrong in the heat of the moment"; game card, gaffers, `fixOpen`/`renderFix`/`fixApply`,
+  `#fixPop`): pick the goal (`fixGoals`: ours, or both sides among the squad), then who scored and set it up (`fixCands`:
+  those in the game's `per`, on that side). It moves the goal and assist in `r.per` and the event, and `syncAll` rewrites
+  `game_players`/`game_events`; the clip's `label` and `pids` follow. On the iPhone the clip that moment leads is made again
+  by the plugin's `relabel({url, lower, look, voice, voiceAt, file})`: the clean copy is fetched and the new bar along the
+  bottom drawn over the old one (`lower.over` is the old bar; `ReelGraphics.lowerThird` makes the new one at least as big
+  and solid, with the same slide-in, so none of the old shows), with a new commentary line for the voiced copy (asks
+  `aiAsk` first). Nothing is cut from the match video and no other clip is touched. The new copies go up under a new name
+  (`01-<stamp>.mp4`, so no phone keeps the old one), the row points at them and the old files go. The game's one video is
+  cleared and joined again from the clips (`mhMake` with `MKVER`, `reel-<stamp>.mp4`). On the web only the stats and
+  caption change, and it says to fix it again on the iPhone. Test: `reels.test.mjs`.
 - **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies) and its reel,
   to cut again from scratch.
 - **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each
