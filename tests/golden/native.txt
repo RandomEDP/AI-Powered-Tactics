@@ -3,7 +3,7 @@ after kick-off: haptic SUCCESS
   schedule Change at 5:00 @300s: Off: D, E, F. On: A, B, C. | Change at 10:00 @600s: Off: A, B, G. On: D, E, F. | Half time @900s: Time is up. Tap Half time on the whistle.
   awake
 watch sees: {"live":true,"team":"TU","opp":"Dog","score":"0-0","phase":"h1","running":true,"half":15,"changes":[{"h":0,"from":5,"on":["A","B","C"],"off":["D","E","F"]},{"h":0,"from":10,"on":["D","E","F"],"off":["A","B","G"]}],"players":8,"onPitch":5}
-after a watch goal, then a second inside the lock: 1 - 0 | watch score 1-0 | locked on watch: false | event: 1'Goal: E
+after a watch goal, then a second inside the lock: 1 - 0 | watch score 1-0 | locked on watch: false | event: 1'E
 watch highlight: true
 after pause: cancel 3 ; sleep ok
 after finish: cancel 3 ; sleep ok

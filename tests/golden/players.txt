@@ -10,10 +10,10 @@ no position: Pick where you play.
 after sign-up: v-home | pending card: true Confirm your email to join as Jake
 after confirming and signing in: v-home | Your statsJake Smith, defender1Games15Minutes1Goals0AssistsYour positionUp front
 squad: EthanGafferClaimedUp front, 0 G, 1 A / SpiceNot claimed0 G, 0 A / JakeYouDefender, 1 G, 0 A / ChaplinNot claimed0 G, 0 A / HarrisonNot claimed0 G, 0 A / PuxleyNot claimed0 G, 0 A / IssacNot claimed0 G, 0 A / ReeceNot claimed0 G, 0 A
-new game class: primary locked | settings tab class: herogear
+new game class: primary locked | settings tab class: null
 tap New game: Only the gaffer can start games. | still on: v-home
 Settings for a player: v-options | team settings hidden: true | experimental shown: true | The team's own settings are for gaffers.
-highlights by game: SOP FC 1–0 Dog & Bone10 Oct, 2 moments1’Goal: Jake, set up by Ethan (1–0)1’Save by SpiceNo video for this game yet. Ask your gaffer to generate it.
+highlights by game: v Dog & Bone 1–010 Oct, 2 moments1’Goal: Jake, set up by Ethan (1–0)1’Save by SpiceNo video for this game yet. Ask your gaffer to generate it.
 by player, first card: JakeYou1 moment this season, oldest firstv Dog & Bone, 10 Oct: 1’ GoalNo clips for Jake yet. They appear here when a game’s highli
 gaffer sees squad: EthanGafferYouNotifications offUp front, 0 G, 1 A / SpiceNot claimed0 G, 0 A
 gaffer: the old computer-script button is gone: true

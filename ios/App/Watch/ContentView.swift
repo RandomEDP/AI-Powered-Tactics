@@ -62,8 +62,7 @@ struct IdleView: View {
     }
 }
 
-/// The match: on watchOS 10 and later, pages you turn with the Digital Crown (the clock and score; the four buttons for
-/// logging; the changes to come). Before that, one scrolling page with the same parts in the same order.
+/// One scrolling page: the clock and score first, then the next changes, then the buttons for logging.
 struct MatchView: View {
     @EnvironmentObject var model: MatchModel
     let state: MatchState
@@ -73,32 +72,148 @@ struct MatchView: View {
     @State private var confirmEnd = false
 
     var body: some View {
-        Group {
-            if #available(watchOS 10, *) {
-                MatchPages(state: state, path: $path, confirmUs: $confirmUs, confirmThem: $confirmThem, confirmEnd: $confirmEnd)
-            } else {
-                ScrollViewReader { reader in
-                    ScrollView {
-                        VStack(spacing: 14) {
-                            TimelineView(.periodic(from: .now, by: 1)) { context in
-                                Glance(state: state, now: context.date)
-                            }
-                            .frame(minHeight: WKInterfaceDevice.current().screenBounds.height * (state.phase == "pre" || state.phase == "ht" ? 0.5 : 0.78))
-                            MatchStatus(state: state, confirmEnd: $confirmEnd)
-                            Changes(state: state)
-                                .id("changes")
-                            LogButtons(state: state, path: $path, confirmUs: $confirmUs, confirmThem: $confirmThem, confirmEnd: $confirmEnd, grid: false)
-                                .id("buttons")
-                        }
-                        .padding(.horizontal, 4)
+        ScrollViewReader { reader in
+        ScrollView {
+            VStack(spacing: 14) {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Glance(state: state, now: context.date)
+                }
+                .frame(minHeight: WKInterfaceDevice.current().screenBounds.height * (state.phase == "pre" || state.phase == "ht" ? 0.5 : 0.78))
+
+                if state.phase == "pre" || state.phase == "ht" {
+                    Button {
+                        model.start()
+                    } label: {
+                        Text(state.phase == "pre" ? "Kick off" : "Start 2nd half").font(.headline).frame(maxWidth: .infinity)
                     }
-                    .onAppear {
-                        if model.demoPage == 1 { reader.scrollTo("changes", anchor: .top) }
-                        if model.demoPage == 2 { reader.scrollTo("buttons", anchor: .top) }
-                        if model.demoPage == 3 { path = [.scorer] }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
+
+                if state.inPlay && !state.running { // stopped on the phone (for an injury, or by a stray touch in a pocket)
+                    Button {
+                        model.resume()
+                    } label: {
+                        Text("Restart the clock").font(.headline).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                }
+
+                if state.inPlay { // once time is up the whistle is the next thing wanted, so it sits right under the clock
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        if state.seconds(at: context.date) >= state.half * 60 {
+                            Button {
+                                confirmEnd = true
+                            } label: {
+                                Label(state.lastHalf ? "Full time" : "Half time", systemImage: "flag.checkered").font(.headline).frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.orange)
+                        }
                     }
                 }
+
+                if state.due, let change = state.changes.first { // also asked in a sheet when it comes due; this stays until it's done
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("Subs due", systemImage: "arrow.left.arrow.right")
+                            .font(.headline)
+                            .foregroundStyle(.orange)
+                        if !change.off.isEmpty {
+                            Text("Off: " + change.off.joined(separator: ", ")).font(.footnote.weight(.semibold))
+                        }
+                        if !change.on.isEmpty {
+                            Text("On: " + change.on.joined(separator: ", ")).font(.footnote.weight(.semibold))
+                        }
+                        Button {
+                            model.subsDone()
+                        } label: {
+                            Text("Subs done").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                // What the phone hasn't yet taken in. It keeps everything the watch sends, but only shows and saves it once
+                // the Gaffer app is opened there, so at the end of the game this says whether that has happened.
+                if state.phase == "ft" && model.waiting > 0 {
+                    Text("Open Gaffer on your iPhone to save the game. \(model.waiting) to send.")
+                        .font(.footnote)
+                        .foregroundStyle(.yellow)
+                        .multilineTextAlignment(.center)
+                } else if state.phase == "ft" {
+                    Text("All on your iPhone. Finish the game there.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                } else if !state.inPlay && model.waiting > 0 {
+                    Text("\(model.waiting) still to reach your iPhone. Open Gaffer there when you can.")
+                        .font(.footnote)
+                        .foregroundStyle(.yellow)
+                        .multilineTextAlignment(.center)
+                }
+
+                Changes(state: state)
+                    .id("changes")
+
+                VStack(spacing: 8) {
+                    Button {
+                        if state.asksScorer { path = [.scorer] } else { confirmUs = true }
+                    } label: {
+                        Text("Goal \(state.team)").frame(maxWidth: .infinity)
+                    }
+                    .tint(.green)
+                    .disabled(model.locked || !state.inPlay)
+
+                    Button {
+                        confirmThem = true
+                    } label: {
+                        Text("Goal \(state.opp)").frame(maxWidth: .infinity)
+                    }
+                    .tint(.red)
+                    .disabled(model.locked || !state.inPlay)
+
+                    Button {
+                        let now = Date()
+                        if state.highlightPlayers.isEmpty { model.highlight(at: now, player: nil) } else { path = [.highlight(now)] }
+                    } label: {
+                        Label("Highlight", systemImage: "star.fill").frame(maxWidth: .infinity)
+                    }
+                    .disabled(!state.inPlay)
+
+                    if state.inPlay {
+                        Button {
+                            confirmEnd = true
+                        } label: {
+                            Label(state.lastHalf ? "Full time" : "Half time", systemImage: "flag.checkered").frame(maxWidth: .infinity)
+                        }
+                        .tint(.gray)
+                    }
+
+                    if model.locked {
+                        Text("Score locked for 8 seconds")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    if !model.note.isEmpty {
+                        Text(model.note)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .id("buttons")
             }
+            .padding(.horizontal, 4)
+        }
+        .onAppear {
+            if model.demoPage == 1 { reader.scrollTo("changes", anchor: .top) }
+            if model.demoPage == 2 { reader.scrollTo("buttons", anchor: .top) }
+            if model.demoPage == 3 { path = [.scorer] }
+        }
         }
         .sheet(isPresented: $model.askSubs) {
             SubsSheet(state: state)
@@ -114,261 +229,6 @@ struct MatchView: View {
         .confirmationDialog("Goal for \(state.opp)?", isPresented: $confirmThem, titleVisibility: .visible) {
             Button("Log the goal") { model.goal(us: false, scorer: nil, assist: nil) }
             Button("Cancel", role: .cancel) {}
-        }
-    }
-}
-
-/// watchOS 10 and later: three vertical pages. A goal logged on the buttons page turns back to the score.
-@available(watchOS 10, *)
-struct MatchPages: View {
-    @EnvironmentObject var model: MatchModel
-    let state: MatchState
-    @Binding var path: [Step]
-    @Binding var confirmUs: Bool
-    @Binding var confirmThem: Bool
-    @Binding var confirmEnd: Bool
-    @State private var page = 0
-
-    var body: some View {
-        TabView(selection: $page) {
-            ScrollView {
-                VStack(spacing: 10) {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Glance(state: state, now: context.date)
-                    }
-                    .containerRelativeFrame(.vertical, alignment: .center) { height, _ in state.inPlay && !state.due ? height * 0.62 : height * 0.5 }
-                    MatchStatus(state: state, confirmEnd: $confirmEnd)
-                    if state.inPlay {
-                        HighlightButton(state: state, path: $path)
-                    }
-                }
-                .padding(.horizontal, 4)
-            }
-            .tag(0)
-
-            LogButtons(state: state, path: $path, confirmUs: $confirmUs, confirmThem: $confirmThem, confirmEnd: $confirmEnd, grid: true)
-                .padding(.horizontal, 2)
-                .tag(1)
-
-            ScrollView {
-                Changes(state: state)
-                    .padding(.horizontal, 4)
-            }
-            .tag(2)
-        }
-        .tabViewStyle(.verticalPage)
-        .onChange(of: state.us + state.them) { page = 0 } // (the new score, straight away)
-        .onAppear {
-            if model.demoPage == 1 { page = 2 }
-            if model.demoPage == 2 { page = 1 }
-            if model.demoPage == 3 { path = [.scorer] }
-        }
-    }
-}
-
-/// Kick-off, restarting the clock, the whistle once time is up, subs that are due, and what's still to reach the phone.
-struct MatchStatus: View {
-    @EnvironmentObject var model: MatchModel
-    let state: MatchState
-    @Binding var confirmEnd: Bool
-
-    var body: some View {
-        VStack(spacing: 10) {
-            if state.phase == "pre" || state.phase == "ht" {
-                Button {
-                    model.start()
-                } label: {
-                    Text(state.phase == "pre" ? "Kick off" : "Start 2nd half").font(.headline).frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-            }
-
-            if state.inPlay && !state.running { // stopped on the phone (for an injury, or by a stray touch in a pocket)
-                Button {
-                    model.resume()
-                } label: {
-                    Text("Restart the clock").font(.headline).frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-            }
-
-            if state.inPlay { // once time is up the whistle is the next thing wanted, so it sits right under the clock
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    if state.seconds(at: context.date) >= state.half * 60 {
-                        Button {
-                            confirmEnd = true
-                        } label: {
-                            Label(state.lastHalf ? "Full time" : "Half time", systemImage: "flag.checkered").font(.headline).frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.orange)
-                    }
-                }
-            }
-
-            if state.due, let change = state.changes.first { // also asked in a sheet when it comes due; this stays until it's done
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("Subs due", systemImage: "arrow.left.arrow.right")
-                        .font(.headline)
-                        .foregroundStyle(.orange)
-                    if !change.off.isEmpty {
-                        Text("Off: " + change.off.joined(separator: ", ")).font(.footnote.weight(.semibold))
-                    }
-                    if !change.on.isEmpty {
-                        Text("On: " + change.on.joined(separator: ", ")).font(.footnote.weight(.semibold))
-                    }
-                    Button {
-                        model.subsDone()
-                    } label: {
-                        Text("Subs done").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.green)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            // What the phone hasn't yet taken in. It keeps everything the watch sends, but only shows and saves it once
-            // the Gaffer app is opened there, so at the end of the game this says whether that has happened.
-            if state.phase == "ft" && model.waiting > 0 {
-                Text("Open Gaffer on your iPhone to save the game. \(model.waiting) to send.")
-                    .font(.footnote)
-                    .foregroundStyle(.yellow)
-                    .multilineTextAlignment(.center)
-            } else if state.phase == "ft" {
-                Text("All on your iPhone. Finish the game there.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            } else if !state.inPlay && model.waiting > 0 {
-                Text("\(model.waiting) still to reach your iPhone. Open Gaffer there when you can.")
-                    .font(.footnote)
-                    .foregroundStyle(.yellow)
-                    .multilineTextAlignment(.center)
-            }
-        }
-    }
-}
-
-extension MatchState {
-    /// Goal for us wears the team's kit colour (green from a phone that doesn't send one), with writing that shows on it.
-    var kitColor: Color { if let k = kit { return Color(red: k.r, green: k.g, blue: k.b) } else { return .green } }
-    var kitInk: Color { kitIsLight ? .black : .white }
-}
-
-/// Double tap (pinching finger and thumb twice, on Series 9, Ultra 2 and later) marks a highlight.
-struct DoubleTapPrimary: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(watchOS 11, *) {
-            content.handGestureShortcut(.primaryAction)
-        } else {
-            content
-        }
-    }
-}
-
-/// Highlight: timed from the tap; with players on, it then asks whose it was.
-struct HighlightButton: View {
-    @EnvironmentObject var model: MatchModel
-    let state: MatchState
-    @Binding var path: [Step]
-    var tall = false
-
-    var body: some View {
-        Button {
-            let now = Date()
-            if state.highlightPlayers.isEmpty { model.highlight(at: now, player: nil) } else { path = [.highlight(now)] }
-        } label: {
-            Label("Highlight", systemImage: "star.fill")
-                .frame(maxWidth: .infinity, maxHeight: tall ? .infinity : nil)
-        }
-        .buttonStyle(.borderedProminent)
-        .tint(.yellow)
-        .foregroundStyle(.black)
-        .disabled(!state.inPlay)
-        .modifier(DoubleTapPrimary())
-    }
-}
-
-/// Goal for us, goal for them, highlight and the whistle: a 2 × 2 grid on its own page, or a column in the scrolling page.
-struct LogButtons: View {
-    @EnvironmentObject var model: MatchModel
-    let state: MatchState
-    @Binding var path: [Step]
-    @Binding var confirmUs: Bool
-    @Binding var confirmThem: Bool
-    @Binding var confirmEnd: Bool
-    let grid: Bool
-
-    private var goalUs: some View {
-        Button {
-            if state.asksScorer { path = [.scorer] } else { confirmUs = true }
-        } label: {
-            Text("Goal \(state.team)").lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, maxHeight: grid ? .infinity : nil)
-        }
-        .tint(state.kitColor)
-        .foregroundStyle(state.kitInk)
-        .disabled(model.locked || !state.inPlay)
-    }
-    private var goalThem: some View {
-        Button {
-            confirmThem = true
-        } label: {
-            Text("Goal \(state.opp)").lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, maxHeight: grid ? .infinity : nil)
-        }
-        .tint(.red)
-        .disabled(model.locked || !state.inPlay)
-    }
-    private var whistle: some View {
-        Button {
-            confirmEnd = true
-        } label: {
-            Label(state.lastHalf ? "Full time" : "Half time", systemImage: "flag.checkered").lineLimit(2).minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity, maxHeight: grid ? .infinity : nil)
-        }
-        .tint(.gray)
-        .disabled(!state.inPlay)
-    }
-    private var notes: some View {
-        Group {
-            if model.locked {
-                Text("Score locked for 8 seconds")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            if !model.note.isEmpty {
-                Text(model.note)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-    }
-
-    var body: some View {
-        if grid {
-            VStack(spacing: 6) {
-                Grid(horizontalSpacing: 6, verticalSpacing: 6) {
-                    GridRow { goalUs; goalThem }
-                    GridRow { HighlightButton(state: state, path: $path, tall: true); whistle }
-                }
-                .buttonStyle(.borderedProminent)
-                .font(.headline)
-                notes
-            }
-        } else {
-            VStack(spacing: 8) {
-                goalUs
-                goalThem
-                HighlightButton(state: state, path: $path)
-                if state.inPlay { whistle }
-                notes
-            }
-            .buttonStyle(.borderedProminent)
         }
     }
 }
@@ -414,7 +274,6 @@ struct SubsSheet: View {
 struct Glance: View {
     let state: MatchState
     let now: Date
-    @ScaledMetric(relativeTo: .largeTitle) private var clockSize = 46.0 // (grows and shrinks with the watch's text size)
 
     private var phaseName: String {
         switch state.phase {
@@ -445,7 +304,7 @@ struct Glance: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             Text(state.phase == "pre" || state.phase == "ht" ? "0:00" : clock(state.seconds(at: now)))
-                .font(.system(size: clockSize, weight: .bold, design: .rounded))
+                .font(.system(size: 46, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)

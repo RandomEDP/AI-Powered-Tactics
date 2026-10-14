@@ -610,26 +610,5 @@ do {
 // a normal game still asks who scored
 do { var w = WatchBrain(); _ = w.receive(json: phone(), sent: ms(at(1)), now: at(1)); check(w.state?.asksScorer == true, "a game with a squad still asks who scored") }
 
-// ---------- 26. The kit colour: Goal for us wears the team's colour (Ethan's purple), and a bad or missing one is ignored
-do {
-    var w = WatchBrain()
-    let purple = phone().replacingOccurrences(of: "\"live\":true,", with: "\"live\":true,\"color\":\"#4c2bb0\",")
-    _ = w.receive(json: purple, sent: ms(at(1)), now: at(1))
-    check(w.state?.color == "#4c2bb0", "the kit colour comes through from the phone")
-    if let k = w.state?.kit { check(abs(k.r - 0x4c / 255.0) < 0.001 && abs(k.g - 0x2b / 255.0) < 0.001 && abs(k.b - 0xb0 / 255.0) < 0.001, "and reads as red, green and blue") } else { check(false, "and reads as red, green and blue") }
-    check(w.state?.kitIsLight == false, "purple takes light writing")
-    var y = WatchBrain()
-    _ = y.receive(json: phone().replacingOccurrences(of: "\"live\":true,", with: "\"live\":true,\"color\":\"#ffc83d\","), sent: ms(at(1)), now: at(1))
-    check(y.state?.kitIsLight == true, "a yellow kit takes dark writing")
-    for bad in ["red", "#12345", "#gggggg", "4c2bb0", "#4c2bb0ff"] {
-        var b = WatchBrain()
-        _ = b.receive(json: phone().replacingOccurrences(of: "\"live\":true,", with: "\"live\":true,\"color\":\"\(bad)\","), sent: ms(at(1)), now: at(1))
-        check(b.state?.color == "" && b.state?.kit == nil && b.state?.live == true, "a colour like \(bad) is ignored and the game still shows")
-    }
-    var old = WatchBrain()
-    _ = old.receive(json: phone(), sent: ms(at(1)), now: at(1))
-    check(old.state?.color == "" && old.state?.kit == nil && old.state?.phase == "h1", "a phone on an older build sends none: the watch carries on as before")
-}
-
 print(failures == 0 ? "watch logic: all \(checks) checks passed" : "watch logic: \(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

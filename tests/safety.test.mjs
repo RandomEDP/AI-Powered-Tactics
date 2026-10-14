@@ -103,7 +103,7 @@ await A.click('#tabs [data-tab="feed"]'); await A.run(800); await A.click('#fdFi
 await A.page.fill('#pplQ', 'jake_s'); await A.click('#pplGo'); await A.run(600);
 await A.click('#pplBody [data-fol="jake_s"]'); await A.run(600);
 await A.click('#pplFound .prow .who'); await A.run(1000);
-await A.click('#prMore'); await A.click('#prBody [data-pr="report"]'); await A.page.click('#prBody [data-why]'); await A.run(800);
+await A.click('#prBody [data-pr="report"]'); await A.page.click('#prBody [data-why]'); await A.run(800);
 eq(told('profile'), 1, 'reporting a profile tells Gaffer straight away');
 await A.page.reload(); await A.run(1500); await A.click('#tabs [data-tab="feed"]'); await A.run(1500);
 await A.click('#fdBody .post [data-pmore]'); await A.run(200);

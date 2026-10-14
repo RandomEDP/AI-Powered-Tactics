@@ -345,6 +345,7 @@
   }
   const authCbs = [];
   const session = () => uid() ? { user: { id: uid(), email: sessionStorage.getItem('__mockemail'), user_metadata: (load().users.find((u) => u.id === uid()) || {}).meta || {} } } : null;
+  window.__recover = (email) => { const u = load().users.find((x) => x.email === email); if (!u) return false; sessionStorage.setItem('__mockuser', u.id); sessionStorage.setItem('__mockemail', email); authCbs.forEach((cb) => cb('PASSWORD_RECOVERY', session())); return true; };
   const auth = {
     getSession: () => ok({ session: session() }),
     onAuthStateChange: (cb) => { authCbs.push(cb); return { data: { subscription: { unsubscribe() {} } } }; },
@@ -354,7 +355,8 @@
       sessionStorage.setItem('__mockuser', u.id); sessionStorage.setItem('__mockemail', email); authCbs.forEach((cb) => cb('SIGNED_IN', session())); return { data: { session: session() }, error: null };
     },
     async signUp({ email, password, options }) { const d = load(); d.users.push({ id: crypto.randomUUID(), email, password, meta: (options && options.data) || {} }); store(d); return { data: { session: null, user: {} }, error: null }; },
-    async updateUser({ data }) { const d = load(); const u = d.users.find((x) => x.id === uid()); if (!u) return { data: {}, error: { message: 'Sign in first' } }; u.meta = Object.assign({}, u.meta || {}, data || {}); store(d); return { data: { user: session().user }, error: null }; },
+    async updateUser({ data, password }) { const d = load(); const u = d.users.find((x) => x.id === uid()); if (!u) return { data: {}, error: { message: 'Sign in first' } }; if (password) u.password = password; u.meta = Object.assign({}, u.meta || {}, data || {}); store(d); return { data: { user: session().user }, error: null }; },
+    async resetPasswordForEmail(email, opts) { const d = load(); d.resets = (d.resets || []).concat({ email, to: opts && opts.redirectTo }); store(d); return { data: {}, error: null }; },
     async signOut() { sessionStorage.removeItem('__mockuser'); authCbs.forEach((cb) => cb('SIGNED_OUT', null)); return { error: null }; }
   };
   function channel(name) {

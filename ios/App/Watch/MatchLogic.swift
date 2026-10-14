@@ -47,7 +47,6 @@ struct MatchState: Codable, Equatable {
     var lockUntil: Double = 0
     var changes: [Change] = []
     var players: [Player] = []
-    var color: String = ""      // the team's kit colour, "#rrggbb", worn by Goal for us; empty from a phone on an older build
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -68,20 +67,6 @@ struct MatchState: Codable, Equatable {
         lockUntil = (try? c.decode(Double.self, forKey: .lockUntil)) ?? 0
         changes = ((try? c.decode([Change].self, forKey: .changes)) ?? []).filter { ($0.h == 0 || $0.h == 1) && $0.from >= 0 && $0.from <= 200 }
         players = (try? c.decode([Player].self, forKey: .players)) ?? []
-        let hex = (try? c.decode(String.self, forKey: .color)) ?? ""
-        color = hex.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil ? hex : ""
-    }
-
-    /// The kit colour as red, green and blue from 0 to 1, or nil if the phone didn't send one.
-    var kit: (r: Double, g: Double, b: Double)? {
-        guard color.count == 7, let n = UInt32(color.dropFirst(), radix: 16) else { return nil }
-        return (Double((n >> 16) & 0xff) / 255, Double((n >> 8) & 0xff) / 255, Double(n & 0xff) / 255)
-    }
-    /// Whether the kit colour is light enough to need dark writing on it (the same test the phone uses for its own buttons).
-    var kitIsLight: Bool {
-        guard let k = kit else { return false }
-        func lin(_ v: Double) -> Double { v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
-        return 0.2126 * lin(k.r) + 0.7152 * lin(k.g) + 0.0722 * lin(k.b) > 0.4
     }
 
     /// Seconds on the current half's clock. (Worked out in Double and capped: a watch's ordinary Int is 32 bits,

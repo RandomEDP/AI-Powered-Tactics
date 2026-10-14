@@ -70,7 +70,7 @@ console.log('B stats:', await B.textContent('#record'));
 const orgCode = d1.teams[0].organiser_code;
 const C = await open('C');
 await C.evaluate(() => { Object.keys(localStorage).filter((k) => k.startsWith('apt-')).forEach((k) => localStorage.removeItem(k)); }); await C.reload(); await wait(300);
-await C.click('#acctBtn'); await C.fill('#aEmail', 'co@example.com'); await C.fill('#aPass', 'anotherpassword'); await C.fill('#aUser', 'co_fc'); await C.check('#aTerms'); await C.click('#aSignUp'); await C.click('#aSignIn'); await wait(300);
+await C.click('#acctNew'); await C.fill('#aEmail', 'co@example.com'); await C.fill('#aPass', 'anotherpassword'); await C.fill('#aUser', 'co_fc'); await C.check('#aTerms'); await C.click('#aSignUp'); await C.click('#aSignIn'); await wait(300);
 await C.click('#acctBtn'); await C.fill('#aOrgCode', orgCode.toLowerCase()); await C.click('#aOrgJoin'); await wait(500);
 console.log('C after organiser code:', await C.textContent('#heroName'), '| role:', await C.evaluate(() => document.body.className || 'owner'), '| new game visible:', await vis(C, '#mNew'));
 await C.click('#mStats'); console.log('C stats:', await C.textContent('#record'));
