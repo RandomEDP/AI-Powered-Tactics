@@ -158,12 +158,16 @@ const finish = async (p) => { p.errs.forEach((e) => check(false, 'page error: ' 
 {
   const p = await setup(); const gid = (await p.match()).gid;
   await p.click('#go'); const ko = (await p.match()).t0;
-  await p.run(4 * 60000 + 57000);
+  await p.run(4 * 60000 + 28000);
   const early = id();
-  await p.fromWatch({ type: 'subs', change: '0-5', id: early, at: await p.now(), gid }); // the watch's clock is a few seconds ahead
-  eq([(await p.match()).ok, (await p.watch()).acks.indexOf(early)], [0, -1], 'confirmed on the watch 3 s before this phone thinks it is due: kept, not thrown away');
+  // (Subs done can be pressed in the 30 seconds before a change. The watch's clock is a few seconds ahead: its 30 seconds
+  // have started, this phone's haven't.)
+  await p.fromWatch({ type: 'subs', change: '0-5', id: early, at: await p.now(), gid });
+  eq([(await p.match()).ok, (await p.watch()).acks.indexOf(early)], [0, -1], 'confirmed on the watch 2 s before this phone\'s 30 seconds start: kept, not thrown away');
   await p.run(9000);
-  eq([(await p.match()).ok, (await p.watch()).acks.indexOf(early) >= 0, await p.visible('#subPop')], [1, true, false], 'and applied as soon as it comes due here, with no pop-up left behind');
+  eq([(await p.match()).ok, (await p.watch()).acks.indexOf(early) >= 0, await p.visible('#subPop')], [1, true, false], 'and made as soon as they start here, with no pop-up left behind');
+  await p.run(29000); // (past 5:00: nothing more asked for the change made early)
+  eq([(await p.match()).ok, await p.visible('#subPop')], [1, false], 'at 5:00 nothing is asked: it was made');
   const old = id();
   await p.fromWatch({ type: 'subs', change: '0-5', id: old, at: await p.now(), gid });
   eq([(await p.match()).ok, (await p.watch()).acks.indexOf(old) >= 0], [1, true], 'a repeat for a change already made is written off');

@@ -208,6 +208,31 @@ struct MatchStatus: View {
                 }
             }
 
+            if state.inPlay && !state.due { // the 30 seconds before a change: shown early, and it can be made then (no buzz)
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    if state.changeSoon(at: context.date), let change = state.changes.first {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("Subs coming up", systemImage: "arrow.left.arrow.right")
+                                .font(.headline)
+                                .foregroundStyle(.yellow)
+                            if !change.off.isEmpty {
+                                Text("Off: " + change.off.joined(separator: ", ")).font(.footnote.weight(.semibold))
+                            }
+                            if !change.on.isEmpty {
+                                Text("On: " + change.on.joined(separator: ", ")).font(.footnote.weight(.semibold))
+                            }
+                            Button {
+                                model.subsDone()
+                            } label: {
+                                Text("Subs done").frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            }
+
             if state.due, let change = state.changes.first { // also asked in a sheet when it comes due; this stays until it's done
                 VStack(alignment: .leading, spacing: 4) {
                     Label("Subs due", systemImage: "arrow.left.arrow.right")
@@ -304,6 +329,7 @@ struct LogButtons: View {
 
     private var goalUs: some View {
         Button {
+            model.goalTapped()
             if state.asksScorer { path = [.scorer] } else { confirmUs = true }
         } label: {
             Text("Goal \(state.team)").lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.center)
@@ -315,6 +341,7 @@ struct LogButtons: View {
     }
     private var goalThem: some View {
         Button {
+            model.goalTapped()
             confirmThem = true
         } label: {
             Text("Goal \(state.opp)").lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.center)
@@ -455,6 +482,12 @@ struct Glance: View {
                 Text(state.opp).lineLimit(1).minimumScaleFactor(0.6)
             }
             .font(.footnote.weight(.semibold))
+            if state.phase == "pre", !state.benchNames.isEmpty { // who starts on the bench
+                Text("Bench: " + state.benchNames.joined(separator: ", "))
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .multilineTextAlignment(.center)
+            }
             if let nextLine = nextLine {
                 Text(nextLine)
                     .font(.footnote.weight(.semibold))

@@ -183,6 +183,20 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   then Watch app → Action Button → Shortcut → pick it.
 - The watch buzzes for subs by its own clock. Changes wait for the gaffer to confirm (the subs pop-up on the phone and
   the watch).
+- **Match-day timing** (Ethan, after a real game where the ref called changes early and halves weren't exactly 15):
+  - **The 30 seconds before a change** (`subSoon`, `SOON_MS`; watch `MatchState.changeSoon`): the change is picked out
+    (`#swapCard.soon`, "Subs coming up at 5:00"; on the watch "Subs coming up") with Subs done, and a light tap, no alarm.
+    Subs done then makes it early: `m.ok` is set to the coming block, and `curSeg` treats `m.ok > clockSeg` (same half) as
+    the block being played, so nothing is asked at the minute. An early Subs done from the watch is taken the same way
+    (the `subs` press when `subSoon` matches its change). The watch's `pressSubsDone` allows it in that window too.
+    `takeOut` keeps an early change (`Math.max(m.ok, clockSeg)`).
+  - **The bench at kick-off**: a sheet before kick-off (`#benchSheet`, `renderBench`, once a game, `m.benchSeen`) with who
+    starts on the bench, who's in goal and the first change; Got it or Kick off closes it. It sits over the dock, clear of
+    Kick off. The watch's glance shows "Bench: …" before kick-off (`MatchState.benchNames`).
+  - **A goal is timed from the tap on Goal** (`pick.at` → `stampAt`/`addGoal(ev, at)`; followers' `ts`; the watch's
+    `goalTapped()`/`pressGoal(at:)`, believed for two minutes), not from when the scorer was picked.
+  - **Undo of a goal unlocks the score** straight away (`lockUntil = 0`), so the right goal can go in.
+  - Tests: `matchday.test.mjs`, `tests/watch/main.swift` (27).
 - This is the most safety-critical code in the app. Any change needs `node tests/run.mjs watch link plugin match
   watchlink sync` to pass.
 

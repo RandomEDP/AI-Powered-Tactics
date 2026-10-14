@@ -324,6 +324,15 @@ body.ro:not(.sc) .scr { display: none !important; }
 @keyframes lockrun { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) { .dock.locked .dk-us::after, .dock.locked .dk-them::after { animation: none; } }
 .evsec .events:empty { display: none; }
+/* the bench before kick-off: a sheet over the dock (whose buttons wait for kick-off anyway), clear of the Kick off button */
+.benchsheet { position: fixed; z-index: 16; left: 0; right: 0; bottom: 0; max-width: 552px; margin-inline: auto; background: var(--surface); border-radius: var(--r-panel) var(--r-panel) 0 0;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, .22); padding: 22px max(18px, env(safe-area-inset-left, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 10px; animation: sheet .3s cubic-bezier(.2, .9, .2, 1) both; }
+.benchsheet[hidden] { display: none; }
+.benchsheet h2 { font-size: var(--t-title); }
+.benchsheet .chip { font-size: var(--t-head); padding: 8px 16px; }
+@media (prefers-reduced-motion: reduce) { .benchsheet { animation: none; } }
+/* a change coming up in the next 30 seconds: shown early, so it can be made when the ref calls it */
+.swap.soon { background: var(--bib-soft); box-shadow: inset 0 0 0 2px var(--bib); }
 .evsec .events { background: var(--surface); border-radius: var(--r-card); padding: 2px 16px; }
 .evsec .events li:last-child { border-bottom: 0; }
 /* folded detail: tap to open */
@@ -1329,6 +1338,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <p class="note" id="finNote">Finish game saves the result, goals, assists and minutes to your stats.</p>
   </section>
 
+  <!-- before kick-off: who starts on the bench, so the gaffer can tell them (Ethan asked) -->
+  <div class="benchsheet" id="benchSheet" role="dialog" aria-labelledby="benchTitle" hidden>
+    <h2 id="benchTitle">Starting on the bench</h2>
+    <div class="chips" id="benchNames"></div>
+    <p class="note" id="benchNote"></p>
+    <div class="actions"><button class="plain primary" id="benchOk" type="button">Got it</button></div>
+  </div>
+
   <!-- match mode: logging sits along the bottom, under your thumb, the way the pitch-side moment needs it -->
   <div class="dock" id="dock">
     <p class="note" id="goalMsg" role="status" hidden></p>
@@ -1808,7 +1825,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (role === 'owner') { ev.at = at || Date.now(); putEvent(m, ev); save(); lockScore({ us: !!ev.us, mine: true, at: ev.at }); if (!hush && !m.solo) { ping('goal', { us: !!ev.us }); goalPush(m, ev); } return; }
     if (!sb || !A.active) return;
     var say = function (t) { goalMsg = t; clearTimeout(goalT); goalT = setTimeout(function () { goalMsg = ''; renderScore(); }, 8000); renderScore(); };
-    ev.ts = Date.now(); say('Sending the goal…');
+    ev.ts = at || Date.now(); say('Sending the goal…');
     try {
       var res = await q(sb.rpc('queue_goal', { p_code: A.active, p_payload: ev }));
       if (res.data) { ping('goal', { us: !!ev.us }); lockScore({ us: !!ev.us, mine: true }); say('Goal sent. It shows up once a gaffer’s phone picks it up.'); }
@@ -2051,6 +2068,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // until the gaffer says the subs have been made (m.ok is the last block confirmed). Blocks where nobody swaps pass by themselves.
   function curSeg(m) {
     var c = clockSeg(m);
+    // a change made early (in the 30 seconds before it's due, when the ref calls it a bit sooner) is already being played
+    if (m.ok != null && (m.phase === 'h1' || m.phase === 'h2') && m.ok > c && m.segs[m.ok] && m.segs[m.ok].h === m.segs[c].h) return m.ok;
     if (m.ok == null || (m.phase !== 'h1' && m.phase !== 'h2') || c <= m.ok) return c;
     var i = Math.max(0, m.ok);
     while (i < c) {
@@ -2064,6 +2083,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function subDue(m) { // the block whose change is waiting to be made, or -1
     if (!m || m.ok == null || (m.phase !== 'h1' && m.phase !== 'h2')) return -1;
     var e = curSeg(m); return e < clockSeg(m) ? e + 1 : -1;
+  }
+  // The next change, from 30 seconds before it's due: shown on the phone and the watch, and it can be made early then.
+  var SOON_MS = 30000;
+  function subSoon(m) {
+    if (!m || m.ok == null || (m.phase !== 'h1' && m.phase !== 'h2') || subDue(m) >= 0) return -1;
+    var c = curSeg(m), t = nextChange(m, c); if (t < 0 || m.segs[t].h !== m.segs[c].h) return -1;
+    var left = m.segs[t].from * 60000 - elapsed(m); return left > 0 && left <= SOON_MS ? t : -1;
   }
   function onPitch(m, i) { var s = m.segs[i]; return (s.gk != null ? [s.gk] : []).concat(s.on); }
   function swapAt(m, to) { // who changes when segment `to` starts
@@ -5192,7 +5218,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   });
 
   // ---- game
-  var lastBlock = -1, pick = null, outPick = null, lastDue = -1, subAsk = false;
+  var lastBlock = -1, pick = null, outPick = null, lastDue = -1, subAsk = false, lastSoon = -1;
   function renderClock() {
     var m = S.match; if (!m) return;
     var i = curSeg(m), s = m.segs[i], e = elapsed(m), live = m.phase === 'h1' || m.phase === 'h2';
@@ -5238,8 +5264,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!hasBench(m)) { title = 'No changes'; body = '<p class="note">Nobody is on the bench, so there are no subs to make.</p>'; }
     else if (t < 0) { title = m.phase === 'ht' ? 'No change at half time' : 'No more changes'; body = '<p class="note">' + (m.phase === 'ht' ? 'The same line-up starts the second half.' : 'This line-up finishes the game.') + '</p>'; }
     else {
-      var dueNow = subDue(m) === t;
-      title = m.phase === 'ht' ? 'Change now, for the second half' : dueNow ? 'Make this change now' : m.segs[t].h !== m.segs[cb].h ? 'Next change at half time' : 'Next change at ' + m.segs[t].from + ':00';
+      var dueNow = subDue(m) === t, soonNow = !dueNow && subSoon(m) === t;
+      title = m.phase === 'ht' ? 'Change now, for the second half' : dueNow ? 'Make this change now' : soonNow ? 'Subs coming up at ' + m.segs[t].from + ':00' : m.segs[t].h !== m.segs[cb].h ? 'Next change at half time' : 'Next change at ' + m.segs[t].from + ':00';
       var tap = function (list, cls) { // the gaffer can tap a name to change who it is
         if (role !== 'owner') return chips(m, list, cls);
         return list.map(function (id) { return '<button class="chip tapchip ' + cls + '" type="button" data-q="' + cls + '" data-id="' + id + '" data-t="' + t + '">' + esc(nm(id)) + '</button>'; }).join('') || '<span class="note">Nobody</span>';
@@ -5247,9 +5273,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       body = '<div class="swap-rows"><div class="tag off">Off</div><div class="chips">' + tap(sw.off, 'off') +
              '</div><div class="tag on">On</div><div class="chips">' + tap(sw.on, 'on') + '</div></div>' +
              (role === 'owner' ? '<p class="note">Tap a name to swap in someone else.</p>' : '') +
-             (dueNow ? (role === 'owner' ? '<div class="actions"><button class="plain primary" type="button" id="subsDoneBtn">Subs done</button></div><p class="note">The line-up below stays as it is until you tap this.</p>' : '<p class="note">Waiting for the gaffer to make the change.</p>') : '');
+             (dueNow ? (role === 'owner' ? '<div class="actions"><button class="plain primary" type="button" id="subsDoneBtn">Subs done</button></div><p class="note">The line-up below stays as it is until you tap this.</p>' : '<p class="note">Waiting for the gaffer to make the change.</p>')
+               : soonNow && role === 'owner' ? '<div class="actions"><button class="plain primary" type="button" id="subsDoneBtn">Subs done</button></div><p class="note">Called a bit early? Tap this once they’ve swapped and the change happens now.</p>' : '');
     }
     $('swapTitle').textContent = title; $('swapBody').innerHTML = body;
+    $('swapCard').classList.toggle('soon', t >= 0 && hasBench(m) && subSoon(m) === t);
+    renderBench(m);
 
     html = '';
     for (i = 0; i < n; i++) {
@@ -5262,6 +5291,15 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     renderOut(); renderEdit(); renderQuick(); renderScore(); renderClock(); renderSubPop(); syncAlerts(); renderLiveRow();
   }
   $('swapBody').addEventListener('click', function (e) { if (e.target.id === 'subsDoneBtn') subsDone(); });
+  // Before kick-off, a sheet says who starts on the bench (until Got it or kick-off; once a game)
+  function renderBench(m) {
+    var b = m && m.segs[0] ? m.segs[0].bench : [], show = !!m && role === 'owner' && m.phase === 'pre' && !m.benchSeen && !m.house && !m.solo && b.length > 0 && S.view === 'game';
+    $('benchSheet').hidden = !show; if (!show) return;
+    $('benchNames').innerHTML = chips(m, b, 'off');
+    var t = nextChange(m, 0), gk = m.segs[0].gk;
+    $('benchNote').textContent = [gk != null ? nm(gk) + ' starts in goal.' : '', t >= 0 && m.segs[t].h === 0 ? 'First change at ' + m.segs[t].from + ':00.' : ''].filter(Boolean).join(' ');
+  }
+  $('benchOk').addEventListener('click', function () { var m = S.match; if (!m) return; m.benchSeen = true; save(); renderBench(m); });
   $('subPopDone').addEventListener('click', subsDone);
   $('subPopLater').addEventListener('click', function () { subAsk = false; renderSubPop(); });
 
@@ -5413,7 +5451,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var tm = live ? Math.max(s.from, Math.min(s.to, Math.floor(elapsed(m) / 60000))) : s.from;
     var wasOn = s.on.indexOf(X) >= 0 || s.gk === X, hadBench = s.bench.filter(function (id) { return id !== X; }).length > 0, waiting = subDue(m) >= 0;
     var cameOn = applyOut(m, X, G, i, tm, R, live && elapsed(m) >= halfMs(m)), msg = nm(X) + ' is out.';
-    if (live && !waiting && m.ok != null) m.ok = clockSeg(m); // this swap happens now: it isn't a change waiting to be confirmed
+    if (live && !waiting && m.ok != null) m.ok = Math.max(m.ok, clockSeg(m)); // this swap happens now: it isn't a change waiting to be confirmed (and one made early stays made)
     if (G != null) msg += ' ' + nm(G) + ' goes in goal.';
     if (cameOn.length) msg += ' ' + listAnd(cameOn.map(nm)) + (cameOn.length > 1 ? ' come' : ' comes') + ' on now.';
     else if (wasOn && !hadBench) msg += ' Nobody is on the bench, so you play one short.';
@@ -5495,7 +5533,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   $('kickWatch').addEventListener('click', function () { $('kickPop').hidden = true; if (S.match) go('game'); else { wantGame = A.active; pull(); } });
   $('kickLater').addEventListener('click', function () { $('kickPop').hidden = true; });
-  $('goalUs').addEventListener('click', function () { var m = S.match; if (m && m.solo) { pick = null; addGoal(stamped(m, { us: true })); return; } pick = { step: 'scorer', side: 'a' }; renderScore(); }); // (just me: nobody to ask)
+  // A goal is timed from the tap on Goal (what the highlights are cut around), not from when the scorer has been picked
+  $('goalUs').addEventListener('click', function () { var m = S.match; if (m && m.solo) { pick = null; addGoal(stamped(m, { us: true })); return; } pick = { step: 'scorer', side: 'a', at: Date.now() }; renderScore(); }); // (just me: nobody to ask)
   $('hlBtn').addEventListener('click', function () { // marked this second (the clip is cut around it), then: whose was it?
     var m = S.match; if (!m || role !== 'owner') return;
     var e = stamped(m, { hl: true, at: Date.now() }); while (hlFind(m, e.at)) e.at++;
@@ -5510,8 +5549,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var gk = m.segs[curSeg(m)].gk; if (gk == null) return;
     pick = null; m.events.push(stamped(m, { hl: true, k: 'save', p: gk, at: Date.now() })); save(); renderScore();
   });
-  $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; if (m.house) { pick = { step: 'scorer', side: 'b' }; renderScore(); return; } pick = null; addGoal(stamped(m, { us: false })); });
-  $('undo').addEventListener('click', function () { var m = S.match; if (!m) return; pick = null; m.events.pop(); save(); renderScore(); });
+  $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; if (m.house) { pick = { step: 'scorer', side: 'b', at: Date.now() }; renderScore(); return; } pick = null; addGoal(stamped(m, { us: false })); });
+  $('undo').addEventListener('click', function () {
+    var m = S.match; if (!m) return; pick = null;
+    var e = m.events.pop();
+    // a goal taken back (the wrong button in the heat of the moment) unlocks the score, so the right one can go straight in
+    if (e && !e.hl && typeof e.us === 'boolean' && Date.now() < lockUntil) { lockUntil = 0; lockNote = ''; clearTimeout(lockT2); }
+    save(); renderScore(); watchPush();
+  });
   document.body.appendChild($('picker')); // the pop-up sits above everything, outside the game screen's own layout
   // The pickers are sheets: pull one down (from its top, or when it's scrolled to the top) and it closes, like iOS's own
   (function () {
@@ -5529,9 +5574,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var pb = e.target.closest('[data-p]'), v = pb ? pb.getAttribute('data-p') : null; if (v === null) return;
     var id = v === 'x' ? null : +v;
     if (pick.step === 'hl') { var he = hlFind(m, pick.at); pick = null; if (he) { if (id == null) delete he.p; else he.p = id; save(); } renderScore(); return; }
-    if (pick.step === 'scorer' && id != null) { pick = { step: 'assist', p: id, side: pick.side }; renderScore(); return; }
-    var ev = stamped(m, { us: pick.side !== 'b', p: pick.step === 'scorer' ? null : pick.p, a: pick.step === 'scorer' ? null : id });
-    pick = null; addGoal(ev);
+    if (pick.step === 'scorer' && id != null) { pick = { step: 'assist', p: id, side: pick.side, at: pick.at }; renderScore(); return; }
+    var at = typeof pick.at === 'number' && pick.at <= Date.now() ? pick.at : null, o = { us: pick.side !== 'b', p: pick.step === 'scorer' ? null : pick.p, a: pick.step === 'scorer' ? null : id };
+    var ev = at ? stampAt(m, o, at) : stamped(m, o);
+    pick = null; addGoal(ev, at || undefined);
   });
 
   // ---- extras when running as the iOS app: lock-screen alerts for changes, haptics, screen kept awake
@@ -5602,7 +5648,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     } else if (ev.type === 'resume') { // the clock set running again from the wrist after a stoppage
       seen(); if ((m.phase === 'h1' || m.phase === 'h2') && !m.running) { m.t0 = when; m.running = true; lastBlock = curSeg(m); lastDue = subDue(m); wake(); save(); renderGame(); }
     } else if (ev.type === 'subs') { // only the change the watch was asked about
-      var due = subDue(m), name = function (i) { return m.segs[i].h + '-' + m.segs[i].from; };
+      var due = subDue(m), name = function (i) { return m.segs[i].h + '-' + m.segs[i].from; }, soon = subSoon(m);
+      if (ev.change && due < 0 && soon >= 0 && name(soon) === ev.change) { seen(); subsDone(); return false; } // made early on the watch, in the 30 seconds before
       if (ev.change && (due < 0 || name(due) !== ev.change)) {
         for (var i = Math.max(due, curSeg(m)) + 1; i < m.segs.length; i++) if (name(i) === ev.change) return true; // not due on this phone's clock yet: any second now
         seen(); return false;
@@ -5727,7 +5774,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     // waking with an out-of-date copy of the game, write that copy over the real one.)
     var half = (m.gid || '') + '|' + m.phase + '|' + (m.phase === 'h2' ? m.h2At : m.koAt);
     if (etKey !== half && elapsed(m) >= halfMs(m)) { etKey = half; if (role === 'owner' && elapsed(m) < halfMs(m) + 30000) beep(4); }
-    var cb = curSeg(m), due = subDue(m);
+    var cb = curSeg(m), due = subDue(m), soon = subSoon(m);
+    if (soon !== lastSoon) { // 30 seconds before a change: show it (a light tap, not the full alarm), so it can be made early
+      lastSoon = soon; if (soon >= 0 && role === 'owner' && Haptics) { try { Haptics.impact({ style: 'LIGHT' }).catch(function () {}); } catch (e) {} }
+      if (due === lastDue && cb === lastBlock) { renderGame(); watchPush(); return; }
+    }
     if (due !== lastDue) { // a change has just come due: buzz and ask, but don't make it until someone says it's done
       lastDue = due;
       if (due >= 0) { beep(3); subAsk = role === 'owner'; }
@@ -5736,8 +5787,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     } else if (cb !== lastBlock) { lastBlock = cb; renderGame(); }
     else renderClock();
   }
-  function subsDone() { // the gaffer says the players have swapped
-    var m = S.match, due = subDue(m); if (!m || role !== 'owner' || due < 0) return;
+  function subsDone() { // the gaffer says the players have swapped (when it's due, or in the 30 seconds before)
+    var m = S.match, due = subDue(m); if (!m || role !== 'owner') return;
+    if (due < 0) due = subSoon(m);
+    if (due < 0) return;
     m.ok = due; subAsk = false; lastBlock = curSeg(m); lastDue = subDue(m);
     if (lastDue >= 0) subAsk = true; // the one after is already due as well
     save(); renderGame(); watchPush();
@@ -5755,7 +5808,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function goTap(at) { // the big clock button; `at` is when it was really pressed, if that was on the watch a moment ago
     var m = S.match; if (!m || m.phase === 'ft' || role !== 'owner') return;
     var kicked = m.phase === 'pre', began = kicked || m.phase === 'ht', when = typeof at === 'number' && isFinite(at) && Date.now() - at >= 0 ? Math.round(at) : Date.now();
-    if (m.phase === 'pre') m.koAt = when;
+    if (m.phase === 'pre') { m.koAt = when; m.benchSeen = true; }
     if (m.phase === 'ht') m.h2At = when;
     if (m.phase === 'pre' || m.phase === 'ht') m.et = false;
     if (m.phase === 'pre' || m.phase === 'ht') { m.phase = m.phase === 'pre' ? 'h1' : 'h2'; m.base = 0; m.t0 = when; m.running = true; beep(1); }

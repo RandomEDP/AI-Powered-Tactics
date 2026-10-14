@@ -97,6 +97,15 @@ struct MatchState: Codable, Equatable {
     var highlightPlayers: [Player] { players.filter { $0.on && !$0.gk } }
     /// A game of just one person ("Just me" on the phone) has no players: Goal logs straight away, nobody to ask who scored.
     var asksScorer: Bool { !players.isEmpty }
+    /// Before kick-off: who starts on the bench (Ethan asked for it to be shown at the start of a game).
+    var benchNames: [String] { players.filter { !$0.on && !$0.gk }.map { $0.name } }
+    /// The next change is in this half and at most 30 seconds away: it's shown early, and can be made early (the ref
+    /// sometimes calls it a little before the minute). Not once it's due: that's the full alert.
+    func changeSoon(at now: Date) -> Bool {
+        guard playing, !due, let first = changes.first, first.h == halfIndex else { return false }
+        let left = first.from * 60 - seconds(at: now)
+        return left > 0 && left <= 30
+    }
     var inPlay: Bool { phase == "h1" || phase == "h2" }
     var playing: Bool { live && running && inPlay }
     /// The whistle that ends this half is the final one.
@@ -330,7 +339,7 @@ struct WatchBrain: Codable {
 
     /// The players have swapped.
     mutating func pressSubsDone(now: Date) -> Outcome {
-        guard var game = state, game.live, game.due, let first = game.changes.first else { return Outcome() }
+        guard var game = state, game.live, game.due || game.changeSoon(at: now), let first = game.changes.first else { return Outcome() }
         done.insert(first.id)
         game.changes.removeAll { $0.id == first.id }
         game.due = false
@@ -340,15 +349,18 @@ struct WatchBrain: Codable {
     }
 
     /// A goal. The score moves here at once. (Only while a half is being played: before kick-off the clock has to be started first.)
-    mutating func pressGoal(us: Bool, scorer: Int?, assist: Int?, now: Date) -> Outcome {
+    /// `at` is when Goal was tapped, before the scorer was picked: the goal is timed from then, for the highlights (if it's
+    /// within the last two minutes; otherwise from now).
+    mutating func pressGoal(us: Bool, scorer: Int?, assist: Int?, now: Date, at: Date? = nil) -> Outcome {
         guard var game = state, game.live, game.inPlay else { return Outcome() }
+        let when = at.flatMap { $0 <= now && now.timeIntervalSince($0) < 120 ? $0 : nil } ?? now
         if us { game.us += 1 } else { game.them += 1 }
         held = Held(us: game.us, them: game.them, until: now.addingTimeInterval(WatchBrain.giveUpAfter))
         state = game
         var event: [String: Any] = ["type": "goal", "us": us]
         if let scorer = scorer { event["p"] = scorer }
         if let assist = assist { event["a"] = assist }
-        return Outcome(send: [remember("goal", event, now: now)])
+        return Outcome(send: [remember("goal", event, now: now, at: when)])
     }
 
     /// A highlight. Sent once: the phone queues it if it can't take it straight away.
@@ -391,9 +403,9 @@ struct WatchBrain: Codable {
         presses = []
     }
 
-    private mutating func remember(_ kind: String, _ fields: [String: Any], now: Date, change: String? = nil) -> String {
+    private mutating func remember(_ kind: String, _ fields: [String: Any], now: Date, change: String? = nil, at: Date? = nil) -> String {
         let id = UUID().uuidString
-        let json = event(fields, id: id, now: now)
+        let json = event(fields, id: id, now: at ?? now) // (`at`: when it happened, if that was a moment before the press was made)
         presses.append(Press(id: id, kind: kind, json: json, made: now, lastSent: now, change: change))
         return json
     }

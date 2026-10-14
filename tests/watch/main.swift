@@ -631,5 +631,41 @@ do {
     check(old.state?.color == "" && old.state?.kit == nil && old.state?.phase == "h1", "a phone on an older build sends none: the watch carries on as before")
 }
 
+// ---------- 27. Match day (Ethan, after his first game with the new screens): the change shown 30 seconds early and made
+// early from the wrist; a goal timed from the tap on Goal; the starting bench before kick-off
+do {
+    var w = WatchBrain()
+    _ = w.receive(json: phone(), sent: ms(at(0)), now: at(0))
+    check(w.state?.changeSoon(at: at(269)) == false, "at 4:29 the 5:00 change isn't shown early yet")
+    check(w.state?.changeSoon(at: at(271)) == true, "at 4:31 it is (no buzz: that's still at 5:00)")
+    var r = run(&w, from: 1, to: 280)
+    check(r.subs.isEmpty, "nothing buzzes in the 30 seconds before")
+    let early = w.pressSubsDone(now: at(280))
+    check(kind(early.send.first ?? "") == "subs" && field(early.send.first ?? "", "change") as? String == "0-5", "Subs done at 4:40 is sent to the phone for the 5:00 change")
+    check(w.state?.changes.first?.from == 10, "and the watch moves on to the 10:00 change")
+    r = run(&w, from: 281, to: 400)
+    check(r.subs.isEmpty, "so at 5:00 there's no buzz for a change already made (\(r.subs))")
+    _ = w.receive(json: phone(), sent: ms(at(401)), now: at(401)) // the phone, not having heard yet, still lists the 5:00 change
+    check(w.state?.changes.first?.from == 10 && w.state?.due == false, "a late word from the phone doesn't bring the made change back")
+    var x = WatchBrain()
+    _ = x.receive(json: phone(), sent: ms(at(0)), now: at(0))
+    check(x.pressSubsDone(now: at(200)).send.isEmpty, "at 3:20 it's too early to make the change")
+}
+do {
+    var w = WatchBrain()
+    _ = w.receive(json: phone(), sent: ms(at(0)), now: at(0))
+    let g = w.pressGoal(us: true, scorer: 2, assist: nil, now: at(130), at: at(121))
+    check(field(g.send.first ?? "", "at") as? Double == ms(at(121)), "a goal is timed from the tap on Goal, not after picking the scorer nine seconds later")
+    _ = w.receive(json: phone(acks: [id(g.send.first ?? "")], us: 1), sent: ms(at(131)), now: at(131))
+    let old = w.pressGoal(us: false, scorer: nil, assist: nil, now: at(600), at: at(300))
+    check(field(old.send.first ?? "", "at") as? Double == ms(at(600)), "a tap from five minutes ago isn't believed: timed from now")
+    let none = w.pressGoal(us: false, scorer: nil, assist: nil, now: at(700))
+    check(field(none.send.first ?? "", "at") as? Double == ms(at(700)), "with no tap time it's now, as before")
+    var b = WatchBrain()
+    let pre = "{\"live\":true,\"gid\":\"g\",\"phase\":\"pre\",\"team\":\"SOP FC\",\"opp\":\"Dog\",\"players\":[{\"id\":2,\"name\":\"Jake\",\"on\":true},{\"id\":5,\"name\":\"Puxley\",\"on\":false},{\"id\":6,\"name\":\"Issac\",\"on\":false},{\"id\":1,\"name\":\"Spice\",\"on\":true,\"gk\":true}]}"
+    _ = b.receive(json: pre, sent: ms(at(-60)), now: at(-60))
+    check(b.state?.benchNames == ["Puxley", "Issac"], "before kick-off the watch knows who starts on the bench (\(b.state?.benchNames ?? []))")
+}
+
 print(failures == 0 ? "watch logic: all \(checks) checks passed" : "watch logic: \(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

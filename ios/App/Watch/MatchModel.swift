@@ -17,6 +17,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     @Published var waiting = 0       // presses the phone hasn't yet said it has dealt with
 
     private var unlock: DispatchWorkItem?
+    private var goalTapAt: Date?        // when Goal was tapped, before the scorer was picked: the goal is timed from then
     private var clearNote: DispatchWorkItem?
     private var runtime: WKExtendedRuntimeSession?                    // keeps the app running during a game when the wrist drops
     private var runtimeNotBefore = Date.distantPast                   // so a session that won't start isn't tried again every second
@@ -303,12 +304,17 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         if let game = state { scheduleChanges(game) }
     }
 
+    /// Goal was tapped: the moment the goal is timed from, however long picking the scorer takes.
+    func goalTapped() { goalTapAt = Date() }
+
     func goal(us: Bool, scorer: Int?, assist: Int?) {
+        let at = goalTapAt
+        goalTapAt = nil
         guard !locked else {
             say("Not logged: a goal went in on the score a moment ago.") // (the lock is there so one goal isn't counted twice)
             return
         }
-        press(brain.pressGoal(us: us, scorer: scorer, assist: assist, now: Date()))
+        press(brain.pressGoal(us: us, scorer: scorer, assist: assist, now: Date(), at: at))
         lock(for: 8)
     }
 
