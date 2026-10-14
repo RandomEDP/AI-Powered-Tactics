@@ -212,6 +212,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - The reset email is Supabase's own template and goes out through Supabase's mail, which has a small hourly limit on the
   free plan (shared with confirmation emails). Tests: `signin.test.mjs`; the mock has `resetPasswordForEmail` and
   `window.__recover(email)` for the link being opened.
+- **Signing back in** (Ethan: it asked him to make a team when he already had one): signing out leaves no teams on the
+  phone, so until `my_teams` answers the welcome screen says "Getting your teams…" (`#wLoad`, `myTeamsBusy`) instead of
+  showing Got a team code? and Start a team (`#wJoin`, `#wStart`); then the account's teams come first, under "Your
+  teams" (`#wLead`). Test: `signback.test.mjs` (it holds `my_teams` back to see the screen in the meantime).
 
 ### Ask to join (`0016_join_requests.sql`)
 - Someone with the team code whose name isn't in the squad still makes an account and fills in their details.

@@ -898,12 +898,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
 <div class="view" id="v-welcome" hidden>
   <div class="wtop"><span class="brand"><img src="icons/icon-192.png" alt="">Gaffer</span><button class="link" id="introOpen" type="button">How it works</button></div>
-  <h1 class="lead">Join your team</h1>
-  <div class="card"><h2>Got a team code?</h2><p class="note">Your gaffer has a 6-character code for the team. Enter it to pick your player and see your stats.</p>
+  <h1 class="lead" id="wLead">Join your team</h1>
+  <p class="msg busy" id="wLoad" role="status" hidden>Getting your teams…</p>
+  <section id="myTeamsSec" hidden><h2 id="myTeamsH">Your teams</h2><div class="menu" id="myTeams"></div></section>
+  <div class="card" id="wJoin"><h2>Got a team code?</h2><p class="note">Your gaffer has a 6-character code for the team. Enter it to pick your player and see your stats.</p>
     <div class="joinrow"><input id="joinCode" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="K7Q2MX" aria-label="Team code"><button class="plain primary" id="joinBtn" type="button">Find team</button></div>
     <p class="msg" id="joinMsg"></p></div>
-  <section id="myTeamsSec" hidden><h2>Your teams</h2><div class="menu" id="myTeams"></div></section>
-  <div class="card"><h2>Start a team</h2><p class="note">Running a team? Set up your squad and colours, then share the code with your players.</p>
+  <div class="card" id="wStart"><h2>Start a team</h2><p class="note">Running a team? Set up your squad and colours, then share the code with your players.</p>
     <div class="actions"><button class="plain" id="createBtn" type="button">Create a team</button></div></div>
   <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button><button class="plain" id="acctNew" type="button">Create account</button></div></div>
   <button class="plain quiet" id="pplBtn" type="button">Open your feed<span class="pplBadge" hidden></span></button>
@@ -2286,11 +2287,17 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('introOpen').addEventListener('click', function () { go('intro'); });
 
   // ---- welcome: your teams, create, follow by code
-  var myTeams = null;
+  var myTeams = null, myTeamsBusy = false;
   function joinSay(t, bad) { var el = $('joinMsg'); if (el) { el.textContent = t || ''; el.className = 'msg' + (bad ? ' bad' : ''); } }
   function renderWelcome() {
     var list = A.teams.slice();
     (myTeams || []).forEach(function (t) { if (!list.some(function (x) { return x.code === t.code; })) list.push(t); });
+    // Signed in, the account's teams come first. While they're still on their way, say so rather than offering to
+    // join or start a team (Ethan, signing back in: it asked him to make a team when he already had one).
+    var busy = !!(sb && me && (myTeams === null || myTeamsBusy)) && !list.length;
+    $('wLoad').hidden = !busy; $('wJoin').hidden = $('wStart').hidden = busy;
+    $('wLead').textContent = list.length && me ? 'Your teams' : busy ? 'Welcome back' : 'Join your team';
+    $('myTeamsH').hidden = !!(list.length && me);
     $('myTeamsSec').hidden = !list.length;
     $('myTeams').innerHTML = list.map(function (t) {
       return '<button type="button" data-team="' + esc(t.code) + '"' + (t.code === A.active ? ' class="primary"' : '') + '>' + esc(t.name || t.code) +
@@ -2300,12 +2307,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     $('acctBtn').textContent = me ? 'Account' : 'Sign in'; $('acctNew').hidden = !!me;
     setSync(sb ? (me ? 'ok' : 'watch') : 'local');
     if (sb && me && myTeams === null) { // every team this account plays for or runs, wherever it was joined
-      myTeams = [];
-      sb.rpc('my_teams').then(function (res) {
+      myTeams = []; myTeamsBusy = true;
+      var who = me.id;
+      Promise.resolve(sb.rpc('my_teams')).then(function (res) {
+        if (!me || me.id !== who) return; // (signed out, or in as someone else, while it was on its way)
         myTeams = (res.data || []).map(function (t) { return { code: t.code, name: t.name, org: !!t.org }; });
         myTeams.forEach(function (t) { rememberTeam(t.code, t.name, t.org); });
-        if (S.view === 'welcome') renderWelcome();
-      });
+      }, function () {}).then(function () { myTeamsBusy = false; if (S.view === 'welcome') renderWelcome(); });
     }
   }
   $('myTeams').addEventListener('click', function (e) { var b = e.target.closest('button[data-team]'); if (b) openTeam(b.getAttribute('data-team')); });
