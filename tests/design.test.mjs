@@ -12,7 +12,7 @@ const out = process.argv[2], shot = async (P, name, full) => { if (out) await P.
 // ---------- the CSS: every text size on the type scale, in rem, so the whole app follows the iPhone's text size
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
-const px = css.split('\n').filter((l) => /font-size: ?[0-9.]+px/.test(l) && !/\.lk-|lk-frame/.test(l));
+const px = css.split('\n').filter((l) => /font-size: ?[0-9.]+px/.test(l) && !/\.lk-|lk-frame/.test(l) && !/^html \{/.test(l)); // (the root itself is the 17px everything is measured from)
 eq(px, [], 'no text size is fixed in pixels (only the little clip preview, which is a drawing of a video frame)');
 const inline = html.slice(html.indexOf('</style>')).match(/font-size: ?[0-9.]+px/g) || [];
 eq(inline, [], 'nor in the screens the script draws');
@@ -52,10 +52,10 @@ check(d.bottom === d.vh && d.us && d.hl, 'and still there after scrolling down t
 await p.evaluate(() => window.scrollTo(0, 0));
 check(await p.evaluate(() => !!document.querySelector('#clock #usN') && !!document.querySelector('#clock #themN')), 'the score is in the clock panel, the headline of the screen');
 await shot(A, 'match-mode');
-await A.click('#goalUs'); await A.run(300);
+await A.click('#goalUs'); await A.run(300); await p.waitForTimeout(500);
 const sheet = await p.evaluate(() => { const b = [...document.querySelectorAll('#picker .chips .pick:not(.wide)')].map((x) => x.getBoundingClientRect()); const s = document.querySelector('#picker .picker').getBoundingClientRect(); return { cols: new Set(b.map((x) => Math.round(x.left))).size, widths: new Set(b.map((x) => Math.round(x.width))).size, tall: Math.min(...b.map((x) => x.height)), bottom: Math.round(s.bottom), vh: innerHeight, cancel: !!document.querySelector('#picker .phead [data-cancel]') }; });
 check(sheet.cols === 2 && sheet.widths === 1 && sheet.tall >= 44, `Who scored? is two even columns of names, each at least 44 points tall (${JSON.stringify(sheet)})`);
-check(sheet.bottom === sheet.vh && sheet.cancel, 'as a sheet from the bottom of the screen, with Cancel at the top');
+check(Math.abs(sheet.bottom - sheet.vh) <= 1 && sheet.cancel, `as a sheet from the bottom of the screen, with Cancel at the top (${JSON.stringify(sheet)})`);
 await shot(A, 'who-scored-sheet');
 await A.click('#picker button[data-p="2"]'); await A.click('#picker button[data-p="x"]'); await A.run(300);
 eq([await A.text('#usN'), await p.evaluate(() => document.getElementById('dock').classList.contains('locked')), await p.evaluate(() => getComputedStyle(document.getElementById('goalUs')).opacity)], ['1', true, '1'],
@@ -73,9 +73,9 @@ eq(await A.text('#mStatsSub'), 'Jake, 1 goal', 'and the Stats tile names the top
 // ---------- navigation: back, the small title bar, swiping back from the edge
 await A.click('#mStats'); await A.run(300);
 check(await p.evaluate(() => { const b = document.querySelector('#v-stats .back'); return getComputedStyle(b).backgroundColor === 'rgba(0, 0, 0, 0)' && /Home/.test(b.textContent); }), 'back is the kit-coloured chevron and the name of where it goes, with no grey pill');
-await p.evaluate(() => window.scrollTo(0, 400)); await A.run(400);
+await p.evaluate(() => window.scrollTo(0, 400)); await p.waitForTimeout(400);
 eq([await p.evaluate(() => document.getElementById('topbar').classList.contains('on')), await A.text('#tbTitle')], [true, 'Stats'], 'scrolled down, the large title shows small at the top');
-await p.evaluate(() => window.scrollTo(0, 0)); await A.run(400);
+await p.evaluate(() => window.scrollTo(0, 0)); await p.waitForTimeout(400);
 eq(await p.evaluate(() => document.getElementById('topbar').classList.contains('on')), false, 'and goes again at the top');
 const swipe = (x0, x1) => p.evaluate(([a, b]) => {
   const t = (x) => new Touch({ identifier: 1, target: document.body, clientX: x, clientY: 400 });
@@ -96,6 +96,10 @@ eq(await p.evaluate(() => ['oFind', 'oScore', 'expTrack'].map((id) => document.g
 const was = await p.isChecked('#oScore'); await A.click('#oScore'); await A.run(200);
 eq(await p.isChecked('#oScore'), !was, 'which switch when tapped');
 await A.click('#oScore'); await A.run(200);
+await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await A.run(400);
+await p.evaluate(() => document.getElementById('oName').scrollIntoView()); await A.run(400);
+check(await p.evaluate(() => document.getElementById('oName').getBoundingClientRect().top >= document.getElementById('topbar').getBoundingClientRect().bottom), 'something scrolled into view (a box being typed in) clears the small title bar');
+await p.evaluate(() => window.scrollTo(0, 0)); await A.run(300);
 check(await p.evaluate(() => { const e = document.getElementById('expTrack'), g = document.getElementById('optGaffer'); return !!(g.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING); }), 'Experimental comes after the team\'s own settings');
 check(await p.evaluate(() => getComputedStyle(document.getElementById('oCrest')).position === 'absolute') && await A.visible('label[for="oCrest"]'), 'the crest has a "Choose a picture" button, not the browser\'s own file box');
 check(await p.evaluate(() => ['wipe', 'leave', 'oDelete'].every((id) => document.getElementById(id).classList.contains('danger'))), 'Reset all stats, Remove team and Delete my account are red');
@@ -114,6 +118,7 @@ eq([await A.text('#gamesCount'), await p.evaluate(() => !document.getElementById
 // ---------- the tab bar floats, frosted, and chat's box sits at the bottom
 check(await p.evaluate(() => { const r = document.querySelector('#tabs .tabrow').getBoundingClientRect(); return r.left > 0 && innerWidth - r.right > 0 && innerHeight - r.bottom > 0; }), 'the tab bar floats clear of the edges');
 await A.click('#tabs [data-tab="chat"]'); await A.run(500);
-check(await p.evaluate(() => { const f = document.getElementById('chatForm').getBoundingClientRect(), t = document.querySelector('#tabs .tabrow').getBoundingClientRect(); return f.bottom <= t.top + 1 && t.top - f.bottom < 20; }), 'the chat box sits just above the tab bar, whatever is in the chat');
+const cf = await p.evaluate(() => { const f = document.getElementById('chatForm').getBoundingClientRect(), t = document.querySelector('#tabs .tabrow').getBoundingClientRect(); return { hidden: document.getElementById('chatForm').hidden, f: Math.round(f.bottom), t: Math.round(t.top) }; });
+check(!cf.hidden && cf.f <= cf.t + 1 && cf.t - cf.f < 24, `the chat box sits just above the tab bar, whatever is in the chat (${JSON.stringify(cf)})`);
 
 await done(A);

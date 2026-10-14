@@ -53,7 +53,8 @@
 /* ---- base */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
-html { font-size: 17px; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html { font-size: 17px; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  scroll-padding-top: calc(56px + env(safe-area-inset-top, 0px)); scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); } /* (anything scrolled into view, like a box being typed in, clears the title bar and the tab bar) */
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: var(--t-body); line-height: 1.45; font-optical-sizing: auto;
   padding-inline: 16px; padding-block: 16px 48px; -webkit-font-smoothing: antialiased; }
 img { max-width: 100%; }
@@ -74,7 +75,7 @@ button, a, label, input, select { -webkit-tap-highlight-color: transparent; }
 button { transition: transform .14s cubic-bezier(.2, .8, .2, 1), filter .14s, background-color .18s, color .18s, opacity .18s, box-shadow .18s; }
 button:active:not(:disabled) { transform: scale(.955); filter: brightness(.93); transition-duration: .05s; }
 .view:not([hidden]) { animation: viewIn .3s cubic-bezier(.2, .8, .2, 1) backwards; } /* (backwards, not both: a transform left on the screen would pin its fixed parts, the dock and pop-ups, to the page) */
-@keyframes viewIn { from { opacity: 0; transform: translateY(10px); } }
+@keyframes viewIn { from { opacity: 0; } } /* (a fade only: a transform, even for a moment, would carry the screen's fixed parts, the dock and the chat box, with it) */
 .menu button { animation: rise .36s cubic-bezier(.2, .8, .2, 1) both; }
 .menu button:nth-child(2) { animation-delay: .03s; } .menu button:nth-child(3) { animation-delay: .06s; } .menu button:nth-child(4) { animation-delay: .09s; } .menu button:nth-child(5) { animation-delay: .12s; } .menu button:nth-child(6) { animation-delay: .15s; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px) scale(.98); } }

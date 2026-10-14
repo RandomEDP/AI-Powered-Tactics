@@ -671,8 +671,9 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
 ## 10. Gotchas learned the hard way
 
 - Anything `position: fixed` inside a screen (the dock, the chat box, pop-ups) is pinned to the page, not the phone's
-  screen, while the screen has a transform. `.view`'s entrance animation is `backwards` (not `both`) for that reason;
-  don't give a screen a lasting transform.
+  screen, while the screen has a transform, even during an animation. `.view`'s entrance is a fade only (no slide) and
+  `backwards` for that reason; don't animate a screen's transform. `html` has `scroll-padding` so anything scrolled into
+  view clears the small title bar and the tab bar.
 - CSS class names share one file too: a new `.sw` once collided with the colour swatches' `.sw` and squashed every
   setting to nothing. Grep for a class before naming it, as for functions.
 
