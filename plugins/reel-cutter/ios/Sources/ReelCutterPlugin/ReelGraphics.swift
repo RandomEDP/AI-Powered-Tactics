@@ -37,6 +37,9 @@ struct ReelLower {
     let sub: String
     let color: UIColor?
     let ink: UIColor?
+    /// A goal put right after the clip was made (the wrong scorer pressed in the heat of the moment): the bar the clip
+    /// already has, which this one is drawn over. It's made at least as big and solid, so none of the old one shows.
+    var over: (tag: String, title: String, sub: String)? = nil
 }
 
 enum ReelGraphics {
@@ -78,8 +81,12 @@ enum ReelGraphics {
         guard let raw = value as? [String: Any] else { return nil }
         let title = raw["title"] as? String ?? "", tag = raw["tag"] as? String ?? ""
         guard !title.isEmpty || !tag.isEmpty else { return nil }
-        return ReelLower(at: (raw["at"] as? NSNumber)?.doubleValue ?? 0, tag: tag.uppercased(), title: title, sub: raw["sub"] as? String ?? "",
-                         color: (raw["color"] as? String).map { color($0, fallback: .darkGray) }, ink: (raw["ink"] as? String).map { color($0, fallback: .white) })
+        var bar = ReelLower(at: (raw["at"] as? NSNumber)?.doubleValue ?? 0, tag: tag.uppercased(), title: title, sub: raw["sub"] as? String ?? "",
+                            color: (raw["color"] as? String).map { color($0, fallback: .darkGray) }, ink: (raw["ink"] as? String).map { color($0, fallback: .white) })
+        if let old = raw["over"] as? [String: Any] {
+            bar.over = (tag: (old["tag"] as? String ?? "").uppercased(), title: old["title"] as? String ?? "", sub: old["sub"] as? String ?? "")
+        }
+        return bar
     }
 
     // MARK: - Pieces
@@ -290,18 +297,33 @@ enum ReelGraphics {
 
     // MARK: - The bar along the bottom
 
+    /// The bar's text and how big it comes out: the tag's box, the panel beside it and the height.
+    static func barParts(tag tagText: String, title titleText: String, sub subText: String, ink: UIColor, u: CGFloat, size: CGSize, margin: CGFloat)
+        -> (tag: CATextLayer, title: CATextLayer, sub: CATextLayer?, textH: CGFloat, tagW: CGFloat, panelW: CGFloat, height: CGFloat) {
+        let padX = u * 2.2, padY = u * 1.5, gap = u * 0.3
+        let tag = line(tagText, font: UIFont.systemFont(ofSize: u * 3.2, weight: .black), color: ink, kern: u * 0.25)
+        let room = max(u * 20, size.width - margin * 2 - tag.frame.width - padX * 4)
+        let title = block(titleText, font: UIFont.systemFont(ofSize: u * 4.6, weight: .heavy), color: .white, maxWidth: room, centred: false)
+        let sub = subText.isEmpty ? nil : block(subText, font: UIFont.systemFont(ofSize: u * 2.9, weight: .semibold), color: UIColor(white: 1, alpha: 0.78), maxWidth: room, centred: false)
+        let textH = title.frame.height + (sub.map { gap + $0.frame.height } ?? 0)
+        let height = max(u * 9, textH + padY * 2)
+        let tagW = tagText.isEmpty ? u * 1.2 : tag.frame.width + padX * 2
+        let panelW = max(title.frame.width, sub?.frame.width ?? 0) + padX * 2
+        return (tag, title, sub, textH, tagW, panelW, height)
+    }
+
     static func lowerThird(_ lower: ReelLower, look: ReelLook?, from: Double, dur: Double, u: CGFloat, size: CGSize, margin: CGFloat) -> CALayer {
         let accent = lower.color ?? look?.color ?? UIColor(red: 0.36, green: 0.16, blue: 0.53, alpha: 1)
         let accentInk = lower.ink ?? look?.ink ?? .white
-        let padX = u * 2.2, padY = u * 1.5, gap = u * 0.3
-        let tag = line(lower.tag, font: UIFont.systemFont(ofSize: u * 3.2, weight: .black), color: accentInk, kern: u * 0.25)
-        let room = max(u * 20, size.width - margin * 2 - tag.frame.width - padX * 4)
-        let title = block(lower.title, font: UIFont.systemFont(ofSize: u * 4.6, weight: .heavy), color: .white, maxWidth: room, centred: false)
-        let sub = lower.sub.isEmpty ? nil : block(lower.sub, font: UIFont.systemFont(ofSize: u * 2.9, weight: .semibold), color: UIColor(white: 1, alpha: 0.78), maxWidth: room, centred: false)
-        let textH = title.frame.height + (sub.map { gap + $0.frame.height } ?? 0)
-        let height = max(u * 9, textH + padY * 2)
-        let tagW = lower.tag.isEmpty ? u * 1.2 : tag.frame.width + padX * 2
-        let panelW = max(title.frame.width, sub?.frame.width ?? 0) + padX * 2
+        let padX = u * 2.2, gap = u * 0.3
+        let parts = barParts(tag: lower.tag, title: lower.title, sub: lower.sub, ink: accentInk, u: u, size: size, margin: margin)
+        let tag = parts.tag, title = parts.title, sub = parts.sub, textH = parts.textH, tagW = parts.tagW
+        var height = parts.height, panelW = parts.panelW
+        if let old = lower.over { // drawn over the old bar: at least as tall and as long (with a little to spare), and solid
+            let was = barParts(tag: old.tag, title: old.title, sub: old.sub, ink: accentInk, u: u, size: size, margin: margin)
+            height = max(height, was.height + u * 0.4)
+            panelW = max(panelW, was.tagW + was.panelW + u * 1.5 - tagW)
+        }
 
         let group = CALayer()
         group.frame = CGRect(x: margin, y: margin, width: tagW + panelW, height: height)
@@ -314,7 +336,7 @@ enum ReelGraphics {
         group.addSublayer(tagBox)
         let panel = CALayer()
         panel.frame = CGRect(x: tagW, y: 0, width: panelW, height: height)
-        panel.backgroundColor = UIColor(white: 0.05, alpha: 0.88).cgColor
+        panel.backgroundColor = UIColor(white: 0.05, alpha: lower.over == nil ? 0.88 : 1).cgColor
         let top = (height + textH) / 2 // the text block, centred up and down
         title.frame.origin = CGPoint(x: padX, y: top - title.frame.height)
         panel.addSublayer(title)

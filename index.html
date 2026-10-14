@@ -413,8 +413,12 @@ tr.past td { opacity: .45; }
 #planPop[hidden] { display: none; }
 #unamePop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #unamePop[hidden] { display: none; }
-#termsPop, #aiPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
-#termsPop[hidden], #aiPop[hidden] { display: none; }
+#termsPop, #aiPop, #fixPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#termsPop[hidden], #aiPop[hidden], #fixPop[hidden] { display: none; }
+#fixPop .planbox { max-height: 86vh; overflow-y: auto; }
+#aiPop { z-index: 50; } #termsPop { z-index: 51; } /* (the AI question can come up over Fix a goal; the terms over everything) */
+.fxgoals { display: grid; gap: 8px; margin: 10px 0; }
+.fxgoals button { text-align: left; }
 .tmlist { margin: 0 0 12px; padding-left: 20px; }
 .pplBadge { margin-left: 8px; min-width: 20px; height: 20px; border-radius: 10px; background: #ffc83d; color: #2a2100; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; } .pplBadge[hidden] { display: none; }
 .prow { display: flex; align-items: center; gap: 10px; padding-block: 10px; border-bottom: 1px solid var(--line); }
@@ -920,6 +924,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <p class="note">You can change your mind at any time in Settings. <a class="plink" data-site="privacy.html" href="privacy.html">Privacy policy</a></p>
   <div class="actions"><button class="plain primary" id="aiYes" type="button">Allow</button><button class="link" id="aiNo" type="button">Not now</button></div>
 </div></div>
+
+<div id="fixPop" role="dialog" aria-labelledby="fxTitle" hidden><div class="planbox"><div id="fxBody"></div></div></div>
 
 <div id="planPop" role="dialog" aria-labelledby="planTitle" hidden><div class="planbox">
   <h2 id="planTitle">Free to use. Gaffer tier on the way.</h2>
@@ -3500,7 +3506,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var rc = RCp(); if (!rc || MK.busy || !r || role !== 'owner' || !sb || !teamId) return;
     var list = clips.filter(function (c) { return c.game_id === r.id; }).sort(function (a, b) { return a.seq - b.seq; }); if (!list.length) return;
     if (mkPending().some(function (p) { return p.gid === r.id; })) { mkResume(); return; } // (already made: its upload is still going, or done while Gaffer was away)
-    var parts = [{ file: 'reel.mp4', v: false }].concat(list.some(function (c) { return c.vpath; }) ? [{ file: 'reelv.mp4', v: true }] : []);
+    var tag = MKVER[r.id] ? '-' + MKVER[r.id] : ''; // (made again after a goal was put right: a new name, so no phone keeps the old one)
+    var parts = [{ file: 'reel' + tag + '.mp4', v: false }].concat(list.some(function (c) { return c.vpath; }) ? [{ file: 'reel' + tag + 'v.mp4', v: true }] : []);
     MK = { gid: r.id, busy: true, prog: 'starting…', msg: '', bad: false, part: '', away: document.hidden, again: null }; mhDraw(); mkShow();
     try {
       var made = [], marks = null;
@@ -3528,6 +3535,113 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     mhDraw(); mkShow(); if (S.view === 'highlights' && !quiet) renderHighlights();
   }
+  // ---- putting a goal right after the highlights are out (Ethan: "I just pressed it wrong in the heat of the moment").
+  // The gaffer picks the goal and who really scored and set it up. The game's stats are put right (its events and each
+  // player's goals and assists), the clip's caption and whose clips it's in, and on the iPhone that one clip is made
+  // again: its bar along the bottom drawn over with the right names (and a new commentary line if it had one), nothing
+  // cut again from the match video and no other clip touched. The game's one video is then joined again from the clips.
+  var FX = null, MKVER = {};
+  function fixGoals(r) { // the goals that name a player (ours; in a game among the squad, both sides')
+    return (r.ev || []).map(function (e, i) { return { e: e, i: i }; }).filter(function (x) { return !x.e.hl && (x.e.us || r.house); });
+  }
+  function fixCands(r, e) { // who could have scored it: those who played, on the side that scored
+    var side = r.house ? (e.us ? 'a' : 'b') : null, ids = Object.keys(r.per || {}).map(Number).filter(function (id) { return isFinite(id); });
+    if (r.house) ids = ids.concat(((r.house.guests) || []).map(function (g) { return g.id; })).filter(function (id) { return sideOf(r, id) === side || ((r.house.guests || []).filter(function (g) { return g.id === id; })[0] || {}).side === side; });
+    if (!ids.length) ids = S.players.map(function (p) { return p.id; });
+    [e.p, e.a].forEach(function (id) { if (id != null && ids.indexOf(id) < 0) ids.push(id); });
+    return ids.filter(function (id, k) { return ids.indexOf(id) === k; });
+  }
+  function fixOpen(gi) { FX = { gi: gi, ei: null, p: null, a: null, busy: false, msg: '', bad: false }; $('fixPop').hidden = false; renderFix(); }
+  function renderFix() {
+    var r = S.results[FX.gi]; if (!r) { $('fixPop').hidden = true; return; }
+    var html = '<h2 id="fxTitle">Fix a goal</h2>';
+    if (FX.busy || FX.msg) html += '<p class="msg' + (FX.bad ? ' bad' : FX.busy ? ' busy' : '') + '" role="status" id="fxMsg">' + esc(FX.msg) + '</p>' + (FX.busy ? '' : '<div class="actions"><button class="plain primary" type="button" data-fx="close">Done</button></div>');
+    else if (FX.ei == null) {
+      var ms = momentsOf(r);
+      html += '<p class="note">Pressed the wrong player in the heat of the moment? Pick the goal, then who really scored and set it up. The stats are put right, and so is that goal’s clip' + (RCp() ? '' : ' (on the iPhone app)') + '. Nothing else is cut again.</p><div class="fxgoals">' +
+        fixGoals(r).map(function (x) { var m = ms.filter(function (y) { return y.e === x.e; })[0]; return '<button class="plain" type="button" data-fxev="' + x.i + '">' + esc(minOf(x.e) + ' ' + (m ? m.text : 'Goal')) + '</button>'; }).join('') +
+        '</div><div class="actions"><button class="link" type="button" data-fx="close">Cancel</button></div>';
+    } else {
+      var e = r.ev[FX.ei], ids = fixCands(r, e), btn = function (k, id, label) { return '<button type="button" data-fx' + k + '="' + (id == null ? '' : id) + '" aria-pressed="' + ((k === 'p' ? FX.p : FX.a) === id) + '">' + esc(label) + '</button>'; };
+      html += '<p class="note">' + esc(minOf(e) + ' goal' + (r.house ? ' for ' + (e.us ? usOf(r) : r.opp) : '')) + '</p>' +
+        '<div class="field"><span>Who scored?</span><div class="posrow">' + ids.map(function (id) { return btn('p', id, nm(id)); }).join('') + '</div></div>' +
+        '<div class="field"><span>Who set it up?</span><div class="posrow">' + btn('a', null, 'No one') + ids.filter(function (id) { return id !== FX.p; }).map(function (id) { return btn('a', id, nm(id)); }).join('') + '</div></div>' +
+        '<div class="actions"><button class="plain primary" type="button" data-fx="save"' + (FX.p === e.p && FX.a === e.a ? ' disabled' : '') + '>Put it right</button><button class="link" type="button" data-fx="back">Back</button></div>';
+    }
+    $('fxBody').innerHTML = html;
+  }
+  $('fixPop').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b || !FX || FX.busy) return;
+    var r = S.results[FX.gi], v;
+    if ((v = b.getAttribute('data-fxev')) !== null) { FX.ei = +v; FX.p = r.ev[FX.ei].p; FX.a = r.ev[FX.ei].a; }
+    else if ((v = b.getAttribute('data-fxp')) !== null) { FX.p = +v; if (FX.a === FX.p) FX.a = null; }
+    else if ((v = b.getAttribute('data-fxa')) !== null) FX.a = v === '' ? null : +v;
+    else if (b.getAttribute('data-fx') === 'back') FX.ei = null;
+    else if (b.getAttribute('data-fx') === 'close') { $('fixPop').hidden = true; FX = null; return; }
+    else if (b.getAttribute('data-fx') === 'save') { fixApply(); return; }
+    renderFix();
+  });
+  function fixSay(t, busy, bad) { FX.msg = t; FX.busy = !!busy; FX.bad = !!bad; renderFix(); }
+  async function fixApply() {
+    var r = S.results[FX.gi], e = r && r.ev[FX.ei]; if (!e) return;
+    var was = { p: e.p, a: e.a }, p = FX.p, a = FX.a, said = function (id) { return id != null ? nm(id) : 'no one'; };
+    var inClip = function () { return reelClips(r, 1e5, PRE, POST).filter(function (c) { return c.items.some(function (it) { return it.e === e; }); })[0]; };
+    var pc = inClip(), row = pc && clips.filter(function (c) { return c.game_id === r.id && c.at === pc.at; })[0];
+    var main = pc && (pc.items.filter(function (x) { return !x.plain; })[0] || pc.items[0]).e === e, barWas = pc ? clipLook(r, pc).lower : null;
+    // the stats: the event, and the goal and assist moved from one player to the other
+    var per = r.per = r.per || {}, bump = function (id, k, d) { if (id == null) return; var x = per[id] = per[id] || { mins: 0, g: 0, a: 0 }; x[k] = Math.max(0, (x[k] || 0) + d); };
+    bump(was.p, 'g', -1); bump(was.a, 'a', -1); e.p = p; e.a = a; bump(p, 'g', 1); bump(a, 'a', 1);
+    save(); fixSay('Putting the stats right…', true);
+    var told = 'Put right: ' + minOf(e) + ' goal by ' + said(p) + ', set up by ' + said(a) + '. The stats are updated';
+    try {
+      if (!row) { clearTimeout(wt); await syncAll(); fixSay(told + '.'); return; }
+      var now = inClip(); // its caption and whose clip it is
+      await q(sb.from('clips').update({ label: now.labels.join(' / ').slice(0, 200), pids: now.pids }).eq('game_id', r.id).eq('seq', row.seq));
+      row.label = now.labels.join(' / ').slice(0, 200); row.pids = now.pids;
+      clearTimeout(wt); await syncAll();
+      var rc = RCp();
+      if (!main || !barWas) { fixSay(told + ', and so is the clip’s caption.'); ping('changed'); return; }
+      if (!rc || !rc.relabel) { fixSay(told + ', and so is the clip’s caption. Open Gaffer on your iPhone and fix it again there to put the video itself right.'); ping('changed'); return; }
+      // that one clip, made again with the right names drawn over the old ones
+      fixSay('Making that clip again with the right names (the other clips aren’t touched)…', true);
+      var bar = clipLook(r, now).lower; bar.over = { tag: barWas.tag, title: barWas.title, sub: barWas.sub };
+      var voice = null, vNote = '';
+      if (row.vpath) {
+        if (await aiAsk()) {
+          try { var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: [spokenLine(commentaryFor(r, { at: row.at, dur: row.dur }, swears()))], voice: vp.voice, style: vp.style } }), vd = vr && vr.data; voice = vd && vd.audio && vd.audio[0] || null; } catch (ve) {}
+          if (!voice) vNote = ' The new commentary line couldn’t be made, so that clip has none for now.';
+        } else vNote = ' Its commentary was left off: ' + AI_NO;
+      }
+      var stamp = Date.now().toString(36), dir = row.path.replace(/[^/]*$/, ''), base = row.path.replace(/^.*\//, '').replace(/v?(-[a-z0-9]+)?\.mp4$/, '') + '-' + stamp;
+      var made = await rc.relabel({ url: clipSrc(row, false), lower: bar, look: lookFor(r), voice: voice, voiceAt: Math.max(0, pc.t - pc.start) + 0.7, file: base + '.mp4' });
+      if (!made || !made.path) throw new Error('the clip couldn’t be made again.');
+      var keys = [dir + base + '.mp4'].concat(made.voiced ? [dir + base + 'v.mp4'] : []), links = {}, r2 = !!CFG.clipsUrl;
+      fixSay('Uploading the clip…', true);
+      if (r2) { var got = await clipCall('upload', { paths: keys }); if (got && got.urls) keys.forEach(function (k, j) { links[k] = got.urls[j]; }); else if (got && got.reason === 'not_configured') r2 = false; else throw new Error((got && got.error) || 'no answer from Gaffer’s server.'); }
+      var inR2 = await upFile(made.path, keys[0], r2 ? links[keys[0]] : null), vKey = null;
+      if (made.voiced) { var vR2 = await upFile(made.voiced.path, keys[1], r2 ? links[keys[1]] : null); if (vR2 === inR2) vKey = keys[1]; }
+      var old = { path: row.path, vpath: row.vpath, store: row.store };
+      await q(sb.from('clips').update({ path: keys[0], vpath: vKey, store: inR2 ? 'r2' : null }).eq('game_id', r.id).eq('seq', row.seq));
+      row.path = keys[0]; row.vpath = vKey; row.store = inR2 ? 'r2' : null;
+      var gone = [old.path, old.vpath].filter(Boolean); // the old copies go
+      try { if (old.store === 'r2') await clipCall('remove', { paths: gone }); else await q(sb.storage.from('clips').remove(gone)); } catch (ge) {}
+      // the game's one video had the old clip in: it's joined again from the clips (nothing is cut again)
+      var reelNote = '';
+      if (r.reel && r.reel.path) {
+        var oldReel = r.reel, rg = [oldReel.path, oldReel.vpath].filter(Boolean);
+        await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null;
+        try { await q(sb.from('clips').update({ reel_at: null }).eq('game_id', r.id)); } catch (ce) {}
+        clips.forEach(function (c) { if (c.game_id === r.id) c.reel_at = null; });
+        try { if (oldReel.store === 'r2') await clipCall('remove', { paths: rg }); else await q(sb.storage.from('clips').remove(rg)); } catch (re) {}
+        MKVER[r.id] = stamp; MKTRIED[r.id] = true; setTimeout(function () { mhMake(r, true); }, 300);
+        reelNote = ' The game’s one video is being joined again with it; it carries on while you use Gaffer.';
+      }
+      ping('changed');
+      fixSay(told + ', and that clip has been made again with the right names.' + vNote + reelNote);
+    } catch (err) { fixSay(told + ', but the clip couldn’t be made again: ' + ((err && err.message) || 'something went wrong') + ' Try Fix a goal again with a signal.', false, true); }
+    if (S.view === 'highlights') renderHighlights();
+  }
+
   // A file from this phone to the team's clip storage. Through iOS's background uploads where the app has them (it keeps
   // going with Gaffer put away or closed), else from the web view; the old storage if R2 isn't set up or says no.
   // Returns true for R2, false for the old storage.
@@ -3702,6 +3816,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         html += '<div class="hcard' + (hlFocus === r ? ' focus' : '') + '" id="hlg-' + g.i + '"><h3>' + (r.house ? esc(scoreLine(r, r.us, r.them)) + '<span class="badge">Among ourselves</span>' : 'v ' + esc(r.opp) + ' ' + r.us + '–' + r.them + (r.friendly ? '<span class="badge">Friendly</span>' : '')) + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
         var delBtn = own && vids.length ? '<button class="plain" type="button" data-hldel="' + g.i + '"' + (HLDEL.busy ? ' disabled' : '') + '>' + (HLDEL.i === g.i && Date.now() < HLDEL.until ? 'Tap again to delete them' : 'Delete these highlights') + '</button>' : '';
         var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
+        if (own && vids.length && fixGoals(r).length) delBtn = '<button class="plain" type="button" data-fixg="' + g.i + '">Fix a goal</button>' + delBtn;
         var guests = r.house && r.house.guests && r.house.guests.length && A.active && !guestGame ? '<div class="actions"><button class="plain" type="button" data-guests="' + g.i + '">Send the guests a link</button></div>' +
           (GL.i === g.i && GL.msg ? '<p class="msg" role="status" id="glMsg">' + esc(GL.msg) + '</p>' : '') : '';
         if (vids.length) html += mhButton(g.i, vids) + '<p class="msg mkline" data-mkline="' + esc(r.id) + '" hidden></p><details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
@@ -3919,6 +4034,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     else if (cut !== null) { CUT = cutStart(+cut); go('cut'); }
     else if (e.target.getAttribute('data-dl') !== null) gameReel(+e.target.getAttribute('data-dl'));
+    else if (e.target.getAttribute('data-fixg') !== null) fixOpen(+e.target.getAttribute('data-fixg'));
     else if (e.target.getAttribute('data-dlshare') !== null) { var rc2 = RCp(); if (rc2 && DL.path) rc2.share({ path: DL.path }).catch(function () {}); }
     else if (e.target.getAttribute('data-preel') !== null) rbOpen(+e.target.getAttribute('data-preel'));
     else if (e.target.getAttribute('data-preeloff') !== null) { // off the card (the file goes too)

@@ -16,6 +16,7 @@ const cutter = () => { // the native ReelCutter, as the web app sees it
       return { clips: o.clips.map((c) => Object.assign({ file: c.file, path: '/phone/' + c.file }, c.voice ? { voiced: { file: c.file.replace('.mp4', 'v.mp4'), path: '/phone/' + c.file.replace('.mp4', 'v.mp4') } } : {})), reel: { path: '/phone/' + o.reelFile, marks: o.clips.map((c, i) => i ? i * 14.04 : 0) },
         ...(o.reelCleanFile && o.clips.some((c) => c.voice) ? { reelClean: { path: '/phone/' + o.reelCleanFile, marks: o.clips.map((c, i) => i ? i * 14.04 : 0) } } : {}) }; },
     upload: async (o) => { window.__rc.push(['upload', o]); const r = await fetch(o.url, { method: 'PUT', body: 'video', headers: { 'Content-Type': o.contentType || 'video/mp4' } }); return { status: r.status, ok: r.ok }; },
+    relabel: async (o) => { window.__rc.push(['relabel', o]); return { path: '/phone/fix/' + o.file, size: 900, ...(o.voice ? { voiced: { path: '/phone/fix/' + o.file.replace('.mp4', 'v.mp4'), size: 900 } } : {}) }; },
     joinReel: async (o) => { window.__rc.push(['join', o]); if (window.__hold) await window.__hold; if (document.hidden) throw new Error('The operation was interrupted'); if (cb) { cb({ stage: 'fetch', i: 0, n: o.items.length, p: 0 }); cb({ stage: 'reel', p: 0.5 }); } return { path: '/phone/' + o.file, size: 1000, marks: o.items.map((x, i) => i * 14.04) }; },
     share: async (o) => { window.__rc.push(['share', o.path]); return {}; }, cleanup: async () => ({}),
   };
@@ -280,6 +281,42 @@ join = (await calls(A, 'join')).pop();
 eq([vcalls() - vbefore, join.items.some((x) => x.voice), /chose not to send the lines to Google/.test(await A.text('#rbBody'))], [0, false, true], '"Not now": nothing is sent, and the reel is made without commentary, saying why');
 await A.click('#rbClose'); await A.run(800);
 await A.click('#hlToggle [data-by="' + byNow + '"]'); await A.run(300);
+// ---------- putting a goal right after the highlights are out (Ethan: pressed the wrong player in the heat of the moment):
+// Jake's first goal was really Harrison's, still set up by Chaplin. The stats change, and only that clip is made again.
+await A.click('#hlToggle [data-by="game"]'); await A.run(300);
+const gameId = w.db().games[0].id, rowsNow = () => w.db().clips.filter((c) => c.game_id === gameId).sort((x, y) => x.seq - y.seq);
+const was = rowsNow().map((c) => [c.path, c.vpath]), joinsBefore = (await calls(A, 'join')).length;
+await A.click('#hlList .hcard:first-child [data-fixg]'); await A.run(200);
+const goalsListed = await A.page.$$eval('#fxBody [data-fxev]', (b) => b.map((x) => x.textContent));
+check(goalsListed.length === 2 && /Goal: Jake, set up by Chaplin/.test(goalsListed[0]) && /Goal: Chaplin, set up by Jake/.test(goalsListed[1]), `Fix a goal lists the game's goals (${goalsListed.join(' | ')})`);
+await A.click('#fxBody [data-fxev]'); await A.run(200);
+eq([await A.text('#fxBody [data-fxp][aria-pressed="true"]'), await A.text('#fxBody [data-fxa][aria-pressed="true"]')], ['Jake', 'Chaplin'], 'picking one shows who it says scored and set it up');
+await shot(A, 'fix-goal');
+await A.click('#fxBody [data-fxp="4"]'); await A.click('#fxBody [data-fx="save"]'); await A.run(500);
+eq(await A.visible('#aiPop'), true, 'it had commentary, so it asks before sending the new line to Google');
+await A.click('#aiYes'); await A.run(4000);
+const ev1 = (await A.team()).results[0].ev.filter((e) => !e.hl && e.us)[0];
+eq([ev1.p, ev1.a], [4, 3], 'the goal is Harrison\'s now, still set up by Chaplin');
+const gp = (pid) => (w.db().game_players.find((x) => x.game_id === gameId && x.pid === pid) || {});
+eq([[gp(2).goals, gp(2).assists], [gp(4).goals, gp(4).assists], [gp(3).goals, gp(3).assists]], [[0, 1], [1, 0], [1, 1]], 'and the stats follow: Jake loses the goal (keeping his assist), Harrison gets it, Chaplin is unchanged');
+const fix = (await calls(A, 'relabel')).pop();
+eq([fix.lower.tag, fix.lower.title, /Set up by Chaplin/.test(fix.lower.sub), fix.lower.over.title, tail(fix.url), !!fix.voice], ['Goal', 'Harrison', true, 'Jake', '01.mp4', true],
+  'that clip is made again from its clean copy, with Harrison\'s name drawn over Jake\'s and a new commentary line');
+check(/Harrison/.test((w.db().calls || []).filter((x) => x.name === 'reel-voice').pop().body.lines[0]), 'the new line names Harrison');
+eq((await calls(A, 'relabel')).length, 1, 'and only that one clip: the others aren\'t touched');
+const after = rowsNow();
+check(/\/01-[a-z0-9]+\.mp4$/.test(after[0].path) && /\/01-[a-z0-9]+v\.mp4$/.test(after[0].vpath), `it goes up under a new name, both copies (${tail(after[0].path)}, ${tail(after[0].vpath)})`);
+eq(after.slice(1).map((c) => [c.path, c.vpath]), was.slice(1), 'the other clips stay exactly as they were');
+check(/Harrison/.test(after[0].label) && after[0].pids.includes(4) && !after[0].pids.includes(2), `its caption and whose clip it is follow (${after[0].label})`);
+const fileNames = (w.db().files || []).filter((f) => f.bucket === 'r2').map((f) => f.path);
+check(!fileNames.includes(was[0][0]) && !fileNames.includes(was[0][1]) && fileNames.includes(after[0].path), 'the old copies of that clip are deleted, the new ones are there');
+const rejoin = (await calls(A, 'join')).slice(joinsBefore);
+check(rejoin.length >= 1 && rejoin[0].items.some((x) => /01-[a-z0-9]+v?\.mp4$/.test(x.url)), 'the game\'s one video is joined again from the clips, with the new one (nothing cut again)');
+check(/^[^/]+\/[^/]+\/reel-[a-z0-9]+\.mp4$/.test((w.db().games[0].reel || {}).path || ''), `and kept under a new name (${(w.db().games[0].reel || {}).path})`);
+check(/Put right: .*goal by Harrison, set up by Chaplin\. The stats are updated, and that clip has been made again/.test(await A.text('#fxMsg')), `it says what it did (${await A.text('#fxMsg')})`);
+await shot(A, 'fix-done');
+await A.click('#fxBody [data-fx="close"]'); await A.run(300);
+
 await A.click('#hlList [data-hldel]'); await A.click('#hlList [data-hldel]'); await A.run(1500);
 eq([rows().length, (w.db().files || []).filter((f) => f.bucket === 'r2' && !/\/players\//.test(f.path)).length], [0, 0], 'deleting a game\'s highlights removes the copies with commentary too (a player\'s own reel stays on his card)');
 
