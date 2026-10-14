@@ -814,11 +814,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   </div>
   <div id="aIn" hidden>
     <p class="msg">Signed in as <span id="aWho"></span></p>
-    <section><h2>Join a team as an gaffer</h2><p class="note">Another gaffer can give you the team's 10-character gaffer code from Options.</p>
+    <section><h2>Join a team as a gaffer</h2><p class="note">Another gaffer can give you the team's 10-character gaffer code from Options.</p>
       <div class="joinrow"><input id="aOrgCode" type="text" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Gaffer code"><button class="plain primary" id="aOrgJoin" type="button">Join</button></div></section>
     <div class="actions"><button class="plain" id="aSignOut" type="button">Sign out</button></div>
     <section><h2>Delete account</h2>
-      <p class="note">Deletes your gaffer account and your sign-in. Teams you organise on your own are deleted too, including their games and stats, and followers lose access. Teams with other gaffers carry on without you.</p>
+      <p class="note">Deletes your account for good, straight away: your email and sign-in, your username and profile, your posts, likes, follows and tags. Your player on each team becomes unclaimed, and the team keeps their stats. Teams you run on your own are deleted too, with their games and stats. Teams with other gaffers carry on without you.</p>
       <div class="actions"><button class="plain" id="aDelete" type="button">Delete my account</button></div></section>
   </div>
   <p class="msg" id="aMsg" hidden></p>
@@ -1205,6 +1205,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <p class="note" id="ntfNote"></p>
     <div class="actions"><button class="plain primary" id="ntfOn" type="button" hidden>Turn on notifications</button></div>
   </section>
+  <section id="optAccount" hidden>
+    <h2>Your account</h2>
+    <p class="note" id="optSignedAs"></p>
+    <div class="actions"><button class="plain" id="optSignOut" type="button">Sign out</button><button class="plain" id="oDelete" type="button">Delete my account</button></div>
+    <p class="note">Deletes your account for good, straight away: your email and sign-in, your username and profile, your posts, likes, follows and tags. Your player on each team becomes unclaimed, and the team keeps their stats. Teams you run on your own are deleted too, with their games and stats. Teams with other gaffers carry on without you.</p>
+    <p class="msg" id="oAcctMsg" hidden></p>
+  </section>
   <section>
     <h2>Experimental</h2>
     <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
@@ -1255,11 +1262,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <p class="note">The team stays in the database. You can add it back with its code.</p>
   </section>
   </div>
-  <section id="optAccount" hidden>
-    <h2>Account</h2>
-    <div class="actions"><button class="plain" id="optSignOut" type="button">Sign out</button></div>
-    <p class="note" id="optSignedAs"></p>
-  </section>
 </div>
 
 </div>
@@ -2770,17 +2772,21 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     saveApp(); applyTheme(); go('welcome');
   }
   $('aSignOut').addEventListener('click', async function () { await signOutAll(); aSay(''); });
-  armed($('aDelete'), 'Tap again to delete it for good', async function () {
+  // Deleting your account (Apple needs it to be easy to find: it's on the Account page and in Settings, the gear on your profile).
+  async function deleteMe(say) {
     if (!sb || !me) return;
-    aSay('Deleting your account\u2026');
+    say('Deleting your account\u2026');
     try {
       await q(sb.rpc('delete_my_account'));
       A.teams.forEach(function (t) { t.org = false; }); myTeams = null;
-      closeTeam(); A.active = null; S = blankTeam(); S.view = 'account'; saveApp(); // teams deleted with the account drop off this list next time they're opened
-      try { await sb.auth.signOut(); } catch (e) {}
-      renderAccount(); aSay('Your account has been deleted.');
-    } catch (e) { aSay('Couldn\u2019t delete the account. Check your signal and try again.', true); }
-  });
+      dirty = false; clearTimeout(wt); // (its teams may be gone: nothing to save)
+      await signOutAll(); // (nothing of the account is left on this phone)
+      go('account'); aSay('Your account has been deleted.');
+    } catch (e) { say('Couldn\u2019t delete the account. Check your signal and try again.', true); }
+  }
+  armed($('aDelete'), 'Tap again to delete it for good', function () { deleteMe(aSay); });
+  function oSay(t, bad) { var el = $('oAcctMsg'); el.textContent = t || ''; el.className = 'msg' + (bad ? ' bad' : ''); el.hidden = !t; }
+  armed($('oDelete'), 'Tap again to delete it for good', function () { deleteMe(oSay); });
   // the privacy policy lives on the website; the iOS app opens it there
   document.querySelectorAll('[data-privacy]').forEach(function (a) { if (!/^https?:/.test(location.protocol) && CFG.siteUrl) a.href = CFG.siteUrl + 'privacy.html'; });
   $('acctBtn').addEventListener('click', function () { go('account'); });
@@ -2791,7 +2797,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var res = await q(sb.rpc('join_as_organiser', { p_organiser_code: c }));
       if (!res.data) { aSay('No team has that gaffer code.', true); return; }
       $('aOrgCode').value = ''; aSay(''); myTeams = null; rememberTeam(res.data, '', true); openTeam(res.data);
-    } catch (e) { aSay('Couldn’t add you as an gaffer. Check your signal and try again.', true); }
+    } catch (e) { aSay('Couldn’t add you as a gaffer. Check your signal and try again.', true); }
   });
 
   // ---- shared bits for team colour and crest

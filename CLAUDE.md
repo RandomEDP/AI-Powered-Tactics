@@ -536,6 +536,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   - The name is "Gaffer: 5-a-Side Team Manager".
   - Apple asked for information under Guideline 2.1; a reply was drafted and Ethan has dealt with it.
   - The reviewer demo account is his.
+  - **Account deletion (Guideline 5.1.1(v)):** Apple turned a build down for having no way to delete an account. It
+    existed (`delete_my_account`, `0003`) but only on the Account page, which only the welcome screen led to, so with a
+    team open it couldn't be found. Settings (the gear on your profile, or Team settings) now starts with **Your account**
+    (`#optAccount`: who you're signed in as, Sign out, Delete my account `#oDelete`, two taps, `deleteMe`), and the
+    Account page keeps its own. After deleting, the phone is signed out and keeps nothing (`signOutAll`). Every table
+    pointing at `auth.users` cascades or sets null (checked live). Test: `account.test.mjs`. Keep it easy to find.
 - **Version and build:** the marketing version comes from `package.json` `version`. The build number is the GitHub
   Actions run number.
 - **Builds:**

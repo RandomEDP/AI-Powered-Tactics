@@ -279,6 +279,16 @@
     if (name === 'chat_delete') { const m = d.messages.find((x) => x.id === a.p_id); if (!m || (m.user_id !== uid() && !isOrg(d, m.team_id))) return ok(false); d.messages = d.messages.filter((x) => x.id !== a.p_id); store(d); return ok(true); }
     if (name === 'chat_report') { d.reports.push({ message_id: a.p_id, user_id: uid() }); store(d); return ok(true); }
     if (name === 'register_push') { d.push = d.push || []; if (uid() && d.push.indexOf(uid()) < 0) d.push.push(uid()); store(d); return ok(true); }
+    if (name === 'delete_my_account') { // as the real one: teams you run on your own go with you, your player is unclaimed, your profile, follows and posts go
+      const me = uid(); if (!me) return { data: null, error: { message: 'Sign in first' } };
+      const solo = d.team_members.filter((m) => m.user_id === me && !d.team_members.some((o) => o.team_id === m.team_id && o.user_id !== me)).map((m) => m.team_id);
+      d.teams = d.teams.filter((t) => !solo.includes(t.id)); d.players = d.players.filter((p) => !solo.includes(p.team_id));
+      d.team_members = d.team_members.filter((m) => m.user_id !== me && !solo.includes(m.team_id));
+      d.players.forEach((p) => { if (p.user_id === me) p.user_id = null; });
+      d.profiles = (d.profiles || []).filter((x) => x.user_id !== me); d.follows = (d.follows || []).filter((f) => f.follower !== me && f.followee !== me);
+      d.posts = (d.posts || []).filter((x) => x.user_id !== me); d.push = (d.push || []).filter((u) => u !== me);
+      d.users = d.users.filter((u) => u.id !== me); store(d); return ok(solo.length);
+    }
     if (name === 'unregister_push') { d.push = (d.push || []).filter((u) => u !== uid()); store(d); return ok(true); }
     if (name === 'team_push') { const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t || !isOrg(d, t.id)) return ok(null); return ok(d.players.filter((p) => p.team_id === t.id && p.user_id && (d.push || []).indexOf(p.user_id) >= 0).map((p) => p.pid)); }
     if (['rival_home', 'set_home', 'find_teams', 'challenge_send', 'challenge_reply', 'my_challenges', 'challenge_result'].includes(name)) {
