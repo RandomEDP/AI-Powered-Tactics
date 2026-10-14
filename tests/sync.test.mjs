@@ -66,7 +66,7 @@ eq([w.db().live_matches[0].state.events.length, await B.text('#usN'), await B.te
 // ---------- a second gaffer joins with the gaffer code
 const orgCode = w.db().teams[0].organiser_code;
 const C = await w.phone({ db: true, native: true, label: 'second gaffer' });
-await C.click('#acctNew'); await C.signUp('co@example.com');
+await C.click('#acctBtn'); await C.signUp('co@example.com');
 await C.click('#acctBtn'); await C.page.fill('#aOrgCode', orgCode.toLowerCase()); await C.click('#aOrgJoin'); await C.run(1500);
 eq([await C.text('#heroName'), await C.visible('#mNew'), w.db().team_members.length], ['Sunday Strikers', true, 2], 'the second gaffer is in, with the gaffer\'s buttons');
 await C.click('#mResume');

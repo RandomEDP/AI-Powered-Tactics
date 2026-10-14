@@ -53,7 +53,7 @@ eq([await A.view(), await A.text('#aMsg'), await teamsOnPhone(A)], ['account', '
 
 // ---------- signed in with no team open: the gear on your profile goes straight to the Account page, which has it
 const S = await w.phone({ db: true, label: 'sam' });
-await S.click('#acctNew'); await S.page.fill('#aEmail', 'sam@example.com'); await S.page.fill('#aPass', 'longpassword'); await S.page.fill('#aUser', 'samwise'); await S.check('#aTerms'); await S.click('#aSignUp'); await S.run(300); await S.click('#aSignIn'); await S.run(1500);
+await S.click('#acctBtn'); await S.page.fill('#aEmail', 'sam@example.com'); await S.page.fill('#aPass', 'longpassword'); await S.page.fill('#aUser', 'samwise'); await S.check('#aTerms'); await S.click('#aSignUp'); await S.run(300); await S.click('#aSignIn'); await S.run(1500);
 if (await S.visible('#unamePop')) { await S.page.evaluate(() => { const b = document.querySelector('#unamePop [data-un="later"]') || document.querySelector('#unamePop .link'); if (b) b.click(); }); await S.run(300); }
 eq([await S.view(), await S.visible('#acctBtn')], ['welcome', true], 'signed in with no team: the welcome screen has the Account card');
 await S.click('#acctBtn'); await S.run(300);

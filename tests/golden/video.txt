@@ -1,5 +1,5 @@
 after finish: v-stats
-before: v Dog 1–110 Oct, 3 moments1’Goal: Puxley (1–0)1’Highlight16’Goal for Dog (1–1)No video for this game yet.Cut from a video on this phone
+before: SOP FC 1–1 Dog10 Oct, 3 moments1’Goal: Puxley (1–0)1’Highlight16’Goal for Dog (1–1)No video for this game yet.Cut from a video on this phone
 view: v-cut
 cameras screen: SOP FC 1–1 DogWhere were the cameras?Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.DogSOP FCGoals come from the camera nearest the goal they went in. Saves come from the one nearest SOP FC’s goal, and other highlights from the one nearest Dog’s goal.Teams swapped ends at half time (the ends drawn are for the first half)Add a cameraThe cutting happe
 cancelled pick leaves 0 cameras | next button: false
@@ -7,7 +7,7 @@ after a tap and a video: 1 camera | Camera 150 min, started <hh:mm>Change videoR
 sync screen: SOP FC 1–1 DogLine up the videoMark kick-off, the second-half kick-off and two or three goals. For each: pick it below, play or drag the video to the moment (for a goal, when the ball hits the net), and tap It happens here. Gaffer works out every other moment from them; each clip starts 8 seconds before its moment.Marking Kick-o
 to mark: Kick-off About 01:29 | 1’ Goal: Puxley (1–0) About 01:30 | 1’ Highlight About 01:31 | Second-half kick-off About 01:56 | 16’ Goal for Dog (1–1) About 01:57
 kick-off marked at 2:10 -> Kick-off Marked at 02:10 | 1’ Goal: Puxley (1–0) About 02:11 | 1’ Highlight About 02:12 | Second-half kick-off About 02:37 | 16’ Goal for Dog (1–1) About 02:38
-second video: Kick-off Marked at 02:10 | 1’ Goal: Puxley (1–0) About 02:11 | 1’ Highlight About 02:12 | Second-half kick-off About 00:14 (second video) | 16’ Goal for Dog (1–1) About 00:15 (second video)
+second video: Kick-off Marked at 02:10 | 1’ Goal: Puxley (1–0) About 02:11 | 1’ Highlight About 02:12 | Second-half kick-off About 00:15 (second video) | 16’ Goal for Dog (1–1) About 00:16 (second video)
 second half marked at 0:05 in it -> Kick-off Marked at 02:10 | 1’ Goal: Puxley (1–0) About 02:11 | 1’ Highlight About 02:12 | Second-half kick-off Marked at 00:05 (second video) | 16’ Goal for Dog (1–1) About 00:06 (second video)
 commentary switch: true
 lines sent for speech: ["Sons of Pitches FC against Dog. Here are the highlights.","Puxley finds the net! 1 nil to Sons of Pitches FC.","Dog level it at 1 all.","Full time. Sons of Pitches FC 1, Dog 1."]

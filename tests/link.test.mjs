@@ -57,7 +57,7 @@ async function game(name, o, carry) {
     await p.click('#v-code [data-go="home"]');
     if (o.second) {
       C = await W.phone({ native: true, db: true, label: 'second gaffer' });
-      await C.click('#acctNew'); await C.signUp('co@example.com'); await C.click('#acctBtn'); await C.page.fill('#aOrgCode', W.db().teams[0].organiser_code); await C.click('#aOrgJoin'); await p.run(1500);
+      await C.click('#acctBtn'); await C.signUp('co@example.com'); await C.click('#acctBtn'); await C.page.fill('#aOrgCode', W.db().teams[0].organiser_code); await C.click('#aOrgJoin'); await p.run(1500);
       check(W.db().team_members.length === 2, `${name}: the second gaffer has joined`);
     }
   } else if (!carry) await p.localTeam(o.squad); else if (await p.view() !== 'home') await p.click('#v-stats .back');
