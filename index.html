@@ -28,11 +28,14 @@
   --pitch: var(--team); --pitch-ink: var(--team-ink); --pitch-dim: color-mix(in srgb, var(--team-ink) 74%, var(--team)); --pitch-deep: color-mix(in srgb, var(--team) 60%, #000);
   --pitch-veil: color-mix(in srgb, var(--team-ink) 14%, transparent);
   --on: var(--team); --on-soft: color-mix(in srgb, var(--team) 13%, #fff); --on-ink: var(--team-ink);
-  --bib: #d14a0b; --bib-soft: #fde5d6; --gold: #ffc83d;
+  --bib: #b03f08; --bib-soft: #fde5d6; --gold: #ffc83d;
   --scrim: rgba(12, 16, 14, .55); --agg: #c62828; --mid: #e0a100; --fair: #1e8e4e;
   --font: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
   --display: var(--font); --body: var(--font);
   --r-panel: 28px; --r-card: 20px; --r-ctl: 14px;
+  /* One type scale, in rem, so every size follows the iPhone's own text size (textSize() sets the root, 17px as standard) */
+  --t-large: 1.75rem; --t-title: 1.375rem; --t-head: 1.125rem; --t-body: 1rem; --t-sub: .9rem; --t-foot: .8125rem; --t-cap: .75rem;
+  --glass: color-mix(in srgb, var(--surface) 76%, transparent); --danger: var(--agg);
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   color-scheme: dark;
@@ -50,27 +53,27 @@
 /* ---- base */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
-html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
-body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.45; font-optical-sizing: auto;
+html { font-size: 17px; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: var(--t-body); line-height: 1.45; font-optical-sizing: auto;
   padding-inline: 16px; padding-block: 16px 48px; -webkit-font-smoothing: antialiased; }
 img { max-width: 100%; }
 .app { max-width: 520px; margin-inline: auto; }
 .view { display: flex; flex-direction: column; gap: 24px; }
 section { display: flex; flex-direction: column; gap: 12px; }
 h1, h2 { margin: 0; text-wrap: balance; }
-h1 { font-size: 30px; font-weight: 800; letter-spacing: -.025em; line-height: 1.05; }
-h2 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
+h1 { font-size: var(--t-large); font-weight: 800; letter-spacing: -.025em; line-height: 1.05; }
+h2 { font-size: var(--t-head); font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
 p { margin: 0; }
-.note { color: var(--muted); font-size: 15px; }
-.note.warn { color: var(--bib); }
-.msg { font-weight: 600; } .msg.bad { color: var(--bib); }
+.note { color: var(--muted); font-size: var(--t-sub); }
+.note.warn { color: var(--danger); }
+.msg { font-weight: 600; } .msg.bad { color: var(--danger); }
 .plink { color: var(--muted); }
 button { font: inherit; color: inherit; cursor: pointer; }
 html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 button, a, label, input, select { -webkit-tap-highlight-color: transparent; }
 button { transition: transform .14s cubic-bezier(.2, .8, .2, 1), filter .14s, background-color .18s, color .18s, opacity .18s, box-shadow .18s; }
 button:active:not(:disabled) { transform: scale(.955); filter: brightness(.93); transition-duration: .05s; }
-.view:not([hidden]) { animation: viewIn .3s cubic-bezier(.2, .8, .2, 1) both; }
+.view:not([hidden]) { animation: viewIn .3s cubic-bezier(.2, .8, .2, 1) backwards; } /* (backwards, not both: a transform left on the screen would pin its fixed parts, the dock and pop-ups, to the page) */
 @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } }
 .menu button { animation: rise .36s cubic-bezier(.2, .8, .2, 1) both; }
 .menu button:nth-child(2) { animation-delay: .03s; } .menu button:nth-child(3) { animation-delay: .06s; } .menu button:nth-child(4) { animation-delay: .09s; } .menu button:nth-child(5) { animation-delay: .12s; } .menu button:nth-child(6) { animation-delay: .15s; }
@@ -81,10 +84,10 @@ button:active:not(:disabled) { transform: scale(.955); filter: brightness(.93); 
 @keyframes bump { 30% { transform: scale(1.35); } }
 #kickPop:not([hidden]) { animation: fade .2s both; } #kickPop:not([hidden]) .kickbox { animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
 @keyframes fade { from { opacity: 0; } } @keyframes sheet { from { transform: translateY(40px); opacity: 0; } }
-.soon-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 12px; border: 0; border-radius: 999px; background: var(--surface); font-weight: 700; font-size: 15px; }
+.soon-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 12px; border: 0; border-radius: 999px; background: var(--surface); font-weight: 700; font-size: var(--t-sub); }
 .soon-pill svg { width: 20px; height: 20px; color: #ffc83d; flex: none; }
-.soon-pill small { font-weight: 500; color: var(--muted); font-size: 14px; }
-.soon-tag { align-self: flex-start; background: #ffc83d; color: #2a2100; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; border-radius: 999px; padding: 5px 12px; }
+.soon-pill small { font-weight: 500; color: var(--muted); font-size: var(--t-sub); }
+.soon-tag { align-self: flex-start; background: #ffc83d; color: #2a2100; font-size: var(--t-foot); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; border-radius: 999px; padding: 5px 12px; }
 .stage.soon-stage { flex: none; min-height: 260px; gap: 12px; }
 .soon-stage .mock { position: relative; animation: rise .5s cubic-bezier(.2, .8, .2, 1) both; } .soon-stage .mock + .mock { animation-delay: .12s; }
 .wave { display: flex; align-items: center; gap: 4px; height: 34px; }
@@ -92,7 +95,7 @@ button:active:not(:disabled) { transform: scale(.955); filter: brightness(.93); 
 @keyframes wave { 0%, 100% { height: 22%; } 50% { height: 100%; } }
 .soon-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .soon-list li { background: var(--surface); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 6px; }
-.soon-list b { font-size: 19px; letter-spacing: -.01em; } .soon-list span { color: var(--muted); font-size: 15px; }
+.soon-list b { font-size: var(--t-head); letter-spacing: -.01em; } .soon-list span { color: var(--muted); font-size: var(--t-sub); }
 button:disabled { opacity: .4; cursor: default; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid var(--on); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { button:active:not(:disabled) { transform: none; } .view:not([hidden]), .menu button, .bump, #kickPop:not([hidden]), #kickPop:not([hidden]) .kickbox, .soon-stage .mock, .wave i { animation: none; } button { transition: none; } }
@@ -101,30 +104,63 @@ body.ro:not(.sc) .scr { display: none !important; }
 
 /* ---- buttons and inputs */
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.plain { min-height: 50px; padding-inline: 20px; border: 0; border-radius: var(--r-ctl); background: var(--fill); font-weight: 650; font-size: 16px; }
+.plain { min-height: 50px; padding-inline: 20px; border: 0; border-radius: var(--r-ctl); background: var(--fill); font-weight: 650; font-size: var(--t-body); }
 .plain.primary { background: var(--on); color: var(--on-ink); }
-.plain.armed { background: var(--bib); color: #fff; }
-.back { min-height: 40px; padding-inline: 14px 16px; border: 0; border-radius: 999px; background: var(--fill); font-weight: 650; font-size: 15px; white-space: nowrap; }
-.bar { display: flex; align-items: center; gap: 12px; }
-.bar h1 { font-size: 26px; min-width: 0; overflow-wrap: anywhere; }
-.del { min-height: 36px; padding-inline: 12px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 650; font-size: 14px; }
-.del.armed { background: var(--bib); color: #fff; }
-.x { width: 36px; height: 44px; border: 0; background: none; color: var(--muted); font-size: 22px; border-radius: 10px; }
+/* the button system: one .primary per screen (the most likely tap), .tint for a secondary action, plain grey for a set of
+   choices, .quiet for a text-only link, .danger (red text) for anything that deletes or can't be undone */
+.plain.tint { background: var(--on-soft); color: var(--on); }
+.plain.quiet { background: none; color: var(--on); padding-inline: 8px; align-self: flex-start; }
+.danger, .plain.danger, .link.danger, .del.danger { color: var(--danger); }
+.plain.danger:not(.armed) { background: color-mix(in srgb, var(--danger) 10%, var(--fill)); }
+.plain.armed { background: var(--danger); color: #fff; }
+/* iPhone-style navigation: a chevron and the previous screen's name in the kit colour, then a large title on its own line.
+   When the large title scrolls away, #topbar shows it small at the top, with the same back button. */
+.back { min-height: 44px; padding: 0 10px 0 0; border: 0; border-radius: 10px; background: none; color: var(--on); font-weight: 600; font-size: var(--t-body); white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px; margin-left: -4px; }
+.back::before { content: ""; flex: none; width: 11px; height: 11px; margin-left: 6px; border-left: 3px solid currentColor; border-bottom: 3px solid currentColor; border-radius: 0 0 0 2px; transform: rotate(45deg); }
+.bar { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 0; }
+.bar h1 { flex: 1 0 100%; order: 2; font-size: 2rem; letter-spacing: -.025em; min-width: 0; overflow-wrap: anywhere; }
+.bar > .baricons { margin-left: auto; }
+#topbar { position: fixed; z-index: 19; left: 0; right: 0; top: 0; padding: env(safe-area-inset-top, 0px) max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px));
+  background: var(--glass); -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6); box-shadow: 0 1px 0 var(--line); opacity: 0; pointer-events: none; transition: opacity .18s; }
+#topbar.on { opacity: 1; pointer-events: auto; }
+#topbar .tbin { max-width: 552px; margin-inline: auto; min-height: 48px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+#topbar b { font-size: var(--t-body); font-weight: 750; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60vw; }
+#topbar .back { justify-self: start; }
+@media (prefers-reduced-transparency: reduce) { #topbar { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+@media (prefers-reduced-motion: reduce) { #topbar { transition: none; } }
+.view.swiping { transition: none !important; }
+.del { min-height: 44px; padding-inline: 12px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 650; font-size: var(--t-sub); }
+.del.tint { background: var(--on-soft); color: var(--on); }
+.del.armed { background: var(--danger); color: #fff; }
+.x { width: 36px; height: 44px; border: 0; background: none; color: var(--muted); font-size: var(--t-title); border-radius: 10px; }
 
-.field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: var(--t-sub); font-weight: 600; color: var(--muted); }
 .field input, .field select, .field textarea, .orow input, .setup input, .joinrow input {
-  font: inherit; font-size: 17px; font-weight: 500; color: var(--ink); background: var(--surface); border: 1.5px solid transparent; border-radius: var(--r-ctl);
+  font: inherit; font-size: var(--t-body); font-weight: 500; color: var(--ink); background: var(--surface); border: 1.5px solid transparent; border-radius: var(--r-ctl);
   padding: 13px 14px; min-width: 0; width: 100%; }
 .field input:focus, .field select:focus, .field textarea:focus, .orow input:focus, .setup input:focus, .joinrow input:focus { border-color: var(--on); outline: none; }
 .field textarea { font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; }
-#tPlayers { font: inherit; font-size: 17px; font-weight: 500; }
+#tPlayers { font: inherit; font-size: var(--t-body); font-weight: 500; }
 .check { display: flex; align-items: center; gap: 12px; font-weight: 600; min-height: 44px; }
 .check input { width: 24px; height: 24px; margin: 0; accent-color: var(--on); flex: none; }
-.check small { font-weight: 400; color: var(--muted); font-size: 14px; }
+.check small { font-weight: 400; color: var(--muted); font-size: var(--t-sub); }
+/* a setting that's on or off: an iPhone switch at the end of the row, its explanation underneath the name */
+.check.tgl { justify-content: space-between; align-items: center; padding-block: 6px; }
+.check.tgl > span { order: 1; flex: 1; min-width: 0; } .check.tgl small { display: block; margin-top: 2px; font-size: var(--t-foot); line-height: 1.35; }
+.check.tgl input { order: 2; -webkit-appearance: none; appearance: none; width: 51px; height: 31px; border-radius: 16px; background: var(--fill); position: relative; cursor: pointer; transition: background .2s; box-shadow: inset 0 0 0 1px var(--line); }
+.check.tgl input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgba(0, 0, 0, .25); transition: transform .2s; }
+.check.tgl input:checked { background: var(--on); box-shadow: none; } .check.tgl input:checked::after { transform: translateX(20px); }
+@media (prefers-reduced-motion: reduce) { .check.tgl input, .check.tgl input::after { transition: none; } }
+.filebtn { display: inline-flex; align-items: center; cursor: pointer; }
+/* Settings as grouped cards, like the iPhone's own Settings */
+#v-options section { background: var(--surface); border-radius: var(--r-card); padding: 16px; }
+#v-options section .field input, #v-options section .setup input, #v-options .orow input, #v-options .orow select { background: var(--bg); }
+#v-options section > h2 { font-size: var(--t-foot); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .three, .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.setup label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: var(--muted); min-width: 0; }
+.setup label { display: flex; flex-direction: column; gap: 6px; font-size: var(--t-sub); font-weight: 600; color: var(--muted); min-width: 0; }
 .joinrow { display: flex; gap: 8px; }
-.joinrow input { flex: 1; font-size: 24px; font-weight: 800; font-stretch: 75%; letter-spacing: .18em; text-transform: uppercase; padding-block: 9px; }
+.joinrow input { flex: 1; font-size: var(--t-title); font-weight: 800; font-stretch: 75%; letter-spacing: .18em; text-transform: uppercase; padding-block: 9px; }
 .joinrow input::placeholder { color: var(--muted); opacity: .45; }
 
 /* ---- the pitch panel: home hero, team-created screen */
@@ -135,27 +171,38 @@ body.ro:not(.sc) .scr { display: none !important; }
 .hero > * { position: relative; z-index: 1; }
 .hero h1 { font-size: clamp(34px, 10.5vw, 46px); line-height: .98; overflow-wrap: anywhere; }
 .hero img { width: 84px; height: 84px; object-fit: contain; margin-bottom: 10px; }
-.hero p { color: var(--pitch-dim); font-size: 16px; font-weight: 500; }
-.hero .app-name { font-size: 13px; opacity: .8; margin-top: 10px; }
+.hero p { color: var(--pitch-dim); font-size: var(--t-body); font-weight: 500; }
+.vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.herogear { position: absolute; z-index: 2; top: 12px; right: 12px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--pitch-veil); color: var(--pitch-ink); display: grid; place-items: center; }
+.herogear svg { width: 24px; height: 24px; }
+.herogear.locked { opacity: .45; }
+/* the form guide: last five results, oldest on the left */
+.formg { display: flex; gap: 5px; margin-top: 10px; } .formg:empty { display: none; }
+.formg i { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: var(--t-cap); background: var(--pitch-veil); color: var(--pitch-ink); }
+.formg i.W { background: var(--pitch-ink); color: var(--pitch-deep); }
 .bigcode { font-size: clamp(40px, 13vw, 56px); font-weight: 800; font-stretch: 75%; letter-spacing: .14em; line-height: 1; margin-top: 12px; padding: 14px 18px;
   background: var(--pitch-veil); border-radius: var(--r-card); user-select: all; -webkit-user-select: all; }
 
 /* ---- menus: home tiles and the team list */
 .menu { display: flex; flex-wrap: wrap; gap: 10px; }
-.menu button { flex: 1 1 calc(50% - 5px); min-height: 84px; border: 0; border-radius: var(--r-card); background: var(--surface); font-size: 19px; font-weight: 700; letter-spacing: -.01em;
+.menu button { flex: 1 1 calc(50% - 5px); min-height: 84px; border: 0; border-radius: var(--r-card); background: var(--surface); font-size: var(--t-head); font-weight: 700; letter-spacing: -.01em;
   text-align: left; padding: 16px 18px; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; }
-.menu button.primary { flex-basis: 100%; min-height: 76px; justify-content: center; background: var(--on); color: var(--on-ink); font-size: 22px; }
-.menu button.armed { background: var(--bib); color: #fff; }
-.menu small { font-size: 14px; font-weight: 500; letter-spacing: 0; opacity: .8; }
+.menu button.primary { flex-basis: 100%; min-height: 76px; justify-content: center; background: var(--on); color: var(--on-ink); font-size: var(--t-title); }
+.menu button.armed { background: var(--danger); color: #fff; }
+.menu small { font-size: var(--t-sub); font-weight: 500; letter-spacing: 0; opacity: .8; }
+.menu button .ic { width: 26px; height: 26px; color: var(--on); margin-bottom: auto; flex: none; }
+.menu button small:empty { display: none; }
+#homeMenu button:not(.primary) { min-height: 104px; gap: 4px; padding-top: 14px; }
+#homeMenu button:not(.primary) small { color: var(--muted); opacity: 1; font-size: var(--t-foot); line-height: 1.25; }
 #myTeams button { flex-basis: 100%; min-height: 68px; justify-content: center; }
 .menu button small.code { font-stretch: 75%; font-weight: 700; letter-spacing: .12em; background: none; padding: 0; border-radius: 0; max-height: none; overflow: visible; }
-#mSwitch { min-height: 56px; justify-content: center; background: none; color: var(--muted); font-size: 16px; font-weight: 650; text-align: center; align-items: center; flex-basis: 100%; }
+#mSwitch { min-height: 56px; justify-content: center; background: none; color: var(--muted); font-size: var(--t-body); font-weight: 650; text-align: center; align-items: center; flex-basis: 100%; }
 
 /* ---- welcome */
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; letter-spacing: -.01em; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: var(--t-body); letter-spacing: -.01em; }
 .brand img { width: 34px; height: 34px; border-radius: 9px; }
 .wtop { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.link { border: 0; background: none; color: var(--muted); font-weight: 650; font-size: 15px; min-height: 44px; padding-inline: 6px; text-decoration: underline; text-underline-offset: 4px; }
+.link { border: 0; background: none; color: var(--muted); font-weight: 650; font-size: var(--t-sub); min-height: 44px; padding-inline: 6px; text-decoration: underline; text-underline-offset: 4px; }
 .lead { font-size: clamp(32px, 10vw, 42px); }
 .card { background: var(--surface); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
 .card .joinrow input, .card .field input { background: var(--bg); }
@@ -172,7 +219,7 @@ body.ro:not(.sc) .scr { display: none !important; }
   display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 10px; padding: 22px; }
 .itext { display: flex; flex-direction: column; gap: 10px; }
 .itext h1 { font-size: clamp(30px, 9.2vw, 40px); }
-.itext p { font-size: 17px; color: var(--muted); max-width: 34em; }
+.itext p { font-size: var(--t-body); color: var(--muted); max-width: 34em; }
 .dots { display: flex; gap: 6px; align-items: center; }
 .dots button { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 4px; background: var(--line); transition: width .2s, background .2s; }
 .dots button[aria-current="true"] { width: 26px; background: var(--on); }
@@ -181,58 +228,58 @@ body.ro:not(.sc) .scr { display: none !important; }
 
 /* intro stage pieces: small replicas of the real screens */
 .stage svg.lines { position: absolute; inset: 0; width: 100%; height: 100%; }
-.mock { background: var(--surface); color: var(--ink); border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
-.mock b.k { font-size: 14px; font-weight: 700; color: var(--muted); }
-.mock .chips .chip { font-size: 15px; padding: 3px 10px; }
+.mock { background: var(--surface); color: var(--ink); border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; font-size: var(--t-sub); }
+.mock b.k { font-size: var(--t-sub); font-weight: 700; color: var(--muted); }
+.mock .chips .chip { font-size: var(--t-sub); padding: 3px 10px; }
 .mrow2 { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; }
-.mrow2 .tag { padding: 0; font-size: 14px; }
+.mrow2 .tag { padding: 0; font-size: var(--t-sub); }
 .mslider { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--agg), var(--mid), var(--fair)); position: relative; margin: 8px 2px 2px; }
 .mslider::after { content: ""; position: absolute; left: 68%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: #fff; border: 3px solid #131715; }
-.mlabels { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--pitch-dim); }
+.mlabels { display: flex; justify-content: space-between; font-size: var(--t-foot); font-weight: 700; color: var(--pitch-dim); }
 .bigclock { font-size: clamp(88px, 31vw, 150px); font-weight: 800; font-stretch: 75%; line-height: .82; letter-spacing: -.02em; font-variant-numeric: tabular-nums; text-align: center; }
 .bigclock + p { text-align: center; color: var(--pitch-dim); font-weight: 600; }
-.alert { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--ink); border-radius: 18px; padding: 10px 14px; font-size: 14px; line-height: 1.3; margin-top: 6px; }
+.alert { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; background: color-mix(in srgb, var(--surface) 92%, transparent); color: var(--ink); border-radius: 18px; padding: 10px 14px; font-size: var(--t-sub); line-height: 1.3; margin-top: 6px; }
 .alert img { width: 34px; height: 34px; border-radius: 9px; }
-.alert b { display: block; font-size: 15px; }
+.alert b { display: block; font-size: var(--t-sub); }
 .lead-row { display: grid; grid-template-columns: 1fr 28px 28px 54px; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; }
-.lead-row span { text-align: right; } .lead-row.h { color: var(--muted); font-size: 13px; font-weight: 600; }
+.lead-row span { text-align: right; } .lead-row.h { color: var(--muted); font-size: var(--t-foot); font-weight: 600; }
 .lead-row i { display: block; height: 8px; border-radius: 4px; background: var(--on); justify-self: end; }
-.livepill { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; background: var(--pitch-veil); border-radius: 999px; padding: 6px 12px 6px 10px; font-weight: 700; font-size: 14px; }
+.livepill { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; background: var(--pitch-veil); border-radius: 999px; padding: 6px 12px 6px 10px; font-weight: 700; font-size: var(--t-sub); }
 .livepill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
 .reel { display: flex; flex-direction: column; gap: 12px; }
-.reel small { font-size: 13px; font-weight: 600; color: var(--pitch-dim); display: flex; justify-content: space-between; }
+.reel small { font-size: var(--t-foot); font-weight: 600; color: var(--pitch-dim); display: flex; justify-content: space-between; }
 .tl { position: relative; height: 34px; border-radius: 10px; background: var(--pitch-veil); }
 .tl i { position: absolute; top: 0; bottom: 0; width: 9%; border-radius: 6px; background: var(--gold); }
-.tl i::after { content: attr(data-l); position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font-style: normal; font-size: 12px; font-weight: 700; color: var(--pitch-ink); white-space: nowrap; }
+.tl i::after { content: attr(data-l); position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font-style: normal; font-size: var(--t-cap); font-weight: 700; color: var(--pitch-ink); white-space: nowrap; }
 .clips { display: flex; gap: 6px; }
-.clips span { flex: 1; aspect-ratio: 16 / 10; border-radius: 10px; background: var(--gold); color: #131715; font-size: 12px; font-weight: 700; line-height: 1.15; display: flex; align-items: flex-end; padding: 6px 8px; }
+.clips span { flex: 1; aspect-ratio: 16 / 10; border-radius: 10px; background: var(--gold); color: #131715; font-size: var(--t-cap); font-weight: 700; line-height: 1.15; display: flex; align-items: flex-end; padding: 6px 8px; }
 .howto { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; counter-reset: s; }
 .howto li { counter-increment: s; display: grid; grid-template-columns: 36px 1fr; gap: 12px; }
 .howto li::before { content: counter(s); width: 36px; height: 36px; border-radius: 50%; background: var(--on); color: var(--on-ink); font-weight: 800; display: grid; place-items: center; }
-.howto b { display: block; font-size: 17px; }
-.howto span { color: var(--muted); font-size: 15px; }
+.howto b { display: block; font-size: var(--t-body); }
+.howto span { color: var(--muted); font-size: var(--t-sub); }
 .gets { list-style: none; margin: 0; padding: 0; }
-.gets li { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px; color: var(--muted); }
+.gets li { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: var(--t-sub); color: var(--muted); }
 .gets li:last-child { border-bottom: 0; padding-bottom: 0; } .gets li:first-child { padding-top: 0; }
-.gets b { color: var(--ink); display: block; font-size: 16px; }
+.gets b { color: var(--ink); display: block; font-size: var(--t-body); }
 
 /* ---- game: the clock */
 .clock { position: relative; overflow: hidden; background: var(--pitch); color: var(--pitch-ink); border-radius: var(--r-panel); padding: 20px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
 .clock::before { content: ""; position: absolute; left: 50%; top: 46%; width: 210px; height: 210px; margin: -105px 0 0 -105px; border: 2px solid var(--pitch-veil); border-radius: 50%; pointer-events: none; }
 .clock::after { content: ""; position: absolute; left: 0; right: 0; top: 46%; height: 2px; background: var(--pitch-veil); pointer-events: none; }
 .clock > * { position: relative; z-index: 1; }
-.phase { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; font-weight: 650; color: var(--pitch-dim); }
-.count { font-weight: 800; font-stretch: 75%; font-size: clamp(96px, 34vw, 160px); line-height: .84; letter-spacing: -.02em; font-variant-numeric: tabular-nums; text-align: center; padding-block: 6px 2px; }
-.count-label { text-align: center; font-size: 15px; font-weight: 600; color: var(--pitch-dim); }
+.phase { display: flex; justify-content: space-between; gap: 12px; font-size: var(--t-sub); font-weight: 650; color: var(--pitch-dim); }
+.count { font-weight: 800; font-stretch: 75%; font-size: clamp(72px, 25vw, 124px); line-height: .84; letter-spacing: -.02em; font-variant-numeric: tabular-nums; text-align: center; padding-block: 6px 2px; }
+.count-label { text-align: center; font-size: var(--t-sub); font-weight: 600; color: var(--pitch-dim); }
 .blocks { display: flex; gap: 4px; margin-block: 4px; }
 .blocks span { flex: 1; height: 6px; border-radius: 3px; background: var(--pitch-ink); opacity: .2; }
 .blocks span.done { opacity: .5; }
 .blocks span.now { opacity: 1; }
 .blocks span.gap { flex: 0 0 10px; background: none; }
 .controls { display: flex; gap: 8px; }
-.go { flex: 1; min-height: 58px; border: 0; border-radius: 18px; background: var(--pitch-ink); color: var(--pitch-deep); font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
-.ghost { min-height: 58px; padding-inline: 16px; border: 0; border-radius: 18px; background: var(--pitch-veil); color: var(--pitch-ink); font-size: 16px; font-weight: 650; }
-.ghost.armed { background: var(--bib); color: #fff; }
+.go { flex: 1; min-height: 58px; border: 0; border-radius: 18px; background: var(--pitch-ink); color: var(--pitch-deep); font-size: var(--t-head); font-weight: 800; letter-spacing: -.01em; }
+.ghost { min-height: 58px; padding-inline: 16px; border: 0; border-radius: 18px; background: var(--pitch-veil); color: var(--pitch-ink); font-size: var(--t-body); font-weight: 650; }
+.ghost.armed { background: var(--danger); color: #fff; }
 .clock.flash { animation: flash .5s 4; }
 @keyframes flash { 50% { background: var(--bib); } }
 @media (prefers-reduced-motion: reduce) { .clock.flash { animation: none; } }
@@ -241,39 +288,78 @@ body.ro:not(.sc) .scr { display: none !important; }
 .swap { background: var(--surface); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
 .swap.notice { background: var(--bib-soft); }
 .swap-rows { display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; align-items: start; }
-.tag { font-weight: 700; font-size: 15px; padding-top: 6px; }
+.tag { font-weight: 700; font-size: var(--t-sub); padding-top: 6px; }
 .tag.off { color: var(--bib); } .tag.on { color: var(--on); } .tag.gone { color: var(--muted); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
-.chip { font-weight: 600; font-size: 16px; padding: 5px 12px; border-radius: 999px; overflow-wrap: anywhere; color: var(--ink); }
+.chip { font-weight: 600; font-size: var(--t-body); padding: 5px 12px; border-radius: 999px; overflow-wrap: anywhere; color: var(--ink); }
 .chip.on { background: var(--on-soft); }
 .chip.off { background: var(--bib-soft); }
 .chip.gone { background: var(--fill); color: var(--muted); text-decoration: line-through; }
 .tapchip { font-family: inherit; border: 0; cursor: pointer; min-height: 40px; padding: 6px 14px; text-decoration: underline dotted; text-underline-offset: 4px; }
-.score { display: flex; align-items: center; justify-content: center; gap: 14px; background: var(--surface); border-radius: var(--r-card); padding: 16px; }
-.side { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.side .lbl { font-size: 14px; font-weight: 650; color: var(--muted); text-align: center; overflow-wrap: anywhere; }
-.side .n { font-weight: 800; font-stretch: 75%; font-size: 76px; line-height: .9; font-variant-numeric: tabular-nums; }
-.dash { font-size: 36px; font-weight: 300; color: var(--muted); }
+/* the score, in the clock panel: the headline of match mode */
+.pscore { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 4px 0 2px; }
+.side { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0; }
+.side .lbl { font-size: var(--t-sub); font-weight: 700; color: var(--pitch-dim); text-align: center; overflow-wrap: anywhere; line-height: 1.15; }
+.side .n { font-weight: 800; font-stretch: 75%; font-size: 4.2rem; line-height: .95; font-variant-numeric: tabular-nums; }
+.dash { font-size: 2rem; font-weight: 300; color: var(--pitch-dim); }
+/* match mode's dock: the four things you log, fixed along the bottom, frosted like iOS's own bars */
+#v-game:not([hidden]) { padding-bottom: 170px; }
+.dock { position: fixed; z-index: 15; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 552px; margin-inline: auto;
+  padding: 10px max(16px, env(safe-area-inset-left, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--glass); border-top: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6); }
+@media (prefers-reduced-transparency: reduce) { .dock { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+.dock[hidden] { display: none; }
+.dock > .note { grid-column: 1 / -1; margin: 0; text-align: center; font-size: var(--t-cap); font-weight: 650; color: var(--muted); line-height: 1.25; }
+.dkrow { grid-column: 1 / -1; display: flex; gap: 8px; }
+.dk { position: relative; overflow: hidden; border: 0; border-radius: 16px; min-height: 48px; padding: 6px 10px; display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-weight: 750; font-size: var(--t-body); line-height: 1.1; text-align: center; background: var(--fill); color: var(--ink); }
+.dk svg { width: 20px; height: 20px; flex: none; }
+.dkrow .dk { flex: 1; font-size: var(--t-sub); } .dkrow .dk-undo { flex: 0 0 auto; padding-inline: 14px; color: var(--muted); }
+.dk-us, .dk-them { min-height: 58px; font-size: var(--t-body); overflow-wrap: anywhere; }
+.dk-us { background: var(--on); color: var(--on-ink); }
+.dk-hl, .dk-sv { background: var(--on-soft); color: var(--on); }
+.dock.locked .dk-us:disabled, .dock.locked .dk-them:disabled { opacity: 1; }
+.dock.locked .dk-us::after, .dock.locked .dk-them::after { content: ""; position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: currentColor; opacity: .55; transform-origin: left; animation: lockrun var(--lockms, 8s) linear forwards; }
+@keyframes lockrun { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .dock.locked .dk-us::after, .dock.locked .dk-them::after { animation: none; } }
+.evsec .events:empty { display: none; }
+.evsec .events { background: var(--surface); border-radius: var(--r-card); padding: 2px 16px; }
+.evsec .events li:last-child { border-bottom: 0; }
+/* folded detail: tap to open */
+.fold { background: var(--surface); border-radius: var(--r-card); padding: 0 16px; }
+.fold > summary { list-style: none; cursor: pointer; min-height: 56px; display: flex; flex-direction: column; justify-content: center; padding-block: 10px; padding-right: 26px; position: relative; font-weight: 700; font-size: var(--t-head); }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary small { font-weight: 500; font-size: var(--t-foot); color: var(--muted); }
+.fold > summary::after { content: ""; position: absolute; right: 4px; top: 50%; width: 9px; height: 9px; margin-top: -7px; border-right: 2.5px solid var(--muted); border-bottom: 2.5px solid var(--muted); transform: rotate(45deg); transition: transform .2s; }
+.fold[open] > summary::after { transform: rotate(-135deg); margin-top: -2px; }
+.fold[open] { padding-bottom: 14px; } .fold .scroll { padding: 0; background: none; }
 .events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .events li { display: grid; grid-template-columns: 56px 1fr; gap: 8px; padding-block: 10px; border-bottom: 1px solid var(--line); }
 .events .t { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; }
-.events .ag { color: var(--bib); font-weight: 600; }
+.events .ag { color: var(--ink); font-weight: 600; }
 .events .hlwho { padding: 0; min-height: 0; font: inherit; color: var(--muted); text-align: left; }
-.tagf { font-size: 12px; font-weight: 650; color: var(--muted); background: var(--fill); border-radius: 999px; padding: 2px 8px; margin-left: 6px; white-space: nowrap; }
+.tagf { font-size: var(--t-cap); font-weight: 650; color: var(--muted); background: var(--fill); border-radius: 999px; padding: 2px 8px; margin-left: 6px; white-space: nowrap; }
 
 /* ---- pickers and pop-ups */
 .picker { background: var(--surface); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
-.pickpop { position: fixed; inset: 0; z-index: 45; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .15s both; }
-.pickpop .picker { width: 100%; max-width: 480px; max-height: 100%; overflow-y: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); animation: sheet .28s cubic-bezier(.2, .9, .2, 1) both; }
-.pickpop .pick { min-height: 52px; font-size: 17px; } .pick small { font-weight: 500; opacity: .6; font-size: 12px; }
+.pickpop { position: fixed; inset: 0; z-index: 45; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px 0 0; animation: fade .15s both; }
+.pickpop .picker { position: relative; width: 100%; max-width: 552px; max-height: 100%; overflow-y: auto; border-radius: var(--r-panel) var(--r-panel) 0 0; padding: 26px 16px calc(18px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -10px 40px rgba(0, 0, 0, .25); animation: sheet .28s cubic-bezier(.2, .9, .2, 1) both; touch-action: pan-y; }
+.pickpop .picker::before { content: ""; position: absolute; top: 8px; left: 50%; width: 38px; height: 5px; margin-left: -19px; border-radius: 3px; background: var(--line); }
+.pickpop .chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pickpop .chips .pick { border-radius: 16px; text-align: left; display: flex; align-items: center; gap: 8px; }
+.pickpop .chips .pick.wide { grid-column: 1 / -1; justify-content: center; }
+.pickpop .chips .pick small { margin-left: auto; }
+.phead { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .phead .link { min-height: 44px; text-decoration: none; color: var(--on); font-size: var(--t-body); }
+.pno { font-style: normal; font-weight: 800; font-stretch: 75%; color: var(--on); min-width: 1.4em; font-variant-numeric: tabular-nums; }
+.pickpop .pick { min-height: 52px; font-size: var(--t-body); } .pick small { font-weight: 500; opacity: .6; font-size: var(--t-cap); }
 @media (prefers-reduced-motion: reduce) { .pickpop, .pickpop .picker { animation: none; } }
-.picker strong { font-size: 20px; font-weight: 750; letter-spacing: -.01em; line-height: 1.2; }
-.pick { min-height: 46px; padding: 6px 16px; border-radius: 999px; border: 0; background: var(--on-soft); color: var(--ink); font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+.picker strong { font-size: var(--t-head); font-weight: 750; letter-spacing: -.01em; line-height: 1.2; }
+.pick { min-height: 46px; padding: 6px 16px; border-radius: 999px; border: 0; background: var(--on-soft); color: var(--ink); font-weight: 600; font-size: var(--t-body); overflow-wrap: anywhere; }
 .pick.benchp, .pick.alt, .picker.out .pick, .ed .pick { background: var(--fill); }
 .pick.on { box-shadow: inset 0 0 0 2px var(--ink); }
 .pick.alt { color: var(--muted); }
 .picker.out .pick.best, .ed .pick.sel { background: var(--on); color: var(--on-ink); }
-.picker.out .pick.warn, .ed .pick.b.sel { background: var(--bib); color: #fff; }
+.picker.out .pick.warn { background: var(--danger); color: #fff; } .ed .pick.b.sel { background: var(--bib); color: #fff; }
 .ed .pick:disabled { opacity: .55; }
 .ed .nav { display: flex; gap: 8px; justify-content: space-between; }
 .modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; padding: 12px 12px calc(env(safe-area-inset-bottom, 0px) + 12px); background: var(--scrim); }
@@ -282,8 +368,8 @@ body.ro:not(.sc) .scr { display: none !important; }
 
 /* ---- tables and lists */
 .scroll { overflow-x: auto; background: var(--surface); border-radius: var(--r-card); padding: 6px 14px; }
-table { width: 100%; border-collapse: collapse; font-size: 15px; }
-th { text-align: left; font-size: 13px; font-weight: 650; color: var(--muted); padding: 10px 6px; border-bottom: 1px solid var(--line); }
+table { width: 100%; border-collapse: collapse; font-size: var(--t-sub); }
+th { text-align: left; font-size: var(--t-foot); font-weight: 650; color: var(--muted); padding: 10px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td { padding: 12px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
 tbody tr:last-child td { border-bottom: 0; }
 td.t { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
@@ -294,7 +380,7 @@ tr.past td { opacity: .45; }
 .res li { align-items: center; display: grid; grid-template-columns: 22px 46px 1fr; gap: 8px; padding-block: 12px; border-bottom: 1px solid var(--line); }
 .res li:last-child { border-bottom: 0; }
 .res span { min-width: 0; overflow-wrap: anywhere; }
-.res b { font-size: 16px; font-weight: 800; } .res .W { color: var(--fair); } .res .L { color: var(--bib); } .res .D, .res .H { color: var(--muted); }
+.res b { font-size: var(--t-body); font-weight: 800; } .res .W { color: var(--fair); } .res .L { color: var(--danger); } .res .D, .res .H { color: var(--muted); }
 .rowbtns { display: flex; gap: 6px; flex-wrap: wrap; grid-column: 2 / -1; }
 .rowbtns:empty { display: none; }
 .lrow, .mrow, .orow { display: grid; gap: 8px; align-items: center; padding-block: 9px; border-bottom: 1px solid var(--line); }
@@ -302,39 +388,39 @@ tr.past td { opacity: .45; }
 .mrow { grid-template-columns: 1fr auto; }
 .orow { grid-template-columns: 1fr 52px 112px 36px; border-bottom: 0; padding-block: 4px; }
 .orow input.shirt { text-align: center; padding-inline: 4px; }
-.orow select { font: inherit; font-size: 15px; font-weight: 500; color: var(--ink); background: var(--surface); border: 0; border-radius: var(--r-ctl); padding: 13px 8px; min-width: 0; width: 100%; }
+.orow select { font: inherit; font-size: var(--t-sub); font-weight: 500; color: var(--ink); background: var(--surface); border: 0; border-radius: var(--r-ctl); padding: 13px 8px; min-width: 0; width: 100%; }
 .lrow .who, .mrow .who { min-width: 0; overflow-wrap: anywhere; font-weight: 650; }
-.lrow .who small, .mrow .who small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
-.gk { height: 38px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 750; font-size: 14px; padding: 0; }
+.lrow .who small, .mrow .who small { display: block; font-weight: 400; color: var(--muted); font-size: var(--t-foot); }
+.gk { height: 38px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 750; font-size: var(--t-sub); padding: 0; }
 .gk.is { background: var(--on); color: var(--on-ink); }
 .seg { display: flex; background: var(--fill); border-radius: 11px; padding: 3px; }
-.seg button { min-height: 34px; padding-inline: 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-weight: 650; font-size: 14px; }
+.seg button { min-height: 34px; padding-inline: 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-weight: 650; font-size: var(--t-sub); }
 .seg button.is { color: #fff; }
 .seg button.is[data-set="start"] { background: var(--on); color: var(--on-ink); }
 .seg button.is[data-set="bench"] { background: var(--bib); }
 .seg button.is[data-set="out"] { background: var(--muted); color: var(--bg); }
 .seg button.is[data-hside="a"] { background: var(--on); color: var(--on-ink); } .seg button.is[data-hside="b"] { background: var(--bib); } .seg button.is[data-hside="out"] { background: var(--muted); color: var(--bg); }
 .step { display: flex; align-items: center; gap: 6px; }
-.step button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--fill); font-size: 22px; font-weight: 600; line-height: 1; }
-.step b { min-width: 64px; text-align: center; font-size: 26px; font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
-.step b small { font-size: 13px; font-weight: 500; font-stretch: 100%; color: var(--muted); }
+.step button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--fill); font-size: var(--t-title); font-weight: 600; line-height: 1; }
+.step b { min-width: 64px; text-align: center; font-size: var(--t-large); font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.step b small { font-size: var(--t-foot); font-weight: 500; font-stretch: 100%; color: var(--muted); }
 .mins { text-align: right; font-variant-numeric: tabular-nums; }
-.mins.short { color: var(--bib); font-weight: 600; }
+.mins.short { color: var(--danger); font-weight: 600; }
 
 /* ---- minutes: the tactic slider */
 .tactic { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border-radius: var(--r-card); padding: 18px; }
-.tlabels { display: flex; justify-content: space-between; font-size: 15px; font-weight: 750; }
+.tlabels { display: flex; justify-content: space-between; font-size: var(--t-sub); font-weight: 750; }
 .tlabels .agg { color: var(--agg); } .tlabels .fair { color: var(--fair); }
 .tactic input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; border-radius: 7px; margin: 12px 0; background: linear-gradient(90deg, var(--agg), var(--mid), var(--fair)); outline-offset: 6px; }
 .tactic input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; border-radius: 50%; background: #fff; border: 3px solid #131715; cursor: pointer; }
 .tactic input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 3px solid #131715; cursor: pointer; }
-.tactic .tnow { font-weight: 750; font-size: 18px; }
+.tactic .tnow { font-weight: 750; font-size: var(--t-head); }
 
 /* ---- options, codes, crest, colours */
 .codeline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.codeline span { color: var(--muted); font-size: 15px; }
-.codeline b { font-size: 28px; font-weight: 800; font-stretch: 75%; letter-spacing: .12em; }
-.codeline .plain { min-height: 40px; padding-inline: 14px; font-size: 15px; }
+.codeline span { color: var(--muted); font-size: var(--t-sub); }
+.codeline b { font-size: var(--t-large); font-weight: 800; font-stretch: 75%; letter-spacing: .12em; }
+.codeline .plain { min-height: 40px; padding-inline: 14px; font-size: var(--t-sub); }
 #orgCodeRow { display: flex; flex-direction: column; gap: 6px; }
 #aOut, #aIn { display: flex; flex-direction: column; gap: 16px; }
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
@@ -343,28 +429,28 @@ tr.past td { opacity: .45; }
 .swatches input[type=color] { width: 52px; height: 42px; border: 0; border-radius: 12px; background: var(--surface); padding: 4px; }
 .crestrow { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; color: var(--ink); }
 .crestrow img { width: 64px; height: 64px; object-fit: contain; border-radius: 16px; background: var(--pitch); padding: 8px; }
-.crestrow input { min-width: 0; max-width: 100%; font: inherit; font-size: 14px; background: none; padding: 0; border: 0; width: auto; }
+.crestrow input { min-width: 0; max-width: 100%; font: inherit; font-size: var(--t-sub); background: none; padding: 0; border: 0; width: auto; }
 .code { overflow-x: auto; background: var(--surface); border-radius: var(--r-card); padding: 14px; max-height: 260px; }
 .code pre { margin: 0; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre; user-select: all; -webkit-user-select: all; }
 .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
 .steps code { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--fill); border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
-.badge { display: inline-block; font-size: 12px; font-weight: 750; border-radius: 999px; padding: 2px 9px; margin-left: 6px; vertical-align: 2px; background: var(--fill); color: var(--muted); white-space: nowrap; }
+.badge { display: inline-block; font-size: var(--t-cap); font-weight: 750; border-radius: 999px; padding: 2px 9px; margin-left: 6px; vertical-align: 2px; background: var(--fill); color: var(--muted); white-space: nowrap; }
 .badge.gaffer { background: var(--gold); color: #131715; }
 .badge.claimed { background: none; box-shadow: inset 0 0 0 1.5px var(--on); color: var(--on); }
 .badge.you { background: var(--on); color: var(--on-ink); }
 .menu button.locked { opacity: .45; }
 .statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.statgrid div { background: var(--bg); border-radius: var(--r-ctl); padding: 10px 6px 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--muted); }
-.statgrid b { display: block; font-size: 30px; font-weight: 800; font-stretch: 75%; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.statgrid div { background: var(--bg); border-radius: var(--r-ctl); padding: 10px 6px 8px; text-align: center; font-size: var(--t-foot); font-weight: 600; color: var(--muted); }
+.statgrid b { display: block; font-size: var(--t-large); font-weight: 800; font-stretch: 75%; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
 .plist { background: var(--surface); border-radius: var(--r-card); padding: 4px 16px; }
 .prow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-block: 12px; border-bottom: 1px solid var(--line); font-weight: 650; }
 .prow:last-child { border-bottom: 0; }
-.prow small { font-weight: 500; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.prow small { font-weight: 500; color: var(--muted); font-size: var(--t-sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .jteam { display: flex; align-items: center; gap: 14px; }
 .jteam img { width: 64px; height: 64px; object-fit: contain; border-radius: 16px; background: var(--pitch); padding: 8px; }
 .jlist { display: flex; flex-direction: column; gap: 8px; }
 .jrow { background: var(--surface); border-radius: var(--r-card); overflow: hidden; }
-.jhead { width: 100%; min-height: 58px; border: 0; background: none; text-align: left; padding: 10px 18px; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.jhead { width: 100%; min-height: 58px; border: 0; background: none; text-align: left; padding: 10px 18px; font-size: var(--t-head); font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .jhead:disabled { opacity: .5; }
 .jrow.open { outline: 2px solid var(--on); outline-offset: -2px; }
 .askrow { display: flex; flex-direction: column; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line, rgba(128, 128, 128, .25)); } .askrow p { margin: 0; } .askrow .actions { margin: 0; }
@@ -374,41 +460,46 @@ tr.past td { opacity: .45; }
 .toggle button { flex: 1; min-height: 42px; border: 0; border-radius: 11px; background: none; color: var(--muted); font-weight: 650; }
 .toggle button[aria-pressed="true"] { background: var(--surface); color: var(--ink); }
 .hcard { background: var(--surface); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 10px; }
-.hcard h3 { margin: 0; font-size: 18px; font-weight: 750; letter-spacing: -.01em; }
+.hcard h3 { margin: 0; font-size: var(--t-head); font-weight: 750; letter-spacing: -.01em; }
 .hcard ul { list-style: none; margin: 0; padding: 0; }
-.hcard li { display: grid; grid-template-columns: 56px 1fr; gap: 8px; padding-block: 8px; border-top: 1px solid var(--line); font-size: 15px; }
+.hcard li { display: grid; grid-template-columns: 56px 1fr; gap: 8px; padding-block: 8px; border-top: 1px solid var(--line); font-size: var(--t-sub); }
 .hcard li span:first-child { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
 .hcard li.wide { grid-template-columns: 1fr; }
-.novid { background: var(--bg); border-radius: var(--r-ctl); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; font-size: 15px; color: var(--muted); }
+.novid { background: var(--bg); border-radius: var(--r-ctl); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; font-size: var(--t-sub); color: var(--muted); }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .posrow { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.posrow button, .vote button { min-height: 46px; border: 0; border-radius: var(--r-ctl); background: var(--fill); color: var(--ink); font-weight: 650; font-size: 15px; }
+.posrow button, .vote button { min-height: 46px; border: 0; border-radius: var(--r-ctl); background: var(--fill); color: var(--ink); font-weight: 650; font-size: var(--t-sub); }
 .jbody .posrow button, .card .posrow button, .card .vote button { background: var(--bg); }
 .posrow button[aria-pressed="true"], .vote button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
 .vote { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-.vote button.no[aria-pressed="true"] { background: var(--bib); color: #fff; }
-.fxwhen { font-size: 22px; font-weight: 800; font-stretch: 75%; letter-spacing: .01em; }
+.vote button.no[aria-pressed="true"] { background: var(--muted); color: var(--bg); }
+.fxwhen { font-size: var(--t-title); font-weight: 800; font-stretch: 75%; letter-spacing: .01em; }
 #kickPop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 #kickPop[hidden] { display: none; }
 #askPop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #askPop[hidden] { display: none; }
 #subPop { position: fixed; inset: 0; z-index: 44; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #subPop[hidden] { display: none; } #subPop .kickbox { position: relative; animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
-.subx { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--fill); color: var(--ink); font-size: 26px; line-height: 1; } #askPop .kickbox { animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
+.subx { position: absolute; top: 10px; right: 10px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--fill); color: var(--ink); font-size: var(--t-large); line-height: 1; } #askPop .kickbox { animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
 .chatlist { display: flex; flex-direction: column; gap: 10px; min-height: 40vh; }
 .cmsg { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; max-width: 86%; } .cmsg.mine { align-self: flex-end; align-items: flex-end; }
-.cmsg > small { color: var(--muted); font-size: 12px; padding-inline: 6px; }
-.cmsg .bubble { border: 0; text-align: left; font: inherit; color: var(--ink); background: var(--surface); border-radius: 18px; padding: 10px 14px; font-size: 16px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cmsg > small { color: var(--muted); font-size: var(--t-cap); padding-inline: 6px; }
+.cmsg .bubble { border: 0; text-align: left; font: inherit; color: var(--ink); background: var(--surface); border-radius: 18px; padding: 10px 14px; font-size: var(--t-body); line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
 .cmsg.mine .bubble { background: var(--on); color: var(--on-ink); }
-.cplay { background: var(--surface); border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 8px; width: 210px; } .cplay svg { width: 100%; border-radius: 12px; display: block; } .cplay b { font-size: 14px; }
-.cacts { display: flex; gap: 6px; flex-wrap: wrap; } .cacts button { border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 650; padding: 7px 12px; }
-.chatform { position: sticky; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; background: var(--bg); padding-block: 8px; margin-top: 4px; }
-.chatform input { flex: 1; min-width: 0; font: inherit; font-size: 16px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); padding: 12px 16px; }
-.chatform button { border: 0; border-radius: 999px; background: var(--on); color: var(--on-ink); font: inherit; font-weight: 750; padding: 0 18px; }
-#chatBadge { position: absolute; top: 6px; left: 50%; margin-left: 6px; min-width: 18px; height: 18px; border-radius: 9px; background: #ffc83d; color: #2a2100; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 5px; } #chatBadge[hidden] { display: none; }
+.cplay { background: var(--surface); border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 8px; width: 210px; } .cplay svg { width: 100%; border-radius: 12px; display: block; } .cplay b { font-size: var(--t-sub); }
+.cacts { display: flex; gap: 6px; flex-wrap: wrap; } .cacts button { min-height: 40px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: var(--t-foot); font-weight: 650; padding: 7px 14px; } .cacts button.danger { color: var(--danger); }
+.chatform { position: fixed; z-index: 18; left: 0; right: 0; bottom: calc(78px + env(safe-area-inset-bottom, 0px)); max-width: 552px; margin-inline: auto; display: flex; gap: 8px; align-items: center;
+  padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
+.chatform[hidden] { display: none; }
+#v-chat:not([hidden]) { padding-bottom: 72px; } #v-chat .chatlist { min-height: calc(100vh - 330px); justify-content: flex-end; }
+.chatform input { flex: 1; min-width: 0; font: inherit; font-size: var(--t-body); border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); padding: 12px 16px; }
+.chatform input { box-shadow: 0 0 0 1px var(--line), 0 6px 20px rgba(0, 0, 0, .1); }
+.chatform button { flex: none; width: 46px; height: 46px; border: 0; border-radius: 50%; background: var(--on); color: var(--on-ink); display: grid; place-items: center; box-shadow: 0 6px 20px rgba(0, 0, 0, .14); }
+.chatform button svg { width: 22px; height: 22px; }
+#chatBadge { position: absolute; top: 6px; left: 50%; margin-left: 6px; min-width: 18px; height: 18px; border-radius: 9px; background: #ffc83d; color: #2a2100; font-size: var(--t-cap); font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 5px; } #chatBadge[hidden] { display: none; }
 .tbrec { display: flex; align-items: center; gap: 12px; background: #d9432f; color: #fff; border-radius: 16px; padding: 10px 14px; font-weight: 750; } .tbrec span { flex: 1; font-variant-numeric: tabular-nums; } .tbrec button { border: 0; border-radius: 999px; background: #fff; color: #7a1d12; font: inherit; font-weight: 800; padding: 8px 16px; }
 .tbplay { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-block: 8px; border-bottom: 1px solid var(--line); } .tbplay b { flex: 1; min-width: 90px; } .tbplay small { color: var(--muted); }
-.tbplay button { border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 650; padding: 8px 12px; }
+.tbplay button { border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: var(--t-sub); font-weight: 650; padding: 8px 12px; }
 #planPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #planPop[hidden] { display: none; }
 #unamePop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
@@ -420,36 +511,40 @@ tr.past td { opacity: .45; }
 .fxgoals { display: grid; gap: 8px; margin: 10px 0; }
 .fxgoals button { text-align: left; }
 .tmlist { margin: 0 0 12px; padding-left: 20px; }
-.pplBadge { margin-left: 8px; min-width: 20px; height: 20px; border-radius: 10px; background: #ffc83d; color: #2a2100; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; } .pplBadge[hidden] { display: none; }
+.pplBadge { margin-left: 8px; min-width: 20px; height: 20px; border-radius: 10px; background: #ffc83d; color: #2a2100; font-size: var(--t-cap); font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; } .pplBadge[hidden] { display: none; }
 .prow { display: flex; align-items: center; gap: 10px; padding-block: 10px; border-bottom: 1px solid var(--line); }
 .prow:last-child { border-bottom: 0; }
 .prow .who { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0; color: var(--ink); font: inherit; }
-.prow .who b { display: block; overflow-wrap: anywhere; } .prow .who small { color: var(--muted); font-size: 14px; }
+.prow .who b { display: block; overflow-wrap: anywhere; } .prow .who small { color: var(--muted); font-size: var(--t-sub); }
 .prow .plain { min-height: 40px; padding-inline: 14px; }
 .prhead { display: flex; flex-direction: column; gap: 4px; }
-.prhead .at { color: var(--muted); font-weight: 650; } .prhead .counts { color: var(--muted); font-size: 14px; }
+.prhead .at { color: var(--muted); font-weight: 650; } .prhead .counts { color: var(--muted); font-size: var(--t-sub); }
 .prteams { display: flex; flex-wrap: wrap; gap: 8px; }
-.prteams span { border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: 14px; }
+.prteams span { border-radius: 999px; padding: 6px 12px; font-weight: 700; font-size: var(--t-sub); }
 .prstats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.prstats div { background: var(--bg); border-radius: 14px; padding: 10px 6px; text-align: center; } .prstats b { display: block; font-size: 24px; } .prstats small { color: var(--muted); font-size: 12px; font-weight: 650; }
+.prstats div { background: var(--bg); border-radius: 14px; padding: 10px 6px; text-align: center; } .prstats b { display: block; font-size: var(--t-title); } .prstats small { color: var(--muted); font-size: var(--t-cap); font-weight: 650; }
 .prres { list-style: none; margin: 0; padding: 0; } .prres li { display: grid; grid-template-columns: 28px 1fr; gap: 8px; padding-block: 9px; border-bottom: 1px solid var(--line); } .prres li:last-child { border-bottom: 0; }
-.prres .wl { font-weight: 800; color: var(--muted); } .prres .W { color: var(--on); } .prres small { display: block; color: var(--muted); font-size: 13px; }
+.prres .wl { font-weight: 800; color: var(--muted); } .prres .W { color: var(--on); } .prres small { display: block; color: var(--muted); font-size: var(--t-foot); }
 .pins label { display: flex; gap: 10px; align-items: flex-start; padding-block: 8px; border-bottom: 1px solid var(--line); } .pins input { width: 22px; height: 22px; flex: none; }
 .feedcard .badge.new { background: #ffc83d; color: #2a2100; }
+.feedcard h3, #hlList .hcard > h3 { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sbug { display: inline-flex; max-width: 100%; border-radius: 9px; overflow: hidden; font-weight: 800; font-size: var(--t-sub); line-height: 1.2; letter-spacing: .01em; vertical-align: middle; }
+.sbug > span { padding: 6px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sb-a { background: var(--on); color: var(--on-ink); } .sb-s { flex: none; background: var(--ink); color: var(--bg); font-variant-numeric: tabular-nums; } .sb-b { background: var(--fill); color: var(--ink); }
 .fdtop { display: flex; align-items: center; justify-content: space-between; padding: 6px 0 10px; }
-.fdtop .brand { font-size: 24px; } .fdicons, .baricons { display: flex; gap: 4px; margin-left: auto; }
+.fdtop .brand { font-size: var(--t-title); } .fdicons, .baricons { display: flex; gap: 4px; margin-left: auto; }
 .fdicons button, .baricons button { position: relative; width: 44px; height: 44px; border: 0; background: none; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; }
 .fdicons svg, .baricons svg { width: 26px; height: 26px; } .fdicons .pplBadge { position: absolute; top: 2px; right: 0; margin: 0; }
 .post { background: var(--surface); border-radius: var(--r-card); overflow: hidden; margin-bottom: 14px; }
 .post header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
-.ptags { margin: 2px 12px 8px; color: var(--muted); font-size: 15px; } .ptags .plink { color: var(--ink); font-weight: 600; }
+.ptags { margin: 2px 12px 8px; color: var(--muted); font-size: var(--t-sub); } .ptags .plink { color: var(--ink); font-weight: 600; }
 .taglist { display: grid; gap: 4px; margin: 6px 0 10px; } .tagopt { text-align: left; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; } .tagopt small { color: var(--muted); }
 #npTags:empty { display: none; } #npTags { margin: 6px 0; }
 .plink { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-align: inherit; cursor: pointer; min-height: 0; }
 .post header .who { flex: 1; display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 0; text-align: left; color: var(--ink); font: inherit; }
-.post header small { display: block; color: var(--muted); font-size: 13px; }
+.post header small { display: block; color: var(--muted); font-size: var(--t-foot); }
 .av { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; flex: none; }
-.av.big { width: 84px; height: 84px; font-size: 36px; }
+.av.big { width: 84px; height: 84px; font-size: 2.12rem; }
 .post video { width: 100%; display: block; background: #000; aspect-ratio: 16 / 9; }
 .pbar { display: flex; align-items: center; gap: 12px; padding: 8px 12px 0; }
 .pbar button { border: 0; background: none; font: inherit; font-weight: 700; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 4px; }
@@ -459,8 +554,8 @@ tr.past td { opacity: .45; }
 .post .pmenu { padding: 0 12px 12px; }
 .ighead { display: flex; align-items: center; gap: 18px; margin: 4px 0 10px; }
 .igcounts { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; }
-.igcounts b { display: block; font-size: 20px; } .igcounts small { color: var(--muted); font-size: 13px; }
-.igname { margin-bottom: 10px; } .igname b { font-size: 17px; } .igname > small { display: block; color: var(--muted); margin-top: 6px; }
+.igcounts b { display: block; font-size: var(--t-head); } .igcounts small { color: var(--muted); font-size: var(--t-foot); }
+.igname { margin-bottom: 10px; } .igname b { font-size: var(--t-body); } .igname > small { display: block; color: var(--muted); margin-top: 6px; }
 .igname .prteams { margin-top: 8px; }
 .igtabs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); margin: 14px 0 10px; }
 .igtabs button { border: 0; background: none; font: inherit; font-weight: 700; color: var(--muted); min-height: 44px; border-bottom: 2px solid transparent; }
@@ -468,23 +563,30 @@ tr.past td { opacity: .45; }
 .pgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
 .ptile { position: relative; aspect-ratio: 1; border: 0; padding: 0; background: #111; overflow: hidden; border-radius: 4px; }
 .ptile video { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
-.ptile span { position: absolute; left: 6px; bottom: 4px; color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+.ptile span { position: absolute; left: 6px; bottom: 4px; color: #fff; font-size: var(--t-cap); font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
 
 .pvid { position: relative; }
-.pvid.held::after { content: '▶'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, .55); color: #fff; font-size: 24px; pointer-events: none; } .pvid video { display: block; width: 100%; background: #000; }
-.snd { position: absolute; right: 10px; bottom: 10px; border: 0; border-radius: 999px; background: rgba(0, 0, 0, .6); color: #fff; font: inherit; font-size: 13px; font-weight: 700; padding: 6px 10px; min-height: 0; }
+.pvid.held::after { content: '▶'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, .55); color: #fff; font-size: var(--t-title); pointer-events: none; } .pvid video { display: block; width: 100%; background: #000; }
+.snd { position: absolute; right: 10px; bottom: 10px; border: 0; border-radius: 999px; background: rgba(0, 0, 0, .6); color: #fff; font: inherit; font-size: var(--t-foot); font-weight: 700; padding: 6px 10px; min-height: 0; }
 #mhPop { position: fixed; inset: 0; z-index: 49; background: #000; color: #fff; overflow-y: auto; padding: calc(10px + env(safe-area-inset-top, 0px)) 0 calc(16px + env(safe-area-inset-bottom, 0px)); }
 #mhPop[hidden] { display: none; }
 #mhPop .plain { background: rgba(255, 255, 255, .16); color: #fff; } #mhPop .plain.primary { background: var(--on); color: var(--on-ink); } #mhPop .plain[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
 .mhbox { max-width: 720px; margin: 0 auto; }
 .mhbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 16px 10px; }
-.mhbar b { display: block; font-size: 18px; } .mhbar small { color: rgba(255, 255, 255, .7); font-size: 14px; }
+.mhbar b { display: block; font-size: var(--t-head); } .mhbar small { color: rgba(255, 255, 255, .7); font-size: var(--t-sub); }
 #mhVideo { display: block; width: 100%; background: #000; aspect-ratio: 16 / 9; }
-.mhtools { padding: 8px 16px 0; display: flex; gap: 8px; flex-wrap: wrap; } .mhmsg { padding: 6px 16px 0; margin: 0; color: rgba(255, 255, 255, .8); font-size: 14px; } .mhmsg.bad { color: #ff9a8a; } .mkline { margin: -4px 0 8px; font-size: 14px; } #mhPop .cliplist { padding: 8px 16px; } #mhPop .cliplist button { color: #fff; background: rgba(255, 255, 255, .08); }
+.mhticks { position: relative; height: 26px; margin: 8px 16px 0; border-radius: 13px; background: rgba(255, 255, 255, .12); }
+.mhticks button { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; padding: 0; border: 2px solid #000; border-radius: 50%; background: var(--gold); }
+.mhticks button.g { background: var(--on); } .mhticks button.on { transform: scale(1.35); box-shadow: 0 0 0 2px #fff; }
+.mhticks button::before { content: ""; position: absolute; inset: -14px -8px; } /* (a bigger target than it looks) */
+#mhPop .cliplist button { display: flex; gap: 10px; align-items: baseline; min-height: 48px; }
+.mmin { flex: none; min-width: 2.2em; font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, .7); }
+#mhPop .cliplist button[aria-pressed="true"] .mmin { color: inherit; }
+.mhtools { padding: 8px 16px 0; display: flex; gap: 8px; flex-wrap: wrap; } .mhmsg { padding: 6px 16px 0; margin: 0; color: rgba(255, 255, 255, .8); font-size: var(--t-sub); } .mhmsg.bad { color: #ff9a8a; } .mkline { margin: -4px 0 8px; font-size: var(--t-sub); } #mhPop .cliplist { padding: 8px 16px; } #mhPop .cliplist button { color: #fff; background: rgba(255, 255, 255, .08); }
 #mhPop .cliplist button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
 .mhbtn { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: 16px; padding: 16px; margin: 6px 0 10px; background: var(--on); color: var(--on-ink); font: inherit; }
-.mhbtn b { display: block; font-size: 17px; } .mhbtn small { display: block; opacity: .85; font-size: 14px; margin-top: 2px; }
-.mhplay { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 255, 255, .22); font-size: 18px; }
+.mhbtn b { display: block; font-size: var(--t-body); } .mhbtn small { display: block; opacity: .85; font-size: var(--t-sub); margin-top: 2px; }
+.mhplay { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 255, 255, .22); font-size: var(--t-head); }
 #postPop, #postView { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #postPop[hidden], #postView[hidden] { display: none; }
 #postPop .field input, #postPop .field textarea { background: var(--bg); }
@@ -492,25 +594,26 @@ tr.past td { opacity: .45; }
 .nplist { display: flex; flex-direction: column; max-height: 34vh; overflow-y: auto; } .nplist label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 2px; border-bottom: 1px solid var(--line); } .nplist input { width: 22px; height: 22px; flex: none; }
 #npPrev { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 16 / 9; }
 .allclips summary { font-weight: 700; color: var(--muted); cursor: pointer; padding-block: 8px; }
-.prteams button { border: 0; border-radius: 999px; padding: 6px 12px; font: inherit; font-weight: 700; font-size: 14px; }
+.prteams button { border: 0; border-radius: 999px; padding: 6px 12px; font: inherit; font-weight: 700; font-size: var(--t-sub); }
 .tdot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
 .tvcrest { width: 64px; height: 64px; object-fit: contain; border-radius: 12px; }
-#pplQ { text-transform: none; letter-spacing: normal; font-family: inherit; font-weight: 500; font-size: 17px; }
+#tvBody { display: flex; flex-direction: column; gap: 14px; } #tvBody .card h2:first-child { margin-top: 0; }
+#pplQ { text-transform: none; letter-spacing: normal; font-family: inherit; font-weight: 500; font-size: var(--t-body); }
 #pplBody > section { margin-top: 18px; } #pplBody > section > h2 { margin-bottom: 10px; } #pplBody details summary { font-weight: 700; cursor: pointer; }
 #pushPop { position: fixed; inset: 0; z-index: 47; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #pushPop[hidden] { display: none; }
 .planbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); animation: sheet .34s cubic-bezier(.2, .9, .2, 1) both; }
-.planbox h2 { font-size: 24px; line-height: 1.1; } .planbox > p { color: var(--muted); font-size: 14px; }
+.planbox h2 { font-size: var(--t-title); line-height: 1.1; } .planbox > p { color: var(--muted); font-size: var(--t-sub); }
 .tier { border-radius: 18px; padding: 14px 16px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
-.tier h3 { font-size: 17px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; } .tier h3 b { font-size: 22px; } .tier h3 small { font-size: 11px; font-weight: 800; letter-spacing: .06em; background: #c8ff3e; color: #1c2600; border-radius: 999px; padding: 3px 8px; }
+.tier h3 { font-size: var(--t-body); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; } .tier h3 b { font-size: var(--t-title); } .tier h3 small { font-size: var(--t-cap); font-weight: 800; letter-spacing: .06em; background: #c8ff3e; color: #1c2600; border-radius: 999px; padding: 3px 8px; }
 .badge.nopush { background: #d9432f; color: #fff; }
-#rivalsBadge { margin-left: 8px; min-width: 20px; height: 20px; border-radius: 10px; background: #ffc83d; color: #2a2100; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; } #rivalsBadge[hidden] { display: none; }
-.elo { display: flex; align-items: baseline; gap: 10px; } .elo b { font-size: 44px; font-weight: 800; font-stretch: 75%; line-height: 1; } .elo span { color: var(--muted); font-size: 14px; }
+#rivalsBadge { margin-left: 8px; min-width: 20px; height: 20px; border-radius: 10px; background: #ffc83d; color: #2a2100; font-size: var(--t-cap); font-weight: 800; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; } #rivalsBadge[hidden] { display: none; }
+.elo { display: flex; align-items: baseline; gap: 10px; } .elo b { font-size: 2.6rem; font-weight: 800; font-stretch: 75%; line-height: 1; } .elo span { color: var(--muted); font-size: var(--t-sub); }
 .rteam { display: grid; grid-template-columns: 12px 1fr auto; gap: 12px; align-items: center; padding-block: 12px; border-bottom: 1px solid var(--line); } .rteam:last-child { border-bottom: 0; }
-.rteam i { width: 12px; height: 36px; border-radius: 6px; } .rteam b { display: block; font-size: 17px; } .rteam small { color: var(--muted); font-size: 13px; } .rteam em { font-style: normal; font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; }
+.rteam i { width: 12px; height: 36px; border-radius: 6px; } .rteam b { display: block; font-size: var(--t-body); } .rteam small { color: var(--muted); font-size: var(--t-foot); } .rteam em { font-style: normal; font-weight: 800; font-size: var(--t-head); font-variant-numeric: tabular-nums; }
 .rteam button { grid-column: 2 / 4; justify-self: start; }
-.chal { display: flex; flex-direction: column; gap: 8px; padding-block: 14px; border-bottom: 1px solid var(--line); } .chal:last-child { border-bottom: 0; } .chal h3 { font-size: 18px; } .chal p { font-size: 15px; }
-.tier ul { margin: 0; padding-left: 18px; font-size: 14.5px; line-height: 1.4; display: flex; flex-direction: column; gap: 3px; }
+.chal { display: flex; flex-direction: column; gap: 8px; padding-block: 14px; border-bottom: 1px solid var(--line); } .chal:last-child { border-bottom: 0; } .chal h3 { font-size: var(--t-head); } .chal p { font-size: var(--t-sub); }
+.tier ul { margin: 0; padding-left: 18px; font-size: var(--t-sub); line-height: 1.4; display: flex; flex-direction: column; gap: 3px; }
 .tier.pro { background: linear-gradient(135deg, #2a1263, #5a2be2 60%, #8f4bff); color: #fff; }
 @media (prefers-reduced-motion: reduce) { #planPop, .planbox { animation: none; } }
 #livePop { position: fixed; inset: 0; z-index: 46; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
@@ -522,11 +625,11 @@ tr.past td { opacity: .45; }
 .rblist { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
 .rblist li { display: flex; align-items: center; gap: 8px; }
 .rblist li .check { flex: 1; margin: 0; }
-.rblist .kind { color: var(--muted); font-size: 13px; }
-.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 15px; line-height: 1.4; }
+.rblist .kind { color: var(--muted); font-size: var(--t-foot); }
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: var(--t-sub); line-height: 1.4; }
 .marks { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
 .marks li { display: flex; gap: 8px; align-items: center; }
-.marks li > button.plain { flex: 1 1 auto; min-width: 0; width: auto; display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; text-align: left; font-size: 14px; padding: 8px 12px; }
+.marks li > button.plain { flex: 1 1 auto; min-width: 0; width: auto; display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; text-align: left; font-size: var(--t-sub); padding: 8px 12px; }
 .marks li > button.plain b { flex: 1 1 9em; min-width: 0; }
 .marks li > button.plain span { color: var(--muted); font-weight: 500; text-align: right; margin-left: auto; }
 .marks li > .link { flex: none; }
@@ -561,27 +664,32 @@ tr.past td { opacity: .45; }
 .lk-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px 3px 5px; border-radius: 5px; background: #000; color: #fff; border: 1px solid #a6a6a6; line-height: 1; text-align: left; }
 .lk-badge svg { width: 11px; height: 11px; fill: #fff; } .lk-badge span { font-size: 9px; font-weight: 600; display: flex; flex-direction: column; } .lk-badge small { font-size: 5px; font-weight: 500; }
 .cutprev { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 10px 12px; margin: 12px 0; }
-.cutprev h3 { margin: 0 0 4px; font-size: 16px; }
+.cutprev h3 { margin: 0 0 4px; font-size: var(--t-body); }
 .cutprev video { display: block; width: 100%; max-height: 240px; border-radius: 8px; background: #000; margin-top: 8px; }
 .camnow { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 10px 12px; margin: 10px 0; background: var(--bg); }
 .camnow p { margin: 0 0 8px; }
 .camnow .actions { margin-top: 0; }
-.livelink { font: inherit; font-size: 14px; width: 100%; border: 1px solid var(--line); border-radius: var(--r-ctl); background: var(--bg); color: var(--ink); padding: 10px 12px; margin-top: 4px; text-align: left; resize: none; word-break: break-all; line-height: 1.35; }
-.onair { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; background: #d9432f; color: #fff; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 800; letter-spacing: .06em; }
+.livelink { font: inherit; font-size: var(--t-sub); width: 100%; border: 1px solid var(--line); border-radius: var(--r-ctl); background: var(--bg); color: var(--ink); padding: 10px 12px; margin-top: 4px; text-align: left; resize: none; word-break: break-all; line-height: 1.35; }
+.onair { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; background: #d9432f; color: #fff; border-radius: 999px; padding: 3px 10px; font-size: var(--t-cap); font-weight: 800; letter-spacing: .06em; }
 .onair::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: blink 1.2s infinite; }
 @keyframes blink { 50% { opacity: .3; } }
 .lvwrap { position: relative; background: #000; border-radius: var(--r-card); overflow: hidden; aspect-ratio: 16 / 9; }
 .lvwrap video, .lvwrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .lvwrap video[hidden], .lvwrap iframe[hidden] { display: none; }
-.lvscore { position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, .72); color: #fff; border-radius: 10px; padding: 6px 10px; font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; pointer-events: none; }
-.lvscore small { font-weight: 650; opacity: .85; margin-left: 8px; font-size: 13px; }
+.lvscore { position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, .72); color: #fff; border-radius: 10px; padding: 6px 10px; font-weight: 800; font-size: var(--t-sub); font-variant-numeric: tabular-nums; pointer-events: none; }
+.lvscore small { font-weight: 650; opacity: .85; margin-left: 8px; font-size: var(--t-foot); }
 .lvscore[hidden] { display: none; }
 .lvwait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; color: #fff; padding: 20px; font-weight: 700; background: rgba(0, 0, 0, .55); pointer-events: none; }
 .lvwait[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { #livePop { animation: none; } .onair::before { animation: none; } }
 .kickbox { background: var(--surface); border-radius: var(--r-card); padding: 20px; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 10px 40px rgba(0, 0, 0, .3); }
-.kickbox p { font-size: 20px; font-weight: 750; }
-#tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); box-shadow: 0 -1px 0 var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.kickbox p { font-size: var(--t-head); font-weight: 750; }
+#tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 0 max(12px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); pointer-events: none; }
+#tabs .tabrow, #tabs #tabMsg { pointer-events: auto; }
+#tabs .tabrow { background: var(--glass); -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6); border-radius: 30px; box-shadow: 0 0 0 1px var(--line), 0 8px 28px rgba(0, 0, 0, .14); padding: 4px; }
+@media (prefers-reduced-transparency: reduce) { #tabs .tabrow { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+#tabs button[aria-current="page"] { background: var(--on-soft); border-radius: 26px; }
+#tabs button[aria-current="page"] svg :is(path, rect, circle) { fill: currentColor; fill-opacity: .22; }
 #tabs[hidden] { display: none; }
 #tabs .tabrow { max-width: 552px; margin-inline: auto; display: grid; grid-template-columns: repeat(5, 1fr); }
 #boardBody { display: flex; flex-direction: column; gap: 14px; }
@@ -590,35 +698,35 @@ tr.past td { opacity: .45; }
 .campitch .cam { cursor: grab; }
 .camlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .camlist li { background: var(--surface); border-radius: var(--r-ctl); padding: 10px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
-.camlist li > span:first-of-type { color: var(--muted); font-size: 15px; flex: 1 1 auto; }
+.camlist li > span:first-of-type { color: var(--muted); font-size: var(--t-sub); flex: 1 1 auto; }
 .camacts { display: flex; gap: 8px; flex-basis: 100%; }
 .tbrow { display: flex; flex-wrap: wrap; gap: 6px; }
-.tbrow button, .tbchip { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--surface); font-weight: 650; font-size: 14px; }
+.tbrow button, .tbchip { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--surface); font-weight: 650; font-size: var(--t-sub); }
 .tbrow button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
 .tbrow.tools button { flex: 1 1 auto; }
 .tbsec { display: flex; flex-direction: column; gap: 8px; }
-.tbsec h2 { font-size: 17px; }
-.tbout { background: var(--surface); border-radius: var(--r-ctl); padding: 14px 16px; font-weight: 650; font-size: 17px; }
-.tbout ol { margin: 6px 0 0; padding-left: 22px; font-weight: 500; font-size: 15px; }
+.tbsec h2 { font-size: var(--t-body); }
+.tbout { background: var(--surface); border-radius: var(--r-ctl); padding: 14px 16px; font-weight: 650; font-size: var(--t-body); }
+.tbout ol { margin: 6px 0 0; padding-left: 22px; font-weight: 500; font-size: var(--t-sub); }
 .tbsave { display: flex; gap: 8px; } .tbsave input { flex: 1; min-width: 0; font: inherit; color: var(--ink); background: var(--surface); border: 0; border-radius: var(--r-ctl); padding: 13px 14px; }
 .tbsaved { display: inline-flex; align-items: center; background: var(--surface); border-radius: 999px; overflow: hidden; }
-.tbsaved button { border: 0; background: none; min-height: 40px; padding: 0 12px; font-weight: 650; font-size: 14px; } .tbsaved button + button { padding-left: 4px; color: var(--muted); }
-#tabs button { position: relative; border: 0; background: none; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 650; color: var(--muted); }
+.tbsaved button { border: 0; background: none; min-height: 40px; padding: 0 12px; font-weight: 650; font-size: var(--t-sub); } .tbsaved button + button { padding-left: 4px; color: var(--muted); }
+#tabs button { position: relative; border: 0; background: none; min-height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: var(--t-cap); font-weight: 650; color: var(--muted); }
 #tabs button svg { width: 24px; height: 24px; }
 #tabs button[aria-current="page"] { color: var(--on); }
 #tabs button.locked { opacity: .45; }
-#tabBadge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ffc83d; color: #2a2100; font-size: 12px; font-weight: 800; line-height: 18px; }
-#tabMsg { text-align: center; padding: 8px 16px 0; font-size: 14px; }
-body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
-.gtrack { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; align-items: flex-start; }
+#tabBadge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ffc83d; color: #2a2100; font-size: var(--t-cap); font-weight: 800; line-height: 18px; }
+#tabMsg { text-align: center; padding: 8px 16px; margin: 0 auto 6px; max-width: 552px; font-size: var(--t-sub); background: var(--surface); border-radius: 14px; }
+body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+.gtrack { display: flex; flex-direction: column; gap: 14px; }
 .gtrack::-webkit-scrollbar { display: none; } .gtrack[hidden] { display: none; }
-.gtrack .fxc { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; }
+.gtrack .fxc { flex: none; }
 .fxc.live { box-shadow: inset 0 0 0 2px var(--team); } .fxc.ask { box-shadow: inset 0 0 0 3px #ffc83d; }
 .gdots { justify-content: center; } .gdots:empty { display: none; }
 .fmtcard .toggle button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
 .fxtag.tour { background: var(--on); color: var(--on-ink); }
 .tgames { list-style: none; margin: 0; padding: 4px 12px; background: var(--bg); border-radius: var(--r-ctl); }
-.tgames li { display: flex; justify-content: space-between; gap: 12px; padding-block: 8px; border-bottom: 1px solid var(--line); font-size: 15px; } .tgames li:last-child { border-bottom: 0; }
+.tgames li { display: flex; justify-content: space-between; gap: 12px; padding-block: 8px; border-bottom: 1px solid var(--line); font-size: var(--t-sub); } .tgames li:last-child { border-bottom: 0; }
 .toggle.scope { overflow-x: auto; scrollbar-width: none; } .toggle.scope::-webkit-scrollbar { display: none; } .toggle.scope button { flex: 1 0 auto; padding-inline: 14px; white-space: nowrap; }
 .toggle button:disabled { opacity: .5; }
 .trow { display: grid; grid-template-columns: 28px 1fr 74px; gap: 10px; align-items: center; padding-block: 8px; border-bottom: 1px solid var(--line); }
@@ -626,46 +734,46 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 .trow input[type=text] { font: inherit; text-align: center; border: 0; border-radius: var(--r-ctl); background: var(--bg); color: var(--ink); padding: 10px 6px; width: 100%; }
 .heatwrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .heatcard { background: var(--surface); border-radius: var(--r-card); padding: 12px; display: flex; flex-direction: column; gap: 6px; }
-.heatcard b { font-size: 16px; } .heatcard small { color: var(--muted); font-size: 13px; }
+.heatcard b { font-size: var(--t-body); } .heatcard small { color: var(--muted); font-size: var(--t-foot); }
 .heatcard svg { width: 100%; border-radius: 10px; display: block; }
-.whois { display: flex; flex-direction: column; gap: 8px; padding-block: 12px; border-top: 1px solid var(--line); } .whois small { color: var(--muted); font-size: 13px; }
+.whois { display: flex; flex-direction: column; gap: 8px; padding-block: 12px; border-top: 1px solid var(--line); } .whois small { color: var(--muted); font-size: var(--t-foot); }
 .whopics { display: flex; gap: 8px; } .whopics img { height: 150px; min-width: 60px; object-fit: contain; border-radius: 10px; background: #000; image-rendering: auto; }
 #insBody { display: flex; flex-direction: column; gap: 24px; }
 .inslist { list-style: none; margin: 0; padding: 4px 16px; background: var(--surface); border-radius: var(--r-card); }
 .inslist li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-block: 12px; border-bottom: 1px solid var(--line); }
-.inslist li:last-child { border-bottom: 0; } .inslist b { font-weight: 700; } .inslist small { color: var(--muted); font-size: 14px; text-align: right; flex: none; }
+.inslist li:last-child { border-bottom: 0; } .inslist b { font-weight: 700; } .inslist small { color: var(--muted); font-size: var(--t-sub); text-align: right; flex: none; }
 .heads { display: flex; flex-direction: column; gap: 8px; }
-.heads p { background: var(--surface); border-radius: var(--r-ctl); padding: 14px 16px; font-weight: 650; font-size: 17px; border-left: 4px solid var(--on); }
+.heads p { background: var(--surface); border-radius: var(--r-ctl); padding: 14px 16px; font-weight: 650; font-size: var(--t-body); border-left: 4px solid var(--on); }
 .bars { background: var(--surface); border-radius: var(--r-card); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-.bars .brow { display: grid; grid-template-columns: 54px 1fr 1fr; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.bars i { display: block; height: 14px; border-radius: 7px; background: var(--on); min-width: 2px; } .bars i.ag { background: var(--bib); }
+.bars .brow { display: grid; grid-template-columns: 54px 1fr 1fr; gap: 8px; align-items: center; font-size: var(--t-sub); color: var(--muted); font-variant-numeric: tabular-nums; }
+.bars i { display: block; height: 14px; border-radius: 7px; background: var(--on); min-width: 2px; } .bars i.ag { background: var(--muted); }
 .bars .bcell { display: flex; align-items: center; gap: 6px; } .bars .bcell span { flex: none; width: 14px; }
-.bars .key { display: flex; gap: 16px; font-size: 14px; color: var(--muted); } .bars .key i { display: inline-block; width: 12px; height: 12px; border-radius: 6px; margin-right: 6px; vertical-align: -1px; }
-.rate { font-weight: 800; font-stretch: 75%; font-size: 18px; font-variant-numeric: tabular-nums; }
+.bars .key { display: flex; gap: 16px; font-size: var(--t-sub); color: var(--muted); } .bars .key i { display: inline-block; width: 12px; height: 12px; border-radius: 6px; margin-right: 6px; vertical-align: -1px; }
+.rate { font-weight: 800; font-stretch: 75%; font-size: var(--t-head); font-variant-numeric: tabular-nums; }
 .motm { color: #9a6b00; font-weight: 750; } @media (prefers-color-scheme: dark) { .motm { color: #ffc83d; } }
 .gnav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .gnav button { min-width: 44px; min-height: 44px; border: 0; border-radius: 999px; background: var(--fill); font-weight: 700; }
-.say { background: var(--bg); border-radius: var(--r-ctl); padding: 10px 14px; font-size: 15px; font-style: italic; }
+.say { background: var(--bg); border-radius: var(--r-ctl); padding: 10px 14px; font-size: var(--t-sub); font-style: italic; }
 .saybtn { align-self: flex-start; }
 .squad .sqrow { display: flex; align-items: baseline; justify-content: space-between; font-weight: 650; }
-.squad .sqrow b { font-size: 22px; font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.squad .sqrow b { font-size: var(--t-title); font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
 .squad input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; border-radius: 7px; margin: 8px 0 0; background: var(--fill); }
 .squad input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; border-radius: 50%; background: var(--on); border: 3px solid var(--surface); box-shadow: 0 1px 4px rgba(0, 0, 0, .3); cursor: pointer; }
 .squad input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: var(--on); border: 3px solid var(--surface); cursor: pointer; }
-.sqticks { display: flex; justify-content: space-between; padding-inline: 11px; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.sqticks { display: flex; justify-content: space-between; padding-inline: 11px; color: var(--muted); font-size: var(--t-sub); font-variant-numeric: tabular-nums; }
 #fxCard.live { box-shadow: inset 0 0 0 2px var(--team); }
 #fxCard.ask { box-shadow: inset 0 0 0 3px #ffc83d; }
-.fxtag { align-self: flex-start; background: #ffc83d; color: #2a2100; font-size: 13px; font-weight: 750; border-radius: 999px; padding: 4px 10px; }
-.fxsub { color: var(--muted); font-size: 15px; margin-top: -6px; }
-#goalMsg.toast { background: var(--fill); color: var(--ink); border-radius: var(--r-ctl); padding: 10px 14px; font-weight: 650; }
+.fxtag { align-self: flex-start; background: #ffc83d; color: #2a2100; font-size: var(--t-foot); font-weight: 750; border-radius: 999px; padding: 4px 10px; }
+.fxsub { color: var(--muted); font-size: var(--t-sub); margin-top: -6px; }
+
 .pitchmap { position: relative; aspect-ratio: 4 / 5; background: var(--pitch); color: var(--pitch-ink); border-radius: var(--r-card); overflow: hidden; touch-action: none; }
 .pitchmap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .dot { position: absolute; transform: translate(-50%, -50%); border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--pitch-ink); cursor: default; }
 .pitchmap.edit .dot { cursor: grab; touch-action: none; }
-.dot i { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--pitch-ink); color: var(--pitch-deep); font-style: normal; font-weight: 800; font-size: 15px; display: grid; place-items: center; pointer-events: none; }
+.dot i { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--pitch-ink); color: var(--pitch-deep); font-style: normal; font-weight: 800; font-size: var(--t-sub); display: grid; place-items: center; pointer-events: none; }
 .dot.gk i { background: var(--gold); color: #131715; }
 .dot.me i { box-shadow: 0 0 0 3px var(--gold); }
-.dot span { font-size: 13px; font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none; }
+.dot span { font-size: var(--t-foot); font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none; }
 .dot:active, .dot:active:not(:disabled) { transform: translate(-50%, -50%); filter: none; }
 .fxrow { grid-template-columns: 1fr auto; }
 .seg button.is[data-vote] { background: var(--on); color: var(--on-ink); }
@@ -674,7 +782,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 .vplayer video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: var(--r-ctl); }
 .cliplist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; counter-reset: c; }
 .hcard .cliplist li { display: block; padding: 0; border: 0; }
-.cliplist button { width: 100%; text-align: left; border: 0; border-radius: 10px; background: var(--bg); padding: 10px 12px; font-size: 15px; font-weight: 600; }
+.cliplist button { width: 100%; text-align: left; border: 0; border-radius: 10px; background: var(--bg); padding: 10px 12px; font-size: var(--t-sub); font-weight: 600; }
 .cliplist button[aria-pressed="true"] { background: var(--on-soft); }
 .msg:empty, #subEdit:empty, #quickSwap:empty, #picker:empty, #outPicker:empty, #swapBody:empty { display: none; }
 .stage { max-height: 380px; }
@@ -683,6 +791,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 <body>
 
 <div class="app">
+<div id="topbar" aria-hidden="true"><div class="tbin"><span id="tbBack"></span><b id="tbTitle"></b><span></span></div></div>
 
 <div class="intro" id="v-intro" hidden>
   <div class="intro-top"><span class="brand"><img src="icons/icon-192.png" alt="">Gaffer</span><button class="link" id="introSkip" type="button">Skip</button></div>
@@ -795,13 +904,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <section id="myTeamsSec" hidden><h2>Your teams</h2><div class="menu" id="myTeams"></div></section>
   <div class="card"><h2>Start a team</h2><p class="note">Running a team? Set up your squad and colours, then share the code with your players.</p>
     <div class="actions"><button class="plain" id="createBtn" type="button">Create a team</button></div></div>
-  <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button><button class="plain" id="pplBtn" type="button">Your feed<span class="pplBadge" hidden></span></button></div></div>
+  <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button></div></div>
+  <button class="plain quiet" id="pplBtn" type="button">Open your feed<span class="pplBadge" hidden></span></button>
   <p class="note" id="sync2"></p>
   <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a> · <a class="plink" data-site="terms.html" href="terms.html">Terms of use</a></p>
 </div>
 
 <div class="view" id="v-join" hidden>
-  <div class="bar"><button class="back" type="button" data-go="welcome">&lsaquo; Back</button><h1>Which one are you?</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="welcome">Back</button><h1>Which one are you?</h1></div>
   <div class="jteam"><img id="jCrest" alt="" hidden><div><h2 id="jName"></h2><p class="note" id="jSub"></p></div></div>
   <div class="jlist" id="joinList"></div>
   <div class="actions"><button class="plain" id="jFollow" type="button">Just follow the team</button></div>
@@ -809,7 +919,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 </div>
 
 <div class="view" id="v-account" hidden>
-  <div class="bar"><button class="back" type="button" data-go="welcome">&lsaquo; Teams</button><h1>Your account</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="welcome">Teams</button><h1>Your account</h1></div>
   <div id="aOut">
     <p class="note">An account links you to your player on each team, and lets gaffers run their teams.</p>
     <label class="field" for="aEmail">Email<input id="aEmail" type="email" autocomplete="email" inputmode="email"></label>
@@ -827,18 +937,18 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <div class="actions"><button class="plain" id="aSignOut" type="button">Sign out</button></div>
     <section><h2>Delete account</h2>
       <p class="note">Deletes your account for good, straight away: your email and sign-in, your username and profile, your posts, likes, follows and tags. Your player on each team becomes unclaimed, and the team keeps their stats. Teams you run on your own are deleted too, with their games and stats. Teams with other gaffers carry on without you.</p>
-      <div class="actions"><button class="plain" id="aDelete" type="button">Delete my account</button></div></section>
+      <div class="actions"><button class="plain danger" id="aDelete" type="button">Delete my account</button></div></section>
   </div>
   <p class="msg" id="aMsg" hidden></p>
   <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a> · <a class="plink" data-site="terms.html" href="terms.html">Terms of use</a></p>
 </div>
 
 <div class="view" id="v-create" hidden>
-  <div class="bar"><button class="back" type="button" data-go="welcome">&lsaquo; Teams</button><h1>New team</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="welcome">Teams</button><h1>New team</h1></div>
   <label class="field" for="tName">Team name<input id="tName" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Sunday Strikers"></label>
   <label class="field" for="tShort">Short name for the scoreboard<input id="tShort" type="text" maxlength="10" autocomplete="off" placeholder="e.g. SSFC"></label>
   <div class="field"><span>Team colour</span><div class="swatches" id="tColors"></div></div>
-  <div class="field"><span>Crest (optional)</span><div class="crestrow"><img id="tCrestImg" alt="" hidden><input id="tCrest" type="file" accept="image/*"><button class="plain" id="tCrestRm" type="button" hidden>Remove</button></div></div>
+  <div class="field"><span>Crest (optional)</span><div class="crestrow"><img id="tCrestImg" alt="" hidden><input class="vh" id="tCrest" type="file" accept="image/*"><label class="plain tint filebtn" for="tCrest">Choose a picture</label><button class="plain danger" id="tCrestRm" type="button" hidden>Remove</button></div></div>
   <label class="field" for="tPlayers">Players, one per line<textarea id="tPlayers" rows="8" autocomplete="off" placeholder="Leave empty to start with Player 1 to Player 8"></textarea></label>
   <p class="note">The first name in the list starts as keeper. You can change everything later in Options.</p>
   <p class="msg bad" id="tMsg" hidden></p>
@@ -875,6 +985,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 <div id="mhPop" role="dialog" aria-labelledby="mhTitle" hidden><div class="mhbox">
   <div class="mhbar"><div><b id="mhTitle">Match highlights</b><small id="mhNow"></small></div><button class="plain" id="mhClose" type="button">Close</button></div>
   <video id="mhVideo" controls playsinline preload="auto"></video>
+  <div class="mhticks" id="mhTicks" aria-label="Moments in the video" hidden></div>
   <div class="mhtools" id="mhTools"></div>
   <p class="mhmsg" id="mhMsg" role="status" hidden></p>
   <ol class="cliplist" id="mhList"></ol>
@@ -883,17 +994,17 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 <div id="postView" role="dialog" aria-label="Post" hidden><div class="planbox"><div id="pvBody"></div><div class="actions"><button class="link" id="pvClose" type="button">Close</button></div></div></div>
 
 <div class="view" id="v-people" hidden>
-  <div class="bar"><button class="back" type="button" id="pplBack">&lsaquo; Home</button><h1>Find people</h1></div>
+  <div class="bar"><button class="back" type="button" id="pplBack">Home</button><h1>Find people</h1></div>
   <div id="pplBody"></div>
 </div>
 
 <div class="view" id="v-profile" hidden>
-  <div class="bar"><button class="back" type="button" id="prBack">&lsaquo; Back</button><h1 id="prTitle">Profile</h1><span class="baricons"><button type="button" id="prNew" aria-label="Post a highlight" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button type="button" id="prGear" aria-label="Settings" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></span></div>
+  <div class="bar"><button class="back" type="button" id="prBack">Back</button><h1 id="prTitle">Profile</h1><span class="baricons"><button type="button" id="prMore" aria-label="More: report or block" aria-expanded="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg></button><button type="button" id="prNew" aria-label="Post a highlight" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button><button type="button" id="prGear" aria-label="Settings" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></span></div>
   <div id="prBody"></div>
 </div>
 
 <div class="view" id="v-teamview" hidden>
-  <div class="bar"><button class="back" type="button" id="tvBack">&lsaquo; Back</button><h1 id="tvTitle">Team</h1></div>
+  <div class="bar"><button class="back" type="button" id="tvBack">Back</button><h1 id="tvTitle">Team</h1></div>
   <div id="tvBody"></div>
 </div>
 
@@ -965,24 +1076,23 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="bar"><h1>Games</h1></div>
   <p class="note" id="gamesCount"></p>
   <p class="note" id="gamesEmpty" hidden></p>
-  <div class="actions"><button class="plain own" id="gamesNew" type="button">Schedule a game</button><button class="plain" id="rivalsOpen" type="button">Play another team<b id="rivalsBadge" hidden></b></button></div>
+  <div class="actions"><button class="plain tint own" id="gamesNew" type="button">Schedule a game</button><button class="plain tint" id="rivalsOpen" type="button">Play another team<b id="rivalsBadge" hidden></b></button></div>
   <div class="gtrack" id="gamesTrack" hidden></div>
-  <div class="dots gdots" id="gamesDots"></div>
 </div>
 
 <div class="view" id="v-rivals" hidden>
-  <div class="bar"><button class="back" type="button" data-go="games">&lsaquo; Games</button><h1>Play another team</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="games">Games</button><h1>Play another team</h1></div>
   <div id="rivalsBody"></div>
 </div>
 
 <div class="view" id="v-chat" hidden>
   <div class="bar"><h1>Squad chat</h1></div>
   <div id="chatBody"></div>
-  <form class="chatform" id="chatForm" hidden><input id="chatText" type="text" maxlength="1000" placeholder="Message the squad" autocomplete="off" enterkeyhint="send" aria-label="Message"><button type="submit">Send</button></form>
+  <form class="chatform" id="chatForm" hidden><input id="chatText" type="text" maxlength="1000" placeholder="Message the squad" autocomplete="off" enterkeyhint="send" aria-label="Message"><button type="submit" aria-label="Send"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="vh">Send</span></button></form>
 </div>
 
 <div class="view" id="v-board" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Team</button><h1>Tactics board</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="home">Team</button><h1>Tactics board</h1></div>
   <p class="note">A sandbox for line-ups, shapes and set pieces. Nothing here changes your real games. Record a play and you can send it to the squad chat.</p>
   <div id="boardBody"></div>
 </div>
@@ -999,18 +1109,18 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 </nav>
 
 <div class="view" id="v-track" hidden>
-  <div class="bar"><button class="back" type="button" data-go="options">&lsaquo; Settings</button><h1>Player tracking</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="options">Settings</button><h1>Player tracking</h1></div>
   <div class="view" id="trackBody"></div>
 </div>
 
 <div class="view" id="v-insights" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Insights</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1>Insights</h1></div>
   <div class="actions"><button class="plain" id="trackOpen" type="button" hidden>Player tracking (experimental)</button></div>
   <div id="insBody"></div>
 </div>
 
 <div class="view" id="v-soon" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Coming soon</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1>Coming soon</h1></div>
   <div class="stage soon-stage">
     <svg class="lines" viewBox="0 0 320 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" opacity=".2"><rect x="30" y="20" width="260" height="260" rx="10"/><line x1="30" y1="150" x2="290" y2="150"/><circle cx="160" cy="150" r="42"/></g></svg>
     <div class="mock"><b class="k">Match report</b><span>Dev was everywhere tonight: two goals, an assist, and nothing conceded while he was on.</span></div>
@@ -1028,19 +1138,20 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 </div>
 
 <div class="view" id="v-live" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1 id="lvTitle">Live</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1 id="lvTitle">Live</h1></div>
   <div class="lvwrap"><video id="lvVideo" playsinline webkit-playsinline controls preload="none"></video><iframe id="lvFrame" title="Live stream" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen hidden></iframe>
     <div class="lvscore" id="lvScore" hidden></div><div class="lvwait" id="lvWait" hidden></div></div>
   <p class="note" id="lvNote"></p>
   <ul class="events" id="lvEvents"></ul>
   <p class="note">Watching uses mobile data (roughly 1 GB an hour), so Wi-Fi is best if there is any.</p>
   <div class="actions" id="lvOwn" hidden><button class="plain" type="button" id="lvManage">Stream settings</button></div>
-  <div class="actions"><button class="link" type="button" id="lvReport">Report this stream</button></div>
+  <div class="actions"><button class="link danger" type="button" id="lvReport">Report this stream</button></div>
   <p class="msg" id="lvRepMsg" hidden></p>
 </div>
 
 <div class="view" id="v-home">
-  <div class="hero"><img id="heroCrest" alt="" hidden><h1 id="heroName"></h1><p id="homeRecord"></p><p class="app-name">Gaffer</p></div>
+  <div class="hero"><button class="herogear" id="mOptions" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="vh">Team settings</span></button>
+    <img id="heroCrest" alt="" hidden><h1 id="heroName"></h1><p id="homeRecord"></p><div class="formg" id="homeForm" aria-label="Last five results"></div></div>
   <div class="card" id="pendCard" hidden><h2 id="pendTitle"></h2><p class="note">Tap the link in the email we sent you, then sign in here to finish joining.</p>
     <div class="actions"><button class="plain primary" type="button" data-go="account">Sign in</button></div></div>
   <div class="card" id="askCard" hidden></div>
@@ -1049,11 +1160,10 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div class="menu" id="homeMenu">
     <button class="primary" id="mResume" type="button" hidden><span id="mResumeLbl">Resume game</span><small id="mResumeSub"></small></button>
     <button id="mNew" type="button">New game</button>
-    <button id="mStats" type="button">Stats</button>
-    <button id="mHighlights" type="button">Highlights</button>
-    <button id="mInsights" type="button">Insights</button>
-    <button id="mBoard" type="button">Tactics board</button>
-    <button id="mOptions" type="button">Team settings</button>
+    <button id="mStats" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V5M16 20v-7M21 20H3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Stats<small id="mStatsSub"></small></button>
+    <button id="mHighlights" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg>Highlights<small id="mHlSub"></small></button>
+    <button id="mInsights" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.4l2.5 5.3 5.8.8-4.2 4 1 5.8L12 16.5l-5.1 2.8 1-5.8-4.2-4 5.8-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Insights<small id="mInsSub"></small></button>
+    <button id="mBoard" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 12h17" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>Tactics board<small>Line-ups and set pieces</small></button>
   </div>
   <p class="msg" id="lockMsg" role="status"></p>
   <button class="soon-pill" id="soonPill" type="button" data-go="soon" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI reports and commentary</small></button>
@@ -1065,7 +1175,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 </div>
 
 <div class="view" id="v-poll" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1 id="pollTitle">New poll</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1 id="pollTitle">New poll</h1></div>
   <p class="note">The squad sees this on the team screen and says who's in. You can line up as many games as you like; they all appear under Games. Location, cost, time and squad size are remembered for your next poll.</p>
   <div class="toggle" id="pKind" role="group" aria-label="What is it"><button type="button" data-kind="game">Game</button><button type="button" data-kind="tournament">Tournament</button></div>
   <label class="field" for="pOpp"><span id="pOppLbl">Who are you playing?</span><input id="pOpp" type="text" maxlength="60" autocomplete="off" list="pOppList"></label><datalist id="pOppList"></datalist>
@@ -1083,29 +1193,29 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <div class="sqticks" id="pTicks" aria-hidden="true"></div>
     <p class="note" id="pMaxNote"></p></div>
   <p class="msg bad" id="pMsg"></p>
-  <div class="actions"><button class="plain primary" id="pSave" type="button">Create poll</button><button class="plain" id="pCancel" type="button" hidden>Cancel this game</button></div>
+  <div class="actions"><button class="plain primary" id="pSave" type="button">Create poll</button><button class="plain danger" id="pCancel" type="button" hidden>Cancel this game</button></div>
 </div>
 
 <div class="view" id="v-cut" hidden>
-  <div class="bar"><button class="back" type="button" data-back="1">&lsaquo; Back</button><h1>Cut highlights</h1></div>
+  <div class="bar"><button class="back" type="button" data-back="1">Back</button><h1>Cut highlights</h1></div>
   <div class="view" id="cutBody"></div>
 </div>
 
 <div class="view" id="v-highlights" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Highlights</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1>Highlights</h1></div>
   <div class="toggle" id="hlToggle"><button type="button" data-by="game" aria-pressed="true">By game</button><button type="button" data-by="player" aria-pressed="false">By player</button></div>
   <div class="view" id="hlList"></div>
 </div>
 
 <div class="view" id="v-setup" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>New game</h1></div>
-  <div class="toggle" id="gKind" role="group" aria-label="Who’s playing"><button type="button" data-kind="opp" aria-pressed="true">Another team</button><button type="button" data-kind="house" aria-pressed="false">Among ourselves</button><button type="button" data-kind="solo" aria-pressed="false">Just me</button></div>
+  <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1>New game</h1></div>
+  <div class="toggle" id="gKind" role="group" aria-label="Who’s playing"><button type="button" data-kind="opp" aria-pressed="true">Another team</button><button type="button" data-kind="house" aria-pressed="false">Ourselves</button><button type="button" data-kind="solo" aria-pressed="false">Just me</button></div>
   <div id="oppSetup">
   <label class="field" for="oppPick" id="oppPickWrap" hidden>Played them before?<select id="oppPick"></select></label>
   <label class="field" for="opp" id="oppWrap">Who are you playing?<input id="opp" type="text" placeholder="Opponent's name" autocomplete="off" maxlength="40"></label>
   <p class="msg bad" id="oppErr" hidden>Enter the opponent's name before you carry on.</p>
   <p class="msg" id="tourLine" hidden></p>
-  <label class="check" for="friendly" id="friendlyWrap"><input id="friendly" type="checkbox"><span>Friendly <small>(kept out of the league record and stats)</small></span></label>
+  <label class="check tgl" for="friendly" id="friendlyWrap"><input id="friendly" type="checkbox" role="switch"><span>Friendly <small>Kept out of the league record and stats</small></span></label>
   <div class="card fmtcard" id="gFmt"></div>
   <section>
     <h2>Line-up</h2>
@@ -1124,7 +1234,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 </div>
 
 <div class="view" id="v-mins" hidden>
-  <div class="bar"><button class="back" type="button" id="backSetup">&lsaquo; Line-up</button><h1>Minutes</h1></div>
+  <div class="bar"><button class="back" type="button" id="backSetup">Line-up</button><h1>Minutes</h1></div>
   <div class="tactic">
     <div class="tlabels"><span class="agg">Aggressive</span><span class="fair">Fairness</span></div>
     <input id="tactic" type="range" min="0" max="100" step="5" aria-label="Tactic, from aggressive to fair">
@@ -1141,10 +1251,15 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 </div>
 
 <div class="view" id="v-game" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1 id="gameTitle"></h1></div>
+  <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1 id="gameTitle"></h1></div>
 
   <div class="clock" id="clock">
     <div class="phase"><span id="phase"></span><span id="played"></span></div>
+    <div class="pscore" role="group" aria-label="Score">
+      <div class="side"><span class="lbl" id="usLbl">Us</span><span class="n" id="usN">0</span></div>
+      <span class="dash" aria-hidden="true">&ndash;</span>
+      <div class="side"><span class="lbl" id="themLbl">Them</span><span class="n" id="themN">0</span></div>
+    </div>
     <div class="count" id="count">5:00</div>
     <div class="count-label" id="countLabel"></div>
     <div class="blocks" id="blocks"></div>
@@ -1164,23 +1279,9 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <div id="subEdit"></div>
   <div id="quickSwap"></div>
 
-  <section>
-    <h2>Score</h2>
-    <div class="score">
-      <div class="side"><span class="lbl" id="usLbl">Us</span><span class="n" id="usN">0</span></div>
-      <span class="dash">&ndash;</span>
-      <div class="side"><span class="lbl" id="themLbl">Them</span><span class="n" id="themN">0</span></div>
-    </div>
-    <div class="actions">
-      <button class="plain primary scr" id="goalUs" type="button">Goal for us</button>
-      <button class="plain scr" id="goalThem" type="button">Goal against</button>
-      <button class="plain own" id="hlBtn" type="button">Mark a highlight</button>
-      <button class="plain own" id="svBtn" type="button">Keeper save</button>
-      <button class="plain own" id="undo" type="button">Undo last</button>
-    </div>
+  <section class="evsec">
     <div id="picker"></div>
-    <p class="note" id="goalMsg" role="status" hidden></p>
-    <ul class="events" id="events"></ul>
+    <ul class="events" id="events" aria-label="What's happened"></ul>
   </section>
 
   <section id="nowSec">
@@ -1195,40 +1296,53 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   </section>
 
   <section id="rotaSec">
-    <h2>Full rota</h2>
+    <details class="fold" id="rotaFold"><summary><span>Full rota</span><small>Who sits out when, and minutes today</small></summary>
     <div class="scroll"><table>
       <thead><tr><th>Half</th><th>From</th><th>On the bench</th></tr></thead>
       <tbody id="rota"></tbody>
     </table></div>
     <p class="note" id="minsNote"></p>
+    </details>
   </section>
 
   <section class="own">
     <div class="actions"><button class="plain primary" id="finish" type="button">Finish game</button></div>
     <p class="note" id="finNote">Finish game saves the result, goals, assists and minutes to your stats.</p>
   </section>
+
+  <!-- match mode: logging sits along the bottom, under your thumb, the way the pitch-side moment needs it -->
+  <div class="dock" id="dock">
+    <p class="note" id="goalMsg" role="status" hidden></p>
+    <button class="dk dk-us scr" id="goalUs" type="button">Goal for us</button>
+    <button class="dk dk-them scr" id="goalThem" type="button">Goal against</button>
+    <div class="dkrow own">
+      <button class="dk dk-hl" id="hlBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.1 1.1 6L12 16.7l-5.3 2.9 1.1-6-4.4-4.1 6-.8z" fill="currentColor"/></svg>Highlight</button>
+      <button class="dk dk-sv" id="svBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V6.5a1.5 1.5 0 0 1 3 0V10m0-4.5v-1a1.5 1.5 0 0 1 3 0V10m0-4a1.5 1.5 0 0 1 3 0v4.5m0-2a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.6a7 7 0 0 1-5.6-2.8L4.2 15a1.6 1.6 0 0 1 2.5-2L8 14.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Keeper save</button>
+      <button class="dk dk-undo" id="undo" type="button" aria-label="Undo the last thing logged"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4.5 12H14a6 6 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -3)"/></svg>Undo</button>
+    </div>
+  </div>
 </div>
 
 <div class="view" id="v-stats" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">&lsaquo; Home</button><h1>Stats</h1></div>
+  <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1>Stats</h1></div>
   <p class="msg" id="record"></p>
   <div class="toggle scope" id="scopeRow" hidden></div>
-  <label class="check" for="showF" id="showFWrap"><input id="showF" type="checkbox"><span>Include friendlies</span></label>
+  <label class="check tgl" for="showF" id="showFWrap"><input id="showF" type="checkbox" role="switch"><span>Include friendlies</span></label>
   <p class="note" id="scopeNote" hidden></p>
   <section>
     <h2>Players</h2>
     <div class="scroll"><table>
-      <thead><tr><th>Player</th><th class="n">Games</th><th class="n">Mins</th><th class="n">Goals</th><th class="n">Assists</th><th class="n" title="Goals the team conceded while this player was on the pitch">Conc.</th></tr></thead>
+      <thead><tr><th>Player</th><th class="n">Games</th><th class="n">Mins</th><th class="n">Goals</th><th class="n">Assists</th><th class="n" title="Goals the team let in while this player was on the pitch">Let in</th></tr></thead>
       <tbody id="season"></tbody>
     </table></div>
-    <p class="note" id="concNote" hidden>Conc. is goals the team let in while that player was on the pitch. It counts from games played after this was added; a dash means none yet.</p>
+    <p class="note" id="concNote" hidden>Let in is goals the team let in while that player was on the pitch. It counts from games played after this was added; a dash means none yet.</p>
   </section>
   <section><h2>Results</h2><ul class="res" id="results"></ul><p class="note" id="resNote"></p></section>
   <section><h2>Player reels</h2><p class="note">Every player’s clips, and a reel of their own to make and share, are in Highlights.</p><div class="actions"><button class="plain" type="button" id="toPlayerReels">Player highlights</button></div></section>
 </div>
 
 <div class="view" id="v-options" hidden>
-  <div class="bar"><button class="back" type="button" id="optBack">&lsaquo; Back</button><h1>Settings</h1></div>
+  <div class="bar"><button class="back" type="button" id="optBack">Back</button><h1>Settings</h1></div>
   <section id="ntfSec" hidden>
     <h2>Notifications</h2>
     <p class="note" id="ntfNote"></p>
@@ -1237,7 +1351,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   <section id="optAccount" hidden>
     <h2>Your account</h2>
     <p class="note" id="optSignedAs"></p>
-    <div class="actions"><button class="plain" id="optSignOut" type="button">Sign out</button><button class="plain" id="oDelete" type="button">Delete my account</button></div>
+    <div class="actions"><button class="plain" id="optSignOut" type="button">Sign out</button><button class="plain danger" id="oDelete" type="button">Delete my account</button></div>
     <p class="note">Deletes your account for good, straight away: your email and sign-in, your username and profile, your posts, likes, follows and tags. Your player on each team becomes unclaimed, and the team keeps their stats. Teams you run on your own are deleted too, with their games and stats. Teams with other gaffers carry on without you.</p>
     <p class="msg" id="oAcctMsg" hidden></p>
   </section>
@@ -1245,12 +1359,6 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     <h2>AI commentary</h2>
     <p class="note" id="optAINote"></p>
     <div class="actions"><button class="plain" id="optAIBtn" type="button"></button></div>
-  </section>
-  <section>
-    <h2>Experimental</h2>
-    <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
-    <label class="check" for="expTrack"><input id="expTrack" type="checkbox"><span>Show experimental features <small>(player tracking from a recording, a look at what’s being worked on, and the plans)</small></span></label>
-    <div class="actions"><button class="plain" id="expTrackOpen" type="button" hidden>Open player tracking</button><button class="plain" id="soonOpen" type="button" hidden>What’s being worked on</button><button class="plain" id="planOpen" type="button" hidden>Plans</button></div>
   </section>
   <p class="note" id="optViewer" hidden>The team's own settings are for gaffers.</p>
   <div class="view own" id="optGaffer">
@@ -1262,12 +1370,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       <div class="codeline"><span>Gaffer code</span><b id="orgCode"></b><button class="plain" id="orgCopy" type="button">Copy</button><button class="plain" id="orgNew" type="button">New code</button></div>
       <p class="note">Only give this to people who should run games. They sign in, then enter it under Gaffer account.</p>
     </div>
-    <label class="check" for="oFind"><input id="oFind" type="checkbox"><span>Let people find this team <small>(by name, in People. They see the squad, results and highlights, never the team code: to follow or join they still need it from you)</small></span></label>
-    <label class="check" for="oScore"><input id="oScore" type="checkbox"><span>Everyone on the team can log goals <small>(theirs show in the game tagged as logged by a teammate)</small></span></label>
+    <label class="check tgl" for="oFind"><input id="oFind" type="checkbox" role="switch"><span>Let people find this team <small>By name, in People. They see the squad, results and highlights, never the team code: to follow or join they still need it from you.</small></span></label>
+    <label class="check tgl" for="oScore"><input id="oScore" type="checkbox" role="switch"><span>Everyone on the team can log goals <small>Theirs show in the game tagged as logged by a teammate.</small></span></label>
     <label class="field" for="oName">Team name<input id="oName" type="text" maxlength="40" autocomplete="off"></label>
     <label class="field" for="oShort">Short name for the scoreboard<input id="oShort" type="text" maxlength="10" autocomplete="off"></label>
     <div class="field"><span>Team colour</span><div class="swatches" id="oColors"></div></div>
-    <div class="field"><span>Crest</span><div class="crestrow"><img id="oCrestImg" alt="" hidden><input id="oCrest" type="file" accept="image/*"><button class="plain" id="oCrestRm" type="button">Remove</button></div></div>
+    <div class="field"><span>Crest</span><div class="crestrow"><img id="oCrestImg" alt="" hidden><input class="vh" id="oCrest" type="file" accept="image/*"><label class="plain tint filebtn" for="oCrest">Choose a picture</label><button class="plain danger" id="oCrestRm" type="button">Remove</button></div></div>
     <p class="msg bad" id="oMsg" hidden></p>
   </section>
   <section>
@@ -1287,15 +1395,21 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   </section>
   <section>
     <h2>Stats</h2>
-    <div class="actions"><button class="plain" id="wipe" type="button">Reset all stats</button></div>
+    <div class="actions"><button class="plain danger" id="wipe" type="button">Reset all stats</button></div>
     <p class="note">Clears every result and each player's games, minutes, goals and assists. The squad stays.</p>
   </section>
   <section>
     <h2>This device</h2>
-    <div class="actions"><button class="plain" id="leave" type="button">Remove team from this device</button></div>
+    <div class="actions"><button class="plain danger" id="leave" type="button">Remove team from this device</button></div>
     <p class="note">The team stays in the database. You can add it back with its code.</p>
   </section>
   </div>
+  <section>
+    <h2>Experimental</h2>
+    <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
+    <label class="check tgl" for="expTrack"><input id="expTrack" type="checkbox" role="switch"><span>Show experimental features <small>Player tracking from a recording, a look at what’s being worked on, and the plans</small></span></label>
+    <div class="actions"><button class="plain" id="expTrackOpen" type="button" hidden>Open player tracking</button><button class="plain" id="soonOpen" type="button" hidden>What’s being worked on</button><button class="plain" id="planOpen" type="button" hidden>Plans</button></div>
+  </section>
 </div>
 
 </div>
@@ -1303,6 +1417,20 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 <script src="vendor/supabase.js"></script>
 <script src="config.js"></script>
 <script>
+// ---- text size: on an iPhone the page's text follows Settings → Display & Brightness → Text Size (and Larger Text).
+// WebKit gives -apple-system-body the size the person chose (17px as standard); every size in the CSS is in rem, so
+// setting the root to it scales the whole app. Kept between 15px and 26px so the busiest screens still fit on a phone.
+(function () {
+  var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+  function textSize() {
+    var px = 17;
+    if (ios) { var p = document.createElement('span'); p.style.font = '-apple-system-body'; p.style.position = 'absolute'; p.style.visibility = 'hidden'; p.textContent = 'x';
+      document.documentElement.appendChild(p); px = parseFloat(getComputedStyle(p).fontSize) || 17; p.remove(); }
+    document.documentElement.style.fontSize = Math.max(15, Math.min(26, px)) + 'px';
+  }
+  window.gafferTextSize = textSize;
+  textSize(); document.addEventListener('visibilitychange', function () { if (!document.hidden) textSize(); });
+})();
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   // ---- backend: Supabase. config.js holds the project URL and publishable key (both are meant to be public;
@@ -2025,7 +2153,42 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (view === 'intro' && fresh) { $('introTrack').scrollLeft = 0; introPaint(); }
     render();
     try { window.scrollTo(0, 0); } catch (e) {}
+    topbarWatch();
   }
+  // ---- iPhone-style navigation: once a screen's large title scrolls away, a small title bar takes its place at the top
+  // (with the same back button), and a swipe in from the left edge goes back, as in iOS's own apps
+  var NAVB = { io: null, bar: null };
+  function curBar() { var v = $('v-' + S.view); return v ? v.querySelector(':scope > .bar') : null; }
+  function topbarWatch() {
+    var bar = curBar(), h = bar && bar.querySelector('h1'); NAVB.bar = bar; topbarShow(false);
+    if (NAVB.io) NAVB.io.disconnect(); NAVB.io = null;
+    if (!h || !('IntersectionObserver' in window)) return;
+    NAVB.io = new IntersectionObserver(function (es) { var e = es[es.length - 1]; topbarShow(!e.isIntersecting && e.boundingClientRect.top < 0); }, { threshold: 0 });
+    NAVB.io.observe(h);
+  }
+  function topbarShow(on) {
+    var bar = NAVB.bar, h = bar && bar.querySelector('h1'), b = bar && bar.querySelector('.back');
+    if (on) { $('tbTitle').textContent = h ? h.textContent : ''; $('tbBack').innerHTML = b && !b.hidden ? '<button class="back" type="button">' + esc(b.textContent) + '</button>' : ''; }
+    $('topbar').classList.toggle('on', !!on); $('topbar').setAttribute('aria-hidden', on ? 'false' : 'true');
+  }
+  $('topbar').addEventListener('click', function (e) { var b = NAVB.bar && NAVB.bar.querySelector('.back'); if (e.target.closest('.back') && b) b.click(); });
+  (function () { // swipe back from the left edge
+    var x0 = null, y0 = 0, v = null, dx = 0, back = function () { var bar = curBar(), b = bar && bar.querySelector('.back'); return b && !b.hidden && b.offsetParent !== null ? b : null; };
+    var popUp = function () { return document.querySelector('#picker .pickpop, #outPicker.modal, #subEdit .modal, [role="dialog"]:not([hidden]), [role="alertdialog"]:not([hidden])'); };
+    document.addEventListener('touchstart', function (e) {
+      x0 = null; if (e.touches.length !== 1 || e.touches[0].clientX > 24 || !back() || popUp()) return;
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; v = $('v-' + S.view); dx = 0;
+    }, { passive: true });
+    document.addEventListener('touchmove', function (e) {
+      if (x0 == null) return; var t = e.touches[0]; dx = t.clientX - x0;
+      if (dx < 24 && Math.abs(t.clientY - y0) > 12) { x0 = null; v.style.transform = ''; v.classList.remove('swiping'); return; } // (scrolling, not swiping)
+      if (dx > 0) { v.classList.add('swiping'); v.style.transform = 'translateX(' + dx + 'px)'; }
+    }, { passive: true });
+    document.addEventListener('touchend', function () {
+      if (x0 == null) return; x0 = null; v.classList.remove('swiping'); v.style.transform = '';
+      var b = back(); if (dx > 80 && b) b.click();
+    });
+  })();
   function render() {
     renderTabs();
     if (S.view === 'intro') return;
@@ -2373,6 +2536,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     return 0.2126 * lin(c.substr(1, 2)) + 0.7152 * lin(c.substr(3, 2)) + 0.0722 * lin(c.substr(5, 2)) > 0.4 ? '#15140f' : '#f7f5ec';
   }
   function teamCol(c) { return /^#[0-9a-f]{6}$/i.test(c || '') ? c : DEFAULT_COLOR; }
+  // The score box: the same telly-style box as the reels' graphics (team, score, opponent), used wherever a result is shown.
+  // Its text reads like scoreText ("SOP FC 1–0 Dog Squad") for screen readers and copying.
+  function scoreBug(x) {
+    var h = x.house, a = h ? (h.a || 'Bibs') : (x.team || ''), b = h ? (h.b || 'Shirts') : (x.opp || '');
+    return '<span class="sbug"><span class="sb-a">' + esc(a) + ' </span><span class="sb-s">' + x.us + '–' + x.them + ' </span><span class="sb-b">' + esc(b) + '</span></span>';
+  }
   function scoreText(x) { var h = x.house; return h ? (h.a || 'Bibs') + ' ' + x.us + '–' + x.them + ' ' + (h.b || 'Shirts') : (x.team || '') + ' ' + x.us + '–' + x.them + ' ' + (x.opp || ''); }
   function dayText(ms) { if (!ms) return ''; var d = new Date(+ms); return d.getDate() + ' ' + MON[d.getMonth()]; }
   function didText(p) { var out = []; if (p.goals) out.push(p.goals + (p.goals === 1 ? ' goal' : ' goals')); if (p.assists) out.push(p.assists + (p.assists === 1 ? ' assist' : ' assists')); return out.join(', ') || 'played'; }
@@ -2389,7 +2558,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     else if (!MYP) html = '<div class="card"><h2>Pick a username</h2><p class="note">You need one to have a profile and follow people.</p><div class="actions"><button class="plain primary" type="button" data-pp="pick">Pick a username</button></div></div>';
     else {
       var f = PPL.follows;
-      if (f && f.requests.length) html += '<section><h2>Asking to follow you</h2><div class="card">' + f.requests.map(function (x) { return personRow(x, '<button class="plain primary" type="button" data-acc="' + esc(x.username) + '">Accept</button><button class="plain" type="button" data-dec="' + esc(x.username) + '">Decline</button>'); }).join('') + '</div></section>';
+      if (f && f.requests.length) html += '<section><h2>Asking to follow you</h2><div class="card">' + f.requests.map(function (x) { return personRow(x, '<button class="plain primary" type="button" data-acc="' + esc(x.username) + '">Accept</button><button class="plain danger" type="button" data-dec="' + esc(x.username) + '">Decline</button>'); }).join('') + '</div></section>';
       html += '<section><h2>Find people and teams</h2><div class="joinrow"><input id="pplQ" type="search" maxlength="40" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Name, username or team" aria-label="Find people and teams" value="' + esc(PPL.q) + '"><button class="plain primary" id="pplGo" type="button">Search</button></div>';
       if (PPL.found) html += '<div class="card" id="pplFound">' + (PPL.found.length ? '<h3>People</h3>' + PPL.found.map(function (x) { return personRow(x, folBtn(x)); }).join('') : '<p class="note">Nobody found by that name.</p>') + '</div>';
       if (PPL.teams) html += '<div class="card" id="pplTeams">' + (PPL.teams.length ? '<h3>Teams</h3>' + PPL.teams.map(function (t) {
@@ -2398,7 +2567,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       html += '</section>';
       if (f) {
         html += '<details class="card"><summary>Following (' + f.following.length + ')</summary>' + (f.following.map(function (x) { return personRow(x, folBtn({ username: x.username, follow: x.status })); }).join('') || '<p class="note">Nobody yet. Find people above.</p>') + '</details>';
-        html += '<details class="card"><summary>Your followers (' + f.followers.length + ')</summary>' + (f.followers.map(function (x) { return personRow(x, '<button class="plain" type="button" data-dec="' + esc(x.username) + '">Remove</button>'); }).join('') || '<p class="note">Nobody yet.</p>') + '</details>';
+        html += '<details class="card"><summary>Your followers (' + f.followers.length + ')</summary>' + (f.followers.map(function (x) { return personRow(x, '<button class="plain danger" type="button" data-dec="' + esc(x.username) + '">Remove</button>'); }).join('') || '<p class="note">Nobody yet.</p>') + '</details>';
       }
       if (PPL.blocks && PPL.blocks.length) html += '<details class="card"><summary>Blocked (' + PPL.blocks.length + ')</summary>' + PPL.blocks.map(function (x) { return personRow(x, '<button class="plain" type="button" data-unblock="' + esc(x.username) + '">Unblock</button>'); }).join('') + '</details>';
       if (!PPL.follows && !PPL.busy) pplLoad();
@@ -2459,12 +2628,12 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       '<div class="pbar"><button type="button" data-like="' + esc(x.id) + '" aria-pressed="' + !!x.liked + '" aria-label="Like">' + HEART + '<span>' + x.likes + '</span></button><small>' + esc(dayText(x.at)) + '</small></div>' +
       '<p class="cap' + (x.caption ? '' : ' empty') + '">' + (x.caption ? '<b>' + esc(x.username) + '</b> ' + esc(x.caption) : '') + '</p>' +
       ((x.tags || []).length ? '<p class="ptags">With ' + x.tags.map(function (t) { return '<button type="button" class="plink" data-plink="' + esc(t.username) + '">@' + esc(t.username) + '</button>'; }).join(', ') + '</p>' : '') +
-      (open ? '<div class="pmenu">' + (x.tagged_me && !x.mine ? '<button class="plain" type="button" data-puntag="' + esc(x.id) + '">Remove me from this post</button>' : '') + (x.mine ? '<button class="plain" type="button" data-pdel="' + esc(x.id) + '">' + (armed ? 'Tap again to delete it' : 'Delete this post') + '</button>'
+      (open ? '<div class="pmenu">' + (x.tagged_me && !x.mine ? '<button class="plain" type="button" data-puntag="' + esc(x.id) + '">Remove me from this post</button>' : '') + (x.mine ? '<button class="plain danger" type="button" data-pdel="' + esc(x.id) + '">' + (armed ? 'Tap again to delete it' : 'Delete this post') + '</button>'
         : '<p class="note">Report this post? Gaffer looks at every report.</p><div class="chips">' + ['Not their clip', 'Offensive', 'Spam', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-preport="' + esc(x.id) + '" data-why="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>') + '</div>' : '') +
       '</article>';
   }
   function gameCard(x) {
-    return '<div class="card feedcard"><h3>' + esc(scoreText(x)) + (x.when > FD.seenAt && FD.seenAt ? '<span class="badge new">New</span>' : '') + '</h3><p class="note">' + esc([x.team_name, dayText(x.when)].filter(Boolean).join(', ')) + '</p>' +
+    return '<div class="card feedcard"><h3>' + scoreBug(x) + (x.when > FD.seenAt && FD.seenAt ? '<span class="badge new">New</span>' : '') + '</h3><p class="note">' + esc([x.team_name, dayText(x.when)].filter(Boolean).join(', ')) + '</p>' +
       (x.people || []).map(function (p) { return personRow(p, '<span class="note">' + esc(didText(p)) + '</span>'); }).join('') +
       (x.clips && x.clips.length ? clipPlayer(x.clips.map(function (c) { return Object.assign({}, c, { title: c.label }); })) : '') + '</div>';
   }
@@ -2733,11 +2902,13 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('prBack').addEventListener('click', function () { go(PF.back && PF.back !== 'profile' ? PF.back : 'feed'); });
   $('prGear').addEventListener('click', function () { if (A.active) { optFrom = 'profile'; go('options'); } else { A.after = null; go('account'); } });
   $('prNew').addEventListener('click', function () { postOpen(); });
+  $('prMore').addEventListener('click', function () { PF.more = !(PF.more || PF.report); PF.report = false; PF.armBlock = false; renderProfile(); try { window.scrollTo(0, 0); } catch (e) {} });
   function avatar(name, color, big) { var c = teamCol(color); return '<span class="av' + (big ? ' big' : '') + '" style="background:' + c + ';color:' + inkFor(c) + '">' + esc(((name || '?').trim()[0] || '?').toUpperCase()) + '</span>'; }
   function renderProfile() {
     var d = PF.d, html = '', mine = !!(d && d.me);
     $('prTitle').textContent = d ? '@' + d.username : 'Profile';
     $('prBack').hidden = !!PF.tab; $('prGear').hidden = !(PF.tab || mine) || !me; $('prNew').hidden = !mine;
+    $('prMore').hidden = !d || mine || !me; $('prMore').setAttribute('aria-expanded', PF.more ? 'true' : 'false');
     if (!me) html = '<div class="card"><h2>Your profile</h2><p class="note">Sign in to have a profile: pick a username, share your moments and follow people.</p><div class="actions"><button class="plain primary" type="button" data-pr="signin">Sign in</button></div></div>';
     else if (PF.tab && !PF.u && MYP === undefined) html = '<p class="note">Loading…</p>';
     else if (PF.tab && !PF.u) html = '<div class="card"><h2>Pick a username</h2><p class="note">You need one to have a profile, share your moments and follow people.</p><div class="actions"><button class="plain primary" type="button" data-pr="edit">Pick a username</button></div></div>';
@@ -2776,10 +2947,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
             return '<li><span class="wl ' + (won ? 'W' : lost ? 'L' : 'D') + '">' + (won ? 'W' : lost ? 'L' : 'D') + '</span><span>' + esc(scoreText(r)) + '<small>' + esc([dayText(r.when), r.house ? 'among ' + r.team_name : r.friendly ? 'friendly' : '', didText(r)].filter(Boolean).join(' · ')) + '</small></span></li>';
           }).join('') + '</ul>' : '<p class="note">No games yet.</p>') + '</div>';
       }
-      if (!mine) {
-        html += '<div class="card"><div class="actions"><button class="link" type="button" data-pr="report">Report @' + esc(d.username) + '</button><button class="link" type="button" data-pr="block">' + (PF.armBlock ? 'Tap again to block @' + esc(d.username) : 'Block @' + esc(d.username)) + '</button></div>';
-        if (PF.report) html += '<p class="note">What’s wrong? Gaffer looks at every report.</p><div class="chips">' + ['Offensive name or clips', 'Pretending to be someone else', 'Spam or a fake account', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-why="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>';
-        html += '<p class="note">Blocking hides you from each other and ends any following between you.</p></div>';
+      if (!mine && (PF.more || PF.report || PF.armBlock)) { // (from the ⋯ in the bar, where people look for them, not on the profile itself)
+        var more = '<div class="card prmore"><div class="actions"><button class="plain danger" type="button" data-pr="report">Report @' + esc(d.username) + '</button><button class="plain danger" type="button" data-pr="block">' + (PF.armBlock ? 'Tap again to block @' + esc(d.username) : 'Block @' + esc(d.username)) + '</button></div>';
+        if (PF.report) more += '<p class="note">What’s wrong? Gaffer looks at every report.</p><div class="chips">' + ['Offensive name or clips', 'Pretending to be someone else', 'Spam or a fake account', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-why="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>';
+        more += '<p class="note">Blocking hides you from each other and ends any following between you.</p></div>';
+        html = more + html;
       }
     }
     if (PF.msg && d) html += '<p class="msg" role="status" id="prMsg">' + esc(PF.msg) + '</p>';
@@ -2991,6 +3163,14 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('heroName').textContent = teamName(); renderCrest();
     $('soonPill').hidden = !(A.exp && A.exp.track);
     $('homeRecord').textContent = r ? r.short : 'Season starts here';
+    // the form guide (last five league results, oldest first) and a live fact on each tile
+    var lg = S.results.filter(function (x) { return !x.tour && !x.house && !x.friendly; }).slice().sort(function (a, b) { return (a.at || a.koAt || 0) - (b.at || b.koAt || 0); }).slice(-5);
+    $('homeForm').innerHTML = lg.map(function (x) { var w = x.us > x.them ? 'W' : x.us < x.them ? 'L' : 'D'; return '<i class="' + w + '" title="' + esc((x.opp ? 'v ' + x.opp + ' ' : '') + x.us + '–' + x.them) + '">' + w + '</i>'; }).join('');
+    var TT = totals(true), top = S.players.slice().sort(function (a, b) { return ((TT[b.id] || {}).g || 0) - ((TT[a.id] || {}).g || 0); })[0], tg = top && TT[top.id] ? TT[top.id].g : 0;
+    $('mStatsSub').textContent = tg ? nm(top.id) + ', ' + tg + (tg === 1 ? ' goal' : ' goals') : S.results.length ? 'Results and minutes' : 'Fills up as you play';
+    var nc = (clips || []).length; $('mHlSub').textContent = nc ? nc + (nc === 1 ? ' clip' : ' clips') : 'Cut from your videos';
+    var lastR = S.results.slice().sort(function (a, b) { return (b.at || b.koAt || 0) - (a.at || a.koAt || 0); })[0], q = lastR ? ratingsOf(lastR) : null;
+    $('mInsSub').textContent = q && q.motm != null && P(q.motm) ? '★ ' + nm(q.motm) + ', last game' : 'Ratings and chemistry';
     $('mResume').hidden = !m; $('mResumeLbl').textContent = own ? 'Resume game' : 'Watch the game';
     $('homeNote').hidden = own || !!m;
     $('mNew').className = (m ? '' : 'primary') + (own ? '' : ' locked'); $('mNew').setAttribute('aria-disabled', !own);
@@ -3227,7 +3407,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $(id).addEventListener('pointerup', dragEnd);
     $(id).addEventListener('pointercancel', function () { dragging = null; renderFixture(); });
   });
-  // ---- the Games screen: every game that's lined up, one card each, swiped side to side
+  // ---- the Games screen: every game that's lined up, one card each, in a list
   function renderGames() {
     var track = $('gamesTrack'), own = role === 'owner', keep = track.scrollLeft, ids = fixtures.map(function (f) { return f.id; }).join();
     $('gamesNew').hidden = !own || !sb;
@@ -3236,16 +3416,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     if (track.getAttribute('data-ids') !== ids) { track.innerHTML = fixtures.map(function () { return '<div class="card fxc"></div>'; }).join(''); track.setAttribute('data-ids', ids); }
     Array.prototype.forEach.call(track.children, function (c, i) { fxFill(c, fixtures[i], false); });
     track.hidden = !fixtures.length; track.scrollLeft = keep;
-    $('gamesDots').innerHTML = fixtures.length > 1 ? fixtures.map(function (f, i) { return '<button type="button" data-gd="' + i + '" aria-label="Game ' + (i + 1) + ' of ' + fixtures.length + '"></button>'; }).join('') : '';
-    gamesDot();
+    $('gamesCount').textContent = fixtures.length > 1 ? fixtures.length + ' games lined up.' : '';
   }
-  function gamesDot() {
-    var track = $('gamesTrack'), w = track.clientWidth || 1, cur = Math.round(track.scrollLeft / w);
-    Array.prototype.forEach.call($('gamesDots').children, function (d, i) { d.setAttribute('aria-current', i === cur); });
-    $('gamesCount').textContent = fixtures.length > 1 ? 'Game ' + (Math.min(fixtures.length, cur + 1)) + ' of ' + fixtures.length + '. Swipe for the others.' : '';
-  }
-  $('gamesTrack').addEventListener('scroll', gamesDot, { passive: true });
-  $('gamesDots').addEventListener('click', function (e) { var i = e.target.getAttribute('data-gd'); if (i !== null) { var t = $('gamesTrack'); t.scrollTo({ left: +i * t.clientWidth, behavior: 'smooth' }); } });
   $('gamesNew').addEventListener('click', function () { if (role !== 'owner') return; fxEdit = null; pollBack = 'games'; go('poll'); });
   // ---- the bar along the bottom: Home, Games, Settings
   function renderTabs() {
@@ -3720,7 +3892,11 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   function mhDraw() {
     if (!MH) return;
     var list = MH.reel ? MH.list.filter(function (c) { return typeof c.reel_at === 'number'; }).sort(function (a, b) { return a.reel_at - b.reel_at; }) : MH.list, cur = MH.reel ? MH.cur || 0 : MH.i;
-    $('mhList').innerHTML = list.map(function (c, i) { return '<li><button type="button" data-mhi="' + i + '"' + (MH.reel ? ' data-mht="' + c.reel_at + '"' : '') + ' aria-pressed="' + (i === cur) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('');
+    $('mhList').innerHTML = list.map(function (c, i) { var t = String(c.title || c.label || ''), mm = /^(\d+'?)\s+(.*)$/.exec(t); return '<li><button type="button" data-mhi="' + i + '"' + (MH.reel ? ' data-mht="' + c.reel_at + '"' : '') + ' aria-pressed="' + (i === cur) + '">' + (mm ? '<span class="mmin">' + esc(mm[1]) + ' </span><span>' + esc(mm[2]) + '</span>' : esc(t)) + '</button></li>'; }).join('');
+    // the moments as ticks along the video's length, goals in the kit colour: tap one to jump there
+    var dur = MH.reel ? $('mhVideo').duration : 0;
+    $('mhTicks').hidden = !(dur > 0 && isFinite(dur));
+    $('mhTicks').innerHTML = $('mhTicks').hidden ? '' : list.map(function (c, i) { return '<button type="button" class="' + (/goal/i.test(c.title || c.label || '') ? 'g' : 'h') + (i === cur ? ' on' : '') + '" data-mhi="' + i + '" data-mht="' + c.reel_at + '" style="left:' + Math.min(100, Math.max(0, c.reel_at / dur * 100)).toFixed(2) + '%" aria-label="' + esc(c.title || c.label || 'Moment') + '"></button>'; }).join('');
     $('mhNow').textContent = 'Moment ' + (cur + 1) + ' of ' + list.length + ' · ' + mhTime(mhLength(MH.list)) + ' in all';
     var voiced = MH.reel ? !!MH.r.reel.vpath : MH.list.some(function (c) { return c.vpath; });
     $('mhTools').innerHTML = '<button class="plain primary" type="button" data-mhsave="1"' + (EX.busy ? ' disabled' : '') + '>' + (EX.busy ? 'Getting it ready…' : 'Save or share') + '</button>' +
@@ -3730,6 +3906,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('mhMsg').hidden = !say; $('mhMsg').textContent = say; $('mhMsg').classList.toggle('bad', mine && MK.bad);
   }
   function mhClose() { MH = null; var v = $('mhVideo'); try { v.pause(); } catch (e) {} v.removeAttribute('src'); try { v.load(); } catch (e) {} $('mhPop').hidden = true; }
+  $('mhVideo').addEventListener('loadedmetadata', function () { if (MH && MH.reel) mhDraw(); }); // (now the ticks can be placed)
   $('mhVideo').addEventListener('ended', function () { if (MH && !MH.reel && MH.i < MH.list.length - 1) { mhLoad(MH.i + 1, true); mhDraw(); } }); // the next clip straight after
   $('mhVideo').addEventListener('timeupdate', function () { // (the reel: which moment is playing)
     if (!MH || !MH.reel) return; var t = $('mhVideo').currentTime, cur = 0;
@@ -3813,8 +3990,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       games.forEach(function (g) {
         var r = g.r, ms = momentsOf(r), timed = r.koAt && ms.length, vids = clips.filter(function (c) { return c.game_id === r.id; });
         var cutBtn = !own || !timed ? '' : NATIVE ? '<button class="plain primary" type="button" data-cut="' + g.i + '">' + (vids.length ? 'Cut again from a video' : 'Cut from a video on this phone') + '</button>' : '';
-        html += '<div class="hcard' + (hlFocus === r ? ' focus' : '') + '" id="hlg-' + g.i + '"><h3>' + (r.house ? esc(scoreLine(r, r.us, r.them)) + '<span class="badge">Among ourselves</span>' : 'v ' + esc(r.opp) + ' ' + r.us + '–' + r.them + (r.friendly ? '<span class="badge">Friendly</span>' : '')) + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
-        var delBtn = own && vids.length ? '<button class="plain" type="button" data-hldel="' + g.i + '"' + (HLDEL.busy ? ' disabled' : '') + '>' + (HLDEL.i === g.i && Date.now() < HLDEL.until ? 'Tap again to delete them' : 'Delete these highlights') + '</button>' : '';
+        html += '<div class="hcard' + (hlFocus === r ? ' focus' : '') + '" id="hlg-' + g.i + '"><h3>' + scoreBug({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them }) + (r.house ? '<span class="badge">Among ourselves</span>' : r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
+        var delBtn = own && vids.length ? '<button class="plain danger" type="button" data-hldel="' + g.i + '"' + (HLDEL.busy ? ' disabled' : '') + '>' + (HLDEL.i === g.i && Date.now() < HLDEL.until ? 'Tap again to delete them' : 'Delete these highlights') + '</button>' : '';
         var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
         if (own && vids.length && fixGoals(r).length) delBtn = '<button class="plain" type="button" data-fixg="' + g.i + '">Fix a goal</button>' + delBtn;
         var guests = r.house && r.house.guests && r.house.guests.length && A.active && !guestGame ? '<div class="actions"><button class="plain" type="button" data-guests="' + g.i + '">Send the guests a link</button></div>' +
@@ -3842,7 +4019,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       }).sort(function (a, b) { return ((b.p.id === myPid) - (a.p.id === myPid)) || (b.vids.length - a.vids.length) || (b.list.length - a.list.length); }).forEach(function (x) {
         html += '<div class="hcard"><h3>' + plink(x.p.id, esc(nm(x.p.id))) + ((roster[x.p.id] || {}).gaffer ? '<span class="badge gaffer">Gaffer</span>' : '') + (x.p.id === myPid ? '<span class="badge you">You</span>' : '') + '</h3>' +
           '<p class="note">' + (x.vids.length ? x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ' this season, oldest first' : x.list.length ? x.list.length + (x.list.length === 1 ? ' moment' : ' moments') + ' this season, oldest first' : 'No moments yet') + '</p>';
-        var mineNow = x.p.id === myPid && !!sb && !!me, hidBtn = mineNow && x.vids.length ? '<button class="plain" type="button" data-hide="1"' + (HIDE.busy ? ' disabled' : '') + '>Remove this clip from my highlights</button>' : '';
+        var mineNow = x.p.id === myPid && !!sb && !!me, hidBtn = mineNow && x.vids.length ? '<button class="plain danger" type="button" data-hide="1"' + (HIDE.busy ? ' disabled' : '') + '>Remove this clip from my highlights</button>' : '';
         var pr = preelOf(x.p.id);
         if (pr) html += playerReelPlayer(pr) + (canKeepReel(x.p.id) ? '<div class="actions"><button class="link" type="button" data-preeloff="' + x.p.id + '">Take this reel off ' + (x.p.id === myPid ? 'my' : esc(nm(x.p.id)) + '’s') + ' card</button></div>' : '');
         if (x.vids.length) html += (pr ? '<details class="allclips"><summary>All ' + x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ', one by one</summary>' + clipPlayer(x.vids) + '</details>' : clipPlayer(x.vids)) +
@@ -5183,7 +5360,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     var cb = curSeg(m), on = onPitch(m, cb), gk = m.segs[cb].gk, html = '';
     pickOrder(m, assist, side).forEach(function (id) {
       if (id === skip) return;
-      html += '<button class="pick' + (on.indexOf(id) < 0 ? ' benchp' : '') + '" type="button" data-p="' + id + '">' + esc(nm(id)) + (id === gk ? ' <small>keeper</small>' : on.indexOf(id) < 0 ? ' <small>bench</small>' : '') + '</button>';
+      var pl = P(id), no = pl && pl.num != null ? '<em class="pno" aria-hidden="true">' + esc(String(pl.num)) + '</em>' : '';
+      html += '<button class="pick' + (on.indexOf(id) < 0 ? ' benchp' : '') + '" type="button" data-p="' + id + '">' + no + esc(nm(id)) + (id === gk ? ' <small>keeper</small>' : on.indexOf(id) < 0 ? ' <small>bench</small>' : '') + '</button>';
     });
     return html;
   }
@@ -5202,13 +5380,16 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     $('goalMsg').hidden = !goalMsg && !locked; $('goalMsg').classList.toggle('toast', locked);
     $('goalMsg').textContent = locked ? (lockNote ? lockNote + ' ' : '') + 'Score locked for 8 seconds so it isn’t counted twice.' : goalMsg;
     $('goalUs').disabled = $('goalThem').disabled = locked || (m.phase === 'ft' && role !== 'owner');
+    $('dock').hidden = role !== 'owner' && !document.body.classList.contains('sc'); // (watching only: nothing to log)
+    if (locked && !$('dock').classList.contains('locked')) $('dock').style.setProperty('--lockms', Math.max(0, lockUntil - Date.now()) + 'ms');
+    $('dock').classList.toggle('locked', locked);
     var hlE = pick && pick.step === 'hl' ? hlFind(m, pick.at) : null; if (pick && pick.step === 'hl' && !hlE) pick = null;
-    if (hlE) html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Whose highlight?"><strong>Whose highlight?</strong><p class="note">Marked at ' + esc(ml(hlE)) + '. It goes under their name in Highlights.</p><div class="chips">' +
+    if (hlE) html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Whose highlight?"><div class="phead"><strong>Whose highlight?</strong><button class="link" type="button" data-cancel="1">Close</button></div><p class="note">Marked at ' + esc(ml(hlE)) + '. It goes under their name in Highlights.</p><div class="chips">' +
       hlCands(m).map(function (id) { return '<button class="pick' + (hlE.p === id ? ' on' : '') + '" type="button" data-p="' + id + '">' + esc(nm(id)) + (m.house ? ' <small>' + esc(sideOf(m, id) === 'b' ? m.opp : usOf(m)) + '</small>' : '') + '</button>'; }).join('') +
-      '<button class="pick alt" type="button" data-p="x">No one</button></div></div></div>';
-    else if (pick && pick.step === 'scorer') html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Who scored?"><strong>Who scored' + (m.house ? ' for ' + esc(pick.side === 'b' ? m.opp : usOf(m)) : '') + '?</strong><div class="chips">' + pickBtns(m, null, false, pick.side) +
-      '<button class="pick alt" type="button" data-p="x">Own goal or not sure</button><button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div></div>';
-    else if (pick) html = '<div class="pickpop"><div class="picker" role="dialog" aria-label="Who set it up?"><strong>Who set up ' + esc(nm(pick.p)) + '?</strong><div class="chips"><button class="pick alt" type="button" data-p="x">No assist</button>' + pickBtns(m, pick.p, true, pick.side) +
+      '<button class="pick alt wide" type="button" data-p="x">No one</button></div></div></div>';
+    else if (pick && pick.step === 'scorer') html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Who scored?"><div class="phead"><strong>Who scored' + (m.house ? ' for ' + esc(pick.side === 'b' ? m.opp : usOf(m)) : '') + '?</strong><button class="link" type="button" data-cancel="1">Cancel</button></div><div class="chips">' + pickBtns(m, null, false, pick.side) +
+      '<button class="pick alt wide" type="button" data-p="x">Own goal or not sure</button></div></div></div>';
+    else if (pick) html = '<div class="pickpop"><div class="picker" role="dialog" aria-label="Who set it up?"><strong>Who set up ' + esc(nm(pick.p)) + '?</strong><div class="chips"><button class="pick alt wide" type="button" data-p="x">No assist</button>' + pickBtns(m, pick.p, true, pick.side) +
       '</div></div></div>';
     $('picker').innerHTML = html;
     html = '';
@@ -5216,7 +5397,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var setUp = e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '';
       var who = e.hl ? (e.k === 'save' ? '<span class="note">Save by ' + esc(nm(e.p)) + '</span>' : role === 'owner' && typeof e.at === 'number' && !m.solo ? '<button class="link hlwho" type="button" data-hlwho="' + e.at + '">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked: whose?') + '</button>'
         : '<span class="note">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked') + '</span>') : !e.us ? (m.house && e.p != null ? '<span class="ag">' + esc(nm(e.p)) + ' for ' + esc(m.opp) + '</span>' + setUp : '<span class="ag">Goal for ' + esc(m.opp) + '</span>') :
-        (e.p != null ? esc(nm(e.p)) + (m.house ? ' <span class="note">for ' + esc(usOf(m)) + '</span>' : '') : 'Goal for ' + esc(usOf(m))) + setUp;
+        (e.p != null ? (m.house ? '' : 'Goal: ') + esc(nm(e.p)) + (m.house ? ' <span class="note">for ' + esc(usOf(m)) + '</span>' : '') : 'Goal for ' + esc(usOf(m))) + setUp;
       if (e.by) who += ' <span class="tagf">Logged by a teammate</span>';
       html += '<li><span class="t">' + ml(e) + '</span><span>' + who + '</span></li>';
     });
@@ -5242,6 +5423,16 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
   $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; if (m.house) { pick = { step: 'scorer', side: 'b' }; renderScore(); return; } pick = null; addGoal(stamped(m, { us: false })); });
   $('undo').addEventListener('click', function () { var m = S.match; if (!m) return; pick = null; m.events.pop(); save(); renderScore(); });
   document.body.appendChild($('picker')); // the pop-up sits above everything, outside the game screen's own layout
+  // The pickers are sheets: pull one down (from its top, or when it's scrolled to the top) and it closes, like iOS's own
+  (function () {
+    var y0 = null, box = null;
+    $('picker').addEventListener('touchstart', function (e) { box = e.target.closest('.pickpop[data-cancel] .picker'); y0 = box && box.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+    $('picker').addEventListener('touchmove', function (e) { if (y0 == null || !box) return; var dy = Math.max(0, e.touches[0].clientY - y0); box.style.transform = dy ? 'translateY(' + dy + 'px)' : ''; }, { passive: true });
+    $('picker').addEventListener('touchend', function (e) {
+      if (y0 == null || !box) return; var dy = e.changedTouches[0].clientY - y0; box.style.transform = ''; y0 = null;
+      if (dy > 90) { pick = null; renderScore(); }
+    });
+  })();
   $('picker').addEventListener('click', function (e) {
     var m = S.match; if (!m || !pick) return;
     if (e.target.getAttribute('data-cancel')) { pick = null; renderScore(); return; }
@@ -5274,6 +5465,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
     }
     var acks = Object.keys(watchSeen).sort(function (a, b) { return watchSeen[b] - watchSeen[a] || (a < b ? -1 : 1); }).slice(0, 80); // presses from the watch this phone has dealt with, so it can stop repeating them
     return { live: true, gid: m.gid, acks: acks, due: subDue(m) >= 0, team: usOf(m), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
+      color: /^#[0-9a-f]{6}$/i.test(S.color || '') ? S.color : DEFAULT_COLOR, // (the watch's Goal button wears the kit)
       players: pickOrder(m).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0, gk: id === m.segs[cb].gk }; }) };
   }
   function watchSend() {
@@ -5536,8 +5728,8 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
       var x = S.results[i], w = x.house ? 'H' : x.us > x.them ? 'W' : x.us < x.them ? 'L' : 'D'; // (H: among ourselves, no win or loss)
       if (statScope ? x.tour !== statScope : !!x.tour) continue;
       html += '<li><b class="' + w + '">' + w + '</b><span>' + x.us + '–' + x.them + '</span><span>' + (x.house ? esc(x.house.a) + ' v ' + esc(x.house.b) + '<span class="tagf">Among ourselves</span>' : (x.opp ? 'v ' + esc(x.opp) : '') + (x.friendly ? '<span class="tagf">Friendly</span>' : '')) + (function () { var q = ratingsOf(x); return q.motm != null && P(q.motm) ? '<br><small class="motm">★ ' + esc(nm(q.motm)) + ' ' + q.r[q.motm].toFixed(1) + '</small>' : ''; })() + '</span>' +
-        '<span class="rowbtns">' + (x.koAt && x.ev && x.ev.length ? '<button class="del" type="button" data-reel="' + i + '">Highlights</button>' : '') +
-        (role === 'owner' ? '<button class="del' + (delIdx === i ? ' armed' : '') + '" type="button" data-del="' + i + '">' + (delIdx === i ? 'Tap to confirm' : 'Remove') + '</button>' : '') + '</span></li>';
+        '<span class="rowbtns">' + (x.koAt && x.ev && x.ev.length ? '<button class="del tint" type="button" data-reel="' + i + '">Highlights</button>' : '') +
+        (role === 'owner' ? '<button class="del danger' + (delIdx === i ? ' armed' : '') + '" type="button" data-del="' + i + '">' + (delIdx === i ? 'Tap to confirm' : 'Remove') + '</button>' : '') + '</span></li>';
     }
     $('results').innerHTML = html || '<li><span></span><span></span><span class="note">Nothing yet</span></li>';
     $('resNote').textContent = S.results.length && role === 'owner' ? "Player totals are worked out from these games, so removing one takes its minutes, goals and assists off too." : '';
@@ -6232,7 +6424,7 @@ body.tabbed { padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
         if (play) o += '<div class="cplay"><b>' + esc(m.play_name || 'A play') + '</b><svg viewBox="0 0 100 140" data-chsvg="' + m.id + '" role="img" aria-label="Recorded play">' + tbSvg(false, tbFrame(play, tbTracks(play), 0)) + '</svg><div class="cacts"><button type="button" data-chplay="' + m.id + '">▶ Play, ' + Math.max(1, Math.round(play.dur / 1000)) + ' s</button></div></div>';
         if (m.body) o += '<button type="button" class="bubble" data-chmsg="' + m.id + '">' + esc(m.body) + '</button>';
         else if (play) o += '<div class="cacts"><button type="button" data-chmsg="' + m.id + '">…</button></div>';
-        if (chOpen === m.id) o += '<div class="cacts">' + (m.can_delete ? '<button type="button" data-chdel="' + m.id + '">Delete</button>' : '') + (m.mine ? '' : '<button type="button" data-chrep="' + m.id + '">Report</button>' + (m.pid != null ? '<button type="button" data-chmute="' + m.pid + '" data-n="' + esc(m.name || 'Player') + '">Block ' + esc(m.name || 'Player') + '</button>' : '')) + '</div>';
+        if (chOpen === m.id) o += '<div class="cacts">' + (m.can_delete ? '<button class="danger" type="button" data-chdel="' + m.id + '">Delete</button>' : '') + (m.mine ? '' : '<button type="button" data-chrep="' + m.id + '">Report</button>' + (m.pid != null ? '<button class="danger" type="button" data-chmute="' + m.pid + '" data-n="' + esc(m.name || 'Player') + '">Block ' + esc(m.name || 'Player') + '</button>' : '')) + '</div>';
         return o + '</div>';
       }).join('') + '</div>';
       if (CH.note) html += '<p class="msg" role="status">' + esc(CH.note) + '</p>';

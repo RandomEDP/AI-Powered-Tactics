@@ -98,7 +98,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 
 | Path | What |
 |---|---|
-| `index.html` | The whole app (about 4,800 lines: HTML, CSS, JS in one file). Sections are marked `// ---- name` and `// ================= name`; grep for them |
+| `index.html` | The whole app (about 6,800 lines: HTML, CSS, JS in one file). Sections are marked `// ---- name` and `// ================= name`; grep for them |
 | `config.js` | Supabase URL, publishable key, `siteUrl` for confirmation emails |
 | `sw.js` | Offline cache. **Bump `CACHE` on every web change** |
 | `privacy.html`, `support.html` | App Store pages (linked from the listing). The privacy page must cover any new data (it covers squad chat, for example) |
@@ -541,6 +541,39 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     gemini-2.5-flash-tts.
 - Ethan funds the Google usage himself.
 
+### The look (the redesign, October 2026; Ethan asked for it after a review against Apple's design guidelines)
+- **Text follows the iPhone's text size.** Every `font-size` is a token on one scale (`--t-large` 1.75rem, `--t-title`,
+  `--t-head`, `--t-body` 1rem, `--t-sub`, `--t-foot`, `--t-cap` .75rem) or a rem value; never px (the clip preview
+  `.lk-*` is the one exception: it's a drawing of a video frame). `textSize()` (top of the script, `window.gafferTextSize`)
+  sets the root from WebKit's `-apple-system-body` on an iPhone (17px standard), kept between 15 and 26px; 17px elsewhere.
+- **Colours mean one thing each:** the kit colour (`--on`) for the main action and what's selected; orange (`--bib`,
+  #b03f08, 5.2:1) only for bibs: the bench, coming off, side B in a game among the squad; red (`--danger`, = `--agg`) for
+  errors and anything that deletes or can't be undone; goals against are plain ink.
+- **Buttons:** `.plain.primary` (one per screen), `.plain.tint` (secondary), `.plain` (a set of choices), `.plain.quiet`
+  (text only), `.danger` (red text). All 44 points tall at least.
+- **Match mode** (the game screen): the score is in the clock panel (`.pscore`, `#usN`/`#themN`); Goal for us, Goal
+  against, Highlight, Keeper save and Undo are in `#dock`, fixed along the bottom (frosted; solid with Reduce
+  Transparency), with the lock note (`#goalMsg`) and the 8-second lock drawn as a sweep (`.dock.locked`). The rota is
+  folded (`details.fold`). The tab bar doesn't show on the game screen, so the dock sits at the very bottom.
+- **Pickers are sheets** (`.pickpop .picker`): from the bottom, a grabber, two even columns, Cancel at the top, and a
+  pull down closes them.
+- **Navigation:** `.back` is the kit-coloured chevron and the previous screen's name; the `h1` under it is a large title.
+  `#topbar` (`topbarWatch`/`topbarShow`, state in `NAVB`) shows the title small once it scrolls away, with the same back.
+  A swipe in from the left edge (within 24px, more than 80px across) taps the screen's back button. The tab bar floats.
+- **Team page:** Team settings is the gear in the header (`#mOptions`, `.herogear`); the header has the form guide
+  (`#homeForm`, last five league results, oldest first); each tile has a fact (`#mStatsSub`, `#mHlSub`, `#mInsSub`).
+- **The score box** (`scoreBug(x)`, `.sbug`), like the reels' graphics, on feed game cards and Highlights game cards. Its
+  text reads like `scoreText` ("SOP FC 1–0 Dog Squad").
+- **Settings:** grouped cards; on/off settings are switches (`.check.tgl`, `role="switch"`); the crest has a "Choose a
+  picture" button (the file input is visually hidden, `.vh`); Experimental comes last. Report and Block on someone's
+  profile are under ⋯ in the bar (`#prMore`, `PF.more`). Games is a list. The chat box is fixed above the tab bar.
+- **The watch** (watchOS 10+; the old single scroll stays for watchOS 9): three pages turned with the crown
+  (`MatchPages`: the clock, score and Highlight; the 2 × 2 buttons, `LogButtons`; the changes to come). A goal turns
+  back to the score. Double tap marks a highlight (`DoubleTapPrimary`, `handGestureShortcut(.primaryAction)`, watchOS 11,
+  Series 9 / Ultra 2 and later). Goal for us wears the kit: the phone sends `color` in the watch state, `MatchState.kit`
+  and `kitIsLight` (tested in `tests/watch/main.swift`, 26). The clock is `@ScaledMetric`.
+- Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
+
 ### Other features (all in `index.html`)
 - Polls, the Games screen, game modes and tournaments, and the minutes planner (Aggressive ↔ Fairness).
 - Injuries and leaving, insights (ratings, MOTM, chemistry), and squad chat.
@@ -636,6 +669,12 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   **Look at the screenshots** after any UI change.
 
 ## 10. Gotchas learned the hard way
+
+- Anything `position: fixed` inside a screen (the dock, the chat box, pop-ups) is pinned to the page, not the phone's
+  screen, while the screen has a transform. `.view`'s entrance animation is `backwards` (not `both`) for that reason;
+  don't give a screen a lasting transform.
+- CSS class names share one file too: a new `.sw` once collided with the colour swatches' `.sw` and squashed every
+  setting to nothing. Grep for a class before naming it, as for functions.
 
 - Don't `pkill -f` a pattern that also matches your own shell command (it killed the session once).
 - Walk-throughs run in real time and can print a value a second out. CI treats them as warnings for that reason. Locally,

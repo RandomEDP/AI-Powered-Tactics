@@ -139,7 +139,8 @@ eq(await F.page.$$eval('#fdBody .feedcard', (c) => c.length), 0, 'nor does someo
 
 // ---------- report and block
 await prof(S, 'Chappers');
-await S.click('#prBody [data-pr="report"]'); await S.click('#prBody [data-why="Spam or a fake account"]'); await S.run(800);
+check(!(await S.visible('#prBody [data-pr="report"]')) && await S.visible('#prMore'), 'Report and Block wait under the ⋯ in the bar, not on the profile itself');
+await S.click('#prMore'); await S.click('#prBody [data-pr="report"]'); await S.click('#prBody [data-why="Spam or a fake account"]'); await S.run(800);
 eq(w.db().profile_reports.map((r) => [r.reporter === 'u-jake', r.reason]), [[false, 'Spam or a fake account']], 'anyone can be reported, with a reason');
 check(/Gaffer will look at @Chappers/.test(await S.text('#prMsg')), 'which says what happens next');
 await S.click('#prBody [data-pr="block"]'); eq(/Tap again to block/.test(await S.text('#prBody')), true, 'blocking takes two taps');
