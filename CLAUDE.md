@@ -746,14 +746,16 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   the ad, the next go uses the same name and needs no second ad.
 - First ad of a session: `initialize`, Google's consent form where the law needs it (UK/EU; Settings → Ads → Ad choices
   reopens it), then Apple's tracking question (`NSUserTrackingUsageDescription`). Either answer still unlocks.
-- Test ads now: `config.js` `ads` (Google's test rewarded unit), `Info.plist` `GADApplicationIdentifier` (Google's test
-  app id) and `SKAdNetworkItems` (Google's own id only; add Google's full list before going live).
-- **Going live (Ethan's steps):** make an AdMob account, the iOS app and a rewarded unit; put the unit id in `config.js`
-  (`test: false`) and the app id in `Info.plist`; turn on server-side verification on the unit with the callback
-  `https://kvefpqigpqprxfelesrb.supabase.co/functions/v1/ad-reward`; set the secret `ADMOB_AD_UNITS`; then
-  `update public.ad_settings set trust_app = false`; update the App Privacy labels (Identifiers: device ID; Usage data;
-  coarse location; used for third-party advertising, tracking if allowed) and set up the UK/EU consent message in AdMob
-  (Privacy & messaging). App Review needs to find the tracking prompt: say where in the review notes.
+- **AdMob is set up (15 October 2026):** Gaffer's app id `ca-app-pub-2627873247729818~2068368869` is in `Info.plist`
+  (`GADApplicationIdentifier`) and its rewarded unit `ca-app-pub-2627873247729818/1194270899` in `config.js` `ads`, with
+  `test: true`, which makes the plugin play Google's test unit instead (never tap real ads while testing: AdMob flags it).
+  `SKAdNetworkItems` has Google's own id only; add Google's full list before going live.
+- **Still to do before real ads (Ethan's, in AdMob / App Store Connect):** turn on server-side verification on the rewarded
+  unit with the callback `https://kvefpqigpqprxfelesrb.supabase.co/functions/v1/ad-reward` (Verify URL should pass); set
+  up the UK/EU consent message (Privacy & messaging); the App Privacy labels (Identifiers: device ID; Usage data; coarse
+  location; used for third-party advertising, tracking if allowed); review notes saying where the tracking prompt is.
+  Then (a Claude session): `test: false` in `config.js`, the `ADMOB_AD_UNITS` secret, and
+  `update public.ad_settings set trust_app = false`.
 - Tests: `ads.test.mjs` (the database, the real function with a stand-in Google key, and the phones).
 
 ### The shop (`0033_shop.sql`, `shop`, `shop-webhook`; behind the experimental switch; Ethan asked, October 2026)

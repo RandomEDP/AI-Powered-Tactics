@@ -188,7 +188,7 @@ await J.page.evaluate(() => { window.__adEarly = false; });
 await J.click(mine + ' [data-ad="reel"]'); await J.run(2000);
 const prep = (await ads(J)).find((x) => Array.isArray(x) && x[0] === 'prepare')[1];
 eq((await ads(J)).filter((x) => typeof x === 'string').slice(0, 3), ['initialize', 'consent', 'att'], 'Google\'s ads are started, the consent check runs and Apple\'s tracking question is asked, before the first ad');
-eq([prep.adId, prep.isTesting, prep.ssv.userId, /^tk-/.test(prep.ssv.customData)], ['ca-app-pub-3940256099942544/1712485313', true, 'u-jake', true], 'Google\'s test rewarded ad, carrying the account and the ticket for the server-side check');
+eq([prep.adId, prep.isTesting, prep.ssv.userId, /^tk-/.test(prep.ssv.customData)], ['ca-app-pub-2627873247729818/1194270899', true, 'u-jake', true], 'Google\'s test rewarded ad, carrying the account and the ticket for the server-side check');
 check(/playing/.test(await J.text(mine)), 'it says the ad is playing');
 await J.run(31000); await J.run(1500);
 eq([await J.page.$$eval(mine + ' .reelp video', (v) => v.length), await J.page.$$eval(mine + ' [data-ad]', (b) => b.length)], [1, 0], 'watched to the end: his reel plays');

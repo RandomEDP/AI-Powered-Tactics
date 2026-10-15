@@ -14,8 +14,9 @@ window.APT_CONFIG = {
   // The shop takes real payments only once Stripe's live key is set (and SHOP_LIVE on the shop function). Until then the
   // shop says it's in test mode.
   shopLive: false,
-  // Rewarded ads (the free tier): the AdMob rewarded ad unit. These are Google's own test ads, which earn nothing and are
-  // safe to tap. When Ethan's AdMob account is set up: his rewarded unit id here, test: false, and his AdMob app id in
-  // ios/App/App/Info.plist (GADApplicationIdentifier). Ad unit ids are public by design (they're in every app that shows ads).
-  ads: { rewarded: 'ca-app-pub-3940256099942544/1712485313', test: true }
+  // Rewarded ads (the free tier): Gaffer's AdMob rewarded ad unit (its app id is in ios/App/App/Info.plist,
+  // GADApplicationIdentifier). Ad unit ids are public by design (they're in every app that shows ads). While test is true
+  // the phone plays Google's own test ads instead (the plugin swaps the unit), which earn nothing and are safe to tap, so
+  // testing can't get the AdMob account flagged. Real ads: test: false (and see CLAUDE.md, "Rewarded ads").
+  ads: { rewarded: 'ca-app-pub-2627873247729818/1194270899', test: true }
 };
