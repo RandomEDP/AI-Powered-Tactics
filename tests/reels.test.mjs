@@ -16,7 +16,7 @@ const cutter = () => { // the native ReelCutter, as the web app sees it
       return { clips: o.clips.map((c) => Object.assign({ file: c.file, path: '/phone/' + c.file }, c.voice ? { voiced: { file: c.file.replace('.mp4', 'v.mp4'), path: '/phone/' + c.file.replace('.mp4', 'v.mp4') } } : {})), reel: { path: '/phone/' + o.reelFile, marks: o.clips.map((c, i) => i ? i * 14.04 : 0) },
         ...(o.reelCleanFile && o.clips.some((c) => c.voice) ? { reelClean: { path: '/phone/' + o.reelCleanFile, marks: o.clips.map((c, i) => i ? i * 14.04 : 0) } } : {}) }; },
     upload: async (o) => { window.__rc.push(['upload', o]); const r = await fetch(o.url, { method: 'PUT', body: 'video', headers: { 'Content-Type': o.contentType || 'video/mp4' } }); return { status: r.status, ok: r.ok }; },
-    relabel: async (o) => { window.__rc.push(['relabel', o]); return { path: '/phone/fix/' + o.file, size: 900, ...(o.voice ? { voiced: { path: '/phone/fix/' + o.file.replace('.mp4', 'v.mp4'), size: 900 } } : {}) }; },
+    relabel: async (o) => { window.__rc.push(['relabel', o]); if (window.__fixHold) await window.__fixHold; return { path: '/phone/fix/' + o.file, size: 900, ...(o.voice ? { voiced: { path: '/phone/fix/' + o.file.replace('.mp4', 'v.mp4'), size: 900 } } : {}) }; },
     joinReel: async (o) => { window.__rc.push(['join', o]); if (window.__hold) await window.__hold; if (document.hidden) throw new Error('The operation was interrupted'); if (cb) { cb({ stage: 'fetch', i: 0, n: o.items.length, p: 0 }); cb({ stage: 'reel', p: 0.5 }); } return { path: '/phone/' + o.file, size: 1000, marks: o.items.map((x, i) => i * 14.04) }; },
     share: async (o) => { window.__rc.push(['share', o.path]); return {}; }, cleanup: async () => ({}),
   };
@@ -316,6 +316,29 @@ check(/^[^/]+\/[^/]+\/reel-[a-z0-9]+\.mp4$/.test((w.db().games[0].reel || {}).pa
 check(/Put right: .*goal by Harrison, set up by Chaplin\. The stats are updated, and that clip has been made again/.test(await A.text('#fxMsg')), `it says what it did (${await A.text('#fxMsg')})`);
 await shot(A, 'fix-done');
 await A.click('#fxBody [data-fx="close"]'); await A.run(300);
+
+// ---------- fixed again, and the team re-read while that clip was being made (Ethan's phone was put away for 20 minutes
+// mid-fix, and coming back re-reads the team before the new clip is in). The phone must end up playing the new clip, not
+// the old one it has just deleted, and the moment's caption must say who really set it up.
+const oldPath = rowsNow()[0].path, oldV = rowsNow()[0].vpath, joinsB = (await calls(A, 'join')).length;
+await A.click('#hlList .hcard:first-child [data-fixg]'); await A.run(200);
+await A.click('#fxBody [data-fxev]'); await A.run(200);
+await A.click('#fxBody [data-fxa="8"]'); await A.run(100);
+await A.page.evaluate(() => { window.__fixHold = new Promise((r) => { window.__fixRelease = r; }); });
+await A.click('#fxBody [data-fx="save"]'); await A.run(3000);
+eq((await calls(A, 'relabel')).length, 2, 'the clip is being made again');
+await A.page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await A.run(2000); // (back in Gaffer: it re-reads the team)
+await A.page.evaluate(() => { window.__fixRelease(); window.__fixHold = null; }); await A.run(5000);
+const now2 = rowsNow()[0], ev2 = w.db().game_events.filter((x) => x.game_id === gameId && x.kind === 'goal')[0];
+eq([ev2.pid, ev2.assist, /Harrison \(Ethan\)/.test(now2.label), now2.path !== oldPath], [4, 8, true, true], `the database has Harrison set up by Ethan, and the new clip (${now2.label})`);
+const cached = await A.page.evaluate((c) => (JSON.parse(localStorage.getItem('apt-team-' + c + ':roster')).clips || []).filter((x) => x.seq === 0)[0], code);
+eq([cached.path, cached.vpath, cached.label], [now2.path, now2.vpath, now2.label], 'and this phone has the new clip too, not the old one it deleted');
+const rejoin2 = (await calls(A, 'join')).slice(joinsB), joinedUrls = rejoin2.flatMap((j) => j.items.map((x) => tail(x.url)));
+check(rejoin2.length >= 1 && joinedUrls.includes(tail(now2.vpath)) && !joinedUrls.includes(tail(oldPath)) && !joinedUrls.includes(tail(oldV)), `the one video is joined from the new clip, not the deleted one (${joinedUrls.join(', ')})`);
+await A.click('#fxBody [data-fx="close"]'); await A.run(300);
+await A.click('#hlList .hcard:first-child [data-mh]'); await A.run(500);
+check(/Harrison \(Ethan\)/.test(await A.text('#mhList')), `the whole-match highlights list it as Harrison, set up by Ethan (${(await A.text('#mhList')).slice(0, 80)})`);
+await A.click('#mhClose'); await A.run(200);
 
 await A.click('#hlList [data-hldel]'); await A.click('#hlList [data-hldel]'); await A.run(1500);
 eq([rows().length, (w.db().files || []).filter((f) => f.bucket === 'r2' && !/\/players\//.test(f.path)).length], [0, 0], 'deleting a game\'s highlights removes the copies with commentary too (a player\'s own reel stays on his card)');
