@@ -564,23 +564,24 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   "Goal for …? Log the goal" (`MatchState.asksScorer`, `confirmUs` in `ContentView.swift`) instead of who scored.
 - Tests: `solo.test.mjs` (phone, watch presses, no notifications, kept out of the record), `tests/watch/main.swift` (25).
 
-### The team pass: the Gaffer tier per team, with chip in (`0032_team_pass.sql`, `team-pass`; Ethan asked, October 2026)
-- One price for the team: anyone on it can **Pay for the month** (£4.99, 720 hours) or **Chip in** (69p, 90 hours, so eight
-  make a month) in the iPhone app. Both are Apple **non-renewing subscriptions** (one-off; nobody is charged again), product
-  ids `com.randomedp.aipoweredtactics.team.month` / `.team.chip`. Gifting to others is allowed by guideline 3.1.1; taking
-  money outside the App Store isn't (outside the US storefront).
+### The team pass: the Gaffer tier per team, from a team pot (`0032_team_pass.sql`, `team-pass`; Ethan asked, October 2026)
+- Anyone on the team chips into the team's pot in the iPhone app: 69p, £1.49, £2.49, or the whole £4.99 (Ethan: "chip in
+  however much you want until the team gets £4.99"). When the pot reaches 499 pence the whole team gets 30 days at once
+  (added on to any time left) and anything over stays in the pot (`team_pass.pot`). Apple **consumables**, ids
+  `com.randomedp.aipoweredtactics.team.chip069` / `.chip149` / `.chip249` / `.month`; credit is by product, the same in any
+  country. Gifting to others is allowed by guideline 3.1.1; taking money outside the App Store isn't (outside the US).
 - **Flow:** `TeamPassPlugin` (StoreKit 2) `buy({id, account})` puts the account's id on the purchase as `appAccountToken`;
   JS keeps it in `apt-pass-pending` and calls `team-pass` `claim {code, transaction_id}`, which asks Apple's App Store
   Server API (ES256 token from the In-App Purchase key; live, then sandbox), checks bundle, product, buyer and refunds, and
-  calls `pass_credit` (service role only; once per transaction; adds on from `paid_until` or now). Only then does JS call
-  `finish`. Unfinished ones are claimed again on every `passLoad` (after each pull) and from the plugin's `transaction`
-  event (Ask to Buy).
+  calls `pass_credit` (service role only; once per transaction; fills the pot, turns each full 499 into 30 days). Only then
+  does JS call `finish`. Unfinished ones are claimed again on every `passLoad` (after each pull) and from the plugin's
+  `transaction` event (Ask to Buy).
 - **`teamPaid(code?)` / `window.gafferTeamPaid`** is the one "this team has paid" check (the ads use it); it reads
-  `team_pass(code)` (anon allowed: paid, until, who chipped in, never money), kept per team in `apt-pass` for no signal.
-  SQL has `private.team_is_paid(team_id)`. `hasGaffer()` still returns true (early access).
-- **Card:** `#passCard` on the Team page (`renderPass`), behind the Experimental switch until the products are live (a
-  paid team shows it to everyone); gaffers see Pay for the month first, players Chip in; "Runs out in N days" within 5.
-  No buttons on the web or Android (no Google Play yet).
+  `team_pass(code)` (anon allowed: paid, until, pot, who chipped in, never what each paid), kept per team in `apt-pass` for
+  no signal. SQL has `private.team_is_paid(team_id)`. `hasGaffer()` still returns true (early access).
+- **Card:** `#passCard` on the Team page (`renderPass`, `.passbar`), behind the Experimental switch until the products are
+  live (a paid team shows it to everyone). It says before anyone pays that a chip-in unlocks nothing until the pot is full.
+  "Runs out in N days" within 5. No buttons on the web or Android (no Google Play yet).
 - Not applied yet: migration 0032 and `team-pass` wait for Ethan's OK; secrets `IAP_KEY_ID`, `IAP_ISSUER_ID`, `IAP_KEY_P8`
   (Ethan's, README "Team pass"). Refunds made after a purchase is counted aren't taken back yet (needs App Store Server
   Notifications). Test: `teampass.test.mjs`.

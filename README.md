@@ -68,23 +68,29 @@ Everything is built on GitHub's Macs, so no Mac is needed.
 
 Never put the `.p8` key, or any secret, in the code or in chat. GitHub secrets are encrypted and only available to the build.
 
-### Team pass: paying per team (one-time setup)
+### Team pass: paying per team, from a team pot (one-time setup)
 
-The Gaffer tier is paid for per team. In the iPhone app anyone on the team can **Pay for the month** (£4.99, 30 days for the whole team) or **Chip in** (69p, one player's share, so eight chip-ins make a month). Both are one-off purchases through Apple, never subscriptions. Gaffer's server (`supabase/functions/team-pass`) checks each one with Apple before it counts. Until the products below exist, the card (Team page, behind the Experimental switch) shows Apple's prices only once the App Store has them.
+The Gaffer tier is paid for per team. In the iPhone app anyone on the team can chip into the team's pot (69p, £1.49 or £2.49) or pay the whole £4.99. When the pot reaches £4.99 the whole team gets 30 days straight away, and anything over stays in the pot for the next month. Every one is a one-off purchase through Apple, never a subscription. Gaffer's server (`supabase/functions/team-pass`) checks each one with Apple before it counts. The card is on the Team page, behind the Experimental switch until the products below are live.
 
 1. **Agreements.** App Store Connect → Business: sign the Paid Apps agreement and fill in bank and tax details (nothing can be sold until they're active). Then join the [App Store Small Business Program](https://developer.apple.com/app-store/small-business-program/) so Apple takes 15%, not 30%.
-2. **Make the two purchases.** App Store Connect → Gaffer → Monetization → In-App Purchases → + → **Non-Renewing Subscription**:
-   - Reference name `Team pass: a month`, Product ID `com.randomedp.aipoweredtactics.team.month`, price £4.99, display name "Pay for the month", description "The Gaffer tier for your whole team for 30 days."
-   - Reference name `Team pass: chip in`, Product ID `com.randomedp.aipoweredtactics.team.chip`, price £0.69, display name "Chip in", description "One player's share of the team's month: about 4 days."
-   - Each needs a review screenshot (the Team page's "Gaffer for the team" card) and a line of review notes ("Pays for the Gaffer tier for the whole team; any team member can pay the month or chip in a share"). They go to review with the next app version.
+2. **Make the four purchases.** App Store Connect → Gaffer → Monetization → In-App Purchases → + → **Consumable** (each is credit into a team's pot, so it can be bought again and again):
+
+   | Product ID | Price | Display name | Description |
+   |---|---|---|---|
+   | `com.randomedp.aipoweredtactics.team.chip069` | £0.69 | Chip in 69p | 69p into your team's pot. At £4.99 the whole team gets a month. |
+   | `com.randomedp.aipoweredtactics.team.chip149` | £1.49 | Chip in £1.49 | £1.49 into your team's pot. At £4.99 the whole team gets a month. |
+   | `com.randomedp.aipoweredtactics.team.chip249` | £2.49 | Chip in £2.49 | £2.49 into your team's pot. At £4.99 the whole team gets a month. |
+   | `com.randomedp.aipoweredtactics.team.month` | £4.99 | Pay the whole month | Fills your team's pot: the whole team gets the Gaffer tier for 30 days. |
+
+   Each needs a review screenshot (the Team page's "Gaffer for the team" card) and a line of review notes ("Credit into the team's shared pot; when it reaches £4.99 every member of the team gets the Gaffer tier for 30 days"). They go to review with the next app version. Other countries get Apple's matching prices; each purchase puts the same amount in the pot wherever it was bought.
 3. **Make an In-App Purchase key** (so the server can ask Apple about purchases). App Store Connect → Users and Access → Integrations → In-App Purchase → +. Download the `.p8` (one chance only) and note its Key ID; the Issuer ID is the one on the App Store Connect API page. Add three Supabase Edge Function secrets (Project Settings → Edge Functions → Secrets), never in chat or the repo:
    - `IAP_KEY_ID`: the Key ID
    - `IAP_ISSUER_ID`: the Issuer ID
    - `IAP_KEY_P8`: the whole `.p8` file, including the BEGIN and END lines
 4. **Database and function.** Apply `supabase/migrations/0032_team_pass.sql` and deploy `team-pass` (verify_jwt on).
-5. **Try it on TestFlight.** TestFlight purchases are free (Apple's sandbox). Turn on Settings → Experimental, open the Team page, Chip in. A purchase made before step 3 or 4 is kept on the phone and counts by itself the next time Gaffer opens.
+5. **Try it on TestFlight.** TestFlight purchases are free (Apple's sandbox). Turn on Settings → Experimental, open the Team page, chip in. A purchase made before step 3 or 4 is kept on the phone and counts by itself the next time Gaffer opens.
 
-Sandbox purchases (TestFlight, and Apple's reviewers) count too, as Apple requires; each one is marked `environment = 'Sandbox'` in `pass_purchases`. `ios/App/App/Gaffer.storekit` describes the same two products for testing in Xcode on a Mac (Xcode purchases can't be checked by Apple, so the server turns them down with a reason).
+Sandbox purchases (TestFlight, and Apple's reviewers) count too, as Apple requires; each one is marked `environment = 'Sandbox'` in `pass_purchases`. `ios/App/App/Gaffer.storekit` describes the same four products for testing in Xcode on a Mac (Xcode purchases can't be checked by Apple, so the server turns them down with a reason).
 
 ### Commentary voices bought once (one-time setup, after the team pass above)
 
