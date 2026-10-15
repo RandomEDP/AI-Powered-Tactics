@@ -9,7 +9,7 @@
 --    card, and it's kept here for everyone to watch.
 -- 4. A sponsor's name ("presented by …") for a week goes in gotw_sponsors, in the dashboard; empty for now.
 -- 5. Anyone can report a nominated goal (gotw_report); a moderator takes it down by setting pulled and removed_at.
--- No deletes or drops anywhere, so it can all go in through the Supabase MCP.
+-- Nothing in it removes rows or tables, so it can all go in through the Supabase MCP.
 
 -- The Monday a moment falls in, by the UK's clock.
 create or replace function private.gotw_week(p_at timestamptz default now()) returns date

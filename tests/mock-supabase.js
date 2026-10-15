@@ -100,7 +100,7 @@
       if (['fwd', 'def', 'mix', 'gk'].indexOf(a.p_position) < 0) return ok('position');
       const was = p.user_id; p.user_id = uid(); p.last_name = a.p_last_name || null; p.position = a.p_position; if (was !== uid()) followMates(d, t.id, uid()); store(d); return ok('ok');
     }
-    // ---------- Goal of the Week (0032), as the real functions behave: weeks run Monday to Sunday, UK time
+    // ---------- Goal of the Week (0036), as the real functions behave: weeks run Monday to Sunday, UK time
     if (name.startsWith('gotw_')) {
       if (!uid()) return fail('Sign in first', '42501');
       ['gotw_noms', 'gotw_votes', 'gotw_winners', 'gotw_sponsors', 'gotw_reports'].forEach((k) => { d[k] = d[k] || []; });

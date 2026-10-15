@@ -1,10 +1,10 @@
-// Goal of the Week in the database (0032): gaffers nominate one of their team's goals a week, anyone signed in votes
+// Goal of the Week in the database (0036): gaffers nominate one of their team's goals a week, anyone signed in votes
 // once a week (never for their own team), and the most votes wins once the week (Monday to Sunday, UK time) is over.
 import { suite } from './lib.mjs';
 import { database } from './pg.mjs';
 const { check, eq, done } = suite('database: Goal of the Week');
 const d = await database();
-eq(d.applied.includes('0032_goal_of_the_week.sql'), true, 'the Goal of the Week migration applies on top of the others');
+eq(d.applied.includes('0036_goal_of_the_week.sql'), true, 'the Goal of the Week migration applies on top of the others');
 
 const ethan = await d.user('ethan@example.com'), dan = await d.user('dan@example.com'), jake = await d.user('jake@example.com'), sam = await d.user('sam@example.com'), cara = await d.user('cara@example.com'), ali = await d.user('ali@example.com');
 const squad = (names) => names.map((name, i) => ({ pid: i + 1, name }));

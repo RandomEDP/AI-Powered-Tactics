@@ -114,7 +114,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0031` are **applied to the live project**; `0032` (Goal of the Week) waits for Ethan's go-ahead (section 7). New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0031` are **applied to the live project**; `0032`–`0035` are on other branches (live); `0036` (Goal of the Week) is half applied (section 7). New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -568,7 +568,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   and their writes never touch theirs.
 - Tests: `linked.test.mjs` (two gaffers, a follower and the watch), `linkdb.test.mjs`, `stream.test.mjs` (kind `link`).
 
-### Goal of the Week, across every team (`0032_goal_of_the_week.sql`; Ethan asked)
+### Goal of the Week, across every team (`0036_goal_of_the_week.sql`; Ethan asked)
 - Weeks run Monday to Sunday, UK time (`private.gotw_week`). A gaffer, with their team open, puts up one of its goals a
   week (`gotw_nominate`; a clip from the last 14 days with a goal in it; picking another swaps it, `gotw_withdraw` takes it
   down; a goal that's been up in an earlier week, or was pulled by a moderator, can't go up again). Only nominated clips are
@@ -711,7 +711,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0031` are applied live (0031 went in as two parts, `0031a`/`0031b`, through the MCP). `0032_goal_of_the_week.sql` is in the repo but not applied yet (it waits for Ethan's go-ahead, with `team-notify` kind `gotw`). Add new ones as `supabase/migrations/0033_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0031` are applied live (0031 went in as two parts, `0031a`/`0031b`, through the MCP). `0036_goal_of_the_week.sql`: its tables are live (`0036a`); its functions (`0036b`) and `team-notify` kind `gotw` wait for Ethan's go-ahead in the Goal of the Week thread. `0032`–`0035` were taken by other work at the same time. Add new ones as `supabase/migrations/0037_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
