@@ -114,7 +114,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0030`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0031`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -544,6 +544,30 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   the back button; a gaffer's account on Android writes nothing; no iPhone plugin is asked for). `tests/lib.mjs`
   `android: true` stands in for Capacitor's Android bridge.
 
+### Playing another team on Gaffer (`0031_linked_games.sql`; Ethan asked)
+- New game → the opponent's name also searches Gaffer's teams (`oppFind`, `search_teams`, `#oppFind`); picking one sets
+  `D.link` (`#oppLink` says so; changing the name unlinks). Setting the game up puts `m.linkTo` on the match and
+  `linkSend` calls `link_game` (`game_links`, status `proposed`), sets `m.link`/`m.linkTeam` and calls `team-notify` kind
+  `link` (the other team's gaffers; again on accepting, to the asking team's). No signal: it's sent on the next pull.
+- **Nothing is shared until the team asked accepts** (`#linkCard` on their Home, `link_answer` accept/decline; either
+  side can `cancel`, "Unlink" on the game screen; scrapping a game takes back an unanswered request, `linkDrop`).
+  Accepting attaches a game against them already going, puts their finished game straight into the results, or opens
+  New game already linked (`D.linked`). Picking a team that has an accepted, unused link uses it.
+- `team_links(code)` (anyone with the code, like `get_team`; requests to the team only for its gaffers) gives each
+  accepted link's other side (`private.link_side`): its own goals (scorers' names), goals it logged against itself, its
+  squad's names, and its clips once finished. From its live game while on (`state.link`), else its game with `games.link`.
+  Goals a side only took from the other (`lk` / `game_events.from_link`) are never sent back.
+- **One score** (`linkView`, inside `tally`, so the watch and followers agree): each side's own goals, plus the other side's
+  that it didn't log itself, matched one to one by time within `LINK_WIN` (90 s). Both teams' phones work it out the same
+  way. The game screen lists their goals with their scorer (`linkLine` says where the link stands and their squad).
+  Updates: a broadcast `changed` on `link:<id>` after each save of the live game (`linkPing`), and every 20 s.
+- **Full time** (`linkFinal`): the other side's extra goals go into the result as `lk` events (minute by our clock, who was
+  on), `r.link` kept. `linkRefold` (gaffers, after each `team_links`) redoes them when theirs change (their game finishing
+  later, a goal fixed); not while their side shows `phase: 'none'`. Fix a goal skips `lk` goals.
+- Their clips show under the game in Highlights ("From <team>'s video", `linkClipsHtml`); our own clips, cutting, reels
+  and their writes never touch theirs.
+- Tests: `linked.test.mjs` (two gaffers, a follower and the watch), `linkdb.test.mjs`, `stream.test.mjs` (kind `link`).
+
 ### Games among the squad, with guests (`0020_games_among_the_squad.sql`)
 - New game → "Among ourselves" (`#gKind`, `D.kind = 'house'`, `renderHouse`): two named sides (Bibs and Shirts to start),
   any size, at least 2 a side, no fixed keeper and no subs plan. Squad players are set to a side or Out; guests are added
@@ -667,7 +691,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0030` are applied live. Add new ones as `supabase/migrations/0031_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0031` are applied live (0031 went in as two parts, `0031a`/`0031b`, through the MCP). Add new ones as `supabase/migrations/0032_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
@@ -676,7 +700,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Edge functions:** all five are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
-  - Deployed now: `team-notify` v22 (kind `live` from any team member, sent once; kind `report` tells the moderators; Android phones through Firebase; same as the repo), `live-stream` v5,
+  - Deployed now: `team-notify` v23 (kind `live` from any team member, sent once; kind `report` tells the moderators; kind `link` for linked games; Android phones through Firebase; same as the repo), `live-stream` v5,
     `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
