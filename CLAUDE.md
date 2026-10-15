@@ -114,7 +114,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0033` and `0035` (rewarded ads) are applied to the live project. New ones are numbered on from 0036 |
+| `supabase/migrations/` | `0001` … `0033`, `0035` (rewarded ads), `0036` and `0037` are applied to the live project. New ones are numbered on from 0038 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -718,6 +718,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   ECDSA signature checked against its published keys), which calls `ad_grant` (service role only). The app polls
   `ad_claim`; `my_unlocks` lists the unlocked reels (`reelLocked`). Google's test ads never call the server, so while
   `ad_settings.trust_app` is true `ad_claim(p_app_says)` takes the app's word. Table `ad_unlocks` (RLS, no policies).
+- **Your own reel is made while the ad plays** (`0037_ad_reel_ahead.sql`; Ethan asked): on the free tier, Make the reel for
+  yourself (`rbAd()`) picks the new reel's file name first (`aheadStart`), starts the ad for that name (`adRun`; `ad_ticket`
+  takes a name in your own folder picked in the last week) and the reel together, puts the reel on your card with that
+  name, and shares it only once the ad was watched. Closed early: it's on your card, locked. The name, ticket and whether
+  the ad was watched are kept on the phone (`apt-ad-ahead`) until the reel is on the card, so if Gaffer is closed after
+  the ad, the next go uses the same name and needs no second ad.
 - First ad of a session: `initialize`, Google's consent form where the law needs it (UK/EU; Settings → Ads → Ad choices
   reopens it), then Apple's tracking question (`NSUserTrackingUsageDescription`). Either answer still unlocks.
 - Test ads now: `config.js` `ads` (Google's test rewarded unit), `Info.plist` `GADApplicationIdentifier` (Google's test

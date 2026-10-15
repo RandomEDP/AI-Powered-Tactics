@@ -4156,8 +4156,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       '<p class="note">' + (pr.made_at ? 'Their reel, made ' + esc(dayText(pr.made_at)) + '. ' : '') + 'Tap a moment to skip to it.</p><ol class="cliplist">' +
       (pr.marks || []).filter(function (m) { return typeof m.t === 'number'; }).map(function (m) { return '<li><button type="button" data-seek="' + m.t + '" aria-pressed="false">' + esc(m.label || 'Moment') + '</button></li>'; }).join('') + '</ol></div>';
   }
-  async function keepPlayerReel(pid, file, marks, labels) { // after a player's reel is made: up to their card, replacing the one before
-    var key = teamId + '/players/' + pid + '/reel-' + Date.now() + '.mp4';
+  async function keepPlayerReel(pid, file, marks, labels, key) { // after a player's reel is made: up to their card, replacing the one before
+    key = key || teamId + '/players/' + pid + '/reel-' + Date.now() + '.mp4'; // (key: a name picked before, when an ad unlocks it)
     var got = await clipCall('upload', { paths: [key] });
     if (!got || !got.urls) throw new Error((got && got.error) || 'Gaffer’s server didn’t answer.');
     var blob = await (await fetch(window.Capacitor.convertFileSrc(file))).blob(); blob = blob.slice(0, blob.size, 'video/mp4');
@@ -4172,7 +4172,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var HLDEL = { i: -1, until: 0, msg: '', busy: false }; // Delete these highlights: armed by the first tap
   var HIDE = { busy: false, msg: '' }; // Remove from my highlights
   var DL = { i: -1, busy: false, prog: '', msg: '', path: null, bad: false };
-  var RB = { pid: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false };
+  var RB = { pid: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false };
+  function rbAd() { return RB.pid != null && RB.pid === myPid && freeTier() && canKeepReel(RB.pid); } // your own reel on the free tier: an ad plays while it's made
   var guestGame = null, guestSeen = false, GL = { i: -1, msg: '' };
   function guestLink(r) { return String(CFG.siteUrl || location.origin + location.pathname).replace(/[?#].*$/, '') + '?team=' + encodeURIComponent(A.active || '') + '&game=' + encodeURIComponent(r.id || ''); }
   async function shareGuests(i) { // a message with the game's link, for the guests who played in it
@@ -4339,7 +4340,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: clipRole(c, RB.pid), title: (r ? vs(r) + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label });
     }).filter(function (c) { return !RB.goals || c.kind === 'Goal'; });
   }
-  function rbOpen(pid) { RB = { pid: pid, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false }; $('reelPop').hidden = false; renderRB(); }
+  function rbOpen(pid) { RB = { pid: pid, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false }; $('reelPop').hidden = false; renderRB(); }
   function renderRB() {
     if ($('reelPop').hidden) return;
     var list = rbList(), on = list.filter(function (c) { return RB.pick[c.key] !== false; }), secs = 0, pv = list.filter(function (c) { return c.key === RB.pv; })[0] || list[0], who = nm(RB.pid);
@@ -4355,8 +4356,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       (RB.voice ? '<div class="two"><label class="field" for="rbVoiceName">Voice<select id="rbVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
         '<label class="field" for="rbVoiceStyle">Delivery<select id="rbVoiceStyle">' + styleOpts() + '</select></label></div>' : '');
     html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
-      '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
-      '<div class="actions">' + (RB.path && !RB.busy ? '<button class="plain primary" type="button" id="rbShare">Share or save it</button>' : '<button class="plain primary" type="button" id="rbMake"' + (RB.busy || !on.length ? ' disabled' : '') + '>Make the reel</button>') +
+      (rbAd() && !RB.path ? '<p class="note" id="rbAdNote">On the free plan a 30-second ad plays while your reel is made, so it’s ready to watch and share when the ad ends.</p>' : '') +
+      '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.ad ? '<p class="msg" role="status" id="rbAd">' + esc(RB.ad) + '</p>' : '') + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
+      '<div class="actions">' + (RB.path && !RB.busy && !RB.locked ? '<button class="plain primary" type="button" id="rbShare">Share or save it</button>' : '<button class="plain primary" type="button" id="rbMake"' + (RB.busy || !on.length || (RB.path && RB.locked) ? ' disabled' : '') + '>Make the reel</button>') +
       '<button class="plain" type="button" id="rbClose">Close</button></div>';
     $('rbBody').innerHTML = html;
   }
@@ -4364,7 +4366,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var rc = RCp(); if (!rc || RB.busy) return;
     var list = rbList().filter(function (c) { return RB.pick[c.key] !== false; }), who = nm(RB.pid), byId = {}; if (!list.length) return;
     S.results.forEach(function (r) { byId[r.id] = r; });
-    RB.busy = true; RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
+    RB.busy = true; RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.ad = ''; RB.locked = false; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
+    var ahead = null, adP = null; // your own reel on the free tier: the ad plays while it's made (see aheadStart)
+    if (rbAd() && !S.match) {
+      ahead = await aheadStart(RB.pid); AD.busy = true;
+      var adSay = function (m) { if (!RB.busy || RB.prog.indexOf('ready for when') >= 0) return; RB.ad = m === 'The ad is playing…' ? 'The ad is playing. Your reel is being made at the same time.' : m; var el = $('rbAd'); if (el) el.textContent = RB.ad; else renderRB(); };
+      adP = adRun('reel', ahead.key, { say: adSay, ticket: function (t) { ahead.ticket = t; ahead.watched = false; aheadPut(ahead); }, watched: function () { ahead.watched = true; aheadPut(ahead); } })
+        .then(function (r) { return { r: r }; }, function (e) { return { err: (e && e.message) || 'Something went wrong with the ad.' }; });
+    }
     var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
     if (RB.voice && canVoice() && !(await aiAsk())) RB.note = 'No commentary: ' + AI_NO + ' The reel was made without it.';
     else if (RB.voice && canVoice()) {
@@ -4381,14 +4390,24 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     try {
       var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, file: (slugify(who) || 'player') + '-highlights.mp4',
         outro: { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
-      RB.path = res && res.path; RB.msg = 'The reel is ready.';
-      if (RB.path) rc.share({ path: RB.path }).catch(function () {});
+      RB.path = res && res.path; RB.msg = 'The reel is ready.'; RB.locked = !!adP;
+      if (RB.path && !adP) rc.share({ path: RB.path }).catch(function () {});
+      var kept = false;
       if (RB.path && res.marks && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
         RB.prog = 'Putting it on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card…'; renderRB();
-        try { await keepPlayerReel(RB.pid, RB.path, res.marks, list.map(function (c) { return c.title; })); RB.msg = 'The reel is ready, and it’s on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card in Highlights.'; }
-        catch (e) { RB.note = 'It couldn’t be put on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card: ' + ((e && e.message) || 'something went wrong.') + ' It’s still on this phone to share.'; }
+        try { await keepPlayerReel(RB.pid, RB.path, res.marks, list.map(function (c) { return c.title; }), ahead && ahead.key); kept = true; RB.msg = 'The reel is ready, and it’s on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card in Highlights.'; }
+        catch (e) { RB.note = 'It couldn’t be put on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card: ' + ((e && e.message) || 'something went wrong.') + (adP ? '' : ' It’s still on this phone to share.'); }
       }
-    } catch (e) { RB.msg = (e && e.message) || 'Couldn’t make the reel.'; RB.bad = true; }
+      if (adP) { // the ad, which has been playing all along
+        var doneMsg = RB.msg; RB.msg = ''; RB.ad = ''; RB.prog = 'Your reel is ready for when the ad ends…'; renderRB();
+        var ad = await adP; AD.busy = false; RB.ad = ''; RB.msg = doneMsg;
+        if (ad.r === 'unlocked') { RB.locked = false; rc.share({ path: RB.path }).catch(function () {}); }
+        else if (ad.r === 'waiting') RB.msg = 'Thanks for watching. Google hasn’t confirmed the ad yet; your reel unlocks on your card in Highlights as soon as it does.';
+        else { RB.msg = (ad.r === 'closed' ? 'The ad was closed before the end, so your reel is locked.' : ad.err) + (kept ? ' It’s on your card in Highlights: watch the ad there to see it.' : ''); RB.bad = ad.r !== 'closed'; }
+        if (kept) aheadPut(null); // (it's your reel now; the card's own button covers the rest)
+        await unlLoad(true); adDraw();
+      }
+    } catch (e) { RB.msg = (e && e.message) || 'Couldn’t make the reel.'; RB.bad = true; if (adP) { await adP; AD.busy = false; RB.ad = ''; } } // (an ad already watched counts for the next go)
     RB.busy = false; RB.prog = ''; renderRB();
   }
   $('reelPop').addEventListener('click', function (e) {
@@ -6911,27 +6930,50 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     }
     return false;
   }
+  async function adRun(kind, target, o) { // one ad for one unlock: 'unlocked' (or it already was), 'closed' (shut early), 'waiting'
+    // (watched, Google hasn't confirmed yet). o.say(msg) tells the person; o.ticket(t) and o.watched() let a reel being made keep
+    // track in case the app is closed. Throws with the message to show.
+    o = o || {}; var say = o.say || function () {};
+    if (S.match) throw new Error('Ads never play during a game. Watch your reel once the game’s finished.'); // (nor with a game set up: the watch and the subs come first)
+    var am = adsOK() ? plugin('AdMob') : null; if (!am) throw new Error('Ads can only be watched in Gaffer’s iPhone app, signed in.');
+    say('Getting the ad…');
+    var tk = (await q(sb.rpc('ad_ticket', { p_code: A.active, p_kind: kind, p_target: target || null }))).data || {};
+    if (tk.error === 'not_needed') return 'unlocked';
+    if (tk.error || !tk.ticket) throw new Error(AD_ERR[tk.error] || 'Couldn’t get an ad. Check your signal and try again.');
+    if (o.ticket) o.ticket(tk.ticket);
+    await adSetup(am);
+    try { await am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }); }
+    catch (e) { throw new Error('No ad is available right now. Try again in a minute.'); }
+    say('The ad is playing…');
+    if (!(await adShow(am))) return 'closed';
+    if (o.watched) o.watched();
+    say('Unlocking…');
+    return (await adClaim(tk.ticket)) ? 'unlocked' : 'waiting';
+  }
   async function adWatch(kind, target) {
     if (AD.busy) return;
     var say = function (msg, bad) { AD.msg = msg; AD.bad = !!bad; adDraw(); };
-    AD = Object.assign(AD, { kind: kind, target: target || null, msg: '', bad: false });
-    if (S.match) { say('Ads never play during a game. Watch your reel once the game’s finished.', true); return; } // (nor with a game set up: the watch and the subs come first)
-    var am = adsOK() ? plugin('AdMob') : null; if (!am) { say('Ads can only be watched in Gaffer’s iPhone app, signed in.', true); return; }
-    AD.busy = true; say('Getting the ad…');
+    AD = Object.assign(AD, { kind: kind, target: target || null, msg: '', bad: false, busy: true });
     try {
-      var tk = (await q(sb.rpc('ad_ticket', { p_code: A.active, p_kind: kind, p_target: target || null }))).data || {};
-      if (tk.error === 'not_needed') { AD.busy = false; AD.msg = ''; await unlLoad(true); adDraw(); return; }
-      if (tk.error || !tk.ticket) throw new Error(AD_ERR[tk.error] || 'Couldn’t get an ad. Check your signal and try again.');
-      await adSetup(am);
-      try { await am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }); }
-      catch (e) { throw new Error('No ad is available right now. Try again in a minute.'); }
-      say('The ad is playing…');
-      if (!(await adShow(am))) { AD.busy = false; say('The ad was closed before the end, so your reel is still locked. Watch it to the end to see your reel.', true); return; }
-      say('Unlocking…');
-      var ok = await adClaim(tk.ticket);
-      AD.busy = false; AD.msg = ok ? '' : 'Thanks for watching. Google hasn’t confirmed it yet; your reel unlocks as soon as it does, so check back in a minute.'; AD.bad = false;
+      var got = await adRun(kind, target, { say: say });
+      AD.busy = false;
+      if (got === 'closed') { say('The ad was closed before the end, so your reel is still locked. Watch it to the end to see your reel.', true); return; }
+      AD.msg = got === 'waiting' ? 'Thanks for watching. Google hasn’t confirmed it yet; your reel unlocks as soon as it does, so check back in a minute.' : ''; AD.bad = false;
       await unlLoad(true); adDraw();
     } catch (e) { AD.busy = false; say((e && e.message) || 'Something went wrong with the ad. Try again.', true); }
+  }
+  // Making your own reel on the free tier: the ad plays while the phone makes it, so it's ready when the ad ends. The reel's
+  // file name is picked first and the ad unlocks that name (ad_ticket allows a name in your own folder, 0037). What's
+  // under way is kept on the phone (apt-ad-ahead), so if Gaffer is closed part-way an ad already watched counts for the
+  // next go: the same name is used again, and the server says it's already unlocked.
+  var ADAHEAD = 'apt-ad-ahead';
+  function aheadGet() { try { return JSON.parse(localStorage.getItem(ADAHEAD) || 'null'); } catch (e) { return null; } }
+  function aheadPut(o) { try { if (o) localStorage.setItem(ADAHEAD, JSON.stringify(o)); else localStorage.removeItem(ADAHEAD); } catch (e) {} }
+  async function aheadStart(pid) {
+    var was = aheadGet(), mine = was && was.code === A.active && was.pid === pid && was.key && was.key.indexOf(teamId + '/players/' + pid + '/reel-') === 0;
+    if (!mine) { was = { code: A.active, pid: pid, key: teamId + '/players/' + pid + '/reel-' + Date.now() + '.mp4' }; aheadPut(was); }
+    else if (was.ticket && was.watched) try { await q(sb.rpc('ad_claim', { p_ticket: was.ticket, p_app_says: true })); } catch (e) {} // (watched last time, before Gaffer was closed)
+    return was;
   }
   document.addEventListener('click', function (e) { // every "watch an ad" button
     var b = e.target.closest && e.target.closest('[data-ad]'); if (!b) return;

@@ -241,7 +241,8 @@
       if (name === 'ad_ticket') {
         if (!uid()) return ok({ error: 'sign_in' }); if (!t) return ok({ error: 'no_team' });
         const p = d.players.find((x) => x.team_id === t.id && x.user_id === uid()); if (a.p_kind !== 'reel' || !p) return ok({ error: 'not_allowed' });
-        if (!(d.player_reels || []).some((r) => r.team_id === t.id && r.pid === p.pid && r.path === a.p_target)) return ok({ error: 'no_reel' });
+        const nu = new RegExp('^' + t.id + '/players/' + p.pid + '/reel-([0-9]{1,16})\\.mp4$').exec(a.p_target || ''); // (0037: or a name for a new reel, picked in the last week)
+        if (!(d.player_reels || []).some((r) => r.team_id === t.id && r.pid === p.pid && r.path === a.p_target) && !(nu && +nu[1] > Date.now() - 7 * 86400000 && +nu[1] < Date.now() + 86400000)) return ok({ error: 'no_reel' });
         if (d.unlocks.some((u) => u.team_id === t.id && u.user_id === uid() && u.target === a.p_target && u.granted_at)) return ok({ error: 'not_needed' });
         const id = 'tk-' + code(8); d.unlocks.push({ id, team_id: t.id, user_id: uid(), kind: 'reel', target: a.p_target, granted_at: null }); store(d); return ok({ ticket: id });
       }
