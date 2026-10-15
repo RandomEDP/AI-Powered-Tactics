@@ -486,11 +486,10 @@
       if (!st || !st.started_at || st.notified_at || !(d.camera && st.enabled)) return { data: { sent: 0 }, error: null };
       st.notified_at = Date.now(); st.on_air_at = st.on_air_at || st.notified_at; d.livePushes = (d.livePushes || 0) + 1; store(d); return { data: { sent: 2, people: 2 }, error: null };
     } if (name === 'reel-voice') { // (with d.voicesSold, as the real one once 0034 is live: a paid voice only for whoever bought it)
-      const b = o.body, style = b.style === 'plain' || b.style === 'sweary' ? b.style : 'hype', voice = b.voice || 'Fenrir';
+      const b = o.body, style = b.style === 'sweary' ? 'sweary' : 'plain', voice = 'Fenrir';
       if (b.action === 'sample') { d.samples = d.samples || {}; const f = voice.toLowerCase() + '-' + style + '.mp3'; const made = !d.samples[f]; d.samples[f] = (d.samples[f] || 0) + 1; store(d); return { data: { url: 'data:audio/mpeg;base64,QUJD#' + f, made }, error: null }; }
       const mine = (d.voice_unlocks || []).filter((x) => x.user_id === uid()).map((x) => x.voice);
-      const locked = !d.voicesSold ? [] : [voice.toLowerCase(), style === 'sweary' ? 'sweary' : ''].filter((v) => v && v !== 'fenrir' && mine.indexOf(v) < 0);
-      if (locked.length) return { data: { error: 'Paid voice: unlock it in the voice picker, or pick Fenrir, which is free.', reason: 'locked', locked }, error: null };
+      if (d.voicesSold && style === 'sweary' && mine.indexOf('steve') < 0) return { data: { error: 'East London Steve is a paid voice: unlock him in the voice picker, or pick Gaffer’s commentator, which is free.', reason: 'locked', locked: ['steve'] }, error: null };
       return { data: { audio: b.lines.map((l) => l ? 'QUJD' : null) }, error: null };
     } return { data: { sent: o.body.kind === 'nudge' ? 2 : 0, people: 2 }, error: null }; } };
   window.supabase = { createClient: () => ({ rpc, from, auth, channel, storage, functions, removeChannel() {} }) };

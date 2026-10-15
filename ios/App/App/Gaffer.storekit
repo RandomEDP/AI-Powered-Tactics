@@ -68,118 +68,13 @@
       "internalID": "6747000101",
       "localizations": [
         {
-          "description": "The Puck commentary voice (upbeat) for your highlight reels, yours to keep.",
-          "displayName": "Puck voice",
+          "description": "East London Steve, the sweary Cockney pub commentator, for your highlight reels (18+). Yours to keep.",
+          "displayName": "East London Steve 18+",
           "locale": "en_GB"
         }
       ],
-      "productID": "com.randomedp.aipoweredtactics.voice.puck",
-      "referenceName": "Voice: Puck",
-      "type": "NonConsumable"
-    },
-    {
-      "displayPrice": "2.99",
-      "familyShareable": false,
-      "internalID": "6747000102",
-      "localizations": [
-        {
-          "description": "The Sadachbia commentary voice (lively) for your highlight reels, yours to keep.",
-          "displayName": "Sadachbia voice",
-          "locale": "en_GB"
-        }
-      ],
-      "productID": "com.randomedp.aipoweredtactics.voice.sadachbia",
-      "referenceName": "Voice: Sadachbia",
-      "type": "NonConsumable"
-    },
-    {
-      "displayPrice": "2.99",
-      "familyShareable": false,
-      "internalID": "6747000103",
-      "localizations": [
-        {
-          "description": "The Algenib commentary voice (gravelly) for your highlight reels, yours to keep.",
-          "displayName": "Algenib voice",
-          "locale": "en_GB"
-        }
-      ],
-      "productID": "com.randomedp.aipoweredtactics.voice.algenib",
-      "referenceName": "Voice: Algenib",
-      "type": "NonConsumable"
-    },
-    {
-      "displayPrice": "2.99",
-      "familyShareable": false,
-      "internalID": "6747000104",
-      "localizations": [
-        {
-          "description": "The Orus commentary voice (firm) for your highlight reels, yours to keep.",
-          "displayName": "Orus voice",
-          "locale": "en_GB"
-        }
-      ],
-      "productID": "com.randomedp.aipoweredtactics.voice.orus",
-      "referenceName": "Voice: Orus",
-      "type": "NonConsumable"
-    },
-    {
-      "displayPrice": "2.99",
-      "familyShareable": false,
-      "internalID": "6747000105",
-      "localizations": [
-        {
-          "description": "The Charon commentary voice (measured) for your highlight reels, yours to keep.",
-          "displayName": "Charon voice",
-          "locale": "en_GB"
-        }
-      ],
-      "productID": "com.randomedp.aipoweredtactics.voice.charon",
-      "referenceName": "Voice: Charon",
-      "type": "NonConsumable"
-    },
-    {
-      "displayPrice": "2.99",
-      "familyShareable": false,
-      "internalID": "6747000106",
-      "localizations": [
-        {
-          "description": "The Kore commentary voice (firm, female) for your highlight reels, yours to keep.",
-          "displayName": "Kore voice",
-          "locale": "en_GB"
-        }
-      ],
-      "productID": "com.randomedp.aipoweredtactics.voice.kore",
-      "referenceName": "Voice: Kore",
-      "type": "NonConsumable"
-    },
-    {
-      "displayPrice": "2.99",
-      "familyShareable": false,
-      "internalID": "6747000107",
-      "localizations": [
-        {
-          "description": "The Leda commentary voice (youthful, female) for your highlight reels, yours to keep.",
-          "displayName": "Leda voice",
-          "locale": "en_GB"
-        }
-      ],
-      "productID": "com.randomedp.aipoweredtactics.voice.leda",
-      "referenceName": "Voice: Leda",
-      "type": "NonConsumable"
-    },
-    {
-      "displayPrice": "2.99",
-      "familyShareable": false,
-      "internalID": "6747000108",
-      "localizations": [
-        {
-          "description": "The Sweary commentator (18+): swears like a pub commentator, in any voice. Yours to keep.",
-          "displayName": "Sweary commentary",
-          "locale": "en_GB"
-        }
-      ],
-      "productID": "com.randomedp.aipoweredtactics.voice.sweary",
-      "referenceName": "Voice: Sweary",
+      "productID": "com.randomedp.aipoweredtactics.voice.steve",
+      "referenceName": "Voice: East London Steve",
       "type": "NonConsumable"
     }
   ],

@@ -6,8 +6,10 @@
 // swearing in) like a foul-mouthed pub commentator; if that isn't available to the key, or style is "plain", the same voice
 // from the Chirp 3 HD set reads it straight.
 // Each team has a monthly allowance of characters, kept in public.voice_usage, so the bill can't run away.
-// Fenrir is free; every other voice, and the Sweary delivery, is bought once by the person asking (0034_voice_unlocks.sql,
-// counted by team-pass), and is refused here until they have (reason "locked", with the voices missing in "locked").
+// Two voices (Ethan, October 2026): Gaffer's commentator, free to everyone (Fenrir, delivered as FREE_STYLE), and East
+// London Steve 18+ (the "sweary" style), bought once by the person asking (0034_voice_unlocks.sql, voice "steve", counted
+// by team-pass), and refused here until they have (reason "locked", locked: ["steve"]). Any other voice or delivery an
+// older app asks for is the free one.
 // { action: "sample", voice, style } answers { url }: a short line in that voice, made once and kept in the public
 // voice-samples bucket, for anyone signed in to hear before buying. It names nobody and counts against no team.
 // Needs this secret (Edge Functions > Secrets):
@@ -19,11 +21,13 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
-const VOICES = ["Fenrir", "Puck", "Sadachbia", "Algenib", "Orus", "Charon", "Kore", "Leda"];
 const HYPE = "You are an excitable British football commentator calling the action live on television. Loud, fast and full of energy, voice rising to a shout on the goal. Say exactly this:";
 // (Ethan: it came out Australian, so the accent is spelt out.)
 const SWEARY = "You are a foul-mouthed Sunday-league football commentator from the East End of London, speaking in a broad, proper East London Cockney accent: dropped h's, glottal stops (foo'ball, wha' a goal), London vowels. Never Australian, never American, never posh. You can't believe what you're watching: loud, raw and incredulous, swearing freely, shouting the big moments as if you're losing your mind down the pub. Say exactly this, swear words and all:";
 const FREE = "Fenrir";
+// How the free voice is delivered: "plain" (Chirp 3 HD), free up to Google's million characters a month (Ethan chose it);
+// "hype" would be the Gemini live commentator, about 1.5p a reel.
+const FREE_STYLE: "plain" | "hype" = "plain";
 // The same sample for every voice, so they can be compared like for like; no names, so nothing about anyone goes to Google.
 const SAMPLE: Record<string, string> = {
   hype: "Here he comes, cuts inside, shoots... and it's in! Top corner! What a goal!",
@@ -73,7 +77,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const input = await req.json();
-    const style = input.style === "plain" || input.style === "sweary" ? input.style : "hype";
+    const style = input.style === "sweary" ? "sweary" : FREE_STYLE;
     const sample = input.action === "sample";
     const lines: string[] = sample ? [SAMPLE[style]] : (Array.isArray(input.lines) ? input.lines : []).slice(0, 24).map(clean);
     const chars = lines.reduce((n, l) => n + l.length, 0);
@@ -82,23 +86,18 @@ Deno.serve(async (req: Request) => {
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
     if (!who?.user) return json({ error: "Sign in first." });
-    const voice = VOICES.includes(input.voice) ? input.voice : FREE;
+    const voice = FREE;
     const file = `${voice.toLowerCase()}-${style}.mp3`;
     const sampleUrl = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/voice-samples/${file}`;
     if (sample) { // made once, then everyone plays the same file
       const there = await fetch(sampleUrl, { method: "HEAD" }).catch(() => null);
       if (there?.ok) return json({ url: sampleUrl });
     } else {
-      // A paid voice (or Sweary) only for someone who has bought it.
-      const need = [voice, style === "sweary" ? "sweary" : ""].filter((v) => v && v !== FREE).map((v) => v.toLowerCase());
-      if (need.length) {
-        const { data: owned, error: ownedError } = await db.from("voice_unlocks").select("voice").eq("user_id", who.user.id).in("voice", need);
+      // East London Steve only for someone who has bought him.
+      if (style === "sweary") {
+        const { data: owned, error: ownedError } = await db.from("voice_unlocks").select("voice").eq("user_id", who.user.id).in("voice", ["steve"]);
         if (ownedError) return json({ error: "Your voices couldn't be checked. Try again in a moment." });
-        const locked = need.filter((v) => !(owned || []).some((o: { voice: string }) => o.voice === v));
-        if (locked.length) {
-          const named = locked.map((v) => v === "sweary" ? "Sweary" : v[0].toUpperCase() + v.slice(1));
-          return json({ error: `${named.join(" and ")} ${locked.length > 1 ? "are paid voices" : "is a paid voice"}: unlock ${locked.length > 1 ? "them" : "it"} in the voice picker, or pick ${FREE}, which is free.`, reason: "locked", locked });
-        }
+        if (!(owned || []).length) return json({ error: "East London Steve is a paid voice: unlock him in the voice picker, or pick Gaffer's commentator, which is free.", reason: "locked", locked: ["steve"] });
       }
     }
     const { data: team } = sample ? { data: { id: "" } } : await db.from("teams").select("id").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();

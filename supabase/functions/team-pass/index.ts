@@ -7,7 +7,7 @@
 //      counted already
 // It also counts the commentary voices bought once (0034_voice_unlocks.sql), with { action: "voice", transaction_id }
 // (no team: a voice belongs to the account that bought it):
-//   -> { added, voice }         voice: "puck", "sweary"…
+//   -> { added, voice }         voice: "steve"
 // Errors come back as { error, reason } in plain words, reason one of: not_configured, unknown, not_yours, refunded,
 // wrong_app, wrong_product, xcode.
 // Secrets (Edge Functions > Secrets), from App Store Connect, Users and Access, Integrations, In-App Purchase:
@@ -24,9 +24,8 @@ export const PRODUCTS: Record<string, { kind: string; pence: number }> = {
   [BUNDLE + ".team.chip149"]: { kind: "chip149", pence: 149 },
   [BUNDLE + ".team.chip249"]: { kind: "chip249", pence: 249 },
 };
-// The commentary voices sold one at a time (Fenrir is free). The same list is in the app (VOICE_BUY) and reel-voice.
-export const VOICE_PRODUCTS: Record<string, string> = Object.fromEntries(
-  ["puck", "sadachbia", "algenib", "orus", "charon", "kore", "leda", "sweary"].map((v) => [BUNDLE + ".voice." + v, v]));
+// The commentary voices bought once (the free one isn't sold): East London Steve 18+. The app has the same (VOICE_BUY).
+export const VOICE_PRODUCTS: Record<string, string> = { [BUNDLE + ".voice.steve"]: "steve" };
 const APPLE = ["https://api.storekit.itunes.apple.com", "https://api.storekit-sandbox.itunes.apple.com"]; // live first, then TestFlight's
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };

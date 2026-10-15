@@ -4311,7 +4311,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (t.id === 'rbGoals') RB.goals = t.checked;
     else if (t.hasAttribute('data-rbpick')) RB.pick[t.getAttribute('data-rbpick')] = t.checked;
     else if (t.id === 'rbVoice') RB.voice = t.checked;
-    else if (t.id === 'rbVoiceName' || t.id === 'rbVoiceStyle') { VO.msg = ''; try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('rbVoiceName').value, style: $('rbVoiceStyle').value })); } catch (err) {} } // (a different voice is a different reel)
+    else if (t.id === 'rbVoiceName') { VO.msg = ''; voiceSet($('rbVoiceName').value); } // (a different voice is a different reel)
     else return;
     RB.path = null; RB.msg = ''; RB.note = ''; renderRB(); // (a change means the reel made before isn't this one)
   });
@@ -4606,7 +4606,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if ($('camSwap')) { CUT.swap = $('camSwap').checked; camStore(); }
     if ($('cutVoice')) CUT.voice = $('cutVoice').checked;
     if ($('cutBug')) CUT.bug = $('cutBug').checked;
-    if ($('cutVoiceName')) { try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('cutVoiceName').value, style: $('cutVoiceStyle').value })); } catch (e) {} }
+    if ($('cutVoiceName')) voiceSet($('cutVoiceName').value);
   }
   async function camPick(k, second, fresh) { // the camera's video (or its second-half video) from Photos; a new camera with none is taken away again
     var r = S.results[CUT.idx], rc = RCp(); if (!r || !rc) return;
@@ -4653,31 +4653,34 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('cutBody').addEventListener('change', function (e) {
     if (e.target.id === 'camSwap' && CUT) { CUT.swap = e.target.checked; camStore(); }
     if (e.target.id === 'cutBug' && CUT) { cutKeep(); renderCut(); }
-    if ((e.target.id === 'cutVoiceName' || e.target.id === 'cutVoiceStyle') && CUT) { VO.msg = ''; cutKeep(); renderCut(); } // (shows whether it needs unlocking)
+    if (e.target.id === 'cutVoiceName' && CUT) { VO.msg = ''; cutKeep(); renderCut(); } // (shows whether it needs unlocking)
   });
-  var VOICES = [['Fenrir', 'Fenrir (excitable)'], ['Puck', 'Puck (upbeat)'], ['Sadachbia', 'Sadachbia (lively)'], ['Algenib', 'Algenib (gravelly)'], ['Orus', 'Orus (firm)'], ['Charon', 'Charon (measured)'], ['Kore', 'Kore (firm, female)'], ['Leda', 'Leda (youthful, female)']];
-  function voicePick() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return { voice: v && v.voice ? v.voice : 'Fenrir', style: v && (v.style === 'plain' || v.style === 'sweary') ? v.style : 'hype' }; }
-  var STYLES = [['hype', 'Live commentator'], ['plain', 'Read it straight'], ['sweary', 'Sweary, 18+ (swears like a pub commentator)']];
-  function styleOpts() { var now = voicePick().style; return STYLES.map(function (x) { return '<option value="' + x[0] + '"' + (now === x[0] ? ' selected' : '') + '>' + x[1] + (x[0] === 'sweary' && !voOwns('sweary') ? ', ' + esc(VO.price) : '') + '</option>'; }).join(''); }
+  // ---- commentary voices (Ethan, October 2026: "remove all the voices for now apart from the base free one … And the
+  // sweary one lets call it East London Steve 18+ … we only need to select the voice"). Two to pick from:
+  //   free:  Gaffer's commentator, free to everyone (Fenrir, delivered as VOICE_FREE_STYLE: read straight costs nothing
+  //          up to Google's free million characters a month);
+  //   steve: East London Steve 18+, the sweary Cockney pub commentator (0034_voice_unlocks.sql), a one-off £2.99 bought
+  //          through Apple (TeamPassPlugin, the same plumbing as the team pass), counted on the account by team-pass
+  //          (action "voice"), so it works on any phone signed in to it; reel-voice refuses it to anyone who hasn't.
+  // Each has a sample to hear first (reel-voice "sample": one fixed line naming nobody, made once and kept, so it needs
+  // no AI ask). Until 0034 is live (my_voices isn't there) Steve stays open, as Sweary was.
+  var VOICE_FREE_STYLE = 'plain', VOICE_BUY = 'com.randomedp.aipoweredtactics.voice.';
+  var VOICES = [['free', 'Gaffer’s commentator'], ['steve', 'East London Steve 18+']];
+  function voiceKey() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return v && (v.v === 'steve' || v.style === 'sweary') ? 'steve' : 'free'; } // (older phones kept { voice, style })
+  function voicePick(k) { k = k || voiceKey(); return { key: k, voice: 'Fenrir', style: k === 'steve' ? 'sweary' : VOICE_FREE_STYLE }; }
+  function voiceSet(k) { try { localStorage.setItem('apt-voice', JSON.stringify({ v: k === 'steve' ? 'steve' : 'free' })); } catch (e) {} }
   var swears = function () { return voUse().style === 'sweary'; };
-  // ---- commentary voices bought once (0034_voice_unlocks.sql). Fenrir is free; every other voice, and the Sweary
-  // delivery, is a one-off purchase through Apple (TeamPassPlugin, the same plumbing as the team pass), counted on the
-  // account by team-pass (action "voice"), so it works on any phone signed in to it; reel-voice refuses a voice nobody
-  // bought. Each voice has a sample to hear first (reel-voice "sample": one fixed line naming nobody, made once and kept,
-  // so it needs no AI ask). Until 0034 is live (my_voices isn't there) every voice stays open, as before.
-  var VOICE_FREE = 'Fenrir', VOICE_BUY = 'com.randomedp.aipoweredtactics.voice.';
   var VO = { who: null, mine: null, open: false, price: '£2.99', priced: false, heard: false, at: 0, busy: '', msg: '', bad: false, samples: {}, audio: null };
-  function voKey(v) { return String(v || '').toLowerCase(); }
-  function voName(k) { k = voKey(k); if (k === 'sweary') return 'Sweary'; var v = VOICES.filter(function (x) { return voKey(x[0]) === k; })[0]; return v ? v[0] : k; }
+  function voName(k) { return k === 'steve' ? 'East London Steve' : 'Gaffer’s commentator'; }
   function voState() { // what this account owns, kept on the phone per account so it's right with no signal
     var who = me ? me.id : null;
     if (VO.who !== who) { VO.who = who; VO.mine = null; VO.open = false; VO.at = 0; VO.msg = ''; try { var c = JSON.parse(localStorage.getItem('apt-voices:' + who) || 'null'); if (c) { VO.mine = c.mine || []; VO.open = !!c.open; } } catch (e) {} }
     return VO;
   }
-  function voOwns(k) { var s = voState(); k = voKey(k); return k === voKey(VOICE_FREE) || s.open || (s.mine || []).indexOf(k) >= 0; }
-  function voLocked(p) { p = p || voicePick(); var out = []; if (!voOwns(p.voice)) out.push(voKey(p.voice)); if (p.style === 'sweary' && !voOwns('sweary')) out.push('sweary'); return out; }
-  function voUse() { var p = voicePick(); return { voice: voOwns(p.voice) ? p.voice : VOICE_FREE, style: p.style === 'sweary' && !voOwns('sweary') ? 'hype' : p.style }; } // (never asks for a voice that would be refused)
-  function voLockMsg(lock) { return listAnd(lock.map(voName)) + (lock.length > 1 ? ' aren’t' : ' isn’t') + ' unlocked yet. Unlock ' + (lock.length > 1 ? 'them' : 'it') + ' under the voice, or pick ' + VOICE_FREE + ', which is free.'; }
+  function voOwns(k) { var s = voState(); return k !== 'steve' || s.open || (s.mine || []).indexOf(k) >= 0; }
+  function voLocked(k) { k = k || voiceKey(); return voOwns(k) ? [] : [k]; }
+  function voUse() { return voicePick(voOwns(voiceKey()) ? voiceKey() : 'free'); } // (never asks for a voice that would be refused)
+  function voLockMsg(lock) { return voName(lock[0]) + ' isn’t unlocked yet. Unlock him under the voice, or pick Gaffer’s commentator, which is free.'; }
   function voKeep() { try { localStorage.setItem('apt-voices:' + VO.who, JSON.stringify({ mine: VO.mine || [], open: VO.open })); } catch (e) {} }
   function voRedraw() {
     if (CUT && S.view === 'cut' && CUT.stage !== 'work') { cutKeep(); renderCut(); }
@@ -4689,9 +4692,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     VO.at = Date.now();
     var TPp = plugin('TeamPass');
     if (TPp && !VO.heard) { VO.heard = true; try { TPp.addListener('transaction', function (t) { voClaim(t); }); } catch (e) {} }
-    if (TPp && !VO.priced) TPp.products({ ids: [VOICE_BUY + 'puck'] }).then(function (r) { var p = r && r.products && r.products[0]; if (p && p.price) { VO.price = p.price; VO.priced = true; voRedraw(); } }, function () {});
+    if (TPp && !VO.priced) TPp.products({ ids: [VOICE_BUY + 'steve'] }).then(function (r) { var p = r && r.products && r.products[0]; if (p && p.price) { VO.price = p.price; VO.priced = true; voRedraw(); } }, function () {});
     var r = null; try { r = await sb.rpc('my_voices'); } catch (e) {}
-    if (r && !r.error && Array.isArray(r.data)) { VO.mine = r.data.map(voKey); VO.open = false; voKeep(); voRedraw(); }
+    if (r && !r.error && Array.isArray(r.data)) { VO.mine = r.data.map(function (x) { return String(x).toLowerCase(); }); VO.open = false; voKeep(); voRedraw(); }
     else if (r && r.error && /my_voices|PGRST202|does not exist|schema cache/i.test(String(r.error.message || r.error.code || ''))) { VO.open = true; voKeep(); voRedraw(); } // (the server doesn't sell voices yet)
     if (TPp) { try { var u = await TPp.unfinished(); ((u && u.list) || []).forEach(function (t) { voClaim(t, true); }); } catch (e) {} } // (bought with no signal, or the app closed half way)
   }
@@ -4713,7 +4716,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     // Counted, or never going to count: finish it with Apple (a voice stays owned on the Apple ID either way, for Restore).
     if (!out.error || ['refunded', 'wrong_app', 'wrong_product', 'xcode'].indexOf(out.reason) >= 0) { try { await TPp.finish({ transactionId: tx }); } catch (e) {} }
     if (!out.error) { voState(); var m = (VO.mine || []).slice(); if (m.indexOf(k) < 0) m.push(k); VO.mine = m; voKeep(); }
-    if (!quiet) { VO.msg = out.error || voName(k) + ' is unlocked. It’s yours on any phone you sign in to Gaffer on.'; VO.bad = !!out.error; }
+    if (!quiet) { VO.msg = out.error || voName(k) + ' is unlocked. He’s yours on any phone you sign in to Gaffer on.'; VO.bad = !!out.error; }
     voRedraw(); return out;
   }
   async function voBuy(k) {
@@ -4745,8 +4748,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     VO.msg = got.length ? 'Restored: ' + listAnd(got) + '.' : bad || 'There are no voices to restore on this Apple ID.';
     voRedraw();
   }
-  async function voHear() { // the sample for the voice and delivery picked, free to hear before buying
-    var p = voicePick(), key = voKey(p.voice) + '-' + p.style, url = VO.samples[key];
+  async function voHear() { // the sample for the voice picked, free to hear before buying
+    var p = voicePick(), key = p.key, url = VO.samples[key];
     var say = function (m, bad) { VO.msg = m; VO.bad = !!bad; voRedraw(); };
     if (VO.audio) { try { VO.audio.pause(); } catch (e) {} }
     if (!url) {
@@ -4758,18 +4761,17 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         url = VO.samples[key] = d.url;
       } catch (e) { say('Couldn’t reach the voice service.', true); return; }
     }
-    try { VO.audio = new Audio(url); var pr = VO.audio.play(); if (pr && pr.catch) pr.catch(function () {}); say('Playing ' + voName(p.voice) + (p.style === 'sweary' ? ', Sweary' : p.style === 'plain' ? ', read straight' : '') + '.'); }
+    try { VO.audio = new Audio(url); var pr = VO.audio.play(); if (pr && pr.catch) pr.catch(function () {}); say('Playing ' + voName(key) + '.'); }
     catch (e) { say('Couldn’t play the sample.', true); }
   }
-  function voiceBox(pre) { // the voice and delivery, a sample to hear, and unlocking: in the highlight maker and the reel builder
+  function voiceBox(pre) { // the voice, a sample to hear, and unlocking: in the highlight maker and the reel builder
     if (!VO.at) voLoad();
-    var p = voicePick(), lock = voLocked(p), native = !!plugin('TeamPass');
-    var html = '<div class="two"><label class="field" for="' + pre + 'VoiceName">Voice<select id="' + pre + 'VoiceName">' + VOICES.map(function (v) {
-      return '<option value="' + v[0] + '"' + (p.voice === v[0] ? ' selected' : '') + '>' + esc(v[1]) + (v[0] === VOICE_FREE ? ', free' : voOwns(v[0]) ? '' : ', ' + esc(VO.price)) + '</option>'; }).join('') + '</select></label>' +
-      '<label class="field" for="' + pre + 'VoiceStyle">Delivery<select id="' + pre + 'VoiceStyle">' + styleOpts() + '</select></label></div>' +
-      '<div class="actions"><button class="plain" type="button" data-vo="hear">Hear a sample</button>' + lock.map(function (k) {
-        return '<button class="plain tint" type="button" data-vo="buy" data-voice="' + esc(k) + '"' + (VO.busy || !native ? ' disabled' : '') + '>Unlock ' + esc(voName(k)) + ' (' + esc(VO.price) + ')</button>'; }).join('') + '</div>';
-    if (lock.length) html += '<p class="note" data-volock>' + esc(listAnd(lock.map(voName))) + (lock.length > 1 ? ' are ' + esc(VO.price) + ' each' : ' is ' + esc(VO.price)) + ' to unlock, once, and yours to keep on any phone you sign in to. ' + VOICE_FREE + ' is free.' + (native ? '' : ' Voices are unlocked in Gaffer’s iPhone app.') + '</p>';
+    var k = voiceKey(), lock = voLocked(k), native = !!plugin('TeamPass');
+    var html = '<label class="field" for="' + pre + 'VoiceName">Voice<select id="' + pre + 'VoiceName">' + VOICES.map(function (v) {
+      return '<option value="' + v[0] + '"' + (k === v[0] ? ' selected' : '') + '>' + esc(v[1]) + (v[0] === 'free' ? ', free' : voOwns(v[0]) ? '' : ', ' + esc(VO.price)) + '</option>'; }).join('') + '</select></label>' +
+      '<div class="actions"><button class="plain" type="button" data-vo="hear">Hear a sample</button>' + lock.map(function (x) {
+        return '<button class="plain tint" type="button" data-vo="buy" data-voice="' + esc(x) + '"' + (VO.busy || !native ? ' disabled' : '') + '>Unlock ' + esc(voName(x)) + ' (' + esc(VO.price) + ')</button>'; }).join('') + '</div>';
+    if (k === 'steve') html += '<p class="note" data-volock>A sweary Cockney pub commentator: he swears at the football, never at anyone. 18+.' + (lock.length ? ' ' + esc(VO.price) + ' to unlock, once, and yours to keep on any phone you sign in to.' + (native ? '' : ' Unlock him in Gaffer’s iPhone app.') : '') + '</p>';
     if (native && me) html += '<div class="actions"><button class="plain quiet" type="button" data-vo="restore"' + (VO.busy ? ' disabled' : '') + '>Restore purchases</button></div>';
     if (VO.msg) html += '<p class="msg' + (VO.bad ? ' bad' : '') + '" role="status" data-vomsg>' + esc(VO.msg) + '</p>';
     return html;

@@ -226,7 +226,7 @@ eq((w.db().player_reels || []).length, 0, 'someone just following the team can s
 await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-preel="3"]');
 eq(await A.visible('#rbVoice'), true, 'gaffers can add AI commentary to a player\'s reel');
 await A.page.check('#rbVoice'); await A.run(300);
-eq([await A.visible('#rbVoiceName'), await A.visible('#rbVoiceStyle')], [true, true], 'with a choice of voice and delivery');
+eq([await A.visible('#rbVoiceName'), await A.visible('#rbVoiceStyle')], [true, false], 'with a choice of voice (no separate delivery: each voice has its own)');
 await shot(A, 'reel-player-voice');
 await A.click('#rbMake'); await A.run(1500);
 const said = (w.db().calls || []).filter((x) => x.name === 'reel-voice').pop();
@@ -234,14 +234,14 @@ join = (await calls(A, 'join')).pop();
 eq([said.body.lines.length, said.body.lines[0], said.body.lines[said.body.lines.length - 1]], [4, 'Chaplin’s highlights, for Sons of Pitches FC.', 'That’s Chaplin. What a player.'], 'a line for each clip, with an intro and a sign-off');
 
 // ---------- Sweary (18+): the same reel, called by a pub commentator who can't believe what he's watching
-eq(await A.page.$$eval('#rbVoiceStyle option', (o) => o.map((x) => x.textContent)), ['Live commentator', 'Read it straight', 'Sweary, 18+ (swears like a pub commentator)'], 'there are three deliveries, Sweary (18+) among them');
-await A.page.selectOption('#rbVoiceStyle', 'sweary'); await A.run(300);
+eq(await A.page.$$eval('#rbVoiceName option', (o) => o.map((x) => x.textContent)), ['Gaffer’s commentator, free', 'East London Steve 18+'], 'there are two voices: the free one and East London Steve (18+)');
+await A.page.selectOption('#rbVoiceName', 'steve'); await A.run(300);
 await A.click('#rbMake'); await A.run(1500);
 const sw = (w.db().calls || []).filter((x) => x.name === 'reel-voice').pop().body;
 eq([sw.style, sw.lines[0], sw.lines[sw.lines.length - 1]], ['sweary', 'Chaplin’s highlights. Brace yourselves, this is absolute filth.', 'That’s Chaplin. What a fucking player.'], 'it asks for the sweary performance, with a sweary intro and sign-off');
 check(sw.lines.slice(1, -1).every((l) => /fuck|shit|bollocks|bastard|filth|hell/i.test(l)), `and every clip's line swears (${sw.lines.slice(1, -1).join(' | ')})`);
 check(sw.lines.slice(1, -1).every((l) => !/\d–\d/.test(l)), 'scores still written out to be spoken');
-await A.page.selectOption('#rbVoiceStyle', 'hype'); await A.run(300);
+await A.page.selectOption('#rbVoiceName', 'free'); await A.run(300);
 check(said.body.lines.every((l) => !/\d–\d/.test(l)), 'scores are written out to be spoken');
 eq([!!join.introVoice, !!join.outroVoice, join.items.map((x) => !!x.voice), join.items.map((x) => tail(x.url))], [true, true, [true, true], ['01.mp4', '02.mp4']],
   'the voice goes over the clean copies (never on top of another commentary)');

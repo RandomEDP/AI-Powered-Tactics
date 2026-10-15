@@ -94,13 +94,13 @@ Sandbox purchases (TestFlight, and Apple's reviewers) count too, as Apple requir
 
 ### Commentary voices bought once (one-time setup, after the team pass above)
 
-Fenrir is free. The other seven voices and the Sweary delivery are £2.99 each, bought once and kept on the Gaffer account (any phone signed in to it has them; Restore purchases brings back one bought on the same Apple ID). Everyone can hear a sample of each before buying. Until step 2 is done every voice stays open, as before.
+Commentary has two voices. Gaffer's commentator is free (read straight by Google's Chirp 3 HD, free up to a million characters a month). **East London Steve 18+**, the sweary Cockney pub commentator, is £2.99, bought once and kept on the Gaffer account (any phone signed in to it has him; Restore purchases brings him back on the same Apple ID). Everyone can hear a sample before buying. Until step 2 is done Steve stays open, as before.
 
-1. **Make the eight purchases.** App Store Connect → Gaffer → Monetization → In-App Purchases → + → **Non-Consumable**, price £2.99 each, Family Sharing off:
-   - Product IDs `com.randomedp.aipoweredtactics.voice.puck`, `.voice.sadachbia`, `.voice.algenib`, `.voice.orus`, `.voice.charon`, `.voice.kore`, `.voice.leda` (display names "Puck voice" and so on), and `com.randomedp.aipoweredtactics.voice.sweary` ("Sweary commentary", 18+).
-   - Each needs a review screenshot (the highlight maker's voice picker) and a review note ("A commentary voice for highlight reels, bought once; Fenrir is free; any voice can be heard first with Hear a sample").
+1. **Make the purchase.** App Store Connect → Gaffer → Monetization → In-App Purchases → + → **Non-Consumable**, price £2.99, Family Sharing off:
+   - Product ID `com.randomedp.aipoweredtactics.voice.steve`, reference name and display name "East London Steve 18+".
+   - It needs a review screenshot (the highlight maker's voice picker) and a review note ("A sweary commentary voice for highlight reels, bought once; Gaffer's commentator is free; it can be heard first with Hear a sample"). The age rating must allow for strong language.
 2. **Database and functions.** Apply `supabase/migrations/0034_voice_unlocks.sql`, then deploy `team-pass` and `reel-voice` (verify_jwt on), in that order.
-3. **Try it on TestFlight** (purchases are free there): Highlights → cut a game → Add AI commentary → pick Puck → Hear a sample, then Unlock Puck.
+3. **Try it on TestFlight** (purchases are free there): Highlights → cut a game → Add AI commentary → pick East London Steve 18+ → Hear a sample, then Unlock.
 
 ## Android app (for players)
 
