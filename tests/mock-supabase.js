@@ -285,6 +285,25 @@
       Object.assign(r, { path: a.p_path ?? null, store: a.p_store === 'r2' ? 'r2' : null, marks: a.p_path == null ? [] : a.p_marks || [], made_by: uid(), made_at: Date.now() });
       store(d); return ok({ ok: true, old: old !== (a.p_path ?? null) && !(d.posts || []).some((x) => x.path === old && !x.removed_at) ? old : null });
     }
+    if (['ad_ticket', 'ad_claim', 'my_unlocks'].includes(name)) { // rewarded ads (0032): your own reel, unlocked by a ticket Google's signed call grants (or, with trust_app, the app's word)
+      d.unlocks = d.unlocks || []; const trust = d.ad_trust !== false;
+      const t = a.p_code ? d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()) : null;
+      if (name === 'ad_ticket') {
+        if (!uid()) return ok({ error: 'sign_in' }); if (!t) return ok({ error: 'no_team' });
+        const p = d.players.find((x) => x.team_id === t.id && x.user_id === uid()); if (a.p_kind !== 'reel' || !p) return ok({ error: 'not_allowed' });
+        const nu = new RegExp('^' + t.id + '/players/' + p.pid + '/reel-([0-9]{1,16})\\.mp4$').exec(a.p_target || ''); // (0037: or a name for a new reel, picked in the last week)
+        if (!(d.player_reels || []).some((r) => r.team_id === t.id && r.pid === p.pid && r.path === a.p_target) && !(nu && +nu[1] > Date.now() - 7 * 86400000 && +nu[1] < Date.now() + 86400000)) return ok({ error: 'no_reel' });
+        if (d.unlocks.some((u) => u.team_id === t.id && u.user_id === uid() && u.target === a.p_target && u.granted_at)) return ok({ error: 'not_needed' });
+        const id = 'tk-' + code(8); d.unlocks.push({ id, team_id: t.id, user_id: uid(), kind: 'reel', target: a.p_target, granted_at: null }); store(d); return ok({ ticket: id });
+      }
+      if (name === 'ad_claim') {
+        const u = d.unlocks.find((x) => x.id === a.p_ticket && x.user_id === uid()); if (!u) return ok('no_ticket');
+        if (u.granted_at) return ok('granted'); if (!(a.p_app_says && trust)) return ok('waiting');
+        u.granted_at = Date.now(); store(d); return ok('granted');
+      }
+      if (!t || !uid()) return ok(null);
+      return ok({ reels: [...new Set(d.unlocks.filter((u) => u.team_id === t.id && u.user_id === uid() && u.granted_at).map((u) => u.target))] });
+    }
     if (name === 'hide_clip') { // Remove from my highlights (0022): only the player themselves, keyed by the game and the moment
       if (!uid()) return fail('Sign in first', '42501');
       const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok('no_clip');
@@ -328,6 +347,11 @@
         t.settings = Object.assign({}, t.settings, { nextId: pid + 1 }); r.pid = pid;
       } else r.pid = have.pid;
       r.status = 'approved'; store(d); return ok('ok');
+    }
+    if (name === 'my_voices') { // (0034) the voices this account has bought; not there at all until 0034 is live
+      if (d.voicesSold === 'off') return ok(null); // (0034 live, Steve not on sale yet)
+      if (!d.voicesSold) return { data: null, error: { message: 'Could not find the function public.my_voices without parameters in the schema cache', code: 'PGRST202' } };
+      return ok((d.voice_unlocks || []).filter((x) => x.user_id === uid()).map((x) => x.voice).sort());
     }
     if (name === 'team_pass') { // (0032) anyone with the code: paid or not, until when, and who paid for this stretch
       const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok(null);
@@ -528,6 +552,22 @@
   const functions = { invoke: async (name, o) => { if (name === 'live-stream' && window.__offline) return { data: null, error: { message: 'Failed to send a request to the Edge Function' } };
     const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); if (name === 'live-stream') return liveStream(d, o.body);
     if (name === 'clip-store') return clipStore(d, o.body);
+    if (name === 'team-pass' && o.body.action === 'voice') { // (0034) a commentary voice bought once: checked with "Apple", kept on the account
+      const b = o.body, no = (status, reason, error) => ({ data: null, error: { message: error, context: { json: async () => ({ error, reason }) } } });
+      if (!uid()) return no(401, '', 'Sign in first.');
+      if (!d.appleReady) return no(503, 'not_configured', 'Paying isn’t set up on Gaffer’s server yet. Nothing has been lost: it will count once it is.');
+      const tx = (d.apple || {})[b.transaction_id], pre = 'com.randomedp.aipoweredtactics.voice.';
+      if (!tx) return no(404, 'unknown', 'Apple doesn’t know that purchase.');
+      if (String(tx.productId).indexOf(pre) !== 0) return no(400, 'wrong_product', 'That purchase isn’t a commentary voice.');
+      if (String(tx.account || '').toLowerCase() !== String(uid()).toLowerCase()) return no(403, 'not_yours', 'That purchase was made by another account.');
+      if (tx.revoked) return no(400, 'refunded', 'Apple refunded that purchase, so it doesn’t count.');
+      const voice = tx.productId.slice(pre.length); d.voice_unlocks = d.voice_unlocks || [];
+      const was = d.voice_unlocks.find((x) => x.transaction_id === b.transaction_id);
+      if (was && was.user_id !== uid()) return no(409, '', 'That purchase already unlocked the voice for another Gaffer account.');
+      const added = !was && !d.voice_unlocks.some((x) => x.user_id === uid() && x.voice === voice);
+      if (added) d.voice_unlocks.push({ user_id: uid(), voice, transaction_id: b.transaction_id }); store(d);
+      return { data: { added, voice }, error: null };
+    }
     if (name === 'team-pass') { // (0032) as the real one: asks "Apple" (d.apple, set by the tests) about the purchase, then counts it once
       const b = o.body, no = (status, reason, error) => ({ data: null, error: { message: error, context: { json: async () => ({ error, reason }) } } });
       if (!uid()) return no(401, '', 'Sign in first.');
@@ -563,6 +603,12 @@
     } if (name === 'team-notify' && o.body.kind === 'gotw') { // Goal of the Week decided: sent once, like the real one
       const wn = (d.gotw_winners || []).find((x) => x.week === o.body.week); if (!wn || !wn.nom_id || wn.notified_at) return { data: { sent: 0 }, error: null };
       wn.notified_at = Date.now(); d.gotwPushes = (d.gotwPushes || 0) + 1; store(d); return { data: { sent: 3, people: 3 }, error: null };
-    } if (name === 'reel-voice') return { data: { audio: o.body.lines.map((l) => l ? 'QUJD' : null) }, error: null }; return { data: { sent: o.body.kind === 'nudge' ? 2 : 0, people: 2 }, error: null }; } };
+    } if (name === 'reel-voice') { // (with d.voicesSold, as the real one once 0034 is live: a paid voice only for whoever bought it)
+      const b = o.body, style = b.style === 'sweary' ? 'sweary' : 'plain', voice = 'Fenrir';
+      if (b.action === 'sample') { d.samples = d.samples || {}; const f = voice.toLowerCase() + '-' + style + '.mp3'; const made = !d.samples[f]; d.samples[f] = (d.samples[f] || 0) + 1; store(d); return { data: { url: 'data:audio/mpeg;base64,QUJD#' + f, made }, error: null }; }
+      const mine = (d.voice_unlocks || []).filter((x) => x.user_id === uid()).map((x) => x.voice);
+      if (d.voicesSold && style === 'sweary' && mine.indexOf('steve') < 0) return { data: { error: 'East London Steve is a paid voice: unlock him in the voice picker, or pick Gaffer’s commentator, which is free.', reason: 'locked', locked: ['steve'] }, error: null };
+      return { data: { audio: b.lines.map((l) => l ? 'QUJD' : null) }, error: null };
+    } return { data: { sent: o.body.kind === 'nudge' ? 2 : 0, people: 2 }, error: null }; } };
   window.supabase = { createClient: () => ({ rpc, from, auth, channel, storage, functions, removeChannel() {} }) };
 })();

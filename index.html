@@ -1478,6 +1478,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <p class="note" id="optAINote"></p>
     <div class="actions"><button class="plain" id="optAIBtn" type="button"></button></div>
   </section>
+  <section id="optAds" hidden>
+    <h2>Ads</h2>
+    <p class="note">Gaffer is free with one kind of ad: a 30-second ad you choose to watch to see your own highlight reel. There are never ads during a game.</p>
+    <div class="actions"><button class="plain" id="optAdsBtn" type="button">Ad choices</button></div>
+    <p class="msg" id="optAdsMsg" role="status" hidden></p>
+  </section>
   <p class="note" id="optViewer" hidden>The team's own settings are for gaffers.</p>
   <div class="view own" id="optGaffer">
   <section>
@@ -1526,6 +1532,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <h2>Experimental</h2>
     <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
     <label class="check tgl" for="expTrack"><input id="expTrack" type="checkbox" role="switch"><span>Show experimental features <small>Player tracking from a recording, a look at what’s being worked on, the plans and the shop</small></span></label>
+    <label class="check tgl" for="expAds" id="expAdsRow" hidden><input id="expAds" type="checkbox" role="switch"><span>Try the free tier <small>See Gaffer as a team on the free plan: your own highlight reel is behind a 30-second ad you choose to watch (Google’s test ads)</small></span></label>
     <div class="actions"><button class="plain" id="expTrackOpen" type="button" hidden>Open player tracking</button><button class="plain" id="soonOpen" type="button" hidden>What’s being worked on</button><button class="plain" id="planOpen" type="button" hidden>Plans</button><button class="plain" id="shopOpen" type="button" hidden>Shop</button></div>
   </section>
 </div>
@@ -1803,7 +1810,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
       myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500); mhRebind();
       if (S.view === 'home' || S.view === 'games') renderFixture();
-      renderTabs(); tpLoad(); passLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
+      renderTabs(); tpLoad(); passLoad(); voLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
       var org = !DROID && !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
@@ -2095,6 +2102,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('aiNo').addEventListener('click', function () { aiAnswer(false); });
   var AI_NO = 'you chose not to send the lines to Google, which makes the voice.';
   $('optAIBtn').addEventListener('click', function () { aiSet(!aiAllowed()); renderOptions(); });
+  $('optAdsBtn').addEventListener('click', function () { adChoices(); });
 
   function lvSay(t, bad) { $('lvRepMsg').textContent = t; $('lvRepMsg').className = 'msg' + (bad ? ' bad' : ''); $('lvRepMsg').hidden = !t; }
   armed($('lvReport'), 'Tap again to report it', async function () {
@@ -4216,7 +4224,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var voice = null, vNote = '';
       if (row.vpath) {
         if (await aiAsk()) {
-          try { var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: [spokenLine(commentaryFor(r, { at: row.at, dur: row.dur }, swears()))], voice: vp.voice, style: vp.style } }), vd = vr && vr.data; voice = vd && vd.audio && vd.audio[0] || null; } catch (ve) {}
+          try { var vp = voUse(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: [spokenLine(commentaryFor(r, { at: row.at, dur: row.dur }, swears()))], voice: vp.voice, style: vp.style } }), vd = vr && vr.data; voice = vd && vd.audio && vd.audio[0] || null; } catch (ve) {}
           if (!voice) vNote = ' The new commentary line couldn’t be made, so that clip has none for now.';
         } else vNote = ' Its commentary was left off: ' + AI_NO;
       }
@@ -4378,8 +4386,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       '<p class="note">' + (pr.made_at ? 'Their reel, made ' + esc(dayText(pr.made_at)) + '. ' : '') + 'Tap a moment to skip to it.</p><ol class="cliplist">' +
       (pr.marks || []).filter(function (m) { return typeof m.t === 'number'; }).map(function (m) { return '<li><button type="button" data-seek="' + m.t + '" aria-pressed="false">' + esc(m.label || 'Moment') + '</button></li>'; }).join('') + '</ol></div>';
   }
-  async function keepPlayerReel(pid, file, marks, labels) { // after a player's reel is made: up to their card, replacing the one before
-    var key = teamId + '/players/' + pid + '/reel-' + Date.now() + '.mp4';
+  async function keepPlayerReel(pid, file, marks, labels, key) { // after a player's reel is made: up to their card, replacing the one before
+    key = key || teamId + '/players/' + pid + '/reel-' + Date.now() + '.mp4'; // (key: a name picked before, when an ad unlocks it)
     var got = await clipCall('upload', { paths: [key] });
     if (!got || !got.urls) throw new Error((got && got.error) || 'Gaffer’s server didn’t answer.');
     var blob = await (await fetch(window.Capacitor.convertFileSrc(file))).blob(); blob = blob.slice(0, blob.size, 'video/mp4');
@@ -4394,7 +4402,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var HLDEL = { i: -1, until: 0, msg: '', busy: false }; // Delete these highlights: armed by the first tap
   var HIDE = { busy: false, msg: '' }; // Remove from my highlights
   var DL = { i: -1, busy: false, prog: '', msg: '', path: null, bad: false };
-  var RB = { pid: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false };
+  var RB = { pid: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false };
+  function rbAd() { return RB.pid != null && RB.pid === myPid && freeTier() && canKeepReel(RB.pid); } // your own reel on the free tier: an ad plays while it's made
   var guestGame = null, guestSeen = false, GL = { i: -1, msg: '' };
   function guestLink(r) { return String(CFG.siteUrl || location.origin + location.pathname).replace(/[?#].*$/, '') + '?team=' + encodeURIComponent(A.active || '') + '&game=' + encodeURIComponent(r.id || ''); }
   async function shareGuests(i) { // a message with the game's link, for the guests who played in it
@@ -4446,6 +4455,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       });
     } else {
       var byId = {}; S.results.forEach(function (r) { byId[r.id] = r; });
+      if (freeTier()) unlLoad(); // (which of your reels you've unlocked; draws again when it's in)
       S.players.map(function (p) {
         var list = [];
         S.results.forEach(function (r) { (r.ev || []).forEach(function (e) {
@@ -4461,7 +4471,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
           '<p class="note">' + (x.vids.length ? x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ' this season, oldest first' : x.list.length ? x.list.length + (x.list.length === 1 ? ' moment' : ' moments') + ' this season, oldest first' : 'No moments yet') + '</p>';
         var mineNow = x.p.id === myPid && !!sb && !!me, hidBtn = mineNow && x.vids.length ? '<button class="plain danger" type="button" data-hide="1"' + (HIDE.busy ? ' disabled' : '') + '>Remove this clip from my highlights</button>' : '';
         var pr = preelOf(x.p.id);
-        if (pr) html += playerReelPlayer(pr) + (canKeepReel(x.p.id) ? '<div class="actions"><button class="link" type="button" data-preeloff="' + x.p.id + '">Take this reel off ' + (x.p.id === myPid ? 'my' : esc(nm(x.p.id)) + '’s') + ' card</button></div>' : '');
+        if (pr && reelLocked(pr)) html += '<div class="novid"><span>Your highlight reel is ready. Watch a 30-second ad to see it; it stays unlocked until you make a new one.</span></div>' + adBtn('reel', pr.path, 'Watch a 30-second ad');
+        else if (pr) html += playerReelPlayer(pr) + (canKeepReel(x.p.id) ? '<div class="actions"><button class="link" type="button" data-preeloff="' + x.p.id + '">Take this reel off ' + (x.p.id === myPid ? 'my' : esc(nm(x.p.id)) + '’s') + ' card</button></div>' : '');
         if (x.vids.length) html += (pr ? '<details class="allclips"><summary>All ' + x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ', one by one</summary>' + clipPlayer(x.vids) + '</details>' : clipPlayer(x.vids)) +
           (RCp() || hidBtn ? '<div class="actions">' + (RCp() ? '<button class="plain primary" type="button" data-preel="' + x.p.id + '">' + (pr ? 'Make a new reel' : 'Make a reel') + '</button><button class="plain tint" type="button" data-pbeat="' + x.p.id + '">Make a beat edit</button>' : '') + hidBtn + '</div>' : '');
         else if (x.list.length) html += '<ul>' + x.list.map(function (m) { return '<li class="wide"><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' +
@@ -4561,7 +4572,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: clipRole(c, RB.pid), title: (r ? vs(r) + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label });
     }).filter(function (c) { return !RB.goals || c.kind === 'Goal'; });
   }
-  function rbOpen(pid) { RB = { pid: pid, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false }; $('reelPop').hidden = false; renderRB(); }
+  function rbOpen(pid) { RB = { pid: pid, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false }; $('reelPop').hidden = false; renderRB(); }
   function renderRB() {
     if ($('reelPop').hidden) return;
     var list = rbList(), on = list.filter(function (c) { return RB.pick[c.key] !== false; }), secs = 0, pv = list.filter(function (c) { return c.key === RB.pv; })[0] || list[0], who = nm(RB.pid);
@@ -4574,25 +4585,34 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         '<button class="link" type="button" data-rbprev="' + esc(c.key) + '">Preview</button></li>';
     }).join('') + '</ol>' : '<p class="note">' + (RB.goals ? 'None of ' + esc(who) + '’s clips is a goal of theirs yet.' : 'No clips yet.') + '</p>';
     if (canVoice()) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
-      (RB.voice ? '<div class="two"><label class="field" for="rbVoiceName">Voice<select id="rbVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
-        '<label class="field" for="rbVoiceStyle">Delivery<select id="rbVoiceStyle">' + styleOpts() + '</select></label></div>' : '');
+      (RB.voice ? voiceBox('rb') : '');
     html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
-      '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
-      '<div class="actions">' + (RB.path && !RB.busy ? '<button class="plain primary" type="button" id="rbShare">Share or save it</button>' : '<button class="plain primary" type="button" id="rbMake"' + (RB.busy || !on.length ? ' disabled' : '') + '>Make the reel</button>') +
+      (rbAd() && !RB.path ? '<p class="note" id="rbAdNote">On the free plan a 30-second ad plays while your reel is made, so it’s ready to watch and share when the ad ends.</p>' : '') +
+      '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.ad ? '<p class="msg" role="status" id="rbAd">' + esc(RB.ad) + '</p>' : '') + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
+      '<div class="actions">' + (RB.path && !RB.busy && !RB.locked ? '<button class="plain primary" type="button" id="rbShare">Share or save it</button>' : '<button class="plain primary" type="button" id="rbMake"' + (RB.busy || !on.length || (RB.path && RB.locked) ? ' disabled' : '') + '>Make the reel</button>') +
       '<button class="plain" type="button" id="rbClose">Close</button></div>';
     $('rbBody').innerHTML = html;
   }
   async function rbMake() {
     var rc = RCp(); if (!rc || RB.busy) return;
     var list = rbList().filter(function (c) { return RB.pick[c.key] !== false; }), who = nm(RB.pid), byId = {}; if (!list.length) return;
+    var vlock = RB.voice && canVoice() ? voLocked() : [];
+    if (vlock.length) { RB.msg = voLockMsg(vlock); RB.bad = true; renderRB(); return; }
     S.results.forEach(function (r) { byId[r.id] = r; });
-    RB.busy = true; RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
+    RB.busy = true; RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.ad = ''; RB.locked = false; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
+    var ahead = null, adP = null; // your own reel on the free tier: the ad plays while it's made (see aheadStart)
+    if (rbAd() && !S.match) {
+      ahead = await aheadStart(RB.pid); AD.busy = true;
+      var adSay = function (m) { if (!RB.busy || RB.prog.indexOf('ready for when') >= 0) return; RB.ad = m === 'The ad is playing…' ? 'The ad is playing. Your reel is being made at the same time.' : m; var el = $('rbAd'); if (el) el.textContent = RB.ad; else renderRB(); };
+      adP = adRun('reel', ahead.key, { say: adSay, ticket: function (t) { ahead.ticket = t; ahead.watched = false; aheadPut(ahead); }, watched: function () { ahead.watched = true; aheadPut(ahead); } })
+        .then(function (r) { return { r: r }; }, function (e) { return { err: (e && e.message) || 'Something went wrong with the ad.' }; });
+    }
     var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
     if (RB.voice && canVoice() && !(await aiAsk())) RB.note = 'No commentary: ' + AI_NO + ' The reel was made without it.';
     else if (RB.voice && canVoice()) {
       var sw = swears(), lines = [sw ? who + '’s highlights. Brace yourselves, this is absolute filth.' : who + '’s highlights, for ' + teamName() + '.'].concat(list.map(function (c) { return byId[c.game_id] ? commentaryFor(byId[c.game_id], c, sw) : ''; }), [sw ? 'That’s ' + who + '. What a fucking player.' : 'That’s ' + who + '. What a player.']).map(spokenLine);
       try {
-        var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
+        var vp = voUse(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
         if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) {
           intro = vd.audio[0] || null; signOff = vd.audio[lines.length - 1] || null;
           items.forEach(function (it, i) { if (vd.audio[i + 1]) { it.voice = vd.audio[i + 1]; it.voiceAt = Math.max(0.5, (list[i].dur || 14) - POST + 0.5); } }); // (just after the moment, which is 6 seconds from the end)
@@ -4603,14 +4623,24 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     try {
       var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, file: (slugify(who) || 'player') + '-highlights.mp4',
         outro: { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
-      RB.path = res && res.path; RB.msg = 'The reel is ready.';
-      if (RB.path) rc.share({ path: RB.path }).catch(function () {});
+      RB.path = res && res.path; RB.msg = 'The reel is ready.'; RB.locked = !!adP;
+      if (RB.path && !adP) rc.share({ path: RB.path }).catch(function () {});
+      var kept = false;
       if (RB.path && res.marks && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
         RB.prog = 'Putting it on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card…'; renderRB();
-        try { await keepPlayerReel(RB.pid, RB.path, res.marks, list.map(function (c) { return c.title; })); RB.msg = 'The reel is ready, and it’s on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card in Highlights.'; }
-        catch (e) { RB.note = 'It couldn’t be put on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card: ' + ((e && e.message) || 'something went wrong.') + ' It’s still on this phone to share.'; }
+        try { await keepPlayerReel(RB.pid, RB.path, res.marks, list.map(function (c) { return c.title; }), ahead && ahead.key); kept = true; RB.msg = 'The reel is ready, and it’s on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card in Highlights.'; }
+        catch (e) { RB.note = 'It couldn’t be put on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card: ' + ((e && e.message) || 'something went wrong.') + (adP ? '' : ' It’s still on this phone to share.'); }
       }
-    } catch (e) { RB.msg = (e && e.message) || 'Couldn’t make the reel.'; RB.bad = true; }
+      if (adP) { // the ad, which has been playing all along
+        var doneMsg = RB.msg; RB.msg = ''; RB.ad = ''; RB.prog = 'Your reel is ready for when the ad ends…'; renderRB();
+        var ad = await adP; AD.busy = false; RB.ad = ''; RB.msg = doneMsg;
+        if (ad.r === 'unlocked') { RB.locked = false; rc.share({ path: RB.path }).catch(function () {}); }
+        else if (ad.r === 'waiting') RB.msg = 'Thanks for watching. Google hasn’t confirmed the ad yet; your reel unlocks on your card in Highlights as soon as it does.';
+        else { RB.msg = (ad.r === 'closed' ? 'The ad was closed before the end, so your reel is locked.' : ad.err) + (kept ? ' It’s on your card in Highlights: watch the ad there to see it.' : ''); RB.bad = ad.r !== 'closed'; }
+        if (kept) aheadPut(null); // (it's your reel now; the card's own button covers the rest)
+        await unlLoad(true); adDraw();
+      }
+    } catch (e) { RB.msg = (e && e.message) || 'Couldn’t make the reel.'; RB.bad = true; if (adP) { await adP; AD.busy = false; RB.ad = ''; } } // (an ad already watched counts for the next go)
     RB.busy = false; RB.prog = ''; renderRB();
   }
   $('reelPop').addEventListener('click', function (e) {
@@ -4626,7 +4656,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (t.id === 'rbGoals') RB.goals = t.checked;
     else if (t.hasAttribute('data-rbpick')) RB.pick[t.getAttribute('data-rbpick')] = t.checked;
     else if (t.id === 'rbVoice') RB.voice = t.checked;
-    else if (t.id === 'rbVoiceName' || t.id === 'rbVoiceStyle') { try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('rbVoiceName').value, style: $('rbVoiceStyle').value })); } catch (err) {} } // (a different voice is a different reel)
+    else if (t.id === 'rbVoiceName') { VO.msg = ''; voiceSet($('rbVoiceName').value); } // (a different voice is a different reel)
     else return;
     RB.path = null; RB.msg = ''; RB.note = ''; renderRB(); // (a change means the reel made before isn't this one)
   });
@@ -5025,9 +5055,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button></div>';
       html += busy;
       if (hasGaffer()) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel; the clips are kept with and without it, and everyone can switch it on or off)</small></span></label>' +
-        '<div class="two"><label class="field" for="cutVoiceName">Voice<select id="cutVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
-        '<label class="field" for="cutVoiceStyle">Delivery<select id="cutVoiceStyle">' + styleOpts() + '</select></label></div>' +
-        '<div class="actions"><button class="plain" type="button" data-cutdo="hear">Hear this voice</button></div>' + (CUT.heard ? '<p class="msg" role="status">' + esc(CUT.heard) + '</p>' : '');
+        voiceBox('cut');
       html += lookPreview(r, plan);
       var from = many ? live.map(function (k) { var c = plan.filter(function (x) { return x.cam === camNo(k); }).length; return c + ' from camera ' + camNo(k); }).join(', ') : '';
       html += '<p class="note" id="cutCount">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut' + (from ? ' (' + from + ')' : '') + ', plus one joined reel that ends on the full-time card, to share.</p>' +
@@ -5072,7 +5100,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if ($('camSwap')) { CUT.swap = $('camSwap').checked; camStore(); }
     if ($('cutVoice')) CUT.voice = $('cutVoice').checked;
     if ($('cutBug')) CUT.bug = $('cutBug').checked;
-    if ($('cutVoiceName')) { try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('cutVoiceName').value, style: $('cutVoiceStyle').value })); } catch (e) {} }
+    if ($('cutVoiceName')) voiceSet($('cutVoiceName').value);
   }
   async function camPick(k, second, fresh) { // the camera's video (or its second-half video) from Photos; a new camera with none is taken away again
     var r = S.results[CUT.idx], rc = RCp(); if (!r || !rc) return;
@@ -5119,12 +5147,136 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('cutBody').addEventListener('change', function (e) {
     if (e.target.id === 'camSwap' && CUT) { CUT.swap = e.target.checked; camStore(); }
     if (e.target.id === 'cutBug' && CUT) { cutKeep(); renderCut(); }
+    if (e.target.id === 'cutVoiceName' && CUT) { VO.msg = ''; cutKeep(); renderCut(); } // (shows whether it needs unlocking)
   });
-  var VOICES = [['Fenrir', 'Fenrir (excitable)'], ['Puck', 'Puck (upbeat)'], ['Sadachbia', 'Sadachbia (lively)'], ['Algenib', 'Algenib (gravelly)'], ['Orus', 'Orus (firm)'], ['Charon', 'Charon (measured)'], ['Kore', 'Kore (firm, female)'], ['Leda', 'Leda (youthful, female)']];
-  function voicePick() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return { voice: v && v.voice ? v.voice : 'Fenrir', style: v && (v.style === 'plain' || v.style === 'sweary') ? v.style : 'hype' }; }
-  var STYLES = [['hype', 'Live commentator'], ['plain', 'Read it straight'], ['sweary', 'Sweary, 18+ (swears like a pub commentator)']];
-  function styleOpts() { var now = voicePick().style; return STYLES.map(function (x) { return '<option value="' + x[0] + '"' + (now === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join(''); }
-  var swears = function () { return voicePick().style === 'sweary'; };
+  // ---- commentary voices (Ethan, October 2026: "remove all the voices for now apart from the base free one … And the
+  // sweary one lets call it East London Steve 18+ … we only need to select the voice"). Two to pick from:
+  //   free:  Gaffer's commentator, free to everyone (Fenrir, delivered as VOICE_FREE_STYLE: read straight costs nothing
+  //          up to Google's free million characters a month);
+  //   steve: East London Steve 18+, the sweary Cockney pub commentator (0034_voice_unlocks.sql), a one-off £3.99 bought
+  //          through Apple (TeamPassPlugin, the same plumbing as the team pass), counted on the account by team-pass
+  //          (action "voice"), so it works on any phone signed in to it; reel-voice refuses it to anyone who hasn't.
+  // Each has a sample to hear first (reel-voice "sample": one fixed line naming nobody, made once and kept, so it needs
+  // no AI ask). Until 0034 is live and Steve is on sale (my_voices isn't there, or says null) Steve stays open, as Sweary was.
+  var VOICE_FREE_STYLE = 'plain', VOICE_BUY = 'com.randomedp.aipoweredtactics.voice.';
+  var VOICES = [['free', 'Gaffer’s commentator'], ['steve', 'East London Steve 18+']];
+  function voiceKey() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return v && (v.v === 'steve' || v.style === 'sweary') ? 'steve' : 'free'; } // (older phones kept { voice, style })
+  function voicePick(k) { k = k || voiceKey(); return { key: k, voice: 'Fenrir', style: k === 'steve' ? 'sweary' : VOICE_FREE_STYLE }; }
+  function voiceSet(k) { try { localStorage.setItem('apt-voice', JSON.stringify({ v: k === 'steve' ? 'steve' : 'free' })); } catch (e) {} }
+  var swears = function () { return voUse().style === 'sweary'; };
+  var VO = { who: null, mine: null, open: false, price: '£3.99', priced: false, heard: false, at: 0, busy: '', msg: '', bad: false, samples: {}, audio: null };
+  function voName(k) { return k === 'steve' ? 'East London Steve' : 'Gaffer’s commentator'; }
+  function voState() { // what this account owns, kept on the phone per account so it's right with no signal
+    var who = me ? me.id : null;
+    if (VO.who !== who) { VO.who = who; VO.mine = null; VO.open = false; VO.at = 0; VO.msg = ''; try { var c = JSON.parse(localStorage.getItem('apt-voices:' + who) || 'null'); if (c) { VO.mine = c.mine || []; VO.open = !!c.open; } } catch (e) {} }
+    return VO;
+  }
+  function voOwns(k) { var s = voState(); return k !== 'steve' || s.open || (s.mine || []).indexOf(k) >= 0; }
+  function voLocked(k) { k = k || voiceKey(); return voOwns(k) ? [] : [k]; }
+  function voUse() { return voicePick(voOwns(voiceKey()) ? voiceKey() : 'free'); } // (never asks for a voice that would be refused)
+  function voLockMsg(lock) { return voName(lock[0]) + ' isn’t unlocked yet. Unlock him under the voice, or pick Gaffer’s commentator, which is free.'; }
+  function voKeep() { try { localStorage.setItem('apt-voices:' + VO.who, JSON.stringify({ mine: VO.mine || [], open: VO.open })); } catch (e) {} }
+  function voRedraw() {
+    if (CUT && S.view === 'cut' && CUT.stage !== 'work') { cutKeep(); renderCut(); }
+    if (RB && !RB.busy && !$('reelPop').hidden) renderRB();
+  }
+  async function voLoad(force) {
+    voState(); if (!sb || !me) return;
+    if (!force && VO.at && Date.now() - VO.at < 60000) return;
+    VO.at = Date.now();
+    var TPp = plugin('TeamPass');
+    if (TPp && !VO.heard) { VO.heard = true; try { TPp.addListener('transaction', function (t) { voClaim(t); }); } catch (e) {} }
+    if (TPp && !VO.priced) TPp.products({ ids: [VOICE_BUY + 'steve'] }).then(function (r) { var p = r && r.products && r.products[0]; if (p && p.price) { VO.price = p.price; VO.priced = true; voRedraw(); } }, function () {});
+    var r = null; try { r = await sb.rpc('my_voices'); } catch (e) {}
+    if (r && !r.error && r.data === null) { VO.open = true; voKeep(); voRedraw(); } // (Steve isn't on sale yet)
+    else if (r && !r.error && Array.isArray(r.data)) { VO.mine = r.data.map(function (x) { return String(x).toLowerCase(); }); VO.open = false; voKeep(); voRedraw(); }
+    else if (r && r.error && /my_voices|PGRST202|does not exist|schema cache/i.test(String(r.error.message || r.error.code || ''))) { VO.open = true; voKeep(); voRedraw(); } // (the server doesn't sell voices yet)
+    if (TPp) { try { var u = await TPp.unfinished(); ((u && u.list) || []).forEach(function (t) { voClaim(t, true); }); } catch (e) {} } // (bought with no signal, or the app closed half way)
+  }
+  async function fnSays(res, none) { // what an edge function said, when it said no
+    if (res && res.data && !res.error) return res.data;
+    var said = null; try { if (res && res.error && res.error.context && typeof res.error.context.json === 'function') said = await res.error.context.json(); } catch (e) {}
+    return { error: (said && said.error) || none, reason: said && said.reason };
+  }
+  var VO_CLAIMING = {};
+  async function voClaim(t, quiet) {
+    var TPp = plugin('TeamPass'), id = String((t && t.productId) || ''), k = id.indexOf(VOICE_BUY) === 0 ? id.slice(VOICE_BUY.length) : '', tx = t && String(t.transactionId || '');
+    if (!TPp || !k || !tx || !me || !sb || VO_CLAIMING[tx]) return null;
+    if (t.account && t.account !== String(me.id).toLowerCase()) return null; // another account's purchase on this phone: theirs to claim
+    VO_CLAIMING[tx] = true;
+    var none = 'Bought, but Gaffer’s server couldn’t be reached to unlock it. It unlocks by itself next time you open Gaffer.', out;
+    try { out = await fnSays(await sb.functions.invoke('team-pass', { body: { action: 'voice', transaction_id: tx, environment: t.environment || '' } }), none); }
+    catch (e) { out = { error: none }; }
+    delete VO_CLAIMING[tx];
+    // Counted, or never going to count: finish it with Apple (a voice stays owned on the Apple ID either way, for Restore).
+    if (!out.error || ['refunded', 'wrong_app', 'wrong_product', 'xcode'].indexOf(out.reason) >= 0) { try { await TPp.finish({ transactionId: tx }); } catch (e) {} }
+    if (!out.error) { voState(); var m = (VO.mine || []).slice(); if (m.indexOf(k) < 0) m.push(k); VO.mine = m; voKeep(); }
+    if (!quiet) { VO.msg = out.error || voName(k) + ' is unlocked. He’s yours on any phone you sign in to Gaffer on.'; VO.bad = !!out.error; }
+    voRedraw(); return out;
+  }
+  async function voBuy(k) {
+    var TPp = plugin('TeamPass'); if (VO.busy) return;
+    var say = function (m, bad) { VO.msg = m; VO.bad = !!bad; voRedraw(); };
+    if (!TPp) { say('Voices are unlocked in Gaffer’s iPhone app.'); return; }
+    if (!me) { say('Sign in first, so the voice is kept on your account.', true); return; }
+    VO.busy = k; say('Opening the App Store…');
+    try {
+      var r = await TPp.buy({ id: VOICE_BUY + k, account: String(me.id).toLowerCase() });
+      VO.busy = '';
+      if (r.status === 'pending') say('Waiting for the purchase to be approved. ' + voName(k) + ' unlocks as soon as it is.');
+      else if (r.status === 'bought') { say('Bought. Unlocking ' + voName(k) + '…'); await voClaim(r); }
+      else say('');
+    } catch (e) { VO.busy = ''; say((e && e.message) || 'The App Store couldn’t take the payment. Try again.', true); }
+  }
+  async function voRestore() { // Apple asks for this with anything bought once: voices bought on this Apple ID, on another phone or before
+    var TPp = plugin('TeamPass'); if (!TPp || !me || VO.busy) return;
+    VO.busy = 'restore'; VO.msg = 'Asking the App Store…'; VO.bad = false; voRedraw();
+    var got = [], bad = null;
+    try {
+      var r = await TPp.owned({ sync: true }), list = (r && r.list) || [];
+      for (var i = 0; i < list.length; i++) {
+        var o = await voClaim(list[i], true);
+        if (o && !o.error) got.push(voName(String(list[i].productId).slice(VOICE_BUY.length))); else if (o && o.error) bad = o.error;
+      }
+    } catch (e) { bad = (e && e.message) || 'Couldn’t reach the App Store. Try again.'; }
+    VO.busy = ''; VO.bad = !got.length && !!bad;
+    VO.msg = got.length ? 'Restored: ' + listAnd(got) + '.' : bad || 'There are no voices to restore on this Apple ID.';
+    voRedraw();
+  }
+  async function voHear() { // the sample for the voice picked, free to hear before buying
+    var p = voicePick(), key = p.key, url = VO.samples[key];
+    var say = function (m, bad) { VO.msg = m; VO.bad = !!bad; voRedraw(); };
+    if (VO.audio) { try { VO.audio.pause(); } catch (e) {} }
+    if (!url) {
+      if (!sb || !me) { say('Sign in to hear the voices.', true); return; }
+      say('Fetching the sample…');
+      try {
+        var d = await fnSays(await sb.functions.invoke('reel-voice', { body: { action: 'sample', voice: p.voice, style: p.style } }), 'the voice service didn’t answer.');
+        if (!d.url) { say('Couldn’t fetch the sample: ' + (d.error || 'the voice service didn’t answer.'), true); return; }
+        url = VO.samples[key] = d.url;
+      } catch (e) { say('Couldn’t reach the voice service.', true); return; }
+    }
+    try { VO.audio = new Audio(url); var pr = VO.audio.play(); if (pr && pr.catch) pr.catch(function () {}); say('Playing ' + voName(key) + '.'); }
+    catch (e) { say('Couldn’t play the sample.', true); }
+  }
+  function voiceBox(pre) { // the voice, a sample to hear, and unlocking: in the highlight maker and the reel builder
+    if (!VO.at) voLoad();
+    var k = voiceKey(), lock = voLocked(k), native = !!plugin('TeamPass');
+    var html = '<label class="field" for="' + pre + 'VoiceName">Voice<select id="' + pre + 'VoiceName">' + VOICES.map(function (v) {
+      return '<option value="' + v[0] + '"' + (k === v[0] ? ' selected' : '') + '>' + esc(v[1]) + (v[0] === 'free' ? ', free' : voOwns(v[0]) ? '' : ', ' + esc(VO.price)) + '</option>'; }).join('') + '</select></label>' +
+      '<div class="actions"><button class="plain" type="button" data-vo="hear">Hear a sample</button>' + lock.map(function (x) {
+        return '<button class="plain tint" type="button" data-vo="buy" data-voice="' + esc(x) + '"' + (VO.busy || !native ? ' disabled' : '') + '>Unlock ' + esc(voName(x)) + ' (' + esc(VO.price) + ')</button>'; }).join('') + '</div>';
+    if (k === 'steve') html += '<p class="note" data-volock>A sweary Cockney pub commentator: he swears at the football, never at anyone. 18+.' + (lock.length ? ' ' + esc(VO.price) + ' to unlock, once, and yours to keep on any phone you sign in to.' + (native ? '' : ' Unlock him in Gaffer’s iPhone app.') : '') + '</p>';
+    if (native && me) html += '<div class="actions"><button class="plain quiet" type="button" data-vo="restore"' + (VO.busy ? ' disabled' : '') + '>Restore purchases</button></div>';
+    if (VO.msg) html += '<p class="msg' + (VO.bad ? ' bad' : '') + '" role="status" data-vomsg>' + esc(VO.msg) + '</p>';
+    return html;
+  }
+  window.gafferVoiceOwns = voOwns;
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-vo]') : null; if (!b || b.disabled) return;
+    var act = b.getAttribute('data-vo');
+    if (act === 'hear') voHear(); else if (act === 'buy') voBuy(b.getAttribute('data-voice')); else if (act === 'restore') voRestore();
+  });
   $('cutBody').addEventListener('click', async function (e) {
     var bt = e.target.closest ? e.target.closest('[data-cutdo]') : e.target, act = bt && bt.getAttribute('data-cutdo'), rc = RCp(), r = CUT && S.results[CUT.idx]; if (!act || !CUT || !r) return;
     if (!rc) { CUT.msg = 'Cutting from a video needs the iPhone app.'; renderCut(); return; }
@@ -5152,17 +5304,6 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var after = cutRows(r, hk), idx = after.map(function (x) { return x.key; }).indexOf(key), next = after.slice(idx + 1).filter(function (x) { return !x.marked; })[0];
       CUT.sel = next ? next.key : key; renderCut();
     }
-    else if (act === 'hear') { // a sample line in the chosen voice, played straight away
-      cutKeep();
-      if (!(await aiAsk())) { CUT.heard = 'Not played: ' + AI_NO; renderCut(); return; }
-      CUT.heard = 'Fetching the voice…'; renderCut();
-      try {
-        var hv = voicePick(), hr = await sb.functions.invoke('reel-voice', { body: { code: A.active, voice: hv.voice, style: hv.style, lines: [hv.style === 'sweary' ? 'HOW THE FUCK has ' + (S.players.length ? nm(S.players[0].id) : 'the number nine') + ' scored that? ' + teamName() + ' lead 2 1!' : 'What a finish from ' + (S.players.length ? nm(S.players[0].id) : 'the number nine') + '! ' + teamName() + ' lead 2 1!'] } }), hd = hr && hr.data;
-        if (hd && hd.audio && hd.audio[0]) { new Audio('data:audio/mpeg;base64,' + hd.audio[0]).play().catch(function () {}); CUT.heard = hd.engine === 'gemini' || hv.style === 'plain' ? 'Playing.' : 'Playing, read straight: the live-commentator delivery isn’t available to this key yet (' + (hd.note || 'no reason given') + ').'; }
-        else CUT.heard = 'Couldn’t fetch the voice: ' + ((hd && hd.error) || 'the voice service didn’t answer.');
-      } catch (he) { CUT.heard = 'Couldn’t reach the voice service.'; }
-      renderCut();
-    }
     else if (act === 'go') {
       var live = CUT.cams.filter(function (k) { return k.src; }), many = live.length > 1, bad = null;
       live.forEach(function (k) { // every video needs at least one mark (or the time it started) to line it up
@@ -5173,6 +5314,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if ($('cutBug')) CUT.bug = $('cutBug').checked;
       if (!live.length) { CUT.stage = 'cams'; renderCut(); return; }
       if (bad) { cutKeep(); CUT.msg = bad; renderCut(); return; }
+      var vlock = CUT.voice && hasGaffer() ? voLocked() : [];
+      if (vlock.length) { cutKeep(); CUT.msg = voLockMsg(vlock); renderCut(); return; }
       var list = cutPlan(r, CUT.cams, CUT.swap);
       if (!list.length) { CUT.msg = 'No timed moments were logged in this game.'; renderCut(); return; }
       // Can every video still be opened? Found out now, before any commentary is recorded (iOS can stop Gaffer reading a
@@ -5199,7 +5342,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
             [sw ? ft + ' ' + (r.us > r.them ? 'Get fucking in!' : r.us < r.them ? 'Absolute shambles. Pints are on the keeper.' : 'Honours even. Shite game, if we’re honest.') : ft]);
           words = words.map(spokenLine);
           try {
-            var vp2 = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words, voice: vp2.voice, style: vp2.style } }), vd = vr && vr.data;
+            var vp2 = voUse(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words, voice: vp2.voice, style: vp2.style } }), vd = vr && vr.data;
             if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) { said = vd.audio; CUT.voiced = true; }
             else CUT.voiced = (vd && vd.error) || (vr && vr.error && vr.error.message) || 'the voice service didn’t answer.';
           } catch (ve) { CUT.voiced = 'the voice service couldn’t be reached.'; }
@@ -6296,9 +6439,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       ((r && r.products) || []).forEach(function (p) { var k = passKind(p.id); if (k && p.price) PASS.price[k] = p.price; }); PASS.priced = true; renderPass();
     }, function () {});
     try {
-      var r = await q(sb.rpc('team_pass', { p_code: code })); if (A.active !== code) return;
+      var was = teamPaid(code), r = await q(sb.rpc('team_pass', { p_code: code })); if (A.active !== code) return;
       if (r.data) passKeep(code, r.data);
-      renderPass();
+      renderPass(); if (teamPaid(code) !== was) adDraw(); // (a team that's just paid loses the ad lock straight away, and the other way round)
     } catch (e) {}
     passRetry();
   }
@@ -7083,6 +7226,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     } catch (err) { TR.msg = (err && err.message) || 'The tracking didn’t finish.'; }
     TR.stage = 'setup'; if (!S.match) stayAwake(false); renderTrack();
   });
+  $('expAds').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.ads = e.target.checked; saveApp(); UNL.d = null; UNL.at = 0; renderOptions(); });
   $('expTrack').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.track = e.target.checked; saveApp(); renderOptions(); if (A.exp.track) planShow(); });
   $('soonOpen').addEventListener('click', function () { go('soon'); });
   armed($('optSignOut'), 'Tap again to sign out', function () { signOutAll(); });
@@ -7226,6 +7370,116 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     }
   });
   // ================= end of playing other teams
+  // ================= rewarded ads (the free tier). No banners: on your own card in Highlights (By player), your highlight
+  // reel is behind a 30-second ad you choose to watch. Watching it unlocks that reel for good (a new reel needs a new ad).
+  // Never during a game, and never for a paid team. The unlock is granted on the server: Google's AdMob calls the ad-reward
+  // edge function, signed, when the ad has been watched (0035_rewarded_ads.sql). Google's test ads until Ethan's AdMob
+  // account is set up (config.js ads).
+  function adFree() { // THE check for "no ads here": a team with the team pass never sees one (teamPaid, from the team pot),
+    // and in early access everyone has Gaffer (hasGaffer) unless the Experimental switch tries the free tier out
+    if (teamPaid()) return true;
+    return hasGaffer() && !(A.exp && A.exp.track && A.exp.ads);
+  }
+  function adsOK() { return !DROID && !!(CFG.ads && CFG.ads.rewarded) && !!sb && !!me && !!A.active && !!plugin('AdMob'); } // an ad can be shown here: the iPhone app, signed in
+  function freeTier() { return !adFree() && adsOK(); } // (the free tier's lock only applies where an ad can lift it)
+  var UNL = { code: null, d: null, busy: false, at: 0 }, AD = { busy: false, kind: null, target: null, msg: '', bad: false, setup: false };
+  async function unlLoad(force) { // which of your reels you've unlocked, from the server
+    if (!freeTier() || UNL.busy || (!force && UNL.code === A.active && (UNL.d || Date.now() - UNL.at < 30000))) return; // (no answer: asked again after half a minute, not on every redraw)
+    var code = A.active, d = null; UNL.busy = true; UNL.at = Date.now();
+    try { d = (await q(sb.rpc('my_unlocks', { p_code: code }))).data; } catch (e) {}
+    UNL.busy = false; if (UNL.code !== code) UNL.d = null; UNL.code = code; if (d) { UNL.d = d; adDraw(); }
+  }
+  function reelLocked(pr) { var u = UNL.code === A.active ? UNL.d : null; return !!(freeTier() && pr && pr.pid === myPid && !(u && (u.reels || []).indexOf(pr.path) >= 0)); }
+  function adBtn(kind, target, label) { // the button, and where that ad stands
+    var mine = AD.kind === kind && (AD.target || null) === (target || null);
+    return '<div class="actions"><button class="plain primary" type="button" data-ad="' + kind + '"' + (target ? ' data-adt="' + esc(target) + '"' : '') + (AD.busy ? ' disabled' : '') + '>' + esc(label) + '</button></div>' +
+      (mine && AD.msg ? '<p class="msg' + (AD.bad ? ' bad' : '') + '" role="status" data-admsg="1">' + esc(AD.msg) + '</p>' : '');
+  }
+  function adDraw() { if (S.view === 'highlights') renderHighlights(); if (S.view === 'options') renderOptions(); }
+  var AD_ERR = { sign_in: 'Sign in first.', no_team: 'This team couldn’t be found. Check your signal and try again.', no_reel: 'That reel has been replaced. Pull down to refresh and try again.',
+    not_allowed: 'Only you can unlock your own reel. Join the squad as yourself first.' };
+  async function adSetup(am) { // once a session: start Google's ads, ask about personalised ads where the law needs it (UK and EU), then Apple's tracking question
+    if (AD.setup) return;
+    await am.initialize({});
+    try { var ci = await am.requestConsentInfo(); if (ci && ci.status === 'REQUIRED' && ci.isConsentFormAvailable) ci = await am.showConsentForm();
+      if (ci && ci.canRequestAds === false) throw new Error('Ads can’t be shown until you’ve made a choice about them. Tap it again to see the choices.'); }
+    catch (e) { if (e && /choice/.test(e.message || '')) throw e; } // (no answer from Google about the form: carry on, it asks again next time)
+    try { var ts = await am.trackingAuthorizationStatus(); if (ts && ts.status === 'notDetermined') await am.requestTrackingAuthorization(); } catch (e) {} // (either answer still unlocks it; it only changes which ads Google picks)
+    AD.setup = true;
+  }
+  function adShow(am) { // shows the loaded ad; true once it's been watched to the end (closing it early unlocks nothing)
+    return new Promise(function (resolve, reject) {
+      var got = false, hs = [], end = function (fn, v) { hs.forEach(function (h) { Promise.resolve(h).then(function (x) { if (x && x.remove) x.remove(); }); }); fn(v); };
+      hs.push(am.addListener('onRewardedVideoAdReward', function () { got = true; }));
+      hs.push(am.addListener('onRewardedVideoAdDismissed', function () { setTimeout(function () { end(resolve, got); }, 300); })); // (the reward can land just after it closes)
+      hs.push(am.addListener('onRewardedVideoAdFailedToShow', function (e) { end(reject, new Error('The ad wouldn’t play' + (e && e.message ? ': ' + e.message : '') + '. Try again in a moment.')); }));
+      am.showRewardVideoAd().then(function () { got = true; }, function (e) { end(reject, new Error('The ad wouldn’t play' + (e && e.message ? ': ' + e.message : '') + '. Try again in a moment.')); });
+    });
+  }
+  async function adClaim(ticket) { // asks the server whether Google has said the ad was watched (it usually has within a few seconds)
+    for (var i = 0; i < 12; i++) {
+      var r = (await q(sb.rpc('ad_claim', { p_ticket: ticket, p_app_says: true }))).data;
+      if (r === 'granted') return true;
+      if (r !== 'waiting') throw new Error('That ad couldn’t be matched to your account. Try again.');
+      await new Promise(function (ok) { setTimeout(ok, 2000); });
+    }
+    return false;
+  }
+  async function adRun(kind, target, o) { // one ad for one unlock: 'unlocked' (or it already was), 'closed' (shut early), 'waiting'
+    // (watched, Google hasn't confirmed yet). o.say(msg) tells the person; o.ticket(t) and o.watched() let a reel being made keep
+    // track in case the app is closed. Throws with the message to show.
+    o = o || {}; var say = o.say || function () {};
+    if (S.match) throw new Error('Ads never play during a game. Watch your reel once the game’s finished.'); // (nor with a game set up: the watch and the subs come first)
+    var am = adsOK() ? plugin('AdMob') : null; if (!am) throw new Error('Ads can only be watched in Gaffer’s iPhone app, signed in.');
+    say('Getting the ad…');
+    var tk = (await q(sb.rpc('ad_ticket', { p_code: A.active, p_kind: kind, p_target: target || null }))).data || {};
+    if (tk.error === 'not_needed') return 'unlocked';
+    if (tk.error || !tk.ticket) throw new Error(AD_ERR[tk.error] || 'Couldn’t get an ad. Check your signal and try again.');
+    if (o.ticket) o.ticket(tk.ticket);
+    await adSetup(am);
+    try { await am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }); }
+    catch (e) { throw new Error('No ad is available right now. Try again in a minute.'); }
+    say('The ad is playing…');
+    if (!(await adShow(am))) return 'closed';
+    if (o.watched) o.watched();
+    say('Unlocking…');
+    return (await adClaim(tk.ticket)) ? 'unlocked' : 'waiting';
+  }
+  async function adWatch(kind, target) {
+    if (AD.busy) return;
+    var say = function (msg, bad) { AD.msg = msg; AD.bad = !!bad; adDraw(); };
+    AD = Object.assign(AD, { kind: kind, target: target || null, msg: '', bad: false, busy: true });
+    try {
+      var got = await adRun(kind, target, { say: say });
+      AD.busy = false;
+      if (got === 'closed') { say('The ad was closed before the end, so your reel is still locked. Watch it to the end to see your reel.', true); return; }
+      AD.msg = got === 'waiting' ? 'Thanks for watching. Google hasn’t confirmed it yet; your reel unlocks as soon as it does, so check back in a minute.' : ''; AD.bad = false;
+      await unlLoad(true); adDraw();
+    } catch (e) { AD.busy = false; say((e && e.message) || 'Something went wrong with the ad. Try again.', true); }
+  }
+  // Making your own reel on the free tier: the ad plays while the phone makes it, so it's ready when the ad ends. The reel's
+  // file name is picked first and the ad unlocks that name (ad_ticket allows a name in your own folder, 0037). What's
+  // under way is kept on the phone (apt-ad-ahead), so if Gaffer is closed part-way an ad already watched counts for the
+  // next go: the same name is used again, and the server says it's already unlocked.
+  var ADAHEAD = 'apt-ad-ahead';
+  function aheadGet() { try { return JSON.parse(localStorage.getItem(ADAHEAD) || 'null'); } catch (e) { return null; } }
+  function aheadPut(o) { try { if (o) localStorage.setItem(ADAHEAD, JSON.stringify(o)); else localStorage.removeItem(ADAHEAD); } catch (e) {} }
+  async function aheadStart(pid) {
+    var was = aheadGet(), mine = was && was.code === A.active && was.pid === pid && was.key && was.key.indexOf(teamId + '/players/' + pid + '/reel-') === 0;
+    if (!mine) { was = { code: A.active, pid: pid, key: teamId + '/players/' + pid + '/reel-' + Date.now() + '.mp4' }; aheadPut(was); }
+    else if (was.ticket && was.watched) try { await q(sb.rpc('ad_claim', { p_ticket: was.ticket, p_app_says: true })); } catch (e) {} // (watched last time, before Gaffer was closed)
+    return was;
+  }
+  document.addEventListener('click', function (e) { // every "watch an ad" button
+    var b = e.target.closest && e.target.closest('[data-ad]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation(); adWatch(b.getAttribute('data-ad'), b.getAttribute('data-adt'));
+  }, true);
+  async function adChoices() { // Settings: change the answer about personalised ads (Google needs this offered in the UK and EU)
+    var am = plugin('AdMob'); if (!am) return;
+    try { await adSetup(am); await am.showPrivacyOptionsForm(); AD.msg = ''; } catch (e) { AD.kind = 'choices'; AD.target = null; AD.msg = 'There are no ad choices to make where you are.'; AD.bad = false; }
+    renderOptions();
+  }
+  // ================= end of rewarded ads
   // ================= live streaming: a gaffer's GoPro or iPhone streams the game through Cloudflare (the live-stream edge function
   // makes the camera link and switches it on and off); everyone following the team watches it here, with the score held
   // back to match the picture. The stream itself never touches this app: GoPro Quik (or a streaming app on an iPhone) sends it, Cloudflare plays it.
@@ -7975,6 +8229,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function renderOptions() {
     renderNotes();
     var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = $('soonOpen').hidden = $('planOpen').hidden = $('shopOpen').hidden = !ex.track;
+    $('expAds').checked = !!ex.ads; $('expAdsRow').hidden = !ex.track;
+    $('optAds').hidden = !freeTier(); $('optAdsMsg').hidden = !(AD.kind === 'choices' && AD.msg); $('optAdsMsg').textContent = AD.kind === 'choices' ? AD.msg : '';
     var aiOn = aiAllowed(); $('optAI').hidden = !(sb && me);
     $('optAINote').textContent = aiOn ? 'Allowed on this phone: when you add commentary, the lines (players’ first names, the team names, the score and the minute) are sent to Google’s AI to make the voice.' : 'Not allowed on this phone: nothing is sent to Google. You’ll be asked when you add commentary.';
     $('optAIBtn').textContent = aiOn ? 'Stop sending to Google' : 'Allow it';

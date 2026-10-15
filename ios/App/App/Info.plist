@@ -69,6 +69,17 @@
 	<string>Save your highlight reels and the games this iPhone films to your photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose your team crest, or a match recording to cut highlights from (read straight from your library, without copying it).</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Gaffer only shows an ad when you choose to watch one to see your highlight reel. Allowing this lets Google show ads that suit you better; either way, the ad still unlocks it.</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-2627873247729818~2068368869</string>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>

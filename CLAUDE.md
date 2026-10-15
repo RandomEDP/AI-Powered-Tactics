@@ -115,8 +115,8 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0031` are **applied to the live project**; `0032`–`0035` are on other branches (live); `0036` (Goal of the Week) is live too. New ones are numbered on from there |
-| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
+| `supabase/migrations/` | `0001` … `0037` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made). New ones are numbered on from 0038 |
+| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
 | `.github/workflows/android.yml` | Every push: the `android` tests, then builds the Android app (`.apk` to install, `.aab` for Google Play) as the run's artifacts. Run by hand with "Upload to Google Play" for the internal testing track (needs the Android secrets, section 7) |
@@ -512,7 +512,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   (the old Mute) and, if they have a profile, calls `block_user` (`chUser` asks `team_people` for the username if the
   phone doesn't know it; it's kept in `chatMutedU` because the server won't say who a blocked person is). Unblock undoes both.
 - **AI commentary asks first** (`aiAsk`, `#aiPop`, `apt-ai` per phone): before any line goes to `reel-voice` (cutting
-  with commentary, a reel with a voice, Hear this voice), saying what is sent (first names, team names, score, minute),
+  with commentary, a reel with a voice), saying what is sent (first names, team names, score, minute),
   to Google, and that it isn't used for training. Not now: nothing is sent and it's made without commentary (`AI_NO`).
   Settings → AI commentary (`#optAI`) shows where it stands and allows or stops it. The privacy page covers Google.
 - Tests: `safety.test.mjs`, `reels.test.mjs` (the ask), `live.test.mjs` (stream reports), `stream.test.mjs` (kind
@@ -649,7 +649,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Card:** `#passCard` on the Team page (`renderPass`, `.passbar`), behind the Experimental switch until the products are
   live (a paid team shows it to everyone). It says before anyone pays that a chip-in unlocks nothing until the pot is full.
   "Runs out in N days" within 5. No buttons on the web or Android (no Google Play yet).
-- Live: migration 0032 applied and `team-pass` v3 deployed (15 October 2026; chip-ins 99p, £1.99, £2.99). It says "not set up yet" until Ethan adds the
+- Live: migration 0032 applied and `team-pass` v4 deployed (15 October 2026; chip-ins 99p, £1.99, £2.99). It says "not set up yet" until Ethan adds the
   secrets `IAP_KEY_ID`, `IAP_ISSUER_ID`, `IAP_KEY_P8` (README "Team pass"); purchases wait on the phone till then. Refunds made after a purchase is counted aren't taken back yet (needs App Store Server
   Notifications). Test: `teampass.test.mjs`.
 
@@ -706,6 +706,30 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     (about 90 s in all; the rest are read straight). Ethan can raise the limit: Google Cloud, IAM & Admin, Quotas,
     gemini-2.5-flash-tts.
 - Ethan funds the Google usage himself.
+- **Two voices, one picker** (`0034_voice_unlocks.sql`; Ethan, October 2026: "remove all the voices for now apart from
+  the base free one … and the sweary one, lets call it East London Steve 18+ … we only need to select the voice").
+  **Gaffer's commentator** is free and read straight (Fenrir on Chirp 3 HD, `FREE_STYLE = 'plain'` in `reel-voice`,
+  `VOICE_FREE_STYLE` in JS; Chirp's first million characters a month are free). **East London Steve 18+** is the
+  Sweary delivery (key `steve`, style `sweary`), a £3.99 Apple **non-consumable** `com.randomedp.aipoweredtactics.voice.steve`,
+  kept on the Gaffer account that bought it (`voice_unlocks`), so any phone signed in to it has him. There's no separate
+  delivery choice any more: `voiceKey()`/`voiceSet()` keep `apt-voice` `{v}` (an old `style: 'sweary'` reads as Steve),
+  `voicePick()` turns the key into voice and style. Same plumbing as the team pass: `TeamPassPlugin` `buy`, then
+  `team-pass` `{action: 'voice', transaction_id}` checks it with Apple (`VOICE_PRODUCTS`) and calls `voice_credit`
+  (service role only; one purchase, one account), then `finish`. `owned({sync})` (StoreKit `currentEntitlements`, after
+  `AppStore.sync()` when asked) is Restore purchases. `reel-voice` refuses the sweary style to anyone who hasn't bought
+  Steve (`reason: 'locked'`, `locked: ['steve']`). More voices can be sold the same way later.
+  - **The on-sale switch:** `voice_settings.on_sale` (one row, off to start). While it's off `my_voices()` returns null (the
+    app keeps Steve open, `VO.open`) and `reel-voice` doesn't check, so nobody pays until Ethan turns it on after the
+    product is approved (`update public.voice_settings set on_sale = true`). 0034 and both functions are live (October 2026).
+  - JS: `voiceBox(pre)` is the picker in the cut and the reel builder (prices from Apple, Unlock, Restore, Hear a sample);
+    `voOwns`, `voLocked`, `voUse` (the voice actually asked for; never a locked one); the cut and `rbMake` stop with
+    `voLockMsg` before anything is recorded. Owned voices are kept per account in `apt-voices:<user id>`. Until 0034 is
+    live (`my_voices` missing) every voice stays open (`VO.open`), so shipping the app first changes nothing.
+  - **Samples:** `reel-voice` `{action: 'sample', style}` returns a public address in the `voice-samples` bucket,
+    making the MP3 the first time (one fixed line per delivery, naming nobody, so no AI ask and no team allowance).
+  - Cost (October 2026): a typical Steve reel is about a minute of Gemini TTS, about 1.5p; £3.99 leaves about £2.83
+    after VAT and Apple's 15%, so about 190 reels. The team allowance (40,000 characters, about 50p a month) caps the worst case.
+  - Tests: `voices.test.mjs` (database, both functions, the app on two iPhones), `stream.test.mjs` (Steve locked), `reels.test.mjs` (the picker).
 
 ### The look (the redesign, October 2026; Ethan asked for it after a review against Apple's design guidelines)
 - **Text follows the iPhone's text size.** Every `font-size` is a token on one scale (`--t-large` 1.75rem, `--t-title`,
@@ -739,6 +763,40 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   Series 9 / Ultra 2 and later). Goal for us wears the kit: the phone sends `color` in the watch state, `MatchState.kit`
   and `kitIsLight` (tested in `tests/watch/main.swift`, 26). The clock is `@ScaledMetric`.
 - Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
+
+### Rewarded ads (the free tier; `0035_rewarded_ads.sql`, `ad-reward`; Ethan: "just a 30 second ad to see your own highlight reel")
+- No banners. On the free tier the one ad is on your own card in Highlights → By player: your kept player reel (0026) is
+  behind "Watch a 30-second ad" (Google AdMob rewarded, `@capacitor-community/admob` 8.2.1, iPhone app only). Watching
+  it unlocks that reel for you for good; a new reel needs a new ad. Other people's reels, games' highlights, cuts and
+  commentary are not gated (Ethan tried more unlocks and pulled back to this one, October 2026).
+- **Never during a game** (`adWatch` refuses while `S.match` is set) and **never for a paid team**: `adFree()` is the one
+  check (`teamPaid()` from the team pass, else `hasGaffer()`). Early access: everyone has Gaffer, so ads only show with
+  Experimental on and "Try the free tier" (`#expAds`, `A.exp.ads`). `freeTier()` = not ad-free and an ad can be shown
+  here; on the web and Android the reel isn't locked (no ad to lift it).
+- **Server-side grant:** `ad_ticket('reel', path)` (only the player themselves, only their current reel) makes a ticket;
+  the ad is loaded with `ssv {userId, customData: ticket}`; AdMob calls `ad-reward` (deployed `--no-verify-jwt`; Google's
+  ECDSA signature checked against its published keys), which calls `ad_grant` (service role only). The app polls
+  `ad_claim`; `my_unlocks` lists the unlocked reels (`reelLocked`). Google's test ads never call the server, so while
+  `ad_settings.trust_app` is true `ad_claim(p_app_says)` takes the app's word. Table `ad_unlocks` (RLS, no policies).
+- **Your own reel is made while the ad plays** (`0037_ad_reel_ahead.sql`; Ethan asked): on the free tier, Make the reel for
+  yourself (`rbAd()`) picks the new reel's file name first (`aheadStart`), starts the ad for that name (`adRun`; `ad_ticket`
+  takes a name in your own folder picked in the last week) and the reel together, puts the reel on your card with that
+  name, and shares it only once the ad was watched. Closed early: it's on your card, locked. The name, ticket and whether
+  the ad was watched are kept on the phone (`apt-ad-ahead`) until the reel is on the card, so if Gaffer is closed after
+  the ad, the next go uses the same name and needs no second ad.
+- First ad of a session: `initialize`, Google's consent form where the law needs it (UK/EU; Settings → Ads → Ad choices
+  reopens it), then Apple's tracking question (`NSUserTrackingUsageDescription`). Either answer still unlocks.
+- **Real ads are on (15 October 2026):** Gaffer's app id `ca-app-pub-2627873247729818~2068368869` is in `Info.plist`
+  (`GADApplicationIdentifier`) and its rewarded unit `ca-app-pub-2627873247729818/1194270899` in `config.js` `ads`
+  (`test: false`). Server-side verification is on in AdMob (its Verify URL call reached `ad-reward` and got a 200), and
+  `ad_settings.trust_app` is false, so only Google's signed call unlocks a reel. Ethan set up the UK/EU consent message,
+  the App Privacy labels and the review notes. To test without real ads, add the iPhone as a test device in AdMob
+  (Settings, Test devices); never tap real ads on your own phone (AdMob flags it). For Google's test ads in a build
+  instead, set `test: true` and `trust_app = true` together (test ads never call the server).
+- Not done: `SKAdNetworkItems` has Google's own id only (Google's full list couldn't be fetched from a cloud session; add
+  it from developers.google.com/admob/ios/3p-skadnetworks for better ad matching on iOS). `ADMOB_AD_UNITS` isn't set
+  (optional; the ticket check already ties a grant to one person and one reel).
+- Tests: `ads.test.mjs` (the database, the real function with a stand-in Google key, and the phones).
 
 ### The shop (`0033_shop.sql`, `shop`, `shop-webhook`; behind the experimental switch; Ethan asked, October 2026)
 - Sells the **cage phone mount** (£12.99: grips the iPhone, hangs off the cage on a rope with a carabiner) and **team kits**
@@ -780,11 +838,11 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   - Every new table gets RLS.
   - Functions are `security definer` with `set search_path = ''`, and their grants are revoked from public and anon.
     Follow the patterns in the existing files.
-- **Edge functions:** all five are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
+- **Edge functions:** all are deployed with **verify_jwt = true**, except `ad-reward` (false, see below). Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v24 (kind `live` from any team member, sent once; kind `report` tells the moderators; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
-    `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **The shop** (October 2026): `0033_shop.sql` is applied live, and `shop` v1 (verify_jwt = true) and `shop-webhook` v1
@@ -792,7 +850,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   Resend, the supplier's and Ethan's email) are Ethan's to set; until then the Shop says paying isn't set up.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
   `GOOGLE_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `R2_ACCESS_KEY_ID`,
-  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan).
+  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan), and `ADMOB_AD_UNITS` (optional, once real ads are on).
 - **GitHub repository secrets:** `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`. For Android notifications:
   `GOOGLE_SERVICES_JSON` (the Firebase file; Ethan's to add). For Google Play (not set yet; Ethan's to make): `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`,
   `PLAY_SERVICE_ACCOUNT_JSON`.
@@ -929,7 +987,7 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   your own Shortcuts library). Builds after 112 have "Mark a highlight" in the iPhone's Shortcuts app; check it can be
   added, shows on the watch, and marks a highlight mid-game (see Phone ↔ Apple Watch).
 - **Voice:** the `GOOGLE_SERVICE_ACCOUNT` secret is set and works; the commentator voice was being refused by Google's
-  per-minute limit. Ethan to ask Google for a higher limit (see AI commentary); then check "Hear this voice" says Playing.
+  per-minute limit. Ethan to ask Google for a higher limit (see AI commentary); then check "Hear a sample" plays the commentator.
 - **Profiles:** check the username pop-up on the phone, follow someone private and accept it, pick clips, and that the
   feed leaves out SOP's own games. Push notifications for follow requests aren't built yet.
 - **Copyright:** `LICENSE` says all rights reserved (with third-party licences kept). The repo stays public for GitHub
@@ -944,6 +1002,9 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   keys go in Supabase secrets, never chat). **His four answers are needed first:** who pays the fee (player £5 + 50p,
   or gaffer gets £5 minus it); the cut (50p or a percentage); when players are charged (on "I'm in" or after the game)
   and what happens if a game's called off (refund or credit); and whether to start step 1.
+- **Rewarded ads:** real ads are on (October 2026; section 6, "Rewarded ads"). In early access only people who turn on
+  Experimental, then "Try the free tier", see one. Check on a real phone (as an AdMob test device) that watching one
+  unlocks your reel.
 - **Ideas he has raised but not built yet:**
   - ads in the free tier and the £4.99 Gaffer subscription (in-app purchase). Advice given: ads in the feed only once
     lots of people post (then about 1 in 8, never first); better: rewarded ads to unlock things (another game's
