@@ -10,5 +10,8 @@ window.APT_CONFIG = {
   clipsUrl: 'https://pub-256c81d54c3443eb8e0e013b111d2668.r2.dev',
   // Gaffer's App Store page, once it's live (https://apps.apple.com/app/id...). Empty until then: the guests' page says
   // to search the App Store instead.
-  appStore: ''
+  appStore: '',
+  // The shop takes real payments only once Stripe's live key is set (and SHOP_LIVE on the shop function). Until then the
+  // shop says it's in test mode.
+  shopLive: false
 };

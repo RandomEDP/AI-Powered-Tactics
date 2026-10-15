@@ -682,6 +682,25 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   and `kitIsLight` (tested in `tests/watch/main.swift`, 26). The clock is `@ScaledMetric`.
 - Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
 
+### The shop (`0033_shop.sql`, `shop`, `shop-webhook`; behind the experimental switch; Ethan asked, October 2026)
+- Sells the **cage phone mount** (£12.99: grips the iPhone, hangs off the cage on a rope with a carabiner) and **team kits**
+  (£14.99 a shirt, £9.99 with GAFFER as the chest sponsor; at least 8 shirts an order, at most 30; £3.99 postage). The kit
+  designer (`v-shop`, `renderShop`, `SK`/`shopKit`) has two colours (`swatches`), a pattern (plain, stripes, hoops, halves,
+  sash), a badge (the team crest, a picture through `readCrest`, or none), the sponsor switch, and a row a shirt (name in
+  capitals up to 12 letters, number 0–99, size), started from the squad; `kitSvg` draws the front and the chosen
+  player's back live. Names go through `rude(…, true)`.
+- **Physical goods can't use Apple's in-app purchase** (3.1.3(e)), so it's Stripe Checkout (Apple Pay or card) opened in
+  Safari (`window.open`), never StoreKit. Temu was ruled out (no dropshipping, no custom printing). Kits only pay at
+  squad sizes from a sublimation teamwear maker (roughly £6–9 a shirt); single shirts through Printful cost more than £14.99.
+- The `shop` function prices everything itself from `CATALOGUE` (keep `SHOP` in `index.html` in step; the test checks),
+  saves `shop_orders` (service role only, RLS with no policies) as `awaiting_payment`, and returns Stripe's page. `orders`
+  lists the account's own and asks Stripe about any still waiting. `shop-webhook` (**verify_jwt = false**, checks Stripe's
+  signature with `STRIPE_WEBHOOK_SECRET`, 5-minute window) marks them paid with the address; its GET is the plain-text
+  "go back to Gaffer" page Stripe returns to (never the github.io site). Secrets: `STRIPE_SECRET_KEY`,
+  `STRIPE_WEBHOOK_SECRET`, optional `SHOP_RETURN_URL`; a `sk_live_` key is refused unless `SHOP_LIVE` is `yes`, and
+  `config.js` `shopLive` drops the test-mode line. Ethan ships orders from the `shop_orders` table.
+- Not on Android. Test: `shop.test.mjs` (the real functions under Node with a stand-in Stripe, then the screen).
+
 ### Other features (all in `index.html`)
 - Polls, the Games screen, game modes and tournaments, and the minutes planner (Aggressive ↔ Fairness).
 - Injuries and leaving, insights (ratings, MOTM, chemistry), and squad chat.
@@ -704,6 +723,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
+- **Not applied yet (Ethan to approve):** `0033_shop.sql`, and the `shop` and `shop-webhook` functions (the webhook with
+  verify_jwt = false). Until then the Shop says paying isn't set up.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
   `GOOGLE_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `R2_ACCESS_KEY_ID`,
   `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan).
