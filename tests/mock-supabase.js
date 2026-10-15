@@ -2,7 +2,7 @@
 // Implements just what the app uses, with the same access rules as the real policies and functions.
 (function () {
   const KEY = '__mockdb';
-  const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips', 'messages', 'reports', 'join_requests', 'team_streams', 'profiles', 'follows', 'blocks', 'profile_reports', 'clip_hides'];
+  const TABLES = ['teams', 'team_members', 'players', 'games', 'game_players', 'game_events', 'live_matches', 'goal_queue', 'users', 'fixtures', 'fixture_votes', 'clips', 'messages', 'reports', 'join_requests', 'team_streams', 'profiles', 'follows', 'blocks', 'profile_reports', 'clip_hides', 'game_links'];
   // tests/lib.mjs gives every phone its own browser profile, like real devices; then the database lives with the test runner (window.__mockRemote).
   const REMOTE = window.__mockRemote || null;
   const xhr = (method, body) => { const x = new XMLHttpRequest(); x.open(method, REMOTE, false); x.send(body || null); return x.responseText; };
@@ -40,6 +40,43 @@
           return Object.assign({}, c, { pids: (c.pids || []).filter((x) => off.indexOf(x) < 0), off }); }),
         reels: (d.player_reels || []).filter((x) => x.team_id === t.id && x.path).sort((x, y) => x.pid - y.pid).map((x) => ({ pid: x.pid, path: x.path, store: x.store || null, marks: x.marks || [], made_at: x.made_at })),
         live: (d.live_matches.find((l) => l.team_id === t.id) || {}).state || null });
+    }
+    // ---------- linking a game with another team on Gaffer (0031), as the real functions behave
+    if (name === 'link_game' || name === 'link_answer' || name === 'team_links') {
+      const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase());
+      if (name === 'team_links') {
+        if (!t) return ok(null); const org = isOrg(d, t.id), num = (v) => typeof v === 'number' && isFinite(v) ? Math.round(v) : null;
+        const pname = (team, pid) => pid == null ? null : (d.players.find((p) => p.team_id === team && p.pid === pid) || {}).name || null;
+        const side = (team, id) => { // what the other side has logged, from its live game or else its finished one; not goals it took from this side
+          const lv = d.live_matches.find((l) => l.team_id === team && l.state && l.state.link === id);
+          if (lv) { const st = lv.state, evs = (st.events || []).filter((e) => !e.hl && !e.lk && typeof e.at === 'number');
+            return { phase: st.phase || 'pre', ko_at: num(st.koAt), ft_at: num(st.ftAt), squad: d.players.filter((p) => p.team_id === team && (st.squad || []).includes(p.pid)).sort((x, y) => x.pid - y.pid).map((p) => p.name),
+              goals: evs.filter((e) => e.us === true).map((e) => ({ at: num(e.at), min: num(e.min), x: num(e.x), p: pname(team, num(e.p)), a: pname(team, num(e.a)) })),
+              against: evs.filter((e) => e.us === false).map((e) => ({ at: num(e.at), min: num(e.min), x: num(e.x) })), clips: [] }; }
+          const g = d.games.filter((x) => x.team_id === team && x.link === id).pop();
+          if (!g) return { phase: 'none', squad: [], goals: [], against: [], clips: [] };
+          const evs = d.game_events.filter((e) => e.game_id === g.id && !e.from_link && e.at != null).sort((x, y) => x.at - y.at);
+          return { phase: 'ft', friendly: !!g.friendly, ko_at: g.ko_at ?? null, ht_at: g.ht_at ?? null, h2_at: g.h2_at ?? null, ft_at: g.ft_at ?? null, half: g.half ?? null, periods: g.periods ?? null,
+            squad: d.game_players.filter((p) => p.game_id === g.id).map((p) => pname(team, p.pid)).filter(Boolean),
+            goals: evs.filter((e) => e.kind === 'goal').map((e) => ({ at: e.at, min: e.min ?? null, x: e.x ?? null, p: pname(team, e.pid), a: pname(team, e.assist) })),
+            against: evs.filter((e) => e.kind === 'against').map((e) => ({ at: e.at, min: e.min ?? null, x: e.x ?? null })),
+            clips: d.clips.filter((c) => c.team_id === team && c.game_id === g.id).sort((x, y) => (x.at || 0) - (y.at || 0)).map((c) => ({ seq: c.seq, at: c.at, path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur })) };
+        };
+        return ok(d.game_links.filter((l) => (l.from_team === t.id || l.to_team === t.id) && (l.status === 'accepted' || (l.status === 'proposed' && (l.from_team === t.id || org)) || (['declined', 'cancelled'].includes(l.status) && l.from_team === t.id)))
+          .sort((x, y) => y.at - x.at).map((l) => { const o = d.teams.find((x) => x.id === (l.from_team === t.id ? l.to_team : l.from_team));
+            return { id: l.id, status: l.status, sent: l.from_team === t.id, at: l.at, other: { id: o.id, name: o.name, short: o.short || '', color: o.color, crest: o.crest || null }, their: l.status === 'accepted' ? side(o.id, l.id) : null }; }));
+      }
+      if (!uid()) return fail('permission denied for function ' + name, '42501');
+      if (name === 'link_game') {
+        if (!t || !isOrg(d, t.id)) return fail('Only a gaffer can link a game', '42501');
+        const o = d.teams.find((x) => x.id === a.p_to); if (!o || o.id === t.id || o.listed === false) return fail('That team can\'t be found on Gaffer', '22023');
+        const l = { id: crypto.randomUUID(), from_team: t.id, to_team: o.id, status: 'proposed', at: Date.now() }; d.game_links.push(l); store(d); return ok(l.id);
+      }
+      if (!t || !isOrg(d, t.id)) return ok('not_gaffer');
+      const l = d.game_links.find((x) => x.id === a.p_id); if (!l || (l.from_team !== t.id && l.to_team !== t.id)) return ok('missing');
+      if (a.p_action === 'cancel') { if (!['proposed', 'accepted'].includes(l.status)) return ok('closed'); l.status = 'cancelled'; store(d); return ok('ok'); }
+      if (l.to_team !== t.id) return ok('not_yours'); if (l.status !== 'proposed') return ok('closed');
+      l.status = a.p_action === 'accept' ? 'accepted' : 'declined'; store(d); return ok('ok');
     }
     if (name === 'create_team') {
       if (!uid()) return fail('permission denied for function create_team', '42501');
@@ -481,6 +518,14 @@
       while (tp.pot >= 499) { tp.pot -= 499; months++; tp.paid_until = Math.max(tp.paid_until || 0, Date.now()) + 30 * 86400000; }
       store(d);
       return { data: { added: true, until: tp.paid_until, pot: tp.pot, months, kind: P[tx.productId][0] }, error: null };
+    }
+    if (name === 'shop') { // (the shop function: prices are its own; here it only keeps the order and hands back a payment page)
+      if (!uid()) return { data: null, error: { message: 'Sign in first.', context: { json: async () => ({ error: 'Sign in first.' }) } } };
+      d.shop_orders = d.shop_orders || [];
+      if (o.body.action === 'orders') return { data: { orders: d.shop_orders.filter((x) => x.user_id === uid()).slice().reverse() }, error: null };
+      const b = o.body, n = b.item === 'kit' ? b.shirts.length : b.qty, each = b.item === 'kit' ? (b.design.sponsor ? 999 : 1499) : 1299;
+      const ord = { id: 'ord-' + (d.shop_orders.length + 1), user_id: uid(), item: b.item, lines: [{ qty: n, each }], total: n * each + 399, status: 'awaiting_payment', live: false, at: new Date().toISOString(), sponsor: !!(b.design && b.design.sponsor), shirts: b.item === 'kit' ? n : 0 };
+      d.shop_orders.push(ord); store(d); return { data: { url: 'https://checkout.stripe.com/c/pay/cs_test_' + ord.id, order: ord.id }, error: null };
     }
     if (name === 'team-notify' && o.body.kind === 'live') { // sent once per stream, and only when the picture is really getting through (as the real one checks with Cloudflare)
       const t = d.teams.find((x) => x.code === String(o.body.code || '').trim().toUpperCase()), st = t && d.team_streams.find((x) => x.team_id === t.id);
