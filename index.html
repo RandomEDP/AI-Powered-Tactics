@@ -110,6 +110,9 @@ body.ro:not(.sc) .scr { display: none !important; }
 /* the button system: one .primary per screen (the most likely tap), .tint for a secondary action, plain grey for a set of
    choices, .quiet for a text-only link, .danger (red text) for anything that deletes or can't be undone */
 .plain.tint { background: var(--on-soft); color: var(--on); }
+.passbar { height: .5rem; border-radius: .25rem; background: var(--on-soft); overflow: hidden; margin: .25rem 0 .75rem; }
+.passbar span { display: block; height: 100%; background: var(--on); border-radius: inherit; }
+.passchips .plain { flex: 1; }
 .plain.quiet { background: none; color: var(--on); padding-inline: 8px; align-self: flex-start; }
 .danger, .plain.danger, .link.danger, .del.danger { color: var(--danger); }
 .plain.danger:not(.armed) { background: color-mix(in srgb, var(--danger) 10%, var(--fill)); }
@@ -1072,7 +1075,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <li><b>One highlight reel to try.</b> Log the goals as they go in, point it at your GoPro or iPhone footage, and it cuts every goal into a reel with the score, your badge and an outro, ready to share</li>
     <li>Ads (not switched on yet)</li></ul></div>
   <div class="tier pro"><h3>Gaffer <b>£4.99</b> a month for the whole team<small>COMING SOON</small></h3><ul>
-    <li><b>One price for the team.</b> The gaffer can pay it, or everyone chips in their share</li>
+    <li><b>One price for the team.</b> Everyone chips in what they like until the pot reaches £4.99, or the gaffer pays it all</li>
     <li>Everything in Free, with no ads</li>
     <li>Highlight reels for every game</li>
     <li><b>Stream your games live.</b> Your GoPro or any iPhone sends the game to the squad’s phones, with the score on screen</li>
@@ -5585,20 +5588,23 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     pick = null; addGoal(ev, at || undefined);
   });
 
-  // ---- the team pass (0032_team_pass.sql): the Gaffer tier is paid for per team. Anyone on it can pay the month (£4.99)
-  // or chip in one player's share (69p, an eighth of a month) in the iPhone app, through Apple (TeamPassPlugin). Each
+  // ---- the team pass (0032_team_pass.sql): the Gaffer tier is paid for per team, from a team pot. Anyone on it can chip
+  // in 69p, £1.49 or £2.49, or pay the whole £4.99, in the iPhone app, through Apple (TeamPassPlugin); when the pot
+  // reaches £4.99 the whole team gets 30 days at once, and anything over stays towards the next month. Each
   // purchase is kept on this phone until Gaffer's server (team-pass) has checked it with Apple and counted it, and only
   // then finished, so nothing is lost to a dropped signal. teamPaid() is the one check for "this team has paid" (the ads
   // ask it, for one); window.gafferTeamPaid is the same.
-  var PASS_IDS = { month: 'com.randomedp.aipoweredtactics.team.month', chip: 'com.randomedp.aipoweredtactics.team.chip' };
-  var PASS = { code: null, d: null, at: 0, price: { month: '£4.99', chip: '69p' }, priced: false, busy: false, msg: '', bad: false, heard: false };
+  var PASS_IDS = { chip069: 'com.randomedp.aipoweredtactics.team.chip069', chip149: 'com.randomedp.aipoweredtactics.team.chip149', chip249: 'com.randomedp.aipoweredtactics.team.chip249', month: 'com.randomedp.aipoweredtactics.team.month' };
+  var PASS_GOAL = 499; // pence: a full pot is a month
+  var PASS = { code: null, d: null, at: 0, price: { chip069: '69p', chip149: '£1.49', chip249: '£2.49', month: '£4.99' }, priced: false, busy: false, msg: '', bad: false, heard: false };
   var PASSK = 'apt-pass', PASSP = 'apt-pass-pending'; // last known state per team (right with no signal); purchases not yet counted { tx: code }
   function passJ(k) { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } }
   function passPut(k, o) { try { localStorage.setItem(k, JSON.stringify(o)); } catch (e) {} }
   function passOf(code) { return code === PASS.code && PASS.d ? PASS.d : passJ(PASSK)[code] || null; }
   function teamPaid(code) { var d = passOf(code || A.active); return !!(d && d.until && d.until > Date.now()); }
   window.gafferTeamPaid = teamPaid;
-  function passKind(id) { return id === PASS_IDS.month ? 'month' : id === PASS_IDS.chip ? 'chip' : null; }
+  function passKind(id) { for (var k in PASS_IDS) if (PASS_IDS[k] === id) return k; return null; }
+  function passMoney(p) { return '£' + (p / 100).toFixed(2); }
   function passDay(ms) { var t = new Date(ms); return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][t.getDay()] + ' ' + t.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][t.getMonth()]; } // "Wed 14 Oct"
   function passKeep(code, d) { PASS.code = code; PASS.d = d; var all = passJ(PASSK); all[code] = d; passPut(PASSK, all); }
   async function passLoad(force) {
@@ -5607,7 +5613,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     PASS.at = Date.now();
     var TPp = plugin('TeamPass');
     if (TPp && !PASS.heard) { PASS.heard = true; try { TPp.addListener('transaction', function (t) { passClaim(t); }); } catch (e) {} }
-    if (TPp && !PASS.priced) TPp.products({ ids: [PASS_IDS.month, PASS_IDS.chip] }).then(function (r) {
+    if (TPp && !PASS.priced) TPp.products({ ids: Object.keys(PASS_IDS).map(function (k) { return PASS_IDS[k]; }) }).then(function (r) {
       ((r && r.products) || []).forEach(function (p) { var k = passKind(p.id); if (k && p.price) PASS.price[k] = p.price; }); PASS.priced = true; renderPass();
     }, function () {});
     try {
@@ -5641,10 +5647,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       pend = passJ(PASSP); delete pend[tx]; passPut(PASSP, pend);
     }
     if (!out.error && code === A.active) {
-      var d = Object.assign({ chips: [] }, passOf(code) || {}, { paid: out.until > Date.now(), until: out.until });
+      var d = Object.assign({ chips: [] }, passOf(code) || {}, { paid: !!out.until && out.until > Date.now(), until: out.until, pot: out.pot || 0 });
       passKeep(code, d); PASS.at = 0; passLoad(true);
     }
-    if (code === A.active) { PASS.msg = out.error ? out.error : (kind === 'chip' ? 'Thanks for chipping in! ' : 'Thanks! ') + 'The team is paid until ' + passDay(out.until) + '.'; PASS.bad = !!out.error; renderPass(); }
+    if (code === A.active) {
+      PASS.msg = out.error ? out.error : out.months ? (kind === 'month' ? 'Thanks! ' : 'Thanks for chipping in! That filled the pot. ') + 'The whole team has the Gaffer tier until ' + passDay(out.until) + '.' + (out.pot ? ' ' + passMoney(out.pot) + ' is already in the pot for next month.' : '')
+        : 'Thanks for chipping in! The pot is at ' + passMoney(out.pot || 0) + ' of ' + passMoney(PASS_GOAL) + '.';
+      PASS.bad = !!out.error; renderPass();
+    }
     return out;
   }
   async function passBuy(kind) {
@@ -5664,20 +5674,24 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   function renderPass() {
     var el = $('passCard'); if (!el) return;
-    var d = passOf(A.active), paid = teamPaid(), exp = !!(A.exp && A.exp.track);
+    var d = passOf(A.active) || {}, paid = teamPaid(), exp = !!(A.exp && A.exp.track), pot = d.pot || 0;
     var show = !!A.active && (exp || paid) && S.view === 'home'; // (behind the Experimental switch until the products are live; a paid team always sees who paid)
     el.hidden = !show; if (!show) { el.innerHTML = ''; return; }
     var left = paid ? Math.ceil((d.until - Date.now()) / 86400000) : 0;
-    var names = [], seen = {}; ((d && d.chips) || []).forEach(function (c) { var n = c.me ? 'you' : c.who; if (n && !seen[n]) { seen[n] = 1; names.push(n); } });
-    var thanks = !names.length ? '' : ' Thanks to ' + (names.length <= 3 ? names.slice(0, -1).join(', ') + (names.length > 1 ? ' and ' : '') + names[names.length - 1] : names.slice(0, 3).join(', ') + ' and ' + (names.length - 3) + ' more') + '.';
+    var names = [], seen = {}; (d.chips || []).forEach(function (c) { var n = c.me ? 'you' : c.who; if (n && !seen[n]) { seen[n] = 1; names.push(n); } });
+    var thanks = !names.length ? '' : 'Thanks to ' + (names.length <= 3 ? names.slice(0, -1).join(', ') + (names.length > 1 ? ' and ' : '') + names[names.length - 1] : names.slice(0, 3).join(', ') + ' and ' + (names.length - 3) + ' more') + '.';
     var native = !!plugin('TeamPass'), own = role === 'owner', p = PASS.price;
-    var month = '<button class="plain ' + (own ? 'primary' : 'tint') + '" type="button" data-pass="month">Pay for the month (' + esc(p.month) + ')</button>';
-    var chip = '<button class="plain ' + (own ? 'tint' : 'primary') + '" type="button" data-pass="chip">Chip in (' + esc(p.chip) + ')</button>';
+    var bar = '<div class="passbar" role="progressbar" aria-valuemin="0" aria-valuemax="' + PASS_GOAL + '" aria-valuenow="' + pot + '" aria-label="Team pot"><span style="width:' + Math.round(100 * pot / PASS_GOAL) + '%"></span></div>';
+    var pots = '<p id="passPot"><b>' + (paid ? 'Next month’s pot: ' : 'Team pot: ') + passMoney(pot) + '</b> of ' + passMoney(PASS_GOAL) + '</p>' + bar;
+    var chips = ['chip069', 'chip149', 'chip249'].map(function (k) { return '<button class="plain tint" type="button" data-pass="' + k + '">' + esc(p[k]) + '</button>'; }).join('');
     el.innerHTML = '<h2>Gaffer for the team</h2>' +
-      (paid ? '<p id="passState">Paid until ' + esc(passDay(d.until)) + '.' + esc(thanks) + '</p>' + (left <= 5 ? '<p class="note" id="passLow">Runs out in ' + left + (left === 1 ? ' day' : ' days') + '. Chip in to keep it going.</p>' : '')
-        : '<p id="passState">' + esc(p.month) + ' covers the whole team for a month. Or everyone chips in ' + esc(p.chip) + ': eight chip-ins make a month.' + esc(thanks) + '</p>') +
+      (paid ? '<p id="passState">Paid until ' + esc(passDay(d.until)) + '.' + (thanks ? ' ' + esc(thanks) : '') + '</p>' + (left <= 5 ? '<p class="note" id="passLow">Runs out in ' + left + (left === 1 ? ' day' : ' days') + '. Chip in to fill the pot for next month.</p>' : '')
+        : '<p id="passState">Everyone chips in what they like. When the pot reaches ' + esc(passMoney(PASS_GOAL)) + ', the whole team gets a month of the Gaffer tier.' + (thanks ? ' ' + esc(thanks) : '') + '</p>') +
+      pots +
       '<p class="note">No ads, highlights for every game, live streams and AI commentary, for everyone on the team.</p>' +
-      (native ? '<div class="actions">' + (own ? month + chip : chip + month) + '</div><p class="note">One-off payments through Apple. Nobody is charged again unless they choose to.</p>'
+      (native ? '<div class="field"><span>Chip in</span><div class="actions passchips">' + chips + '</div></div>' +
+          '<div class="actions"><button class="' + (own ? 'plain primary' : 'plain') + '" type="button" data-pass="month">Pay the whole month (' + esc(p.month) + ')</button></div>' +
+          '<p class="note" id="passHow">Chipping in doesn’t unlock anything until the pot is full; anything over carries into the next month. One-off payments through Apple: nobody is charged again unless they choose to.</p>'
         : '<p class="note">Anyone on the team can chip in from Gaffer’s iPhone app.</p>') +
       (PASS.msg ? '<p class="msg' + (PASS.bad ? ' bad' : '') + '" id="passMsg" role="status">' + esc(PASS.msg) + '</p>' : '');
     [].forEach.call(el.querySelectorAll('[data-pass]'), function (b) { b.disabled = PASS.busy; });

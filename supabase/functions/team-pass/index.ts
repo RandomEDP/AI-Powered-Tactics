@@ -1,8 +1,10 @@
-// The team pass (0032_team_pass.sql): someone on a team has bought "Pay for the month" or "Chip in" in the iPhone app,
-// through Apple. Before it counts, this asks Apple itself about the purchase (App Store Server API, "Get Transaction
+// The team pass (0032_team_pass.sql): someone on a team has chipped into the team's pot in the iPhone app (69p, £1.49,
+// £2.49, or the whole £4.99 month), through Apple; each full £4.99 in the pot gives the team 30 days. Before it counts, this asks Apple itself about the purchase (App Store Server API, "Get Transaction
 // Info"), so a made-up or refunded purchase never pays for anything, and each purchase counts once, for one team.
 // Called by anyone signed in, with { code, action: "claim", transaction_id }:
-//   -> { added, until, kind }   until: when the team's pass runs out (ms); added false if it was counted already
+//   -> { added, until, pot, months, kind, pence }   until: when the team's pass runs out (ms, null before the pot first
+//      fills); pot: pence towards the next month; months: how many months this purchase started; added false if it was
+//      counted already
 // Errors come back as { error, reason } in plain words, reason one of: not_configured, unknown, not_yours, refunded,
 // wrong_app, wrong_product, xcode.
 // Secrets (Edge Functions > Secrets), from App Store Connect, Users and Access, Integrations, In-App Purchase:
@@ -11,10 +13,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const BUNDLE = "com.randomedp.aipoweredtactics";
-// What each product adds to the team: a month is 30 days; a chip-in is one player's share of it (an eighth).
-export const PRODUCTS: Record<string, { kind: "month" | "chip"; hours: number }> = {
-  [BUNDLE + ".team.month"]: { kind: "month", hours: 720 },
-  [BUNDLE + ".team.chip"]: { kind: "chip", hours: 90 },
+// What each product puts in the team's pot, in pence of the UK price (the same whichever country it was bought in).
+export const GOAL = 499;
+export const PRODUCTS: Record<string, { kind: string; pence: number }> = {
+  [BUNDLE + ".team.month"]: { kind: "month", pence: 499 },
+  [BUNDLE + ".team.chip069"]: { kind: "chip069", pence: 69 },
+  [BUNDLE + ".team.chip149"]: { kind: "chip149", pence: 149 },
+  [BUNDLE + ".team.chip249"]: { kind: "chip249", pence: 249 },
 };
 const APPLE = ["https://api.storekit.itunes.apple.com", "https://api.storekit-sandbox.itunes.apple.com"]; // live first, then TestFlight's
 
@@ -76,9 +81,9 @@ Deno.serve(async (req: Request) => {
     if (String(t.appAccountToken || "").toLowerCase() !== who.user.id.toLowerCase()) return no(403, "not_yours", "That purchase was made by another account.");
     if (t.revocationDate) return no(400, "refunded", "Apple refunded that purchase, so it doesn't count.");
 
-    const { data, error } = await db.rpc("pass_credit", { p_team: team.id, p_user: who.user.id, p_tx: String(t.transactionId || tx), p_product: product.kind, p_hours: product.hours, p_env: t.environment === "Sandbox" ? "Sandbox" : "Production" });
+    const { data, error } = await db.rpc("pass_credit", { p_team: team.id, p_user: who.user.id, p_tx: String(t.transactionId || tx), p_product: product.kind, p_pence: product.pence, p_env: t.environment === "Sandbox" ? "Sandbox" : "Production" });
     if (error) return json({ error: /another team/.test(error.message) ? "That purchase already paid for another team." : "Couldn't save it. Try again in a moment." }, /another team/.test(error.message) ? 409 : 500);
-    return json(Object.assign({ kind: product.kind }, data));
+    return json(Object.assign({ kind: product.kind, pence: product.pence }, data));
   } catch (e) {
     return json({ error: "Couldn't reach Apple to check the purchase. Try again in a moment.", detail: String((e as Error)?.message || e) }, 502);
   }

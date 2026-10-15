@@ -23,37 +23,43 @@ const ath = await d.rpc(rival, 'create_team', { p_name: 'Athletico', p_short: ''
 const sopId = (await d.admin(`select id from public.teams where code = $1`, [sop.code]))[0].id, athId = (await d.admin(`select id from public.teams where code = $1`, [ath.code]))[0].id;
 await d.admin(`update public.players set user_id = $1 where team_id = $2 and pid = 2`, [jake.id, sopId]);
 await d.admin(`insert into public.profiles (user_id, username, name) values ($1, 'edp_gaffer', 'Ethan'), ($2, 'rival', '')`, [ethan.id, rival.id]);
-const credit = async (team, user, tx, product, hours) => (await d.admin(`set role service_role; select public.pass_credit($1, $2, $3, $4, $5, 'Sandbox') as r`.replace('set role service_role; ', ''), [team, user, tx, product, hours]))[0].r;
 const asServer = async (sql, params) => { await d.db.exec('set role service_role'); try { return (await d.db.query(sql, params)).rows; } finally { await d.db.exec('reset role'); } };
+const put = async (team, user, tx, product, pence) => (await asServer(`select public.pass_credit($1, $2, $3, $4, $5, 'Sandbox') as r`, [team, user, tx, product, pence]))[0].r;
+const DAY = 86400000, near = (a, b) => Math.abs(a - b) < 60000;
 
 let p = await d.rpc(null, 'team_pass', { p_code: sop.code.toLowerCase() });
-eq([p.paid, p.until, p.chips], [false, null, []], 'a team nobody has paid for: not paid, and anyone with the code can see so');
+eq([p.paid, p.until, p.pot, p.goal, p.chips], [false, null, 0, 499, []], 'a team nobody has paid for: not paid, an empty pot out of £4.99, and anyone with the code can see so');
 eq(await d.rpc(null, 'team_pass', { p_code: 'ZZZZZZ' }), null, 'a wrong code shows nothing');
 for (const [who, label] of [[null, 'someone not signed in'], [jake, 'a player'], [ethan, 'the gaffer']]) {
-  check(/permission denied/i.test(await d.fails(d.rpc(who, 'pass_credit', { p_team: sopId, p_user: ethan.id, p_tx: '1', p_product: 'month', p_hours: 720, p_env: 'Sandbox' }))), `${label} can't add time to the pass themselves (only Gaffer's server, once Apple says the purchase is real)`);
-  eq([await d.fails(d.as(who, 'select count(*) from public.team_pass')), await d.fails(d.as(who, 'select count(*) from public.pass_purchases'))].every((m) => /permission denied/i.test(m) || m === ''), true, `${label} can't read the purchases table`);
-  eq((await d.as(who, 'select count(*)::int as n from public.pass_purchases').catch(() => [{ n: 0 }]))[0].n, 0, `${label} sees no rows in it directly`);
+  check(/permission denied/i.test(await d.fails(d.rpc(who, 'pass_credit', { p_team: sopId, p_user: ethan.id, p_tx: '1', p_product: 'month', p_pence: 499, p_env: 'Sandbox' }))), `${label} can't put money in the pot themselves (only Gaffer's server, once Apple says the purchase is real)`);
+  eq((await d.as(who, 'select count(*)::int as n from public.pass_purchases').catch(() => [{ n: 0 }]))[0].n, 0, `${label} sees no purchases directly`);
+  eq((await d.as(who, 'select count(*)::int as n from public.team_pass').catch(() => [{ n: 0 }]))[0].n, 0, `${label} can't read the pass table directly either`);
 }
 
-const r1 = (await asServer(`select public.pass_credit($1, $2, '2000000001', 'chip', 90, 'Sandbox') as r`, [sopId, jake.id]))[0].r;
-check(r1.added && Math.abs(r1.until - (Date.now() + 90 * 3600000)) < 60000, 'Gaffer\'s server adds a chip-in: 90 hours (an eighth of a month) from now');
-const r1b = (await asServer(`select public.pass_credit($1, $2, '2000000001', 'chip', 90, 'Sandbox') as r`, [sopId, jake.id]))[0].r;
-eq([r1b.added, r1b.until], [false, r1.until], 'the same purchase claimed again adds nothing');
-check(/another team/.test(await d.fails(asServer(`select public.pass_credit($1, $2, '2000000001', 'chip', 90, 'Sandbox')`, [athId, jake.id]))), 'nor can it pay for another team as well');
-const r2 = (await asServer(`select public.pass_credit($1, $2, '2000000002', 'month', 720, 'Sandbox') as r`, [sopId, ethan.id]))[0].r;
-eq(r2.until - r1.until, 720 * 3600000, 'the month adds on from when the pass would have run out, not from now');
+let r = await put(sopId, jake.id, '2000000001', 'chip069', 69);
+eq([r.added, r.pot, r.months, r.until], [true, 69, 0, null], 'a 69p chip-in goes in the pot; nothing is unlocked yet');
+r = await put(sopId, jake.id, '2000000001', 'chip069', 69);
+eq([r.added, r.pot], [false, 69], 'the same purchase claimed again adds nothing');
+check(/another team/.test(await d.fails(put(athId, jake.id, '2000000001', 'chip069', 69))), 'nor can it go in another team\'s pot as well');
+r = await put(sopId, rival.id, '2000000002', 'chip249', 249); r = await put(sopId, ethan.id, '2000000003', 'chip149', 149);
+eq([r.pot, r.months, (await d.rpc(null, 'team_pass', { p_code: sop.code })).paid], [467, 0, false], 'the pot fills up from anyone: £4.67 of £4.99 is still not paid');
+r = await put(sopId, jake.id, '2000000004', 'chip069', 69);
+check(r.months === 1 && r.pot === 37 && near(r.until, Date.now() + 30 * DAY), 'the chip-in that takes it past £4.99 starts the whole team\'s month there and then, and the 37p over stays in the pot');
+const until1 = r.until;
+r = await put(sopId, ethan.id, '2000000005', 'month', 499);
+eq([r.months, r.pot, r.until - until1], [1, 37, 30 * DAY], 'paying the whole month adds 30 days on to the end, not from now');
 p = await d.rpc(jake, 'team_pass', { p_code: sop.code });
-eq([p.paid, p.until, p.chips.map((c) => [c.who, c.kind, c.me])], [true, r2.until, [['edp_gaffer', 'month', false], ['Jake', 'chip', true]]], 'everyone sees it paid, until when, and who paid (their name in the squad, else their username; newest first; "me" for their own)');
-check(!JSON.stringify(p).match(/price|amount|transaction|2000000001|Sandbox|user_id/), 'and nothing about money, Apple or accounts');
+eq([p.paid, p.until, p.pot, p.chips.map((c) => [c.who, c.me])], [true, r.until, 37, [['edp_gaffer', false], ['Jake', true], ['edp_gaffer', false], ['rival', false], ['Jake', true]]],
+  'everyone sees it paid, until when, the pot for next month, and who chipped in (their name in the squad, else their username; newest first; "me" for their own)');
+check(!JSON.stringify(p.chips).match(/pence|price|amount|chip069|transaction|2000000001|Sandbox|user_id/), 'but never what each person paid, nor anything about Apple or accounts');
 await d.admin(`update public.team_pass set paid_until = now() - interval '3 days' where team_id = $1`, [sopId]);
-eq((await d.rpc(null, 'team_pass', { p_code: sop.code })).paid, false, 'a pass that ran out shows as not paid');
-const r3 = (await asServer(`select public.pass_credit($1, $2, '2000000003', 'chip', 90, 'Sandbox') as r`, [sopId, rival.id]))[0].r;
-check(Math.abs(r3.until - (Date.now() + 90 * 3600000)) < 60000, 'and a chip-in after it ran out starts again from now (the days it was unpaid aren\'t paid for)');
-eq((await d.rpc(null, 'team_pass', { p_code: sop.code })).chips[0].who, 'rival', 'someone not in the squad who chips in shows by their username');
+p = await d.rpc(null, 'team_pass', { p_code: sop.code });
+eq([p.paid, p.pot], [false, 37], 'a pass that ran out shows as not paid, with what\'s in the pot kept');
+r = await put(sopId, jake.id, '2000000006', 'month', 499);
+check(near(r.until, Date.now() + 30 * DAY) && r.pot === 37, 'and the next full pot starts again from now (the days it was unpaid aren\'t paid for)');
 eq((await d.admin(`select private.team_is_paid($1) as a, private.team_is_paid($2) as b`, [sopId, athId]))[0], { a: true, b: false }, 'private.team_is_paid is there for other SQL to ask');
 await d.admin(`delete from auth.users where id = $1`, [rival.id]);
-eq((await d.admin(`select count(*)::int as n, count(user_id)::int as u from public.pass_purchases where team_id = $1`, [sopId]))[0], { n: 3, u: 2 }, 'deleting an account keeps the team\'s paid time but forgets who paid');
-void credit;
+eq((await d.admin(`select count(*)::int as n, count(user_id)::int as u from public.pass_purchases where team_id = $1`, [sopId]))[0], { n: 6, u: 5 }, 'deleting an account keeps what it put in the pot but forgets who it was');
 
 // ================= 2. the team-pass edge function, against a stand-in Apple and the database above
 const ENV = { SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'service' }, USERS = { 'tok-ethan': ethan.id, 'tok-jake': jake.id };
@@ -62,7 +68,7 @@ const p8 = privateKey.export({ type: 'pkcs8', format: 'pem' });
 const BUNDLE = 'com.randomedp.aipoweredtactics';
 const APPLE = { live: {}, sandbox: {} }, ASKED = [];
 const jws = (o) => 'eyJhbGciOiJFUzI1NiJ9.' + Buffer.from(JSON.stringify(o)).toString('base64url') + '.c2ln';
-const buy = (where, id, o) => { APPLE[where][id] = Object.assign({ transactionId: id, bundleId: BUNDLE, productId: BUNDLE + '.team.chip', appAccountToken: jake.id.toUpperCase(), environment: where === 'live' ? 'Production' : 'Sandbox' }, o); };
+const buy = (where, id, o) => { APPLE[where][id] = Object.assign({ transactionId: id, bundleId: BUNDLE, productId: BUNDLE + '.team.chip149', appAccountToken: jake.id.toUpperCase(), environment: where === 'live' ? 'Production' : 'Sandbox' }, o); };
 let appleDown = false;
 globalThis.fetch = async (url, init = {}) => {
   url = String(url);
@@ -98,18 +104,18 @@ const call = async (token, body) => {
   const res = await handler(new Request('https://x.supabase.co/functions/v1/team-pass', { method: 'POST', headers: token ? { Authorization: 'Bearer ' + token } : {}, body: JSON.stringify(Object.assign({ code: sop.code, action: 'claim' }, body)) }));
   return Object.assign(await res.json(), { status: res.status });
 };
-eq(Object.values(PRODUCTS).map((x) => [x.kind, x.hours]), [['month', 720], ['chip', 90]], 'the month is 30 days and a chip-in an eighth of it, so eight chip-ins make a month');
+eq(Object.values(PRODUCTS).map((x) => [x.kind, x.pence]), [['month', 499], ['chip069', 69], ['chip149', 149], ['chip249', 249]], 'the whole month fills the pot at once; the chip-ins put in 69p, £1.49 or £2.49');
 
-const before = (await d.rpc(null, 'team_pass', { p_code: sop.code })).until;
+const before = (await d.rpc(null, 'team_pass', { p_code: sop.code })).pot;
 eq((await call(null, { transaction_id: '3000000001' })).status, 401, 'nobody signed in can claim anything');
-let r = await call('tok-jake', { transaction_id: '3000000001' });
+r = await call('tok-jake', { transaction_id: '3000000001' });
 eq([r.status, r.reason], [503, 'not_configured'], 'before the In-App Purchase key is set, it says so (and the app keeps the purchase to count later)');
 check(/Nothing has been lost/.test(r.error), 'in words that say nothing is lost');
 Object.assign(ENV, { IAP_KEY_ID: 'KEY123', IAP_ISSUER_ID: 'issuer-1', IAP_KEY_P8: p8 });
 
 buy('sandbox', '3000000001');
 r = await call('tok-jake', { transaction_id: '3000000001' });
-eq([r.status, r.added, r.kind, r.until - before], [200, true, 'chip', 90 * 3600000], 'a TestFlight chip-in: checked with Apple and counted for the team');
+eq([r.status, r.added, r.kind, r.pot - before], [200, true, 'chip149', 149], 'a TestFlight £1.49 chip-in: checked with Apple and put in the team\'s pot');
 eq(ASKED.slice(-2).map((a) => [a.where, a.ok]), [['live', true], ['sandbox', true]], 'it asks the live App Store first, then TestFlight\'s sandbox, both properly signed');
 const a0 = ASKED[ASKED.length - 1];
 eq([a0.head.alg, a0.head.kid, a0.head.typ, a0.body.iss, a0.body.aud, a0.body.bid, a0.body.exp - a0.body.iat], ['ES256', 'KEY123', 'JWT', 'issuer-1', 'appstoreconnect-v1', BUNDLE, 600], 'with the token Apple\'s App Store Server API expects');
@@ -141,7 +147,7 @@ const appleSheet = () => { // Apple's purchase sheet, as the web app sees it thr
   const K = '__apple_unfinished'; // Apple keeps unfinished purchases across launches
   const S = window.__apple = { calls: [], get unfinished() { return JSON.parse(localStorage.getItem(K) || '[]'); }, set unfinished(v) { localStorage.setItem(K, JSON.stringify(v)); }, next: 'bought', n: Number(localStorage.getItem('__txn') || Math.floor(Math.random() * 1e6) * 100), said: [] };
   window.Capacitor.Plugins.TeamPass = {
-    products: async () => ({ products: [{ id: 'com.randomedp.aipoweredtactics.team.month', price: '£4.99' }, { id: 'com.randomedp.aipoweredtactics.team.chip', price: '£0.69' }] }),
+    products: async () => ({ products: [['month', '£4.99'], ['chip069', '£0.69'], ['chip149', '£1.49'], ['chip249', '£2.49']].map(([k, price]) => ({ id: 'com.randomedp.aipoweredtactics.team.' + k, price })) }),
     buy: async (o) => { S.calls.push(['buy', o.id]); if (S.next !== 'bought') return { status: S.next };
       const t = { transactionId: String(++S.n), productId: o.id, account: o.account, environment: 'Sandbox' }; localStorage.setItem('__txn', S.n);
       S.unfinished = S.unfinished.concat([t]); window.__appleBought(t); return Object.assign({ status: 'bought' }, t); },
@@ -160,21 +166,21 @@ const code = await G.text('#codeBig'); await G.click('#v-code [data-go="home"]')
 eq([await G.visible('#passCard'), await G.page.evaluate(() => window.gafferTeamPaid())], [false, false], 'with the Experimental switch off, nothing about paying shows (and the team isn\'t paid)');
 await G.click('#mOptions'); await G.page.check('#expTrack'); await G.run(300);
 if (await G.visible('#planOk')) await G.click('#planOk');
-check(/£4\.99 a month for the whole team/.test(await G.page.textContent('#planPop')) && /everyone chips in their share/.test(await G.page.textContent('#planPop')), 'Plans says the Gaffer tier is one price for the whole team, which everyone can chip in for');
+check(/£4\.99 a month for the whole team/.test(await G.page.textContent('#planPop')) && /chips in what they like until the pot reaches £4\.99/.test(await G.page.textContent('#planPop')), 'Plans says the Gaffer tier is one price for the whole team, from a pot everyone chips into');
 await G.click('#tabs [data-tab="home"]'); await G.run(500);
-eq([await G.visible('#passCard'), await G.text('#passState')], [true, '£4.99 covers the whole team for a month. Or everyone chips in £0.69: eight chip-ins make a month.'], 'switched on, the Team page offers the team pass, with Apple\'s own prices');
-eq(await G.page.$$eval('#passCard [data-pass]', (b) => b.map((x) => [x.textContent, x.className])), [['Pay for the month (£4.99)', 'plain primary'], ['Chip in (£0.69)', 'plain tint']], 'for the gaffer, paying the month comes first');
+eq([await G.visible('#passCard'), await G.text('#passState'), await G.text('#passPot')], [true, 'Everyone chips in what they like. When the pot reaches £4.99, the whole team gets a month of the Gaffer tier.', 'Team pot: £0.00 of £4.99'], 'switched on, the Team page shows the team pot');
+eq(await G.page.$$eval('#passCard [data-pass]', (b) => b.map((x) => [x.textContent, x.className])), [['£0.69', 'plain tint'], ['£1.49', 'plain tint'], ['£2.49', 'plain tint'], ['Pay the whole month (£4.99)', 'plain primary']], 'three chip-in amounts with Apple\'s own prices, and paying the whole month (the gaffer\'s main button)');
+check(/doesn’t unlock anything until the pot is full; anything over carries into the next month/.test(await G.text('#passHow')), 'before anyone pays, it says chipping in unlocks nothing until the pot is full, and nothing over is lost');
 
 // before the server has its In-App Purchase key: paid, kept, and counted later
-await G.click('[data-pass="chip"]'); await G.run(800);
+await G.click('[data-pass="chip249"]'); await G.run(800);
 check(/Nothing has been lost/.test(await G.text('#passMsg')), 'if Gaffer\'s server can\'t check purchases yet, the gaffer is told nothing is lost');
 eq([await G.page.evaluate(() => window.__apple.unfinished.length), await G.page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('apt-pass-pending') || '{}')).length)], [1, 1], 'and the purchase is kept, not finished with Apple');
 w.setDb(Object.assign(w.db(), { appleReady: true }));
 await G.page.reload(); await G.run(1500); await G.click('#tabs [data-tab="home"]'); await G.run(500);
-check(/^Paid until .+\. Thanks to you\.$/.test(await G.text('#passState')), `opening Gaffer again counts it by itself (${await G.text('#passState')})`);
-eq([await G.page.evaluate(() => window.__apple.unfinished.length), await G.page.evaluate(() => window.__apple.calls.filter((c) => c[0] === 'finish').length), await G.page.evaluate(() => window.gafferTeamPaid())], [0, 1, true], 'then it\'s finished with Apple, once, and the team is paid');
-const until1 = w.db().team_pass[0].paid_until;
-check(await G.visible('#passLow') && /Runs out in 4 days/.test(await G.text('#passLow')), 'a chip-in alone is about 4 days, so it says it\'s running out and asks for chip-ins');
+eq([await G.text('#passPot'), /Thanks to you\.$/.test(await G.text('#passState'))], ['Team pot: £2.49 of £4.99', true], 'opening Gaffer again counts it by itself: £2.49 in the pot');
+eq([await G.page.evaluate(() => window.__apple.unfinished.length), await G.page.evaluate(() => window.__apple.calls.filter((c) => c[0] === 'finish').length), await G.page.evaluate(() => window.gafferTeamPaid())], [0, 1, false], 'then it\'s finished with Apple, once; the pot isn\'t full, so the team isn\'t paid yet');
+eq(await G.page.$eval('#passCard .passbar', (b) => b.getAttribute('aria-valuenow')), '249', 'the bar shows how full the pot is');
 
 // a player chips in, on their own iPhone
 const J = await w.phone({ db: true, native: true, label: 'jake' });
@@ -185,21 +191,27 @@ await J.page.fill('#jEmail', 'jake@example.com'); await J.page.fill('#jUser', 'j
 await J.click('#pendCard [data-go="account"]'); await J.page.fill('#aEmail', 'jake@example.com'); await J.page.fill('#aPass', 'longpassword'); await J.click('#aSignIn'); await J.run(2500);
 await J.click('#tabs [data-tab="home"]'); await J.run(500);
 await J.click('#mOptions').catch(() => {}); if (await J.visible('#expTrack')) { await J.page.check('#expTrack'); await J.run(300); if (await J.visible('#planOk')) await J.click('#planOk'); } await J.click('#tabs [data-tab="home"]'); await J.run(800);
-eq(await J.page.$$eval('#passCard [data-pass]', (b) => b.map((x) => x.className)), ['plain primary', 'plain tint'], 'for a player, Chip in comes first');
-await J.page.evaluate(() => { window.__apple.next = 'cancelled'; }); await J.click('[data-pass="chip"]'); await J.run(500);
-eq([await J.visible('#passMsg'), w.db().team_pass[0].paid_until], [false, until1], 'cancelling Apple\'s sheet changes nothing and says nothing');
-await J.page.evaluate(() => { window.__apple.next = 'bought'; }); await J.click('[data-pass="chip"]'); await J.run(800);
-check(/^Thanks for chipping in! The team is paid until /.test(await J.text('#passMsg')), 'chipping in thanks them and says until when the team is paid');
-eq(w.db().team_pass[0].paid_until - until1, 90 * 3600000, 'and adds a chip-in\'s 90 hours on to the end');
-check(/Thanks to you and ethan_fc\./.test(await J.text('#passState')), `the card names who paid (${await J.text('#passState')})`);
+eq(await J.page.$eval('#passCard [data-pass="month"]', (x) => x.className), 'plain', 'for a player, paying the whole month isn\'t the main button');
+await J.page.evaluate(() => { window.__apple.next = 'cancelled'; }); await J.click('[data-pass="chip149"]'); await J.run(500);
+eq([await J.visible('#passMsg'), w.db().team_pass[0].pot], [false, 249], 'cancelling Apple\'s sheet changes nothing and says nothing');
+await J.page.evaluate(() => { window.__apple.next = 'bought'; }); await J.click('[data-pass="chip149"]'); await J.run(800);
+eq([await J.text('#passMsg'), await J.text('#passPot')], ['Thanks for chipping in! The pot is at £3.98 of £4.99.', 'Team pot: £3.98 of £4.99'], 'chipping in thanks them and says how full the pot is now');
+await J.click('[data-pass="chip249"]'); await J.run(800);
+const untilJ = w.db().team_pass[0].paid_until;
+check(/^Thanks for chipping in! That filled the pot\. The whole team has the Gaffer tier until \w{3} \d+ \w{3}\. £1\.48 is already in the pot for next month\.$/.test(await J.text('#passMsg')), `the chip-in that fills the pot starts the month, and says what's over is kept (${await J.text('#passMsg')})`);
+check(Math.abs(untilJ - (await J.now()) - 30 * 86400000) < 120000, 'the month runs 30 days from then');
+eq([await J.page.evaluate(() => window.gafferTeamPaid()), await J.text('#passPot'), /^Paid until .+\. Thanks to you and ethan_fc\.$/.test(await J.text('#passState'))], [true, 'Next month’s pot: £1.48 of £4.99', true], 'now the team is paid, the card names who chipped in, and next month\'s pot has started');
 await G.page.reload(); await G.run(1500); await G.click('#tabs [data-tab="home"]'); await G.run(500);
 check(/Thanks to Jake and you\./.test(await G.text('#passState')), `the gaffer's phone shows Jake chipped in too (${await G.text('#passState')})`);
+eq(await G.visible('#passLow'), false, 'with weeks left there\'s no "running out"');
 
-// the gaffer pays the month
+// the gaffer pays the whole month
 await G.click('[data-pass="month"]'); await G.run(800);
-eq(w.db().team_pass[0].paid_until - until1, (90 + 720) * 3600000, 'paying the month adds 30 days');
-eq(await G.visible('#passLow'), false, 'and with weeks left there\'s no "running out"');
+eq([w.db().team_pass[0].paid_until - untilJ, w.db().team_pass[0].pot], [30 * 86400000, 148], 'paying the whole month adds 30 days on to the end, and next month\'s pot is left as it was');
 eq(await G.page.evaluate(() => window.__apple.calls.map((c) => c[0])), ['buy', 'finish'], 'and it\'s finished with Apple only after Gaffer counted it');
+const db1 = w.db(); db1.team_pass[0].paid_until = (await G.now()) + 3 * 86400000 - 60000; w.setDb(db1);
+await G.page.reload(); await G.run(1500); await G.click('#tabs [data-tab="home"]'); await G.run(500);
+eq(await G.text('#passLow'), 'Runs out in 3 days. Chip in to fill the pot for next month.', 'near the end it says so, and asks for chip-ins');
 
 // a follower on the website (no Apple), and with no signal
 const F = await w.phone({ db: true, label: 'follower' });
