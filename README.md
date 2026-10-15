@@ -86,6 +86,16 @@ The Gaffer tier is paid for per team. In the iPhone app anyone on the team can *
 
 Sandbox purchases (TestFlight, and Apple's reviewers) count too, as Apple requires; each one is marked `environment = 'Sandbox'` in `pass_purchases`. `ios/App/App/Gaffer.storekit` describes the same two products for testing in Xcode on a Mac (Xcode purchases can't be checked by Apple, so the server turns them down with a reason).
 
+### Commentary voices bought once (one-time setup, after the team pass above)
+
+Fenrir is free. The other seven voices and the Sweary delivery are £2.99 each, bought once and kept on the Gaffer account (any phone signed in to it has them; Restore purchases brings back one bought on the same Apple ID). Everyone can hear a sample of each before buying. Until step 2 is done every voice stays open, as before.
+
+1. **Make the eight purchases.** App Store Connect → Gaffer → Monetization → In-App Purchases → + → **Non-Consumable**, price £2.99 each, Family Sharing off:
+   - Product IDs `com.randomedp.aipoweredtactics.voice.puck`, `.voice.sadachbia`, `.voice.algenib`, `.voice.orus`, `.voice.charon`, `.voice.kore`, `.voice.leda` (display names "Puck voice" and so on), and `com.randomedp.aipoweredtactics.voice.sweary` ("Sweary commentary", 18+).
+   - Each needs a review screenshot (the highlight maker's voice picker) and a review note ("A commentary voice for highlight reels, bought once; Fenrir is free; any voice can be heard first with Hear a sample").
+2. **Database and functions.** Apply `supabase/migrations/0034_voice_unlocks.sql`, then deploy `team-pass` and `reel-voice` (verify_jwt on), in that order.
+3. **Try it on TestFlight** (purchases are free there): Highlights → cut a game → Add AI commentary → pick Puck → Hear a sample, then Unlock Puck.
+
 ## Android app (for players)
 
 The Android app is the same web app in Capacitor's Android shell, cut down for players: the team, its highlights, the

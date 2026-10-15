@@ -1717,7 +1717,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
       myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500);
       if (S.view === 'home' || S.view === 'games') renderFixture();
-      renderTabs(); tpLoad(); passLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
+      renderTabs(); tpLoad(); passLoad(); voLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
       var org = !DROID && !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
@@ -3901,7 +3901,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var voice = null, vNote = '';
       if (row.vpath) {
         if (await aiAsk()) {
-          try { var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: [spokenLine(commentaryFor(r, { at: row.at, dur: row.dur }, swears()))], voice: vp.voice, style: vp.style } }), vd = vr && vr.data; voice = vd && vd.audio && vd.audio[0] || null; } catch (ve) {}
+          try { var vp = voUse(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: [spokenLine(commentaryFor(r, { at: row.at, dur: row.dur }, swears()))], voice: vp.voice, style: vp.style } }), vd = vr && vr.data; voice = vd && vd.audio && vd.audio[0] || null; } catch (ve) {}
           if (!voice) vNote = ' The new commentary line couldn’t be made, so that clip has none for now.';
         } else vNote = ' Its commentary was left off: ' + AI_NO;
       }
@@ -4255,8 +4255,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         '<button class="link" type="button" data-rbprev="' + esc(c.key) + '">Preview</button></li>';
     }).join('') + '</ol>' : '<p class="note">' + (RB.goals ? 'None of ' + esc(who) + '’s clips is a goal of theirs yet.' : 'No clips yet.') + '</p>';
     if (canVoice()) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
-      (RB.voice ? '<div class="two"><label class="field" for="rbVoiceName">Voice<select id="rbVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
-        '<label class="field" for="rbVoiceStyle">Delivery<select id="rbVoiceStyle">' + styleOpts() + '</select></label></div>' : '');
+      (RB.voice ? voiceBox('rb') : '');
     html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
       '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
       '<div class="actions">' + (RB.path && !RB.busy ? '<button class="plain primary" type="button" id="rbShare">Share or save it</button>' : '<button class="plain primary" type="button" id="rbMake"' + (RB.busy || !on.length ? ' disabled' : '') + '>Make the reel</button>') +
@@ -4266,6 +4265,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   async function rbMake() {
     var rc = RCp(); if (!rc || RB.busy) return;
     var list = rbList().filter(function (c) { return RB.pick[c.key] !== false; }), who = nm(RB.pid), byId = {}; if (!list.length) return;
+    var vlock = RB.voice && canVoice() ? voLocked() : [];
+    if (vlock.length) { RB.msg = voLockMsg(vlock); RB.bad = true; renderRB(); return; }
     S.results.forEach(function (r) { byId[r.id] = r; });
     RB.busy = true; RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
     var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
@@ -4273,7 +4274,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (RB.voice && canVoice()) {
       var sw = swears(), lines = [sw ? who + '’s highlights. Brace yourselves, this is absolute filth.' : who + '’s highlights, for ' + teamName() + '.'].concat(list.map(function (c) { return byId[c.game_id] ? commentaryFor(byId[c.game_id], c, sw) : ''; }), [sw ? 'That’s ' + who + '. What a fucking player.' : 'That’s ' + who + '. What a player.']).map(spokenLine);
       try {
-        var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
+        var vp = voUse(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
         if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) {
           intro = vd.audio[0] || null; signOff = vd.audio[lines.length - 1] || null;
           items.forEach(function (it, i) { if (vd.audio[i + 1]) { it.voice = vd.audio[i + 1]; it.voiceAt = Math.max(0.5, (list[i].dur || 14) - POST + 0.5); } }); // (just after the moment, which is 6 seconds from the end)
@@ -4307,7 +4308,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (t.id === 'rbGoals') RB.goals = t.checked;
     else if (t.hasAttribute('data-rbpick')) RB.pick[t.getAttribute('data-rbpick')] = t.checked;
     else if (t.id === 'rbVoice') RB.voice = t.checked;
-    else if (t.id === 'rbVoiceName' || t.id === 'rbVoiceStyle') { try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('rbVoiceName').value, style: $('rbVoiceStyle').value })); } catch (err) {} } // (a different voice is a different reel)
+    else if (t.id === 'rbVoiceName' || t.id === 'rbVoiceStyle') { VO.msg = ''; try { localStorage.setItem('apt-voice', JSON.stringify({ voice: $('rbVoiceName').value, style: $('rbVoiceStyle').value })); } catch (err) {} } // (a different voice is a different reel)
     else return;
     RB.path = null; RB.msg = ''; RB.note = ''; renderRB(); // (a change means the reel made before isn't this one)
   });
@@ -4557,9 +4558,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button></div>';
       html += busy;
       if (hasGaffer()) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel; the clips are kept with and without it, and everyone can switch it on or off)</small></span></label>' +
-        '<div class="two"><label class="field" for="cutVoiceName">Voice<select id="cutVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
-        '<label class="field" for="cutVoiceStyle">Delivery<select id="cutVoiceStyle">' + styleOpts() + '</select></label></div>' +
-        '<div class="actions"><button class="plain" type="button" data-cutdo="hear">Hear this voice</button></div>' + (CUT.heard ? '<p class="msg" role="status">' + esc(CUT.heard) + '</p>' : '');
+        voiceBox('cut');
       html += lookPreview(r, plan);
       var from = many ? live.map(function (k) { var c = plan.filter(function (x) { return x.cam === camNo(k); }).length; return c + ' from camera ' + camNo(k); }).join(', ') : '';
       html += '<p class="note" id="cutCount">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut' + (from ? ' (' + from + ')' : '') + ', plus one joined reel that ends on the full-time card, to share.</p>' +
@@ -4651,12 +4650,133 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('cutBody').addEventListener('change', function (e) {
     if (e.target.id === 'camSwap' && CUT) { CUT.swap = e.target.checked; camStore(); }
     if (e.target.id === 'cutBug' && CUT) { cutKeep(); renderCut(); }
+    if ((e.target.id === 'cutVoiceName' || e.target.id === 'cutVoiceStyle') && CUT) { VO.msg = ''; cutKeep(); renderCut(); } // (shows whether it needs unlocking)
   });
   var VOICES = [['Fenrir', 'Fenrir (excitable)'], ['Puck', 'Puck (upbeat)'], ['Sadachbia', 'Sadachbia (lively)'], ['Algenib', 'Algenib (gravelly)'], ['Orus', 'Orus (firm)'], ['Charon', 'Charon (measured)'], ['Kore', 'Kore (firm, female)'], ['Leda', 'Leda (youthful, female)']];
   function voicePick() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return { voice: v && v.voice ? v.voice : 'Fenrir', style: v && (v.style === 'plain' || v.style === 'sweary') ? v.style : 'hype' }; }
   var STYLES = [['hype', 'Live commentator'], ['plain', 'Read it straight'], ['sweary', 'Sweary, 18+ (swears like a pub commentator)']];
-  function styleOpts() { var now = voicePick().style; return STYLES.map(function (x) { return '<option value="' + x[0] + '"' + (now === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join(''); }
-  var swears = function () { return voicePick().style === 'sweary'; };
+  function styleOpts() { var now = voicePick().style; return STYLES.map(function (x) { return '<option value="' + x[0] + '"' + (now === x[0] ? ' selected' : '') + '>' + x[1] + (x[0] === 'sweary' && !voOwns('sweary') ? ', ' + esc(VO.price) : '') + '</option>'; }).join(''); }
+  var swears = function () { return voUse().style === 'sweary'; };
+  // ---- commentary voices bought once (0034_voice_unlocks.sql). Fenrir is free; every other voice, and the Sweary
+  // delivery, is a one-off purchase through Apple (TeamPassPlugin, the same plumbing as the team pass), counted on the
+  // account by team-pass (action "voice"), so it works on any phone signed in to it; reel-voice refuses a voice nobody
+  // bought. Each voice has a sample to hear first (reel-voice "sample": one fixed line naming nobody, made once and kept,
+  // so it needs no AI ask). Until 0034 is live (my_voices isn't there) every voice stays open, as before.
+  var VOICE_FREE = 'Fenrir', VOICE_BUY = 'com.randomedp.aipoweredtactics.voice.';
+  var VO = { who: null, mine: null, open: false, price: '£2.99', priced: false, heard: false, at: 0, busy: '', msg: '', bad: false, samples: {}, audio: null };
+  function voKey(v) { return String(v || '').toLowerCase(); }
+  function voName(k) { k = voKey(k); if (k === 'sweary') return 'Sweary'; var v = VOICES.filter(function (x) { return voKey(x[0]) === k; })[0]; return v ? v[0] : k; }
+  function voState() { // what this account owns, kept on the phone per account so it's right with no signal
+    var who = me ? me.id : null;
+    if (VO.who !== who) { VO.who = who; VO.mine = null; VO.open = false; VO.at = 0; VO.msg = ''; try { var c = JSON.parse(localStorage.getItem('apt-voices:' + who) || 'null'); if (c) { VO.mine = c.mine || []; VO.open = !!c.open; } } catch (e) {} }
+    return VO;
+  }
+  function voOwns(k) { var s = voState(); k = voKey(k); return k === voKey(VOICE_FREE) || s.open || (s.mine || []).indexOf(k) >= 0; }
+  function voLocked(p) { p = p || voicePick(); var out = []; if (!voOwns(p.voice)) out.push(voKey(p.voice)); if (p.style === 'sweary' && !voOwns('sweary')) out.push('sweary'); return out; }
+  function voUse() { var p = voicePick(); return { voice: voOwns(p.voice) ? p.voice : VOICE_FREE, style: p.style === 'sweary' && !voOwns('sweary') ? 'hype' : p.style }; } // (never asks for a voice that would be refused)
+  function voLockMsg(lock) { return listAnd(lock.map(voName)) + (lock.length > 1 ? ' aren’t' : ' isn’t') + ' unlocked yet. Unlock ' + (lock.length > 1 ? 'them' : 'it') + ' under the voice, or pick ' + VOICE_FREE + ', which is free.'; }
+  function voKeep() { try { localStorage.setItem('apt-voices:' + VO.who, JSON.stringify({ mine: VO.mine || [], open: VO.open })); } catch (e) {} }
+  function voRedraw() {
+    if (CUT && S.view === 'cut' && CUT.stage !== 'work') { cutKeep(); renderCut(); }
+    if (RB && !RB.busy && !$('reelPop').hidden) renderRB();
+  }
+  async function voLoad(force) {
+    voState(); if (!sb || !me) return;
+    if (!force && VO.at && Date.now() - VO.at < 60000) return;
+    VO.at = Date.now();
+    var TPp = plugin('TeamPass');
+    if (TPp && !VO.heard) { VO.heard = true; try { TPp.addListener('transaction', function (t) { voClaim(t); }); } catch (e) {} }
+    if (TPp && !VO.priced) TPp.products({ ids: [VOICE_BUY + 'puck'] }).then(function (r) { var p = r && r.products && r.products[0]; if (p && p.price) { VO.price = p.price; VO.priced = true; voRedraw(); } }, function () {});
+    var r = null; try { r = await sb.rpc('my_voices'); } catch (e) {}
+    if (r && !r.error && Array.isArray(r.data)) { VO.mine = r.data.map(voKey); VO.open = false; voKeep(); voRedraw(); }
+    else if (r && r.error && /my_voices|PGRST202|does not exist|schema cache/i.test(String(r.error.message || r.error.code || ''))) { VO.open = true; voKeep(); voRedraw(); } // (the server doesn't sell voices yet)
+    if (TPp) { try { var u = await TPp.unfinished(); ((u && u.list) || []).forEach(function (t) { voClaim(t, true); }); } catch (e) {} } // (bought with no signal, or the app closed half way)
+  }
+  async function fnSays(res, none) { // what an edge function said, when it said no
+    if (res && res.data && !res.error) return res.data;
+    var said = null; try { if (res && res.error && res.error.context && typeof res.error.context.json === 'function') said = await res.error.context.json(); } catch (e) {}
+    return { error: (said && said.error) || none, reason: said && said.reason };
+  }
+  var VO_CLAIMING = {};
+  async function voClaim(t, quiet) {
+    var TPp = plugin('TeamPass'), id = String((t && t.productId) || ''), k = id.indexOf(VOICE_BUY) === 0 ? id.slice(VOICE_BUY.length) : '', tx = t && String(t.transactionId || '');
+    if (!TPp || !k || !tx || !me || !sb || VO_CLAIMING[tx]) return null;
+    if (t.account && t.account !== String(me.id).toLowerCase()) return null; // another account's purchase on this phone: theirs to claim
+    VO_CLAIMING[tx] = true;
+    var none = 'Bought, but Gaffer’s server couldn’t be reached to unlock it. It unlocks by itself next time you open Gaffer.', out;
+    try { out = await fnSays(await sb.functions.invoke('team-pass', { body: { action: 'voice', transaction_id: tx, environment: t.environment || '' } }), none); }
+    catch (e) { out = { error: none }; }
+    delete VO_CLAIMING[tx];
+    // Counted, or never going to count: finish it with Apple (a voice stays owned on the Apple ID either way, for Restore).
+    if (!out.error || ['refunded', 'wrong_app', 'wrong_product', 'xcode'].indexOf(out.reason) >= 0) { try { await TPp.finish({ transactionId: tx }); } catch (e) {} }
+    if (!out.error) { voState(); var m = (VO.mine || []).slice(); if (m.indexOf(k) < 0) m.push(k); VO.mine = m; voKeep(); }
+    if (!quiet) { VO.msg = out.error || voName(k) + ' is unlocked. It’s yours on any phone you sign in to Gaffer on.'; VO.bad = !!out.error; }
+    voRedraw(); return out;
+  }
+  async function voBuy(k) {
+    var TPp = plugin('TeamPass'); if (VO.busy) return;
+    var say = function (m, bad) { VO.msg = m; VO.bad = !!bad; voRedraw(); };
+    if (!TPp) { say('Voices are unlocked in Gaffer’s iPhone app.'); return; }
+    if (!me) { say('Sign in first, so the voice is kept on your account.', true); return; }
+    VO.busy = k; say('Opening the App Store…');
+    try {
+      var r = await TPp.buy({ id: VOICE_BUY + k, account: String(me.id).toLowerCase() });
+      VO.busy = '';
+      if (r.status === 'pending') say('Waiting for the purchase to be approved. ' + voName(k) + ' unlocks as soon as it is.');
+      else if (r.status === 'bought') { say('Bought. Unlocking ' + voName(k) + '…'); await voClaim(r); }
+      else say('');
+    } catch (e) { VO.busy = ''; say((e && e.message) || 'The App Store couldn’t take the payment. Try again.', true); }
+  }
+  async function voRestore() { // Apple asks for this with anything bought once: voices bought on this Apple ID, on another phone or before
+    var TPp = plugin('TeamPass'); if (!TPp || !me || VO.busy) return;
+    VO.busy = 'restore'; VO.msg = 'Asking the App Store…'; VO.bad = false; voRedraw();
+    var got = [], bad = null;
+    try {
+      var r = await TPp.owned({ sync: true }), list = (r && r.list) || [];
+      for (var i = 0; i < list.length; i++) {
+        var o = await voClaim(list[i], true);
+        if (o && !o.error) got.push(voName(String(list[i].productId).slice(VOICE_BUY.length))); else if (o && o.error) bad = o.error;
+      }
+    } catch (e) { bad = (e && e.message) || 'Couldn’t reach the App Store. Try again.'; }
+    VO.busy = ''; VO.bad = !got.length && !!bad;
+    VO.msg = got.length ? 'Restored: ' + listAnd(got) + '.' : bad || 'There are no voices to restore on this Apple ID.';
+    voRedraw();
+  }
+  async function voHear() { // the sample for the voice and delivery picked, free to hear before buying
+    var p = voicePick(), key = voKey(p.voice) + '-' + p.style, url = VO.samples[key];
+    var say = function (m, bad) { VO.msg = m; VO.bad = !!bad; voRedraw(); };
+    if (VO.audio) { try { VO.audio.pause(); } catch (e) {} }
+    if (!url) {
+      if (!sb || !me) { say('Sign in to hear the voices.', true); return; }
+      say('Fetching the sample…');
+      try {
+        var d = await fnSays(await sb.functions.invoke('reel-voice', { body: { action: 'sample', voice: p.voice, style: p.style } }), 'the voice service didn’t answer.');
+        if (!d.url) { say('Couldn’t fetch the sample: ' + (d.error || 'the voice service didn’t answer.'), true); return; }
+        url = VO.samples[key] = d.url;
+      } catch (e) { say('Couldn’t reach the voice service.', true); return; }
+    }
+    try { VO.audio = new Audio(url); var pr = VO.audio.play(); if (pr && pr.catch) pr.catch(function () {}); say('Playing ' + voName(p.voice) + (p.style === 'sweary' ? ', Sweary' : p.style === 'plain' ? ', read straight' : '') + '.'); }
+    catch (e) { say('Couldn’t play the sample.', true); }
+  }
+  function voiceBox(pre) { // the voice and delivery, a sample to hear, and unlocking: in the highlight maker and the reel builder
+    if (!VO.at) voLoad();
+    var p = voicePick(), lock = voLocked(p), native = !!plugin('TeamPass');
+    var html = '<div class="two"><label class="field" for="' + pre + 'VoiceName">Voice<select id="' + pre + 'VoiceName">' + VOICES.map(function (v) {
+      return '<option value="' + v[0] + '"' + (p.voice === v[0] ? ' selected' : '') + '>' + esc(v[1]) + (v[0] === VOICE_FREE ? ', free' : voOwns(v[0]) ? '' : ', ' + esc(VO.price)) + '</option>'; }).join('') + '</select></label>' +
+      '<label class="field" for="' + pre + 'VoiceStyle">Delivery<select id="' + pre + 'VoiceStyle">' + styleOpts() + '</select></label></div>' +
+      '<div class="actions"><button class="plain" type="button" data-vo="hear">Hear a sample</button>' + lock.map(function (k) {
+        return '<button class="plain tint" type="button" data-vo="buy" data-voice="' + esc(k) + '"' + (VO.busy || !native ? ' disabled' : '') + '>Unlock ' + esc(voName(k)) + ' (' + esc(VO.price) + ')</button>'; }).join('') + '</div>';
+    if (lock.length) html += '<p class="note" data-volock>' + esc(listAnd(lock.map(voName))) + (lock.length > 1 ? ' are ' + esc(VO.price) + ' each' : ' is ' + esc(VO.price)) + ' to unlock, once, and yours to keep on any phone you sign in to. ' + VOICE_FREE + ' is free.' + (native ? '' : ' Voices are unlocked in Gaffer’s iPhone app.') + '</p>';
+    if (native && me) html += '<div class="actions"><button class="plain quiet" type="button" data-vo="restore"' + (VO.busy ? ' disabled' : '') + '>Restore purchases</button></div>';
+    if (VO.msg) html += '<p class="msg' + (VO.bad ? ' bad' : '') + '" role="status" data-vomsg>' + esc(VO.msg) + '</p>';
+    return html;
+  }
+  window.gafferVoiceOwns = voOwns;
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-vo]') : null; if (!b || b.disabled) return;
+    var act = b.getAttribute('data-vo');
+    if (act === 'hear') voHear(); else if (act === 'buy') voBuy(b.getAttribute('data-voice')); else if (act === 'restore') voRestore();
+  });
   $('cutBody').addEventListener('click', async function (e) {
     var bt = e.target.closest ? e.target.closest('[data-cutdo]') : e.target, act = bt && bt.getAttribute('data-cutdo'), rc = RCp(), r = CUT && S.results[CUT.idx]; if (!act || !CUT || !r) return;
     if (!rc) { CUT.msg = 'Cutting from a video needs the iPhone app.'; renderCut(); return; }
@@ -4684,17 +4804,6 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var after = cutRows(r, hk), idx = after.map(function (x) { return x.key; }).indexOf(key), next = after.slice(idx + 1).filter(function (x) { return !x.marked; })[0];
       CUT.sel = next ? next.key : key; renderCut();
     }
-    else if (act === 'hear') { // a sample line in the chosen voice, played straight away
-      cutKeep();
-      if (!(await aiAsk())) { CUT.heard = 'Not played: ' + AI_NO; renderCut(); return; }
-      CUT.heard = 'Fetching the voice…'; renderCut();
-      try {
-        var hv = voicePick(), hr = await sb.functions.invoke('reel-voice', { body: { code: A.active, voice: hv.voice, style: hv.style, lines: [hv.style === 'sweary' ? 'HOW THE FUCK has ' + (S.players.length ? nm(S.players[0].id) : 'the number nine') + ' scored that? ' + teamName() + ' lead 2 1!' : 'What a finish from ' + (S.players.length ? nm(S.players[0].id) : 'the number nine') + '! ' + teamName() + ' lead 2 1!'] } }), hd = hr && hr.data;
-        if (hd && hd.audio && hd.audio[0]) { new Audio('data:audio/mpeg;base64,' + hd.audio[0]).play().catch(function () {}); CUT.heard = hd.engine === 'gemini' || hv.style === 'plain' ? 'Playing.' : 'Playing, read straight: the live-commentator delivery isn’t available to this key yet (' + (hd.note || 'no reason given') + ').'; }
-        else CUT.heard = 'Couldn’t fetch the voice: ' + ((hd && hd.error) || 'the voice service didn’t answer.');
-      } catch (he) { CUT.heard = 'Couldn’t reach the voice service.'; }
-      renderCut();
-    }
     else if (act === 'go') {
       var live = CUT.cams.filter(function (k) { return k.src; }), many = live.length > 1, bad = null;
       live.forEach(function (k) { // every video needs at least one mark (or the time it started) to line it up
@@ -4705,6 +4814,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if ($('cutBug')) CUT.bug = $('cutBug').checked;
       if (!live.length) { CUT.stage = 'cams'; renderCut(); return; }
       if (bad) { cutKeep(); CUT.msg = bad; renderCut(); return; }
+      var vlock = CUT.voice && hasGaffer() ? voLocked() : [];
+      if (vlock.length) { cutKeep(); CUT.msg = voLockMsg(vlock); renderCut(); return; }
       var list = cutPlan(r, CUT.cams, CUT.swap);
       if (!list.length) { CUT.msg = 'No timed moments were logged in this game.'; renderCut(); return; }
       // Can every video still be opened? Found out now, before any commentary is recorded (iOS can stop Gaffer reading a
@@ -4731,7 +4842,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
             [sw ? ft + ' ' + (r.us > r.them ? 'Get fucking in!' : r.us < r.them ? 'Absolute shambles. Pints are on the keeper.' : 'Honours even. Shite game, if we’re honest.') : ft]);
           words = words.map(spokenLine);
           try {
-            var vp2 = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words, voice: vp2.voice, style: vp2.style } }), vd = vr && vr.data;
+            var vp2 = voUse(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words, voice: vp2.voice, style: vp2.style } }), vd = vr && vr.data;
             if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) { said = vd.audio; CUT.voiced = true; }
             else CUT.voiced = (vd && vd.error) || (vr && vr.error && vr.error.message) || 'the voice service didn’t answer.';
           } catch (ve) { CUT.voiced = 'the voice service couldn’t be reached.'; }

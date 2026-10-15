@@ -489,7 +489,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   (the old Mute) and, if they have a profile, calls `block_user` (`chUser` asks `team_people` for the username if the
   phone doesn't know it; it's kept in `chatMutedU` because the server won't say who a blocked person is). Unblock undoes both.
 - **AI commentary asks first** (`aiAsk`, `#aiPop`, `apt-ai` per phone): before any line goes to `reel-voice` (cutting
-  with commentary, a reel with a voice, Hear this voice), saying what is sent (first names, team names, score, minute),
+  with commentary, a reel with a voice), saying what is sent (first names, team names, score, minute),
   to Google, and that it isn't used for training. Not now: nothing is sent and it's made without commentary (`AI_NO`).
   Settings → AI commentary (`#optAI`) shows where it stands and allows or stops it. The privacy page covers Google.
 - Tests: `safety.test.mjs`, `reels.test.mjs` (the ask), `live.test.mjs` (stream reports), `stream.test.mjs` (kind
@@ -638,6 +638,23 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     (about 90 s in all; the rest are read straight). Ethan can raise the limit: Google Cloud, IAM & Admin, Quotas,
     gemini-2.5-flash-tts.
 - Ethan funds the Google usage himself.
+- **Voices bought once** (`0034_voice_unlocks.sql`; Ethan, October 2026: "Only let the free one usable, make all the other
+  ones £2.99 to unlock. Let them hear it before unlock."). Fenrir is free; the other seven voices and the Sweary delivery
+  are each a £2.99 Apple **non-consumable** (`com.randomedp.aipoweredtactics.voice.<name>`, `.voice.sweary`), kept on the
+  Gaffer account that bought it (`voice_unlocks`), so any phone signed in to it has them. Same plumbing as the team pass:
+  `TeamPassPlugin` `buy`, then `team-pass` `{action: 'voice', transaction_id}` checks it with Apple and calls
+  `voice_credit` (service role only; one purchase, one account), then `finish`. `owned({sync})` (StoreKit
+  `currentEntitlements`, after `AppStore.sync()` when asked) is Restore purchases. `reel-voice` refuses a paid voice to
+  anyone who hasn't bought it (`reason: 'locked'`, `locked: [...]`).
+  - JS: `voiceBox(pre)` is the picker in the cut and the reel builder (prices from Apple, Unlock, Restore, Hear a sample);
+    `voOwns`, `voLocked`, `voUse` (the voice actually asked for; never a locked one); the cut and `rbMake` stop with
+    `voLockMsg` before anything is recorded. Owned voices are kept per account in `apt-voices:<user id>`. Until 0034 is
+    live (`my_voices` missing) every voice stays open (`VO.open`), so shipping the app first changes nothing.
+  - **Samples:** `reel-voice` `{action: 'sample', voice, style}` returns a public address in the `voice-samples` bucket,
+    making the MP3 the first time (one fixed line per delivery, naming nobody, so no AI ask and no team allowance).
+  - Cost (October 2026): a typical reel is about a minute of Gemini TTS, about 1.5p; £2.99 leaves about £2.12 after VAT
+    and Apple's 15%, so about 140 reels. The team allowance (40,000 characters, about 50p a month) caps the worst case.
+  - Tests: `voices.test.mjs` (database, both functions, the app on two iPhones), `stream.test.mjs` (Sweary locked).
 
 ### The look (the redesign, October 2026; Ethan asked for it after a review against Apple's design guidelines)
 - **Text follows the iPhone's text size.** Every `font-size` is a token on one scale (`--t-large` 1.75rem, `--t-title`,
@@ -828,7 +845,7 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   your own Shortcuts library). Builds after 112 have "Mark a highlight" in the iPhone's Shortcuts app; check it can be
   added, shows on the watch, and marks a highlight mid-game (see Phone ↔ Apple Watch).
 - **Voice:** the `GOOGLE_SERVICE_ACCOUNT` secret is set and works; the commentator voice was being refused by Google's
-  per-minute limit. Ethan to ask Google for a higher limit (see AI commentary); then check "Hear this voice" says Playing.
+  per-minute limit. Ethan to ask Google for a higher limit (see AI commentary); then check "Hear a sample" plays the commentator.
 - **Profiles:** check the username pop-up on the phone, follow someone private and accept it, pick clips, and that the
   feed leaves out SOP's own games. Push notifications for follow requests aren't built yet.
 - **Copyright:** `LICENSE` says all rights reserved (with third-party licences kept). The repo stays public for GitHub

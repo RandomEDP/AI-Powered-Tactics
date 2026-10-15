@@ -6,6 +6,10 @@
 // swearing in) like a foul-mouthed pub commentator; if that isn't available to the key, or style is "plain", the same voice
 // from the Chirp 3 HD set reads it straight.
 // Each team has a monthly allowance of characters, kept in public.voice_usage, so the bill can't run away.
+// Fenrir is free; every other voice, and the Sweary delivery, is bought once by the person asking (0034_voice_unlocks.sql,
+// counted by team-pass), and is refused here until they have (reason "locked", with the voices missing in "locked").
+// { action: "sample", voice, style } answers { url }: a short line in that voice, made once and kept in the public
+// voice-samples bucket, for anyone signed in to hear before buying. It names nobody and counts against no team.
 // Needs this secret (Edge Functions > Secrets):
 //   GOOGLE_TTS_KEY           an API key for a Google Cloud project with the Cloud Text-to-Speech API switched on
 // and, for the live-commentator delivery (Google won't take a plain API key for that model):
@@ -19,6 +23,13 @@ const VOICES = ["Fenrir", "Puck", "Sadachbia", "Algenib", "Orus", "Charon", "Kor
 const HYPE = "You are an excitable British football commentator calling the action live on television. Loud, fast and full of energy, voice rising to a shout on the goal. Say exactly this:";
 // (Ethan: it came out Australian, so the accent is spelt out.)
 const SWEARY = "You are a foul-mouthed Sunday-league football commentator from the East End of London, speaking in a broad, proper East London Cockney accent: dropped h's, glottal stops (foo'ball, wha' a goal), London vowels. Never Australian, never American, never posh. You can't believe what you're watching: loud, raw and incredulous, swearing freely, shouting the big moments as if you're losing your mind down the pub. Say exactly this, swear words and all:";
+const FREE = "Fenrir";
+// The same sample for every voice, so they can be compared like for like; no names, so nothing about anyone goes to Google.
+const SAMPLE: Record<string, string> = {
+  hype: "Here he comes, cuts inside, shoots... and it's in! Top corner! What a goal!",
+  plain: "Here he comes, cuts inside, shoots, and it's in. Top corner. What a goal.",
+  sweary: "Here he comes, cuts inside, shoots... and it's in! Top bloody corner! What a fucking goal, my son!",
+};
 const MONTHLY = 40000; // characters per team per month: roughly forty reels
 const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
 // Google's own wording for why the live-commentator delivery was refused is long and ends in a web address that doesn't
@@ -62,29 +73,51 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const input = await req.json();
-    const lines: string[] = (Array.isArray(input.lines) ? input.lines : []).slice(0, 24).map(clean);
+    const style = input.style === "plain" || input.style === "sweary" ? input.style : "hype";
+    const sample = input.action === "sample";
+    const lines: string[] = sample ? [SAMPLE[style]] : (Array.isArray(input.lines) ? input.lines : []).slice(0, 24).map(clean);
     const chars = lines.reduce((n, l) => n + l.length, 0);
     if (!chars) return json({ error: "Nothing to say." });
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
     if (!who?.user) return json({ error: "Sign in first." });
-    const { data: team } = await db.from("teams").select("id").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
+    const voice = VOICES.includes(input.voice) ? input.voice : FREE;
+    const file = `${voice.toLowerCase()}-${style}.mp3`;
+    const sampleUrl = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/voice-samples/${file}`;
+    if (sample) { // made once, then everyone plays the same file
+      const there = await fetch(sampleUrl, { method: "HEAD" }).catch(() => null);
+      if (there?.ok) return json({ url: sampleUrl });
+    } else {
+      // A paid voice (or Sweary) only for someone who has bought it.
+      const need = [voice, style === "sweary" ? "sweary" : ""].filter((v) => v && v !== FREE).map((v) => v.toLowerCase());
+      if (need.length) {
+        const { data: owned, error: ownedError } = await db.from("voice_unlocks").select("voice").eq("user_id", who.user.id).in("voice", need);
+        if (ownedError) return json({ error: "Your voices couldn't be checked. Try again in a moment." });
+        const locked = need.filter((v) => !(owned || []).some((o: { voice: string }) => o.voice === v));
+        if (locked.length) {
+          const named = locked.map((v) => v === "sweary" ? "Sweary" : v[0].toUpperCase() + v.slice(1));
+          return json({ error: `${named.join(" and ")} ${locked.length > 1 ? "are paid voices" : "is a paid voice"}: unlock ${locked.length > 1 ? "them" : "it"} in the voice picker, or pick ${FREE}, which is free.`, reason: "locked", locked });
+        }
+      }
+    }
+    const { data: team } = sample ? { data: { id: "" } } : await db.from("teams").select("id").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
     if (!team) return json({ error: "No such team." });
-    const { data: gaffer } = await db.from("team_members").select("user_id").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
+    const { data: gaffer } = sample ? { data: true } : await db.from("team_members").select("user_id").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
     const { data: player } = gaffer ? { data: null } : await db.from("players").select("pid").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
     if (!gaffer && !player) return json({ error: "Only the team's gaffers and players can add commentary. Join the squad as yourself first." });
 
     const key = Deno.env.get("GOOGLE_TTS_KEY");
     if (!key) return json({ error: "The voice service hasn't been set up yet." });
 
-    const month = new Date().toISOString().slice(0, 7);
-    const { data: used, error: usageError } = await db.from("voice_usage").select("chars").eq("team_id", team.id).eq("month", month).maybeSingle();
-    if (usageError) return json({ error: "The commentary allowance couldn't be checked." });
-    if ((used?.chars || 0) + chars > MONTHLY) return json({ error: "This team has used its commentary allowance for the month." });
-    await db.from("voice_usage").upsert({ team_id: team.id, month, chars: (used?.chars || 0) + chars });
+    if (!sample) {
+      const month = new Date().toISOString().slice(0, 7);
+      const { data: used, error: usageError } = await db.from("voice_usage").select("chars").eq("team_id", team.id).eq("month", month).maybeSingle();
+      if (usageError) return json({ error: "The commentary allowance couldn't be checked." });
+      if ((used?.chars || 0) + chars > MONTHLY) return json({ error: "This team has used its commentary allowance for the month." });
+      await db.from("voice_usage").upsert({ team_id: team.id, month, chars: (used?.chars || 0) + chars });
+    }
 
-    const voice = VOICES.includes(input.voice) ? input.voice : VOICES[0];
     const url = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(key)}`;
     let problem = "", hypeProblem = "";
     const speak = async (body: unknown, note: (m: string) => void, bearer?: string | null) => {
@@ -99,14 +132,14 @@ Deno.serve(async (req: Request) => {
     const refused = (m: string) => { if (!hypeProblem) console.error("live-commentator delivery refused:", m); hypeProblem = m; };
     // The live-commentator model wants to know who is calling: signed in as the service account if there is one, else the plain key.
     let bearer: string | null = null;
-    if (input.style !== "plain") { try { bearer = await googleToken(); } catch (e) { refused(String((e as Error)?.message || e)); } }
+    if (style !== "plain") { try { bearer = await googleToken(); } catch (e) { refused(String((e as Error)?.message || e)); } }
     // Google only lets a project ask for the commentator voice a few times a minute: one line at a time, and when it says
     // slow down, wait and ask again (within about a minute and a half overall; anything left after that is read straight).
     const pause = Number(Deno.env.get("VOICE_RETRY_MS") || 5000), until = Date.now() + 90000;
     const performed = async (text: string) => {
       for (let tries = 0; ; tries++) {
         let said = "";
-        const got = await speak({ input: { text, prompt: input.style === "sweary" ? SWEARY : HYPE }, voice: { languageCode: "en-GB", name: voice, model_name: "gemini-2.5-flash-tts" }, audioConfig: { audioEncoding: "MP3" } }, (m) => { said = m; refused(m); }, bearer);
+        const got = await speak({ input: { text, prompt: style === "sweary" ? SWEARY : HYPE }, voice: { languageCode: "en-GB", name: voice, model_name: "gemini-2.5-flash-tts" }, audioConfig: { audioEncoding: "MP3" } }, (m) => { said = m; refused(m); }, bearer);
         if (got) return got;
         const wait = pause * (tries + 1);
         if (!/quota|rate.?limit|resource.?exhausted/i.test(said) || tries >= 3 || Date.now() + wait > until) return null;
@@ -115,7 +148,7 @@ Deno.serve(async (req: Request) => {
     };
     let engine = "chirp";
     let audio: (string | null)[] = [];
-    if (input.style !== "plain" && !(hypeProblem && !bearer)) { // (not if signing in as the service account has just failed)
+    if (style !== "plain" && !(hypeProblem && !bearer)) { // (not if signing in as the service account has just failed)
       // try the first line as a performance; only carry on that way if it works
       const firstAt = lines.findIndex(Boolean);
       const first = await performed(lines[firstAt]);
@@ -127,6 +160,13 @@ Deno.serve(async (req: Request) => {
     }
     if (engine === "chirp") audio = await Promise.all(lines.map((text) => text ? straight(text) : null));
     if (!audio.some(Boolean)) return json({ error: problem || hypeProblem || "The voice service gave nothing back." });
+    if (sample) { // kept only if it came out as it will sound in a reel (a straight read standing in for a performance isn't)
+      if (engine !== "gemini" && style !== "plain") return json({ error: "The sample couldn't be made just now: " + reason(hypeProblem || problem || "no reason given") });
+      const mp3 = Uint8Array.from(atob(audio[0]!), (c) => c.charCodeAt(0));
+      const { error: upError } = await db.storage.from("voice-samples").upload(file, mp3, { contentType: "audio/mpeg", upsert: true });
+      if (upError) return json({ error: "The sample was made but couldn't be kept. Try again." });
+      return json({ url: sampleUrl, made: true });
+    }
     return json({ audio, chars, voice, engine, note: engine === "chirp" && hypeProblem ? reason(hypeProblem) : undefined });
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) });

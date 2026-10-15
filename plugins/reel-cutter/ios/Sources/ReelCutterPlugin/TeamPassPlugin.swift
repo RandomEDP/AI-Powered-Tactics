@@ -11,6 +11,8 @@ import StoreKit
 ///                                 account: the signed-in account's id (a UUID), kept on the purchase so only they can claim it
 ///   unfinished()               -> { list: [{ transactionId, productId, account, environment }] }  bought, not yet counted
 ///   finish({ transactionId })  -> { finished }
+///   owned({ sync })            -> { list: [{ transactionId, productId, account, environment }] }  what this Apple ID owns
+///                                 for good (the commentary voices); sync true asks Apple first ("Restore purchases")
 ///   event "transaction"        -> { transactionId, productId, account, environment }  one that arrived later (Ask to Buy, a retry)
 @objc(TeamPassPlugin)
 public class TeamPassPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -20,7 +22,8 @@ public class TeamPassPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "products", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "buy", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "unfinished", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "finish", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "finish", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "owned", returnType: CAPPluginReturnPromise)
     ]
 
     private var updates: Task<Void, Never>?
@@ -98,6 +101,23 @@ public class TeamPassPlugin: CAPPlugin, CAPBridgedPlugin {
             var list: [[String: Any]] = []
             for await result in Transaction.unfinished {
                 if case .verified(let t) = result { list.append(TeamPassPlugin.describe(t)) }
+            }
+            call.resolve(["list": list])
+        }
+    }
+
+    @objc public func owned(_ call: CAPPluginCall) {
+        let sync = call.getBool("sync") ?? false
+        Task {
+            if sync {
+                do { try await AppStore.sync() } catch {
+                    call.reject("Couldn't reach the App Store to restore your purchases. Check your signal and try again.")
+                    return
+                }
+            }
+            var list: [[String: Any]] = []
+            for await result in Transaction.currentEntitlements {
+                if case .verified(let t) = result, t.revocationDate == nil { list.append(TeamPassPlugin.describe(t)) }
             }
             call.resolve(["list": list])
         }
