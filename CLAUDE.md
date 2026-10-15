@@ -120,6 +120,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
 | `.github/workflows/android.yml` | Every push: the `android` tests, then builds the Android app (`.apk` to install, `.aab` for Google Play) as the run's artifacts. Run by hand with "Upload to Google Play" for the internal testing track (needs the Android secrets, section 7) |
 | `android/` | The Android app shell (Capacitor). `MainActivity.java` (the back button), icons and splash in `app/src/main/res`, signing and version in `app/build.gradle`. `app/src/main/assets/public` is git-ignored and filled by `npx cap sync android` |
+| `.github/workflows/store-text.yml` | "Update App Store text" (run by hand): sends `store/text/*.txt` (name, subtitle, description, keywords, promotional text) to App Store Connect through `scripts/asc-text.mjs` with the `ASC_*` secrets. Unticked "Send it" only shows what would change. Test: `storetext.test.mjs` |
 | `.github/workflows/watch-shots.yml` | Takes Apple Watch App Store screenshots in a simulator (run by hand) |
 | `store/` | App Store pictures, in the folders App Store Connect wants. `node store/capture.mjs` takes real app screens (402×874 @3×) through the test harness, then `node store/compose.mjs` lays them out in the purple style; `store/src/` holds the tracking still, the icon and the earlier slides that are kept as they are |
 | `shots/` | Raw screenshots from `tests/shots.mjs`, for checking the design |
@@ -694,6 +695,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **App Store review:**
   - The name is "Gaffer: 5-a-Side Team Manager" in App Store Connect until Ethan changes it there; the repo now says
     "Gaffer: Small-Sided Football" (28 of the 30 characters allowed).
+  - **The store text lives in `store/text/`** and goes to App Store Connect with the "Update App Store text" workflow,
+    never by hand from chat. Apple only takes the name, subtitle, description and keywords on a version that can still be
+    edited; while one waits for review or is live, only the promotional text changes (the log says which). Subtitle
+    "Your team, sorted" (the tagline isn't final; the watch is a feature, never the headline).
   - Apple asked for information under Guideline 2.1; a reply was drafted and Ethan has dealt with it.
   - The reviewer demo account is his.
   - **Account deletion (Guideline 5.1.1(v)):** Apple turned a build down for having no way to delete an account. It
