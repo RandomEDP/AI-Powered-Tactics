@@ -11,11 +11,13 @@ goes in it, this file included.
 
 ## 1. Who and what
 
-- **Owner:** Ethan (GitHub `RandomEDP`). He is the gaffer (team admin) of his own 5-a-side team, Sons of Pitches FC
+- **Owner:** Ethan (GitHub `RandomEDP`). He is the gaffer (team admin) of his own small-sided (5-a-side) team, Sons of Pitches FC
   ("SOP FC"). They have a purple kit and a crowned-eagle crest. The squad is 8 including the keeper, the keeper stays on,
   games are 2 × 15 min with 5-minute subs, and everyone should play about the same. The team uses the app every week.
   Games are filmed on a GoPro mounted on the cage, running through half time, and/or on phones.
-- **The app:** "Gaffer: 5-a-Side Team Manager". It was called "AI Powered Tactics", which is why the repo, bundle ID and
+- **The app:** "Gaffer: Small-Sided Football" (`APP_NAME` near the top of the script in `index.html`, also passed to the
+  reels' end card as `outro.app`). Never call it a "5-a-side" app (Ethan, October 2026; `tests/wording.test.mjs` checks):
+  "5-a-side" only names the game format. Before that it was "Gaffer: 5-a-Side Team Manager", and before that it was called "AI Powered Tactics", which is why the repo, bundle ID and
   package names still say that.
   - It's an iPhone app (Capacitor wrapper), plus an Apple Watch companion, plus the same web app on GitHub Pages.
   - It's on TestFlight and has been submitted to App Store review.
@@ -302,7 +304,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   (crest on the team colour, short names from `abbr`, the score, which changes as the ball goes in, and the match clock
   ticking a second at a time, carrying on through the second half), a bar along the bottom ("GOAL", the scorer, the minute
   and who set it up) that slides in just after the moment, Gaffer's mark top right, and the end card (kicker "FULL TIME",
-  the result, the crest, then Gaffer's icon, "Gaffer: 5-a-Side Team Manager" and a "Download on the App Store" badge drawn
+  the result, the crest, then Gaffer's icon, the app's name (`outro.app`) and a "Download on the App Store" badge drawn
   with the phone's Apple logo symbol). JS works out each clip's `bug {clock, us, them, changes}` and `lower {at, tag, title,
   sub}` in `clipLook`; the clock comes from the video once kick-off is marked (`cutPlan` sets `c.clock`). The cut screen
   shows the same design in HTML ("How the clips look", `lookPreview`) with a switch for the score box (`CUT.bug`). The app
@@ -690,7 +692,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 ## 8. Apple / App Store
 
 - **App Store review:**
-  - The name is "Gaffer: 5-a-Side Team Manager".
+  - The name is "Gaffer: 5-a-Side Team Manager" in App Store Connect until Ethan changes it there; the repo now says
+    "Gaffer: Small-Sided Football" (28 of the 30 characters allowed).
   - Apple asked for information under Guideline 2.1; a reply was drafted and Ethan has dealt with it.
   - The reviewer demo account is his.
   - **Account deletion (Guideline 5.1.1(v)):** Apple turned a build down for having no way to delete an account. It

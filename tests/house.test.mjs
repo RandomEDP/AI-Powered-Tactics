@@ -129,7 +129,7 @@ await G.page.goto(sent.url.replace('https://randomedp.github.io/AI-Powered-Tacti
 eq([await G.view(), await G.visible('#guestCard'), await G.page.evaluate(() => location.search)], ['highlights', true, ''], 'the link opens straight on the highlights, with a welcome (and tidies the address)');
 await shot(G, 'house-guest');
 check((await G.text('#guestCard')).includes('These are the highlights from Bibs v Shirts with Sons of Pitches FC.'), 'it says which game they\'re looking at');
-check((await G.text('#guestCard')).includes('search for “Gaffer 5-a-Side” on the App Store'), 'and how to get the app');
+check((await G.text('#guestCard')).includes('search for “Gaffer Small-Sided Football” on the App Store'), 'and how to get the app');
 eq(await G.page.$eval('#hlList .hcard.focus h3', (h) => h.textContent), 'Bibs 1–2 ShirtsAmong ourselves', 'their game is picked out');
 await G.click('#guestCard [data-guest="welcome"]');
 eq(await G.view(), 'welcome', 'Join or start a team goes to where team codes go, and teams are started');
