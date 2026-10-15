@@ -24,7 +24,8 @@ const sopId = (await d.admin(`select id from public.teams where code = $1`, [sop
 await d.admin(`update public.players set user_id = $1 where team_id = $2 and pid = 2`, [jake.id, sopId]);
 await d.admin(`insert into public.profiles (user_id, username, name) values ($1, 'edp_gaffer', 'Ethan'), ($2, 'rival', '')`, [ethan.id, rival.id]);
 const asServer = async (sql, params) => { await d.db.exec('set role service_role'); try { return (await d.db.query(sql, params)).rows; } finally { await d.db.exec('reset role'); } };
-const put = async (team, user, tx, product, pence) => (await asServer(`select public.pass_credit($1, $2, $3, $4, $5, 'Sandbox') as r`, [team, user, tx, product, pence]))[0].r;
+// (a moment apart, so "newest first" never depends on two purchases landing in the same millisecond, as on a fast CI runner)
+const put = async (team, user, tx, product, pence) => (await new Promise((ok) => setTimeout(ok, 5)), await asServer(`select public.pass_credit($1, $2, $3, $4, $5, 'Sandbox') as r`, [team, user, tx, product, pence]))[0].r;
 const DAY = 86400000, near = (a, b) => Math.abs(a - b) < 60000;
 
 let p = await d.rpc(null, 'team_pass', { p_code: sop.code.toLowerCase() });
