@@ -119,7 +119,7 @@ for (const Z of SIZES) {
 // ---------- the header (3840 × 1646) and search result (1920 × 1280) pictures
 const brand = (x, y, s) => `<div class="brand" style="left:${x}px;top:${y}px;gap:${36 * s}px"><img src="${src('icon.png')}" style="width:${148 * s}px;height:${148 * s}px;border-radius:${34 * s}px">
   <b style="font-size:${120 * s}px">Gaffer</b></div>`;
-const headline = 'Run your<br>5-a-side team<br>from your pocket', strap = 'Fair subs, live streams, auto highlights and player tracking.';
+const headline = 'Run your<br>team from<br>your pocket', strap = 'Fair subs, live streams, auto highlights and player tracking.';
 {
   const W = 3840, H = 1646;
   let body = ring(330, 2480, 1000) + brand(150, 370, 1) +

@@ -450,7 +450,7 @@ enum ReelGraphics {
             rule.backgroundColor = ink.withAlphaComponent(0.3).cgColor
             add(rule, u * 4)
             if let icon = appIcon { add(picture(icon, frame: CGRect(x: 0, y: 0, width: u * 12, height: u * 12), radius: u * 2.7), u * 1.8) }
-            add(block("Gaffer: 5-a-Side Team Manager", font: UIFont.systemFont(ofSize: u * 3.4, weight: .heavy), color: ink, maxWidth: width, centred: true), u * 2.2)
+            add(block(outro["app"] as? String ?? "Gaffer: Small-Sided Football", font: UIFont.systemFont(ofSize: u * 3.4, weight: .heavy), color: ink, maxWidth: width, centred: true), u * 2.2)
             add(storeBadge(u: u), 0)
             let total = items.reduce(CGFloat(0)) { $0 + $1.layer.frame.height + $1.gap }
             if total <= size.height - margin * 2 { break }

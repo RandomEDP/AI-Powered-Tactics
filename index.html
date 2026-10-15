@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Gaffer: 5-a-Side Team Manager. Copyright © 2026 Ethan Davison-Pearce. All rights reserved. See LICENSE. -->
+<!-- Gaffer: Small-Sided Football. Copyright © 2026 Ethan Davison-Pearce. All rights reserved. See LICENSE. -->
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
@@ -826,7 +826,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       </div>
       <div class="itext">
         <h1>Run match day from your pocket</h1>
-        <p>Built for 5-a-side and other small-sided teams. Pick who's playing, and the app looks after the subs, the clock, the stats and the highlights.</p>
+        <p>Built for small-sided football: fives, sevens and everything in between. Pick who's playing, and the app looks after the subs, the clock, the stats and the highlights.</p>
       </div>
     </div></article>
 
@@ -1472,6 +1472,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- backend: Supabase. config.js holds the project URL and publishable key (both are meant to be public;
   // the database's row level security decides who can change what).
   var CFG = window.APT_CONFIG || {}, sb = null;
+  // The app's full name, as on the App Store and the reels' end card. Change it here (and the fallback in ReelGraphics.swift).
+  var APP_NAME = 'Gaffer: Small-Sided Football';
   try { if (window.supabase && CFG.url && CFG.key) sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }); } catch (e) { sb = null; }
   var SESSION = Math.random().toString(36).slice(2, 10); // tells this device's own broadcasts apart from others'
   var me = null; // the signed-in gaffer account, if any
@@ -4097,7 +4099,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!guestGame) return '';
     var r = S.results.filter(function (x) { return x.id === guestGame; })[0], store = String(CFG.appStore || '');
     return '<div class="hcard guestcard" id="guestCard"><h3>Thanks for playing</h3><p class="note">' + (r ? 'These are the highlights from <b>' + esc(vs(r)) + '</b> with ' + esc(teamName()) + '. They show up here once they’ve been cut.' : 'Loading the game…') + '</p>' +
-      (NATIVE ? '' : store ? '<div class="actions"><a class="plain primary btnlink" href="' + esc(store) + '" target="_blank" rel="noopener">Get Gaffer on the App Store</a></div>' : '<p class="note">Get Gaffer for iPhone: search for “Gaffer 5-a-Side” on the App Store.</p>') +
+      (NATIVE ? '' : store ? '<div class="actions"><a class="plain primary btnlink" href="' + esc(store) + '" target="_blank" rel="noopener">Get Gaffer on the App Store</a></div>' : '<p class="note">Get Gaffer for iPhone: search for “' + esc(APP_NAME.replace(':', '')) + '” on the App Store.</p>') +
       '<p class="note">Want your own stats and clips? Make an account, then join a team with its code, or start your own.</p><div class="actions"><button class="plain" type="button" data-guest="account">Make an account</button><button class="plain" type="button" data-guest="welcome">Join or start a team</button><button class="link" type="button" data-guest="close">Close</button></div></div>';
   }
   function renderHighlights() {
@@ -4281,7 +4283,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     }
     try {
       var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, file: (slugify(who) || 'player') + '-highlights.mp4',
-        outro: { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null } });
+        outro: { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
       RB.path = res && res.path; RB.msg = 'The reel is ready.';
       if (RB.path) rc.share({ path: RB.path }).catch(function () {});
       if (RB.path && res.marks && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
@@ -4428,7 +4430,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (r.periods !== 1 && typeof r.h2At === 'number' && at >= r.h2At) return half + Math.max(0, (at - r.h2At) / 1000);
     return typeof r.koAt === 'number' ? Math.max(0, (at - r.koAt) / 1000) : 0;
   }
-  function endCard(r) { return { kicker: 'Full time', title: usFull(r) + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: [dayOf(r), 'Highlights'].filter(Boolean).join(' · '), color: S.color, ink: inkColour(), crest: r.house ? null : crest || null }; }
+  function endCard(r) { return { kicker: 'Full time', title: usFull(r) + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: [dayOf(r), 'Highlights'].filter(Boolean).join(' · '), color: S.color, ink: inkColour(), crest: r.house ? null : crest || null, app: APP_NAME }; }
   function lookFor(r) { return { home: abbr(usOf(r)), away: abbr(r.opp), color: S.color, ink: inkColour(), crest: crest || null }; }
   function clipLook(r, c) { // { bug, lower } for one clip of the plan
     var rel = Math.max(0, c.t - c.start), dur = c.end - c.start, from = c.at - rel * 1000, to = from + dur * 1000;
@@ -4588,7 +4590,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       '<div class="lk-mark"><img src="icons/icon-192.png" alt="">GAFFER</div>' +
       '<div class="lk-lower"><span class="lk-tag"' + (low.color ? ' style="background:' + esc(low.color) + ';color:' + esc(low.ink || '#111') + '"' : '') + '>' + esc(String(low.tag).toUpperCase()) + '</span><span class="lk-panel"><b>' + esc(low.title) + '</b>' + (low.sub ? '<small>' + esc(low.sub) + '</small>' : '') + '</span></div></div>' +
       '<div class="lk-frame lk-end" id="lkEnd" aria-hidden="true"><div class="lk-endin">' + (end.crest ? img(end.crest, 'lk-ec') : '') + '<span class="lk-kick">' + esc(end.kicker.toUpperCase()) + '</span><b class="lk-title">' + esc(end.title) + '</b>' +
-      (end.sub ? '<span class="lk-sub">' + esc(end.sub) + '</span>' : '') + '<i class="lk-rule"></i>' + img('icons/icon-192.png', 'lk-icon') + '<b class="lk-app">Gaffer: 5-a-Side Team Manager</b><span class="lk-badge">' + APPLE + '<span><small>Download on the</small>App Store</span></span></div></div>' +
+      (end.sub ? '<span class="lk-sub">' + esc(end.sub) + '</span>' : '') + '<i class="lk-rule"></i>' + img('icons/icon-192.png', 'lk-icon') + '<b class="lk-app">' + esc(APP_NAME) + '</b><span class="lk-badge">' + APPLE + '<span><small>Download on the</small>App Store</span></span></div></div>' +
       '<label class="check" for="cutBug"><input id="cutBug" type="checkbox"' + (CUT.bug !== false ? ' checked' : '') + '><span>Score, clock and crest on every clip <small>(the clock ticks, and the score changes as the ball goes in)</small></span></label></section>';
   }
   function sameVideo(a, b) { return !!(a && b) && Math.abs((a.duration || 0) - (b.duration || 0)) < 0.5 && a.created === b.created && (a.created != null || a.path === b.path); }
