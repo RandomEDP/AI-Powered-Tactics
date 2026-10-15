@@ -674,7 +674,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   the base free one … and the sweary one, lets call it East London Steve 18+ … we only need to select the voice").
   **Gaffer's commentator** is free and read straight (Fenrir on Chirp 3 HD, `FREE_STYLE = 'plain'` in `reel-voice`,
   `VOICE_FREE_STYLE` in JS; Chirp's first million characters a month are free). **East London Steve 18+** is the
-  Sweary delivery (key `steve`, style `sweary`), a £2.99 Apple **non-consumable** `com.randomedp.aipoweredtactics.voice.steve`,
+  Sweary delivery (key `steve`, style `sweary`), a £3.99 Apple **non-consumable** `com.randomedp.aipoweredtactics.voice.steve`,
   kept on the Gaffer account that bought it (`voice_unlocks`), so any phone signed in to it has him. There's no separate
   delivery choice any more: `voiceKey()`/`voiceSet()` keep `apt-voice` `{v}` (an old `style: 'sweary'` reads as Steve),
   `voicePick()` turns the key into voice and style. Same plumbing as the team pass: `TeamPassPlugin` `buy`, then
@@ -691,8 +691,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     live (`my_voices` missing) every voice stays open (`VO.open`), so shipping the app first changes nothing.
   - **Samples:** `reel-voice` `{action: 'sample', style}` returns a public address in the `voice-samples` bucket,
     making the MP3 the first time (one fixed line per delivery, naming nobody, so no AI ask and no team allowance).
-  - Cost (October 2026): a typical Steve reel is about a minute of Gemini TTS, about 1.5p; £2.99 leaves about £2.12
-    after VAT and Apple's 15%, so about 140 reels. The team allowance (40,000 characters, about 50p a month) caps the worst case.
+  - Cost (October 2026): a typical Steve reel is about a minute of Gemini TTS, about 1.5p; £3.99 leaves about £2.83
+    after VAT and Apple's 15%, so about 190 reels. The team allowance (40,000 characters, about 50p a month) caps the worst case.
   - Tests: `voices.test.mjs` (database, both functions, the app on two iPhones), `stream.test.mjs` (Steve locked), `reels.test.mjs` (the picker).
 
 ### The look (the redesign, October 2026; Ethan asked for it after a review against Apple's design guidelines)

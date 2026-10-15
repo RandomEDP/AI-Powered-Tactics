@@ -1,6 +1,6 @@
 // Commentary voices (Ethan: "Only let the free one usable … Let them hear it before unlock", then "remove all the voices
 // for now apart from the base free one … And the sweary one lets call it East London Steve 18+ … we only need to select
-// the voice"). Gaffer's commentator is free (read straight); East London Steve 18+ is a one-off £2.99 through Apple.
+// the voice"). Gaffer's commentator is free (read straight); East London Steve 18+ is a one-off £3.99 through Apple.
 // 1. The database (every migration in real Postgres): only Gaffer's server can unlock a voice; a purchase unlocks one
 //    voice for one account; my_voices says what you own and nothing about Apple; deleting an account forgets it.
 // 2. The real team-pass edge function ("voice"), with a stand-in Apple, writing to that database.
@@ -159,7 +159,7 @@ const appleSheet = () => { // Apple, as the web app sees it through TeamPassPlug
   const S = window.__apple = { calls: [], get unfinished() { return JSON.parse(localStorage.getItem(K) || '[]'); }, set unfinished(v) { localStorage.setItem(K, JSON.stringify(v)); },
     get owned() { return JSON.parse(localStorage.getItem(O) || '[]'); }, set owned(v) { localStorage.setItem(O, JSON.stringify(v)); }, next: 'bought', n: Number(localStorage.getItem('__txn') || Math.floor(Math.random() * 1e6) * 100) };
   window.Capacitor.Plugins.TeamPass = {
-    products: async (o) => ({ products: o.ids.map((id) => ({ id, price: '£2.99' })) }),
+    products: async (o) => ({ products: o.ids.map((id) => ({ id, price: '£3.99' })) }),
     buy: async (o) => { S.calls.push(['buy', o.id]); if (S.next !== 'bought') return { status: S.next };
       const t = { transactionId: String(++S.n), productId: o.id, account: o.account, environment: 'Sandbox' }; localStorage.setItem('__txn', S.n);
       S.unfinished = S.unfinished.concat([t]); S.owned = S.owned.concat([t]); window.__appleBought(t); return Object.assign({ status: 'bought' }, t); },
@@ -191,12 +191,12 @@ const bx = await A.page.locator('#camSvg').boundingBox(); await A.page.mouse.cli
 await A.click('#cutBody [data-cutdo="next"]');
 await A.page.evaluate(() => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => 200, set: () => {} }); });
 await A.click('#cutBody [data-cutdo="here"]'); await A.run(500);
-eq(await opts(A, '#cutVoiceName'), ['Gaffer’s commentator, free', 'East London Steve 18+, £2.99'], 'the highlight maker has two voices: the free one, and East London Steve at Apple\'s price');
+eq(await opts(A, '#cutVoiceName'), ['Gaffer’s commentator, free', 'East London Steve 18+, £3.99'], 'the highlight maker has two voices: the free one, and East London Steve at Apple\'s price');
 eq(await A.visible('#cutVoiceStyle'), false, 'and no separate delivery to pick');
 eq(await A.page.$$eval('#cutBody [data-vo="buy"]', (b) => b.length), 0, 'with the free voice picked there\'s nothing to unlock');
 await A.page.selectOption('#cutVoiceName', 'steve'); await A.run(300);
-eq(await A.page.$$eval('#cutBody [data-vo="buy"]', (b) => b.map((x) => x.textContent)), ['Unlock East London Steve (£2.99)'], 'picking Steve offers to unlock him');
-eq(await A.text('#cutBody [data-volock]'), 'A sweary Cockney pub commentator: he swears at the football, never at anyone. 18+. £2.99 to unlock, once, and yours to keep on any phone you sign in to.', 'saying who he is, what he costs and that he\'s kept');
+eq(await A.page.$$eval('#cutBody [data-vo="buy"]', (b) => b.map((x) => x.textContent)), ['Unlock East London Steve (£3.99)'], 'picking Steve offers to unlock him');
+eq(await A.text('#cutBody [data-volock]'), 'A sweary Cockney pub commentator: he swears at the football, never at anyone. 18+. £3.99 to unlock, once, and yours to keep on any phone you sign in to.', 'saying who he is, what he costs and that he\'s kept');
 check(await A.visible('#cutBody [data-vo="restore"]'), 'with Restore purchases, as Apple asks for with anything bought once');
 
 // hearing him first: no AI ask, the same stored sample for everyone
