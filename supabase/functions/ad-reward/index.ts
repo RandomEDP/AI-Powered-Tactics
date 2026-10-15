@@ -1,7 +1,7 @@
 // Rewarded ads: Google's AdMob calls this when someone has watched an ad all the way through (server-side verification).
 // It's how an unlock is granted without taking the phone's word for it: the call is signed with Google's key, checked
 // here against the keys Google publishes, and only then is the ticket the ad was loaded with granted (public.ad_grant,
-// which only the server can call). See supabase/migrations/0032_rewarded_ads.sql.
+// which only the server can call). See supabase/migrations/0035_rewarded_ads.sql.
 //
 // Google calls it with a GET and no Supabase sign-in, so it's deployed with verify_jwt = false:
 //   supabase functions deploy ad-reward --no-verify-jwt --project-ref kvefpqigpqprxfelesrb

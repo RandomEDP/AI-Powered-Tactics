@@ -1,4 +1,4 @@
-// Rewarded ads (the free tier, 0032_rewarded_ads.sql and the ad-reward edge function). Ethan: no banners, just a 30-second
+// Rewarded ads (the free tier, 0035_rewarded_ads.sql and the ad-reward edge function). Ethan: no banners, just a 30-second
 // ad to see your own highlight reel. Never during a game, never for a paid team, and the unlock can't be faked from the
 // phone once real ads are on: Google's AdMob calls our server, signed, and only that grants it.
 //   1. the database: tickets, grants, who may do what
@@ -25,7 +25,7 @@ const un = (who) => d.rpc(who, 'my_unlocks', { p_code: sop.code });
 eq(await d.rpc(null, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: reel1 }).catch(() => 'denied'), 'denied', 'nobody can ask for an ad without signing in');
 const priv = await d.admin(`select has_function_privilege('authenticated', 'public.ad_grant(text,text,text)', 'execute') a, has_function_privilege('anon', 'public.ad_grant(text,text,text)', 'execute') n, has_function_privilege('service_role', 'public.ad_grant(text,text,text)', 'execute') s`);
 eq([priv[0].a, priv[0].n, priv[0].s], [false, false, true], 'only the server (the ad-reward function) can grant an ad: not a signed-in phone, not anyone');
-for (const who of [null, sam, jake]) eq([await d.as(who, 'select count(*)::int n from public.unlocks').then((r) => r[0].n, () => 'denied'), await d.as(who, 'select count(*)::int n from public.ad_settings').then((r) => r[0].n, () => 'denied')].map((x) => x === 0 || x === 'denied'), [true, true], 'nobody reads or writes the unlocks or the ad settings directly');
+for (const who of [null, sam, jake]) eq([await d.as(who, 'select count(*)::int n from public.ad_unlocks').then((r) => r[0].n, () => 'denied'), await d.as(who, 'select count(*)::int n from public.ad_settings').then((r) => r[0].n, () => 'denied')].map((x) => x === 0 || x === 'denied'), [true, true], 'nobody reads or writes the unlocks or the ad settings directly');
 
 let tk = await d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: reel1 });
 check(/^[0-9a-f-]{36}$/.test(tk.ticket), 'a player gets a ticket for an ad to see their own reel');
@@ -50,15 +50,15 @@ eq(await grant(tk.ticket, sam.id, 'tx-1'), 'wrong_user', 'Google\'s call must na
 eq(await grant('not-a-ticket', jake.id, 'tx-1'), 'no_ticket', 'and a real ticket');
 eq(await grant(tk.ticket, jake.id, 'tx-1'), 'granted', 'Google\'s call grants it');
 eq([await d.rpc(jake, 'ad_claim', { p_ticket: tk.ticket }), (await un(jake)).reels.sort()], ['granted', [reel1, reel2].sort()], 'and the app is told so');
-await d.admin(`delete from public.unlocks where target = $1 and tx is null`, [reel1]);
+await d.admin(`delete from public.ad_unlocks where target = $1 and tx is null`, [reel1]);
 const tk2 = await d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: reel2 });
 eq(tk2, { error: 'not_needed' }, '(already unlocked)');
-await d.admin(`insert into public.unlocks (id, team_id, user_id, kind, target) values ('11111111-1111-1111-1111-111111111111', $1, $2, 'reel', $3)`, [sop.id, jake.id, reel2]);
+await d.admin(`insert into public.ad_unlocks (id, team_id, user_id, kind, target) values ('11111111-1111-1111-1111-111111111111', $1, $2, 'reel', $3)`, [sop.id, jake.id, reel2]);
 eq(await grant('11111111-1111-1111-1111-111111111111', jake.id, 'tx-1'), 'duplicate', 'one ad pays once: its transaction can\'t grant a second ticket');
-eq((await d.admin(`select by_google from public.unlocks where id = $1`, [tk.ticket]))[0].by_google, true, 'a grant from Google is marked as one');
+eq((await d.admin(`select by_google from public.ad_unlocks where id = $1`, [tk.ticket]))[0].by_google, true, 'a grant from Google is marked as one');
 await d.admin(`update public.ad_settings set trust_app = true`);
 await d.admin(`delete from auth.users where id = $1`, [jake.id]);
-eq((await d.admin(`select count(*)::int n from public.unlocks`))[0].n, 0, 'deleting an account deletes its unlocks');
+eq((await d.admin(`select count(*)::int n from public.ad_unlocks`))[0].n, 0, 'deleting an account deletes its unlocks');
 
 // ---------- 2. the ad-reward function, with stand-ins for Deno, the database and Google's keys
 const ENV = { SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'service' }, GRANTS = [];

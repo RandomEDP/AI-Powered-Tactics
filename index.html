@@ -6527,7 +6527,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ================= rewarded ads (the free tier). No banners: on your own card in Highlights (By player), your highlight
   // reel is behind a 30-second ad you choose to watch. Watching it unlocks that reel for good (a new reel needs a new ad).
   // Never during a game, and never for a paid team. The unlock is granted on the server: Google's AdMob calls the ad-reward
-  // edge function, signed, when the ad has been watched (0032_rewarded_ads.sql). Google's test ads until Ethan's AdMob
+  // edge function, signed, when the ad has been watched (0035_rewarded_ads.sql). Google's test ads until Ethan's AdMob
   // account is set up (config.js ads).
   function adFree() { // THE check for "no ads here": a team with the team pass never sees one (teamPaid, from the per-team plan,
     // once that's in), and in early access everyone has Gaffer (hasGaffer) unless the Experimental switch tries the free tier out

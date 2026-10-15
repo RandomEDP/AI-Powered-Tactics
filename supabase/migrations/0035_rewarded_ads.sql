@@ -10,7 +10,7 @@
 -- Google's test ads never call the server, so while ad_settings.trust_app is on (to start with, for TestFlight) ad_claim
 -- also takes the app's word that the ad finished. Turn it off when real ads go live (see CLAUDE.md, "Rewarded ads").
 
-create table if not exists public.unlocks (
+create table if not exists public.ad_unlocks (
   id uuid primary key default gen_random_uuid(),
   team_id uuid not null references public.teams (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -21,8 +21,8 @@ create table if not exists public.unlocks (
   by_google boolean not null default false,                        -- granted by Google's signed call, not the app's word
   tx text unique                                                   -- Google's transaction id, so one ad pays once
 );
-create index if not exists unlocks_user_idx on public.unlocks (user_id, team_id);
-alter table public.unlocks enable row level security; -- no policies: only the functions below touch it
+create index if not exists ad_unlocks_user_idx on public.ad_unlocks (user_id, team_id);
+alter table public.ad_unlocks enable row level security; -- no policies: only the functions below touch it
 
 create table if not exists public.ad_settings (
   id integer primary key default 1 check (id = 1),
@@ -44,9 +44,9 @@ begin
   select p.pid into v_pid from public.players p where p.team_id = t.id and p.user_id = auth.uid();
   if v_pid is null then return jsonb_build_object('error', 'not_allowed'); end if;
   if not exists (select 1 from public.player_reels r where r.team_id = t.id and r.pid = v_pid and r.path = p_target) then return jsonb_build_object('error', 'no_reel'); end if;
-  if exists (select 1 from public.unlocks u where u.user_id = auth.uid() and u.team_id = t.id and u.kind = 'reel' and u.target = p_target and u.granted_at is not null)
+  if exists (select 1 from public.ad_unlocks u where u.user_id = auth.uid() and u.team_id = t.id and u.kind = 'reel' and u.target = p_target and u.granted_at is not null)
     then return jsonb_build_object('error', 'not_needed'); end if;
-  insert into public.unlocks (team_id, user_id, kind, target) values (t.id, auth.uid(), 'reel', p_target) returning id into v_id;
+  insert into public.ad_unlocks (team_id, user_id, kind, target) values (t.id, auth.uid(), 'reel', p_target) returning id into v_id;
   return jsonb_build_object('ticket', v_id);
 end $$;
 revoke all on function public.ad_ticket(text, text, text) from public, anon, authenticated;
@@ -56,14 +56,14 @@ grant execute on function public.ad_ticket(text, text, text) to authenticated;
 -- p_app_says: the app saw the ad finish. Only believed while ad_settings.trust_app is on (test ads).
 create or replace function public.ad_claim(p_ticket uuid, p_app_says boolean default false) returns text
 language plpgsql volatile security definer set search_path = '' as $$
-declare u public.unlocks;
+declare u public.ad_unlocks;
 begin
   if auth.uid() is null then return 'no_ticket'; end if;
-  select * into u from public.unlocks where id = p_ticket and user_id = auth.uid();
+  select * into u from public.ad_unlocks where id = p_ticket and user_id = auth.uid();
   if not found then return 'no_ticket'; end if;
   if u.granted_at is not null then return 'granted'; end if;
   if p_app_says and coalesce((select s.trust_app from public.ad_settings s where s.id = 1), false) then
-    update public.unlocks set granted_at = now() where id = u.id;
+    update public.ad_unlocks set granted_at = now() where id = u.id;
     return 'granted';
   end if;
   return 'waiting';
@@ -75,14 +75,14 @@ grant execute on function public.ad_claim(uuid, boolean) to authenticated;
 -- was loaded with. 'granted', 'no_ticket', 'wrong_user', 'duplicate' (that transaction already paid for another).
 create or replace function public.ad_grant(p_ticket text, p_user text, p_tx text) returns text
 language plpgsql volatile security definer set search_path = '' as $$
-declare u public.unlocks;
+declare u public.ad_unlocks;
 begin
   if p_ticket !~ '^[0-9a-fA-F-]{36}$' then return 'no_ticket'; end if;
-  select * into u from public.unlocks where id = p_ticket::uuid for update;
+  select * into u from public.ad_unlocks where id = p_ticket::uuid for update;
   if not found then return 'no_ticket'; end if;
   if u.user_id::text <> coalesce(p_user, '') then return 'wrong_user'; end if;
-  if p_tx is not null and exists (select 1 from public.unlocks x where x.tx = p_tx and x.id <> u.id) then return 'duplicate'; end if;
-  update public.unlocks set granted_at = coalesce(granted_at, now()), by_google = true, tx = coalesce(tx, p_tx) where id = u.id;
+  if p_tx is not null and exists (select 1 from public.ad_unlocks x where x.tx = p_tx and x.id <> u.id) then return 'duplicate'; end if;
+  update public.ad_unlocks set granted_at = coalesce(granted_at, now()), by_google = true, tx = coalesce(tx, p_tx) where id = u.id;
   return 'granted';
 end $$;
 revoke all on function public.ad_grant(text, text, text) from public, anon, authenticated;
@@ -95,7 +95,7 @@ declare t public.teams;
 begin
   select * into t from public.teams where code = upper(trim(p_code));
   if not found or auth.uid() is null then return null; end if;
-  return jsonb_build_object('reels', coalesce((select jsonb_agg(distinct u.target) from public.unlocks u
+  return jsonb_build_object('reels', coalesce((select jsonb_agg(distinct u.target) from public.ad_unlocks u
     where u.team_id = t.id and u.user_id = auth.uid() and u.kind = 'reel' and u.granted_at is not null), '[]'::jsonb));
 end $$;
 revoke all on function public.my_unlocks(text) from public, anon, authenticated;
