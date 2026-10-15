@@ -616,10 +616,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - Tests: `solo.test.mjs` (phone, watch presses, no notifications, kept out of the record), `tests/watch/main.swift` (25).
 
 ### The team pass: the Gaffer tier per team, from a team pot (`0032_team_pass.sql`, `team-pass`; Ethan asked, October 2026)
-- Anyone on the team chips into the team's pot in the iPhone app: 69p, £1.49, £2.49, or the whole £4.99 (Ethan: "chip in
+- Anyone on the team chips into the team's pot in the iPhone app: 99p, £1.99, £2.99, or the whole £4.99 (Ethan: "chip in
   however much you want until the team gets £4.99"). When the pot reaches 499 pence the whole team gets 30 days at once
   (added on to any time left) and anything over stays in the pot (`team_pass.pot`). Apple **consumables**, ids
-  `com.randomedp.aipoweredtactics.team.chip069` / `.chip149` / `.chip249` / `.month`; credit is by product, the same in any
+  `com.randomedp.aipoweredtactics.team.chip099` / `.chip199` / `.chip299` / `.month`; credit is by product, the same in any
   country. Gifting to others is allowed by guideline 3.1.1; taking money outside the App Store isn't (outside the US).
 - **Flow:** `TeamPassPlugin` (StoreKit 2) `buy({id, account})` puts the account's id on the purchase as `appAccountToken`;
   JS keeps it in `apt-pass-pending` and calls `team-pass` `claim {code, transaction_id}`, which asks Apple's App Store
@@ -633,7 +633,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Card:** `#passCard` on the Team page (`renderPass`, `.passbar`), behind the Experimental switch until the products are
   live (a paid team shows it to everyone). It says before anyone pays that a chip-in unlocks nothing until the pot is full.
   "Runs out in N days" within 5. No buttons on the web or Android (no Google Play yet).
-- Live: migration 0032 applied and `team-pass` v1 deployed (15 October 2026). It says "not set up yet" until Ethan adds the
+- Live: migration 0032 applied and `team-pass` v3 deployed (15 October 2026; chip-ins 99p, £1.99, £2.99). It says "not set up yet" until Ethan adds the
   secrets `IAP_KEY_ID`, `IAP_ISSUER_ID`, `IAP_KEY_P8` (README "Team pass"); purchases wait on the phone till then. Refunds made after a purchase is counted aren't taken back yet (needs App Store Server
   Notifications). Test: `teampass.test.mjs`.
 
@@ -746,16 +746,16 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   the ad, the next go uses the same name and needs no second ad.
 - First ad of a session: `initialize`, Google's consent form where the law needs it (UK/EU; Settings → Ads → Ad choices
   reopens it), then Apple's tracking question (`NSUserTrackingUsageDescription`). Either answer still unlocks.
-- **AdMob is set up (15 October 2026):** Gaffer's app id `ca-app-pub-2627873247729818~2068368869` is in `Info.plist`
-  (`GADApplicationIdentifier`) and its rewarded unit `ca-app-pub-2627873247729818/1194270899` in `config.js` `ads`, with
-  `test: true`, which makes the plugin play Google's test unit instead (never tap real ads while testing: AdMob flags it).
-  `SKAdNetworkItems` has Google's own id only; add Google's full list before going live.
-- **Still to do before real ads (Ethan's, in AdMob / App Store Connect):** turn on server-side verification on the rewarded
-  unit with the callback `https://kvefpqigpqprxfelesrb.supabase.co/functions/v1/ad-reward` (Verify URL should pass); set
-  up the UK/EU consent message (Privacy & messaging); the App Privacy labels (Identifiers: device ID; Usage data; coarse
-  location; used for third-party advertising, tracking if allowed); review notes saying where the tracking prompt is.
-  Then (a Claude session): `test: false` in `config.js`, the `ADMOB_AD_UNITS` secret, and
-  `update public.ad_settings set trust_app = false`.
+- **Real ads are on (15 October 2026):** Gaffer's app id `ca-app-pub-2627873247729818~2068368869` is in `Info.plist`
+  (`GADApplicationIdentifier`) and its rewarded unit `ca-app-pub-2627873247729818/1194270899` in `config.js` `ads`
+  (`test: false`). Server-side verification is on in AdMob (its Verify URL call reached `ad-reward` and got a 200), and
+  `ad_settings.trust_app` is false, so only Google's signed call unlocks a reel. Ethan set up the UK/EU consent message,
+  the App Privacy labels and the review notes. To test without real ads, add the iPhone as a test device in AdMob
+  (Settings, Test devices); never tap real ads on your own phone (AdMob flags it). For Google's test ads in a build
+  instead, set `test: true` and `trust_app = true` together (test ads never call the server).
+- Not done: `SKAdNetworkItems` has Google's own id only (Google's full list couldn't be fetched from a cloud session; add
+  it from developers.google.com/admob/ios/3p-skadnetworks for better ad matching on iOS). `ADMOB_AD_UNITS` isn't set
+  (optional; the ticket check already ties a grant to one person and one reel).
 - Tests: `ads.test.mjs` (the database, the real function with a stand-in Google key, and the phones).
 
 ### The shop (`0033_shop.sql`, `shop`, `shop-webhook`; behind the experimental switch; Ethan asked, October 2026)
@@ -962,8 +962,9 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   keys go in Supabase secrets, never chat). **His four answers are needed first:** who pays the fee (player £5 + 50p,
   or gaffer gets £5 minus it); the cut (50p or a percentage); when players are charged (on "I'm in" or after the game)
   and what happens if a game's called off (refund or credit); and whether to start step 1.
-- **Rewarded ads:** built and tested with Google's test ads; `0035` is applied and `ad-reward` v1 deployed (October
-  2026). `ad_settings.trust_app` is still on (test ads). Real ads wait for Ethan's AdMob steps in section 6, "Rewarded ads".
+- **Rewarded ads:** real ads are on (October 2026; section 6, "Rewarded ads"). In early access only people who turn on
+  Experimental, then "Try the free tier", see one. Check on a real phone (as an AdMob test device) that watching one
+  unlocks your reel.
 - **Ideas he has raised but not built yet:**
   - ads in the free tier and the £4.99 Gaffer subscription (in-app purchase). Advice given: ads in the feed only once
     lots of people post (then about 1 in 8, never first); better: rewarded ads to unlock things (another game's

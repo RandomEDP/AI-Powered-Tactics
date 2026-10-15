@@ -6137,14 +6137,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- the team pass (0032_team_pass.sql): the Gaffer tier is paid for per team, from a team pot. Anyone on it can chip
-  // in 69p, £1.49 or £2.49, or pay the whole £4.99, in the iPhone app, through Apple (TeamPassPlugin); when the pot
+  // in 99p, £1.99 or £2.99, or pay the whole £4.99, in the iPhone app, through Apple (TeamPassPlugin); when the pot
   // reaches £4.99 the whole team gets 30 days at once, and anything over stays towards the next month. Each
   // purchase is kept on this phone until Gaffer's server (team-pass) has checked it with Apple and counted it, and only
   // then finished, so nothing is lost to a dropped signal. teamPaid() is the one check for "this team has paid" (the ads
   // ask it, for one); window.gafferTeamPaid is the same.
-  var PASS_IDS = { chip069: 'com.randomedp.aipoweredtactics.team.chip069', chip149: 'com.randomedp.aipoweredtactics.team.chip149', chip249: 'com.randomedp.aipoweredtactics.team.chip249', month: 'com.randomedp.aipoweredtactics.team.month' };
+  var PASS_IDS = { chip099: 'com.randomedp.aipoweredtactics.team.chip099', chip199: 'com.randomedp.aipoweredtactics.team.chip199', chip299: 'com.randomedp.aipoweredtactics.team.chip299', month: 'com.randomedp.aipoweredtactics.team.month' };
   var PASS_GOAL = 499; // pence: a full pot is a month
-  var PASS = { code: null, d: null, at: 0, price: { chip069: '69p', chip149: '£1.49', chip249: '£2.49', month: '£4.99' }, priced: false, busy: false, msg: '', bad: false, heard: false };
+  var PASS = { code: null, d: null, at: 0, price: { chip099: '99p', chip199: '£1.99', chip299: '£2.99', month: '£4.99' }, priced: false, busy: false, msg: '', bad: false, heard: false };
   var PASSK = 'apt-pass', PASSP = 'apt-pass-pending'; // last known state per team (right with no signal); purchases not yet counted { tx: code }
   function passJ(k) { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } }
   function passPut(k, o) { try { localStorage.setItem(k, JSON.stringify(o)); } catch (e) {} }
@@ -6231,7 +6231,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var native = !!plugin('TeamPass'), own = role === 'owner', p = PASS.price;
     var bar = '<div class="passbar" role="progressbar" aria-valuemin="0" aria-valuemax="' + PASS_GOAL + '" aria-valuenow="' + pot + '" aria-label="Team pot"><span style="width:' + Math.round(100 * pot / PASS_GOAL) + '%"></span></div>';
     var pots = '<p id="passPot"><b>' + (paid ? 'Next month’s pot: ' : 'Team pot: ') + passMoney(pot) + '</b> of ' + passMoney(PASS_GOAL) + '</p>' + bar;
-    var chips = ['chip069', 'chip149', 'chip249'].map(function (k) { return '<button class="plain tint" type="button" data-pass="' + k + '">' + esc(p[k]) + '</button>'; }).join('');
+    var chips = ['chip099', 'chip199', 'chip299'].map(function (k) { return '<button class="plain tint" type="button" data-pass="' + k + '">' + esc(p[k]) + '</button>'; }).join('');
     el.innerHTML = '<h2>Gaffer for the team</h2>' +
       (paid ? '<p id="passState">Paid until ' + esc(passDay(d.until)) + '.' + (thanks ? ' ' + esc(thanks) : '') + '</p>' + (left <= 5 ? '<p class="note" id="passLow">Runs out in ' + left + (left === 1 ? ' day' : ' days') + '. Chip in to fill the pot for next month.</p>' : '')
         : '<p id="passState">Everyone chips in what they like. When the pot reaches ' + esc(passMoney(PASS_GOAL)) + ', the whole team gets a month of the Gaffer tier.' + (thanks ? ' ' + esc(thanks) : '') + '</p>') +

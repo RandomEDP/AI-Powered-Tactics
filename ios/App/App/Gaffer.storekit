@@ -18,48 +18,48 @@
       "type": "Consumable"
     },
     {
-      "displayPrice": "0.69",
+      "displayPrice": "0.99",
       "familyShareable": false,
       "internalID": "6747000002",
       "localizations": [
         {
-          "description": "69p into your team's pot. At \u00a34.99 the whole team gets a month.",
-          "displayName": "Chip in 69p",
+          "description": "99p into your team's pot. At \u00a34.99 the whole team gets a month.",
+          "displayName": "Chip in 99p",
           "locale": "en_GB"
         }
       ],
-      "productID": "com.randomedp.aipoweredtactics.team.chip069",
-      "referenceName": "Team pot: chip in 69p",
+      "productID": "com.randomedp.aipoweredtactics.team.chip099",
+      "referenceName": "Team pot: chip in 99p",
       "type": "Consumable"
     },
     {
-      "displayPrice": "1.49",
+      "displayPrice": "1.99",
       "familyShareable": false,
       "internalID": "6747000003",
       "localizations": [
         {
-          "description": "\u00a31.49 into your team's pot. At \u00a34.99 the whole team gets a month.",
-          "displayName": "Chip in \u00a31.49",
+          "description": "\u00a31.99 into your team's pot. At \u00a34.99 the whole team gets a month.",
+          "displayName": "Chip in \u00a31.99",
           "locale": "en_GB"
         }
       ],
-      "productID": "com.randomedp.aipoweredtactics.team.chip149",
-      "referenceName": "Team pot: chip in \u00a31.49",
+      "productID": "com.randomedp.aipoweredtactics.team.chip199",
+      "referenceName": "Team pot: chip in \u00a31.99",
       "type": "Consumable"
     },
     {
-      "displayPrice": "2.49",
+      "displayPrice": "2.99",
       "familyShareable": false,
       "internalID": "6747000004",
       "localizations": [
         {
-          "description": "\u00a32.49 into your team's pot. At \u00a34.99 the whole team gets a month.",
-          "displayName": "Chip in \u00a32.49",
+          "description": "\u00a32.99 into your team's pot. At \u00a34.99 the whole team gets a month.",
+          "displayName": "Chip in \u00a32.99",
           "locale": "en_GB"
         }
       ],
-      "productID": "com.randomedp.aipoweredtactics.team.chip249",
-      "referenceName": "Team pot: chip in \u00a32.49",
+      "productID": "com.randomedp.aipoweredtactics.team.chip299",
+      "referenceName": "Team pot: chip in \u00a32.99",
       "type": "Consumable"
     }
   ],

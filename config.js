@@ -15,8 +15,8 @@ window.APT_CONFIG = {
   // shop says it's in test mode.
   shopLive: false,
   // Rewarded ads (the free tier): Gaffer's AdMob rewarded ad unit (its app id is in ios/App/App/Info.plist,
-  // GADApplicationIdentifier). Ad unit ids are public by design (they're in every app that shows ads). While test is true
-  // the phone plays Google's own test ads instead (the plugin swaps the unit), which earn nothing and are safe to tap, so
-  // testing can't get the AdMob account flagged. Real ads: test: false (and see CLAUDE.md, "Rewarded ads").
-  ads: { rewarded: 'ca-app-pub-2627873247729818/1194270899', test: true }
+  // GADApplicationIdentifier). Ad unit ids are public by design (they're in every app that shows ads). Real ads are on
+  // (October 2026). test: true makes the phone play Google's own test ads instead (the plugin swaps the unit), which earn
+  // nothing and are safe to tap; with it on, ad_settings.trust_app has to be on too, as test ads never call the server.
+  ads: { rewarded: 'ca-app-pub-2627873247729818/1194270899', test: false }
 };
