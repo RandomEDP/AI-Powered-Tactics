@@ -81,6 +81,25 @@ for (const t of BEATS) for (let n = 1; n <= kinds.length; n++) {
   eq(bad.slice(0, 3), [], `${t.name}, ${n} moment${n > 1 ? 's' : ''}: every cut on a beat with no gaps, inside its clip, the best moment on the drop and each one after on a bar with a flash`);
   plans.push({ name: t.name + ' with ' + n, drop, plan: p });
 }
+// ---------- the ball going in wherever it is in its clip (lined up by eye, 0038): each moment still lands exactly on its
+// bar, and the run-up into it ends on it, even right at the start or the end of a clip
+const ats = [8, 0.6, 3, 13.6, 1.4, 11, 8, 4.5, 12.9];
+for (const t of BEATS) for (let n = 1; n <= kinds.length; n++) {
+  const ms = kinds.slice(0, n).map((k, i) => ({ len: 14, at: ats[i], kind: k }));
+  const p = await A.page.evaluate(([m, id]) => window.gafferBeatPlan(m, id), [ms, t.id]);
+  const bt = 60 / t.bpm, drop = t.drop * 4 * bt, bad = [];
+  let at = 0;
+  for (const s of p.segs) { if (Math.abs(s.t - at) > 1e-3) bad.push('a gap at ' + s.t); if (s.from < 0 || s.from + s.len > 14 + 1e-3) bad.push('past the end of clip ' + s.i); at = s.t + s.out; }
+  p.stars.forEach((i, k) => {
+    const H = p.segs.find((s) => s.t >= drop - 1e-3 && s.i === i && Math.abs(s.from - ms[i].at) < 1e-3 && p.fx.some((f) => f.k === 'flash' && Math.abs(f.t - s.t) < 1e-3));
+    if (!H) { bad.push('star ' + k + ' (at ' + ms[i].at + ') isn\'t on its bar'); return; }
+    const before = p.segs.find((s) => Math.abs(s.t + s.out - H.t) < 1e-3);
+    if (before && before.i === i && Math.abs(before.from + before.len - ms[i].at) > 0.01) bad.push('the run-up into star ' + k + ' ends at ' + (before.from + before.len).toFixed(2) + ', not ' + ms[i].at);
+  });
+  eq(bad.slice(0, 3), [], `${t.name}, ${n} moment${n > 1 ? 's' : ''} anywhere in their clips: each lands on its bar, the run-up ending on it`);
+}
+eq(await A.page.evaluate(() => [{ dur: 14 }, { dur: 20.271 }, { dur: 11 }, {}].map((c) => window.gafferClipRel(c))), [8, 8, 5, 8],
+  'Gaffer\'s guess for a clip\'s moment is 8 seconds in: also in a longer clip holding two moments (it was put 6 from the end), less if the video started late');
 const nine = await A.page.evaluate(() => window.gafferBeatPlan(['goal', 'save', 'against', 'goal', 'hl', 'goal', 'hl', 'goal', 'save'].map((k) => ({ len: 14, at: 8, kind: k })), 'floodlights'));
 eq(nine.stars, [0, 3, 5, 7], 'with more moments than room, the goals go in first, in the order they happened');
 const one = await A.page.evaluate(() => window.gafferBeatPlan([{ len: 14, at: 8, kind: 'goal' }], 'terrace'));
@@ -123,6 +142,20 @@ eq([(await calls(A, 'play')).pop(), await A.page.$eval('#beBody [data-behear="te
 await A.click('#beBody [data-betrack="terrace"]'); await A.run(100);
 eq([await A.page.$eval('#beBody [data-betrack="terrace"]', (b) => b.getAttribute('aria-pressed')), await A.page.evaluate(() => localStorage.getItem('apt-beat'))], ['true', 'terrace'], 'tapping a track picks it, and it\'s remembered on this phone');
 await shot(A, 'beat-sheet');
+// ---------- lining up when the ball goes in (Ethan: "an on device way of looking at the clips, deciding when the ball goes in")
+eq(await A.page.$$eval('#beLuList [data-belu]', (b) => b.map((x) => x.textContent)), ['1\' Jake (Chaplin)Not lined up yet', '2\' HighlightNot lined up yet', '3\' Chaplin (Jake)Not lined up yet'], 'the moments it lands on the beat are listed, none lined up yet');
+check(/None are lined up yet/.test(await A.text('#beLuNote')), 'saying Gaffer goes by when they were logged until they are');
+await A.click('#beLuList [data-belu="0"]'); await A.run(200);
+eq([await A.text('#beTitle'), tail(await A.page.$eval('#beVid', (v) => v.getAttribute('src'))), /\(1 of 3\)/.test(await A.text('#beBody'))], ['When does the ball go in?', '01.mp4', true], 'tapping one shows its clip (the clean copy) to find when the ball goes in');
+await A.page.evaluate(() => { let t = 8; Object.defineProperty(document.getElementById('beVid'), 'currentTime', { configurable: true, get: () => t, set: (x) => { t = x; } }); });
+await A.click('#beBody [data-benudge="1"]'); await A.click('#beBody [data-benudge="0.2"]'); await A.click('#beBody [data-benudge="0.2"]'); await A.click('#beBody [data-benudge="-0.2"]');
+await shot(A, 'beat-lineup');
+await A.click('#beHit'); await A.run(300);
+const g0 = w.db().clips.find((c) => c.seq === 0);
+eq([(w.db().clip_hits || []).map((h) => [h.at, Math.round(h.off * 100) / 100]), /\(2 of 3\)/.test(await A.text('#beBody'))], [[[g0.at, 1.2]], true], 'The ball goes in here keeps it for the team (1.2 seconds after it was logged) and moves on to the next one');
+await A.click('#beLuBack'); await A.run(200);
+eq(await A.page.$eval('#beLuList [data-belu="0"] small', (s) => s.textContent), '✓ Lined up', 'back on the list it shows as lined up');
+check(/2 aren’t lined up yet/.test(await A.text('#beLuNote')), 'and how many are still to do');
 await A.page.evaluate(() => { window.__beatHold = new Promise((r) => { window.__beatGo = r; }); });
 await A.click('#beMake'); await A.run(300);
 eq([await A.page.evaluate(() => document.getElementById('beAudio').paused), await A.page.$eval('#beMake', (b) => b.disabled), await A.text('#beProg')], [true, true, 'Cutting it to the beat, 40%'], 'making it stops the preview and shows how far it\'s got');
@@ -130,6 +163,8 @@ await A.page.evaluate(() => window.__beatGo()); await A.run(500);
 const job = (await calls(A, 'beat')).pop(), rows = w.db().clips.slice().sort((a, b) => a.seq - b.seq);
 eq([job.music, job.items.map((x) => tail(x.url)), job.file], ['terrace', ['01.mp4', '03.mp4', '04.mp4'], '2026-10-10-dog-squad-terrace.mp4'], 'the plugin is asked for the edit to Terrace, fetching only the clips it uses (the clean copies, and not the goal against)');
 check(job.segs.every((s) => s.i >= 0 && s.i < job.items.length) && Math.abs(job.len - 28.8) < 1e-3 && Math.abs(job.outroAt - 24) < 1e-3, 'every stretch points at one of those clips, and the edit is as long as the track with the end card at bar 10');
+const dropSeg = job.segs.find((s) => Math.abs(s.t - 4 * 4 * 0.6) < 1e-3);
+eq([dropSeg && dropSeg.i, dropSeg && Math.round(dropSeg.from * 100) / 100], [0, 9.2], 'the first goal lands on the drop where the ball went in, 9.2 seconds into its clip, not where it was logged');
 eq([job.outro.kicker, job.outro.title], ['Full time', 'Sons of Pitches FC 2–1 Dog Squad'], 'it ends on the full-time card');
 eq([(await calls(A, 'share')).pop(), await A.text('#beMsg'), await A.visible('#beShare')], ['/phone/beat/' + job.file, 'The edit is ready.', true], 'when it\'s made, the share sheet opens (save it, or post it to Instagram), with Share or save it to do it again');
 await shot(A, 'beat-done');

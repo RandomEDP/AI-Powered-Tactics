@@ -24,7 +24,7 @@ eq(await d.rpc(null, 'get_team', { p_code: 'ZZZZZZ' }), null, 'a wrong code open
 // ---------- nobody can go round the app and read or change tables directly
 for (const [who, label] of [[null, 'someone not signed in'], [sam, 'a signed-in stranger'], [jake, 'a signed-in stranger (later a player)']]) {
   const seen = [];
-  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests', 'team_streams', 'clip_hides', 'profiles', 'follows', 'blocks', 'profile_reports', 'posts', 'post_likes']) seen.push(await count(who, 'public.' + table));
+  for (const table of ['teams', 'team_members', 'players', 'games', 'game_events', 'live_matches', 'goal_queue', 'fixtures', 'fixture_votes', 'clips', 'push_tokens', 'messages', 'message_reports', 'team_rivalry', 'challenges', 'voice_usage', 'join_requests', 'team_streams', 'clip_hides', 'clip_hits', 'profiles', 'follows', 'blocks', 'profile_reports', 'posts', 'post_likes']) seen.push(await count(who, 'public.' + table));
   check(seen.every((n) => n === 0 || n === 'denied'), `${label} reading the tables directly sees nothing (${seen.join(',')})`);
 }
 await d.as(sam, `update public.teams set name = 'Hacked FC'`).catch(() => {});
@@ -296,6 +296,19 @@ eq(await clipsOf(null), [[0, [2], [3]], [1, [3], []]], 'it is still in the game,
 eq([await d.rpc(sam, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 5000 }), await d.rpc(rival, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 5000 })], ['not_in_squad', 'not_in_squad'], 'nobody outside the squad can take clips out from under anyone');
 eq(await d.rpc(jake, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 9999 }), 'no_clip', 'only a clip that exists');
 check(/Sign in|permission denied/i.test(await d.fails(d.rpc(null, 'hide_clip', { p_code: sop.code, p_game: hg, p_at: 5000 }))), 'or without signing in');
+
+// ---------- When the ball goes in (0038): lined up by eye, kept by game and moment, read by anyone with the code
+eq(await d.rpc(null, 'clip_hits', { p_code: sop.code }), [], 'nothing lined up yet');
+eq(await d.rpc(jake, 'set_clip_hit', { p_code: sop.code, p_game: hg, p_at: 1000, p_off: 2.4 }), 'ok', 'a claimed player lines up where the ball goes in');
+eq(await d.rpc(ethan, 'set_clip_hit', { p_code: sop.code, p_game: hg, p_at: 5000, p_off: -1.5 }), 'ok', 'and so does a gaffer');
+eq((await d.rpc(null, 'clip_hits', { p_code: sop.code })).map((h) => [h.at, h.off]), [[1000, 2.4], [5000, -1.5]], 'anyone with the code reads them');
+eq(await d.rpc(ethan, 'set_clip_hit', { p_code: sop.code, p_game: hg, p_at: 1000, p_off: 3 }), 'ok', 'lining it up again replaces it');
+eq([await d.rpc(sam, 'set_clip_hit', { p_code: sop.code, p_game: hg, p_at: 1000, p_off: 0 }), await d.rpc(rival, 'set_clip_hit', { p_code: sop.code, p_game: hg, p_at: 1000, p_off: 0 })], ['not_in_team', 'not_in_team'], 'nobody outside the team can');
+eq([await d.rpc(jake, 'set_clip_hit', { p_code: sop.code, p_game: hg, p_at: 9999, p_off: 1 }), await d.rpc(jake, 'set_clip_hit', { p_code: sop.code, p_game: hg, p_at: 1000, p_off: 99 })], ['no_clip', 'bad'], 'only a clip that exists, and only within a minute of it');
+check(/Sign in|permission denied/i.test(await d.fails(d.rpc(null, 'set_clip_hit', { p_code: sop.code, p_game: hg, p_at: 1000, p_off: 1 }))), 'or without signing in');
+eq(await d.rpc(jake, 'set_clip_hit', { p_code: sop.code, p_game: hg, p_at: 5000, p_off: null }), 'ok', 'clearing one');
+eq((await d.rpc(null, 'clip_hits', { p_code: sop.code })).map((h) => [h.at, h.off]), [[1000, 3]], 'leaves the other');
+eq(await d.rpc(null, 'clip_hits', { p_code: 'NOSUCH' }), [], 'a code that is no team gives nothing');
 await d.admin(`delete from public.clips where game_id = '${hg}'`);
 await d.admin(`insert into public.clips (team_id, game_id, seq, path, at, pids) values ('${sop.id}', '${hg}', 0, '${sop.id}/dog/01.mp4', 1000, '{3,2}')`);
 eq(await clipsOf(ethan), [[0, [2], [3]]], 'cutting the game again (new clip rows) leaves it out from under them');
