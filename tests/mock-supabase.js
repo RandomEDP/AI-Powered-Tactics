@@ -243,6 +243,7 @@
       r.status = 'approved'; store(d); return ok('ok');
     }
     if (name === 'my_voices') { // (0034) the voices this account has bought; not there at all until 0034 is live
+      if (d.voicesSold === 'off') return ok(null); // (0034 live, Steve not on sale yet)
       if (!d.voicesSold) return { data: null, error: { message: 'Could not find the function public.my_voices without parameters in the schema cache', code: 'PGRST202' } };
       return ok((d.voice_unlocks || []).filter((x) => x.user_id === uid()).map((x) => x.voice).sort());
     }

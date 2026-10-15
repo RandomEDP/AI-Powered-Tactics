@@ -94,13 +94,14 @@ Sandbox purchases (TestFlight, and Apple's reviewers) count too, as Apple requir
 
 ### Commentary voices bought once (one-time setup, after the team pass above)
 
-Commentary has two voices. Gaffer's commentator is free (read straight by Google's Chirp 3 HD, free up to a million characters a month). **East London Steve 18+**, the sweary Cockney pub commentator, is £2.99, bought once and kept on the Gaffer account (any phone signed in to it has him; Restore purchases brings him back on the same Apple ID). Everyone can hear a sample before buying. Until step 2 is done Steve stays open, as before.
+Commentary has two voices. Gaffer's commentator is free (read straight by Google's Chirp 3 HD, free up to a million characters a month). **East London Steve 18+**, the sweary Cockney pub commentator, is £2.99, bought once and kept on the Gaffer account (any phone signed in to it has him; Restore purchases brings him back on the same Apple ID). Everyone can hear a sample before buying. Until step 4 is done Steve stays open, as before.
 
 1. **Make the purchase.** App Store Connect → Gaffer → Monetization → In-App Purchases → + → **Non-Consumable**, price £2.99, Family Sharing off:
    - Product ID `com.randomedp.aipoweredtactics.voice.steve`, reference name and display name "East London Steve 18+".
    - It needs a review screenshot (the highlight maker's voice picker) and a review note ("A sweary commentary voice for highlight reels, bought once; Gaffer's commentator is free; it can be heard first with Hear a sample"). The age rating must allow for strong language.
-2. **Database and functions.** Apply `supabase/migrations/0034_voice_unlocks.sql`, then deploy `team-pass` and `reel-voice` (verify_jwt on), in that order.
+2. **Database and functions.** Done already: `0034_voice_unlocks.sql` is applied and `team-pass` and `reel-voice` are deployed.
 3. **Try it on TestFlight** (purchases are free there): Highlights → cut a game → Add AI commentary → pick East London Steve 18+ → Hear a sample, then Unlock.
+4. **Put him on sale** once the purchase is approved: in the Supabase SQL editor, `update public.voice_settings set on_sale = true;`. Until then nobody is asked to pay and Steve works for everyone, as before (and `false` takes him off sale again).
 
 ## Android app (for players)
 

@@ -4663,7 +4663,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   //          through Apple (TeamPassPlugin, the same plumbing as the team pass), counted on the account by team-pass
   //          (action "voice"), so it works on any phone signed in to it; reel-voice refuses it to anyone who hasn't.
   // Each has a sample to hear first (reel-voice "sample": one fixed line naming nobody, made once and kept, so it needs
-  // no AI ask). Until 0034 is live (my_voices isn't there) Steve stays open, as Sweary was.
+  // no AI ask). Until 0034 is live and Steve is on sale (my_voices isn't there, or says null) Steve stays open, as Sweary was.
   var VOICE_FREE_STYLE = 'plain', VOICE_BUY = 'com.randomedp.aipoweredtactics.voice.';
   var VOICES = [['free', 'Gaffer’s commentator'], ['steve', 'East London Steve 18+']];
   function voiceKey() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return v && (v.v === 'steve' || v.style === 'sweary') ? 'steve' : 'free'; } // (older phones kept { voice, style })
@@ -4694,7 +4694,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (TPp && !VO.heard) { VO.heard = true; try { TPp.addListener('transaction', function (t) { voClaim(t); }); } catch (e) {} }
     if (TPp && !VO.priced) TPp.products({ ids: [VOICE_BUY + 'steve'] }).then(function (r) { var p = r && r.products && r.products[0]; if (p && p.price) { VO.price = p.price; VO.priced = true; voRedraw(); } }, function () {});
     var r = null; try { r = await sb.rpc('my_voices'); } catch (e) {}
-    if (r && !r.error && Array.isArray(r.data)) { VO.mine = r.data.map(function (x) { return String(x).toLowerCase(); }); VO.open = false; voKeep(); voRedraw(); }
+    if (r && !r.error && r.data === null) { VO.open = true; voKeep(); voRedraw(); } // (Steve isn't on sale yet)
+    else if (r && !r.error && Array.isArray(r.data)) { VO.mine = r.data.map(function (x) { return String(x).toLowerCase(); }); VO.open = false; voKeep(); voRedraw(); }
     else if (r && r.error && /my_voices|PGRST202|does not exist|schema cache/i.test(String(r.error.message || r.error.code || ''))) { VO.open = true; voKeep(); voRedraw(); } // (the server doesn't sell voices yet)
     if (TPp) { try { var u = await TPp.unfinished(); ((u && u.list) || []).forEach(function (t) { voClaim(t, true); }); } catch (e) {} } // (bought with no signal, or the app closed half way)
   }

@@ -25,7 +25,11 @@ for (const [who, label] of [[null, 'someone not signed in'], [jake, 'a player'],
   check(/permission denied/i.test(await d.fails(d.rpc(who, 'voice_credit', { p_user: ethan.id, p_voice: 'steve', p_tx: '1', p_env: 'Sandbox' }))), `${label} can't unlock a voice themselves (only Gaffer's server, once Apple says the purchase is real)`);
   eq((await d.as(who, 'select count(*)::int as n from public.voice_unlocks').catch(() => [{ n: 0 }]))[0].n, 0, `${label} sees nothing in the unlocks table directly`);
 }
-eq(await d.rpc(ethan, 'my_voices'), [], 'nobody owns a voice to start with');
+eq(await d.rpc(ethan, 'my_voices'), null, 'until Steve is on sale, my_voices says so (null) and the app keeps him open');
+eq((await d.admin(`select private.has_voice($1, 'steve') a`, [jake.id]))[0].a, true, 'and anyone may use him');
+await d.admin(`update public.voice_settings set on_sale = true`);
+eq(await d.rpc(ethan, 'my_voices'), [], 'once he is on sale, nobody owns a voice to start with');
+eq((await d.as(ethan, 'select count(*)::int as n from public.voice_settings').catch(() => [{ n: 0 }]))[0].n, 0, 'nobody can read or change the on-sale switch directly');
 check(/permission denied/i.test(await d.fails(d.rpc(null, 'my_voices'))), 'my_voices is only for someone signed in');
 eq(await credit(ethan.id, 'Steve', '4000000001'), { added: true }, 'Gaffer\'s server unlocks East London Steve for Ethan');
 eq(await credit(ethan.id, 'steve', '4000000001'), { added: false }, 'the same purchase again (a retry) changes nothing');
@@ -97,10 +101,10 @@ const vdb = (table) => {
     maybeSingle: async () => ({ data: rows().filter((x) => where.every((w) => w(x)))[0] || null, error: null }),
     then(res, rej) { return Promise.resolve({ data: rows().filter((x) => where.every((w) => w(x))), error: null }).then(res, rej); } };
   const rows = () => table === 'teams' ? [TEAM] : table === 'team_members' ? [{ team_id: 't-sop', user_id: gaffer.id }] : table === 'players' ? [{ team_id: 't-sop', pid: 2, user_id: jake.id }]
-    : table === 'voice_unlocks' ? VU : [];
+    : table === 'voice_unlocks' ? VU : table === 'voice_settings' ? SALE : [];
   return b;
 };
-let VU = [{ user_id: gaffer.id, voice: 'steve' }];
+let VU = [{ user_id: gaffer.id, voice: 'steve' }], SALE = [{ id: 1, on_sale: false }];
 const RV = await load('reel-voice', { from: vdb, storage: { from: (bk) => ({ upload: async (name, bytes, o) => { STORE[bk + '/' + name] = { n: bytes.length, type: o.contentType }; return { error: null }; } }) },
   auth: { getUser: async (t) => ({ data: { user: USERS[t] ? { id: USERS[t] } : null } }) } });
 ENV.GOOGLE_TTS_KEY = 'k';
@@ -116,6 +120,9 @@ for (const [voice, style] of [['Fenrir', 'plain'], ['Fenrir', 'hype'], ['Puck', 
   GOOGLE.length = 0; r = await say('tok-jake', voice, style);
   eq([r.audio.length, r.voice, GOOGLE.map((g) => [g.voice.name, g.voice.model_name || ''])], [1, 'Fenrir', [['en-GB-Chirp3-HD-Fenrir', '']]], `the free voice is read straight for anyone in the team, whatever an older app asks for (${voice}, ${style})`);
 }
+GOOGLE.length = 0; r = await say('tok-jake', 'Fenrir', 'sweary');
+eq([r.reason, r.audio && r.audio.length], [undefined, 1], 'until Steve is on sale (voice_settings.on_sale), nobody is refused him');
+SALE[0].on_sale = true;
 GOOGLE.length = 0; r = await say('tok-jake', 'Fenrir', 'sweary');
 eq([r.reason, r.locked, GOOGLE.length], ['locked', ['steve'], 0], 'East London Steve isn\'t, for a player who hasn\'t bought him, and nothing goes to Google');
 eq(r.error, 'East London Steve is a paid voice: unlock him in the voice picker, or pick Gaffer\'s commentator, which is free.', 'saying exactly why, and what to do');
@@ -248,8 +255,8 @@ await J.click('#reelPop [data-vo="restore"]'); await J.run(1200);
 eq([await J.text('#reelPop [data-vomsg]'), await J.page.evaluate(() => window.__apple.calls.filter((c) => c[0] === 'owned'))], ['Restored: East London Steve.', [['owned', true]]], 'Restore purchases asks Apple and unlocks what this Apple ID bought');
 eq([(await opts(J, '#rbVoiceName'))[1], (w.db().voice_unlocks || []).map((x) => x.voice)], ['East London Steve 18+', ['steve', 'steve']], 'Steve is unlocked on Jake\'s account too');
 
-// before 0034 is live (the server doesn't sell voices yet) Steve stays open, as Sweary was
-w.setDb(Object.assign(w.db(), { voicesSold: false, voice_unlocks: [] }));
+// 0034 live but Steve not on sale yet (my_voices says null): he stays open, as Sweary was (and the same before 0034)
+w.setDb(Object.assign(w.db(), { voicesSold: 'off', voice_unlocks: [] }));
 const C = await w.phone({ db: true, native: true, label: 'gaffer, old server' });
 await C.ctx.addInitScript(cutter); await C.ctx.addInitScript(appleSheet); await C.page.reload(); await C.run(500);
 await C.click('#acctBtn'); await C.page.fill('#aEmail', 'jake@example.com'); await C.page.fill('#aPass', 'longpassword'); await C.click('#aSignIn'); await C.run(2500);

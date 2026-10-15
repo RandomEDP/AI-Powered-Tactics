@@ -8,8 +8,8 @@
 // Each team has a monthly allowance of characters, kept in public.voice_usage, so the bill can't run away.
 // Two voices (Ethan, October 2026): Gaffer's commentator, free to everyone (Fenrir, delivered as FREE_STYLE), and East
 // London Steve 18+ (the "sweary" style), bought once by the person asking (0034_voice_unlocks.sql, voice "steve", counted
-// by team-pass), and refused here until they have (reason "locked", locked: ["steve"]). Any other voice or delivery an
-// older app asks for is the free one.
+// by team-pass), and, once he's on sale (voice_settings.on_sale), refused here until they have (reason "locked",
+// locked: ["steve"]). Any other voice or delivery an older app asks for is the free one.
 // { action: "sample", voice, style } answers { url }: a short line in that voice, made once and kept in the public
 // voice-samples bucket, for anyone signed in to hear before buying. It names nobody and counts against no team.
 // Needs this secret (Edge Functions > Secrets):
@@ -94,7 +94,8 @@ Deno.serve(async (req: Request) => {
       if (there?.ok) return json({ url: sampleUrl });
     } else {
       // East London Steve only for someone who has bought him.
-      if (style === "sweary") {
+      const { data: sale } = style === "sweary" ? await db.from("voice_settings").select("on_sale").eq("id", 1).maybeSingle() : { data: null };
+      if (style === "sweary" && sale?.on_sale) { // (not locked at all until Steve is on sale, 0034)
         const { data: owned, error: ownedError } = await db.from("voice_unlocks").select("voice").eq("user_id", who.user.id).in("voice", ["steve"]);
         if (ownedError) return json({ error: "Your voices couldn't be checked. Try again in a moment." });
         if (!(owned || []).length) return json({ error: "East London Steve is a paid voice: unlock him in the voice picker, or pick Gaffer's commentator, which is free.", reason: "locked", locked: ["steve"] });

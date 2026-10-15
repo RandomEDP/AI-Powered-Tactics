@@ -5,6 +5,10 @@
 -- that writes here (with the service role, through voice_credit below).
 -- reel-voice won't use a paid voice for anyone who hasn't bought it.
 --
+-- Nothing is locked until Steve is on sale: voice_settings.on_sale starts off, and while it's off my_voices() says null (the
+-- app keeps every voice open) and reel-voice doesn't check. Turn it on once the product is approved in App Store Connect:
+--   update public.voice_settings set on_sale = true;
+--
 -- Each voice also has a short sample to hear before buying. They are made once by reel-voice (action "sample") and kept
 -- in the public voice-samples bucket, so playing one costs nothing and sends nothing about anyone to Google.
 
@@ -18,10 +22,17 @@ create table if not exists public.voice_unlocks (
 );
 alter table public.voice_unlocks enable row level security; -- no policies: only the functions below touch it
 
+create table if not exists public.voice_settings (
+  id integer primary key default 1 check (id = 1),
+  on_sale boolean not null default false
+);
+insert into public.voice_settings (id) values (1) on conflict do nothing;
+alter table public.voice_settings enable row level security; -- no policies: read by the functions below and reel-voice
+
 -- Whether someone may use a voice ('free' is free to everyone).
 create or replace function private.has_voice(p_user uuid, p_voice text) returns boolean
 language sql stable security definer set search_path = '' as $$
-  select lower(p_voice) = 'free' or exists (select 1 from public.voice_unlocks where user_id = p_user and voice = lower(p_voice))
+  select lower(p_voice) = 'free' or not coalesce((select on_sale from public.voice_settings where id = 1), false) or exists (select 1 from public.voice_unlocks where user_id = p_user and voice = lower(p_voice))
 $$;
 revoke all on function private.has_voice(uuid, text) from public, anon, authenticated;
 
@@ -44,10 +55,11 @@ end $$;
 revoke all on function public.voice_credit(uuid, text, text, text) from public, anon, authenticated;
 grant execute on function public.voice_credit(uuid, text, text, text) to service_role;
 
--- The voices the signed-in account has bought (never anything about Apple).
+-- The voices the signed-in account has bought (never anything about Apple), or null while nothing is on sale.
 create or replace function public.my_voices() returns text[]
 language sql stable security definer set search_path = '' as $$
-  select coalesce(array_agg(voice order by voice), '{}') from public.voice_unlocks where user_id = auth.uid()
+  select case when coalesce((select on_sale from public.voice_settings where id = 1), false)
+    then (select coalesce(array_agg(voice order by voice), '{}') from public.voice_unlocks where user_id = auth.uid()) end
 $$;
 revoke all on function public.my_voices() from public, anon, authenticated;
 grant execute on function public.my_voices() to authenticated;

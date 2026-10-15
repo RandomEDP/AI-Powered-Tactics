@@ -246,7 +246,7 @@ eq(OAUTH.length, 1, 'and Gaffer stays signed in to Google for the hour, not once
 globalThis.fetch = preFcm; delete ENV.GOOGLE_SERVICE_ACCOUNT; APNS.length = 0; reset();
 
 // ---------- the commentary voice (reel-voice): the team's gaffers, and its players for their own reels; nobody else
-DB.voice_usage = []; DB.voice_unlocks = [];
+DB.voice_usage = []; DB.voice_unlocks = []; DB.voice_settings = [{ id: 1, on_sale: false }];
 const voiceFn = await load('reel-voice');
 ENV.GOOGLE_TTS_KEY = 'tts-key';
 const before = globalThis.fetch;
@@ -259,6 +259,8 @@ eq(DB.voice_usage[0] && DB.voice_usage[0].chars, 2 * 'What a goal from Jake!'.le
 const ttsAsked = [];
 globalThis.fetch = async (url, init = {}) => { if (String(url).startsWith('https://texttospeech.googleapis.com/')) { ttsAsked.push(JSON.parse(init.body)); return new Response(JSON.stringify({ audioContent: 'QUFBQUFB' }), { status: 200 }); } return before(url, init); };
 const said = async (style) => { ttsAsked.length = 0; const out = await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['HOW THE FUCK has Jake scored that?'], style }); return [out.engine, (ttsAsked[0] && ttsAsked[0].input.prompt) || '', ttsAsked[0] && ttsAsked[0].input.text]; };
+eq((await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['HOW THE FUCK has Jake scored that?'], style: 'sweary' })).engine, 'gemini', 'until Steve is on sale (0034\'s switch), he isn\'t locked: today\'s app keeps working');
+DB.voice_settings = [{ id: 1, on_sale: true }];
 eq((await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['HOW THE FUCK has Jake scored that?'], style: 'sweary' })).reason, 'locked', 'East London Steve (Sweary) is bought once (voices.test.mjs has the rest): refused until it is');
 DB.voice_unlocks = [{ user_id: 'u-ethan', voice: 'steve' }];
 const [swEngine, swPrompt, swText] = await said('sweary');

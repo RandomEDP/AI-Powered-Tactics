@@ -651,6 +651,9 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   (service role only; one purchase, one account), then `finish`. `owned({sync})` (StoreKit `currentEntitlements`, after
   `AppStore.sync()` when asked) is Restore purchases. `reel-voice` refuses the sweary style to anyone who hasn't bought
   Steve (`reason: 'locked'`, `locked: ['steve']`). More voices can be sold the same way later.
+  - **The on-sale switch:** `voice_settings.on_sale` (one row, off to start). While it's off `my_voices()` returns null (the
+    app keeps Steve open, `VO.open`) and `reel-voice` doesn't check, so nobody pays until Ethan turns it on after the
+    product is approved (`update public.voice_settings set on_sale = true`). 0034 and both functions are live (October 2026).
   - JS: `voiceBox(pre)` is the picker in the cut and the reel builder (prices from Apple, Unlock, Restore, Hear a sample);
     `voOwns`, `voLocked`, `voUse` (the voice actually asked for; never a locked one); the cut and `rbMake` stop with
     `voLockMsg` before anything is recorded. Owned voices are kept per account in `apt-voices:<user id>`. Until 0034 is
@@ -713,7 +716,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v22 (kind `live` from any team member, sent once; kind `report` tells the moderators; Android phones through Firebase; same as the repo), `live-stream` v5,
-    `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v2 (team pot and voices), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
