@@ -471,6 +471,14 @@
   const functions = { invoke: async (name, o) => { if (name === 'live-stream' && window.__offline) return { data: null, error: { message: 'Failed to send a request to the Edge Function' } };
     const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); if (name === 'live-stream') return liveStream(d, o.body);
     if (name === 'clip-store') return clipStore(d, o.body);
+    if (name === 'shop') { // (the shop function: prices are its own; here it only keeps the order and hands back a payment page)
+      if (!uid()) return { data: null, error: { message: 'Sign in first.', context: { json: async () => ({ error: 'Sign in first.' }) } } };
+      d.shop_orders = d.shop_orders || [];
+      if (o.body.action === 'orders') return { data: { orders: d.shop_orders.filter((x) => x.user_id === uid()).slice().reverse() }, error: null };
+      const b = o.body, n = b.item === 'kit' ? b.shirts.length : b.qty, each = b.item === 'kit' ? (b.design.sponsor ? 999 : 1499) : 1299;
+      const ord = { id: 'ord-' + (d.shop_orders.length + 1), user_id: uid(), item: b.item, lines: [{ qty: n, each }], total: n * each + 399, status: 'awaiting_payment', live: false, at: new Date().toISOString(), sponsor: !!(b.design && b.design.sponsor), shirts: b.item === 'kit' ? n : 0 };
+      d.shop_orders.push(ord); store(d); return { data: { url: 'https://checkout.stripe.com/c/pay/cs_test_' + ord.id, order: ord.id }, error: null };
+    }
     if (name === 'team-notify' && o.body.kind === 'live') { // sent once per stream, and only when the picture is really getting through (as the real one checks with Cloudflare)
       const t = d.teams.find((x) => x.code === String(o.body.code || '').trim().toUpperCase()), st = t && d.team_streams.find((x) => x.team_id === t.id);
       if (!st || !st.started_at || st.notified_at || !(d.camera && st.enabled)) return { data: { sent: 0 }, error: null };
