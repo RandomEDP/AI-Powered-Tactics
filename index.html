@@ -1402,6 +1402,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <p class="note" id="optAINote"></p>
     <div class="actions"><button class="plain" id="optAIBtn" type="button"></button></div>
   </section>
+  <section id="optAds" hidden>
+    <h2>Ads</h2>
+    <p class="note">Gaffer is free with short ads you choose to watch: one unlocks an older game’s highlights, AI commentary on a cut or reel, or another cut. There are never ads during a game.</p>
+    <div class="actions"><button class="plain" id="optAdsBtn" type="button">Ad choices</button></div>
+    <p class="msg" id="optAdsMsg" role="status" hidden></p>
+  </section>
   <p class="note" id="optViewer" hidden>The team's own settings are for gaffers.</p>
   <div class="view own" id="optGaffer">
   <section>
@@ -1450,6 +1456,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <h2>Experimental</h2>
     <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
     <label class="check tgl" for="expTrack"><input id="expTrack" type="checkbox" role="switch"><span>Show experimental features <small>Player tracking from a recording, a look at what’s being worked on, and the plans</small></span></label>
+    <label class="check tgl" for="expAds" id="expAdsRow" hidden><input id="expAds" type="checkbox" role="switch"><span>Try the free tier <small>See Gaffer as a team on the free plan: short ads you choose to watch unlock older games’ highlights, AI commentary and another cut (Google’s test ads)</small></span></label>
     <div class="actions"><button class="plain" id="expTrackOpen" type="button" hidden>Open player tracking</button><button class="plain" id="soonOpen" type="button" hidden>What’s being worked on</button><button class="plain" id="planOpen" type="button" hidden>Plans</button></div>
   </section>
 </div>
@@ -2018,6 +2025,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('aiNo').addEventListener('click', function () { aiAnswer(false); });
   var AI_NO = 'you chose not to send the lines to Google, which makes the voice.';
   $('optAIBtn').addEventListener('click', function () { aiSet(!aiAllowed()); renderOptions(); });
+  $('optAdsBtn').addEventListener('click', function () { adChoices(); });
 
   function lvSay(t, bad) { $('lvRepMsg').textContent = t; $('lvRepMsg').className = 'msg' + (bad ? ' bad' : ''); $('lvRepMsg').hidden = !t; }
   armed($('lvReport'), 'Tap again to report it', async function () {
@@ -3812,7 +3820,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     mhDraw();
   }
   function mhOpen(gi) {
-    var r = S.results[gi]; if (!r) return;
+    var r = S.results[gi]; if (!r || hlLocked(r)) return;
     var list = clips.filter(function (c) { return c.game_id === r.id; }); if (!list.length) return;
     MH = { gi: gi, r: r, list: list, reel: hasReel(r, list), i: 0 };
     $('mhTitle').textContent = vs(r) + ' ' + r.us + '–' + r.them;
@@ -3932,7 +3940,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var voice = null, vNote = '';
       if (row.vpath) {
         if (await aiAsk()) {
-          try { var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: [spokenLine(commentaryFor(r, { at: row.at, dur: row.dur }, swears()))], voice: vp.voice, style: vp.style } }), vd = vr && vr.data; voice = vd && vd.audio && vd.audio[0] || null; } catch (ve) {}
+          try { var vp = adVoice(voicePick()), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: [spokenLine(commentaryFor(r, { at: row.at, dur: row.dur }, swears()))], voice: vp.voice, style: vp.style } }), vd = vr && vr.data; voice = vd && vd.audio && vd.audio[0] || null; } catch (ve) {}
           if (!voice) vNote = ' The new commentary line couldn’t be made, so that clip has none for now.';
         } else vNote = ' Its commentary was left off: ' + AI_NO;
       }
@@ -4139,23 +4147,27 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (guestGame) { var gr = S.results.filter(function (x) { return x.id === guestGame; })[0]; if (gr && hlFocus !== gr) { hlFocus = gr; hlBy = 'game'; } }
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
     var own = role === 'owner', html = guestCard(), games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
+    if (freeTier()) unlLoad(); // (what's unlocked; draws again when it's in)
     if (!games.length) { $('hlList').innerHTML = html + '<div class="hcard"><h3>No games yet</h3><p class="note">Highlights appear here after your first finished game. Every goal, assist and save you log is kept as a moment.</p></div>'; return; }
     if (hlBy === 'game') {
       games.forEach(function (g) {
         var r = g.r, ms = momentsOf(r), timed = r.koAt && ms.length, vids = clips.filter(function (c) { return c.game_id === r.id; });
         var cutBtn = !own || !timed ? '' : NATIVE ? '<button class="plain primary" type="button" data-cut="' + g.i + '">' + (vids.length ? 'Cut again from a video' : 'Cut from a video on this phone') + '</button>' : '';
+        var locked = vids.length && hlLocked(r), cutAd = cutBtn && !cutLeft(r) ? cutOffer(r) : ''; if (cutAd) cutBtn = ''; // (the free tier: an older game's highlights, or a cut, unlocked with an ad)
         html += '<div class="hcard' + (hlFocus === r ? ' focus' : '') + '" id="hlg-' + g.i + '"><h3>' + scoreBug({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them }) + (r.house ? '<span class="badge">Among ourselves</span>' : r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
         var delBtn = own && vids.length ? '<button class="plain danger" type="button" data-hldel="' + g.i + '"' + (HLDEL.busy ? ' disabled' : '') + '>' + (HLDEL.i === g.i && Date.now() < HLDEL.until ? 'Tap again to delete them' : 'Delete these highlights') + '</button>' : '';
-        var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
+        var dlBtn = vids.length && RCp() && !locked ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
         if (own && vids.length && fixGoals(r).length) delBtn = '<button class="plain" type="button" data-fixg="' + g.i + '">Fix a goal</button>' + delBtn;
         var guests = r.house && r.house.guests && r.house.guests.length && A.active && !guestGame ? '<div class="actions"><button class="plain" type="button" data-guests="' + g.i + '">Send the guests a link</button></div>' +
           (GL.i === g.i && GL.msg ? '<p class="msg" role="status" id="glMsg">' + esc(GL.msg) + '</p>' : '') : '';
-        if (vids.length) html += mhButton(g.i, vids) + '<p class="msg mkline" data-mkline="' + esc(r.id) + '" hidden></p><details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
+        if (locked) html += '<div class="novid"><span>Your newest game’s highlights are free. Watch a short ad to unlock this game’s ' + vids.length + (vids.length === 1 ? ' moment' : ' moments') + ' for good.</span></div>' + adBtn('game', r.id, 'Watch a short ad to unlock them') + (cutBtn || delBtn ? '<div class="actions">' + cutBtn + delBtn + '</div>' : '') + cutAd;
+        else if (vids.length) html += mhButton(g.i, vids) + '<p class="msg mkline" data-mkline="' + esc(r.id) + '" hidden></p><details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
           (DL.i === g.i && (DL.msg || DL.prog) ? '<p class="msg' + (DL.bad ? ' bad' : '') + '" role="status" id="dlMsg">' + esc(DL.prog || DL.msg) + '</p>' + (DL.path && !DL.busy ? '<div class="actions"><button class="plain primary" type="button" data-dlshare="1">Share or save it</button></div>' : '') : '');
         else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
             : own ? (NATIVE ? 'No video for this game yet.' : 'No video for this game yet. Open the iPhone app to cut it from a video on your phone.') : 'No video for this game yet. Ask your gaffer to generate it.',
-            cutBtn);
+            cutBtn) + cutAd;
+        if (vids.length && !locked) html += cutAd;
         html += guests + linkClipsHtml(r) + '</div>';
       });
     } else {
@@ -4277,6 +4289,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   function rbOpen(pid) { RB = { pid: pid, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false }; $('reelPop').hidden = false; renderRB(); }
   function renderRB() {
+    if (freeTier()) unlLoad(); // (what's unlocked on the free tier; draws again when it's in)
     if ($('reelPop').hidden) return;
     var list = rbList(), on = list.filter(function (c) { return RB.pick[c.key] !== false; }), secs = 0, pv = list.filter(function (c) { return c.key === RB.pv; })[0] || list[0], who = nm(RB.pid);
     on.forEach(function (c) { secs += c.dur || 0; });
@@ -4287,7 +4300,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       return '<li><label class="check" for="rbp-' + i + '"><input id="rbp-' + i + '" type="checkbox" data-rbpick="' + esc(c.key) + '"' + (RB.pick[c.key] !== false ? ' checked' : '') + '><span>' + esc(c.title) + (c.kind ? ' <span class="kind">' + esc(c.kind) + '</span>' : '') + '</span></label>' +
         '<button class="link" type="button" data-rbprev="' + esc(c.key) + '">Preview</button></li>';
     }).join('') + '</ol>' : '<p class="note">' + (RB.goals ? 'None of ' + esc(who) + '’s clips is a goal of theirs yet.' : 'No clips yet.') + '</p>';
-    if (canVoice()) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
+    if (canVoice() && !voiceLeft()) html += '<p class="note">AI commentary: a commentator calls each clip, with an intro and a sign-off. Watch a short ad to add it to this reel.</p>' + adBtn('voice', null, 'Watch a short ad for commentary');
+    else if (canVoice()) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
       (RB.voice ? '<div class="two"><label class="field" for="rbVoiceName">Voice<select id="rbVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
         '<label class="field" for="rbVoiceStyle">Delivery<select id="rbVoiceStyle">' + styleOpts() + '</select></label></div>' : '');
     html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
@@ -4302,11 +4316,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     S.results.forEach(function (r) { byId[r.id] = r; });
     RB.busy = true; RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
     var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
+    if (RB.voice && !voiceLeft()) RB.voice = false; // (the free tier: commentary is unlocked with an ad first)
     if (RB.voice && canVoice() && !(await aiAsk())) RB.note = 'No commentary: ' + AI_NO + ' The reel was made without it.';
+    else if (RB.voice && canVoice() && freeTier() && !(await useVoice())) RB.note = 'No commentary: ' + AD_NOVOICE + ' The reel was made without it.';
     else if (RB.voice && canVoice()) {
       var sw = swears(), lines = [sw ? who + '’s highlights. Brace yourselves, this is absolute filth.' : who + '’s highlights, for ' + teamName() + '.'].concat(list.map(function (c) { return byId[c.game_id] ? commentaryFor(byId[c.game_id], c, sw) : ''; }), [sw ? 'That’s ' + who + '. What a fucking player.' : 'That’s ' + who + '. What a player.']).map(spokenLine);
       try {
-        var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
+        var vp = adVoice(voicePick()), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
         if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) {
           intro = vd.audio[0] || null; signOff = vd.audio[lines.length - 1] || null;
           items.forEach(function (it, i) { if (vd.audio[i + 1]) { it.voice = vd.audio[i + 1]; it.voiceAt = Math.max(0.5, (list[i].dur || 14) - POST + 0.5); } }); // (just after the moment, which is 6 seconds from the end)
@@ -4363,7 +4379,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       Array.prototype.forEach.call(box.querySelectorAll('[data-clip]'), function (b) { b.setAttribute('aria-pressed', b === e.target); });
       v.src = e.target.getAttribute('data-src'); try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {}
     }
-    else if (cut !== null) { CUT = cutStart(+cut); go('cut'); }
+    else if (cut !== null) { if (!cutLeft(S.results[+cut])) { renderHighlights(); return; } CUT = cutStart(+cut); go('cut'); }
     else if (e.target.getAttribute('data-dl') !== null) gameReel(+e.target.getAttribute('data-dl'));
     else if (e.target.getAttribute('data-fixg') !== null) fixOpen(+e.target.getAttribute('data-fixg'));
     else if (e.target.getAttribute('data-dlshare') !== null) { var rc2 = RCp(); if (rc2 && DL.path) rc2.share({ path: DL.path }).catch(function () {}); }
@@ -4557,6 +4573,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     return o + '</svg>';
   }
   function renderCut() {
+    if (freeTier()) unlLoad(); // (what's unlocked on the free tier; draws again when it's in)
     var r = CUT && S.results[CUT.idx]; if (!r) { go('highlights'); return; }
     var html = '<p class="msg">' + esc(scoreLine(r, r.us, r.them)) + '</p>', live = CUT.cams.filter(function (k) { return k.src; }), busy = CUT.prog ? '<p class="msg busy" id="cutProg">' + esc(CUT.prog) + '</p>' : '<p class="msg busy" id="cutProg"></p>';
     if (CUT.stage === 'cams') {
@@ -4589,9 +4606,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (k.src2) html += '<div class="actions"><button class="plain" type="button" data-cutdo="drop2" data-cam="' + k.id + '">Remove the second-half video' + (many ? ' for camera ' + camNo(k) : '') + '</button></div>';
       else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button></div>';
       html += busy;
-      if (hasGaffer()) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel; the clips are kept with and without it, and everyone can switch it on or off)</small></span></label>' +
+      if (hasGaffer() && !voiceLeft()) html += '<p class="note">AI commentary: a commentator’s voice calls each moment by name, with an intro and a full-time sign-off. Watch a short ad to add it to this cut.</p>' + adBtn('voice', null, 'Watch a short ad for commentary');
+      else if (hasGaffer()) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel; the clips are kept with and without it, and everyone can switch it on or off)</small></span></label>' +
         '<div class="two"><label class="field" for="cutVoiceName">Voice<select id="cutVoiceName">' + VOICES.map(function (v) { return '<option value="' + v[0] + '"' + (voicePick().voice === v[0] ? ' selected' : '') + '>' + v[1] + '</option>'; }).join('') + '</select></label>' +
         '<label class="field" for="cutVoiceStyle">Delivery<select id="cutVoiceStyle">' + styleOpts() + '</select></label></div>' +
+        (freeTier() ? '<p class="note">Commentary unlocked with an ad is read by ' + AD_VOICE + ', the free voice.</p>' : '') +
         '<div class="actions"><button class="plain" type="button" data-cutdo="hear">Hear this voice</button></div>' + (CUT.heard ? '<p class="msg" role="status">' + esc(CUT.heard) + '</p>' : '');
       html += lookPreview(r, plan);
       var from = many ? live.map(function (k) { var c = plan.filter(function (x) { return x.cam === camNo(k); }).length; return c + ' from camera ' + camNo(k); }).join(', ') : '';
@@ -4750,13 +4769,20 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         renderCut(); return;
       }
       var aiYes = !(CUT.voice && hasGaffer()) || await aiAsk(); // (asked before the cut starts, not halfway through)
+      if (CUT.voice && !voiceLeft()) CUT.voice = false; // (the free tier: commentary is unlocked with an ad first)
       CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; renderCut();
       try {
         var b0 = camBase(r, live[0], false, false); if (b0 != null) r.sync = Math.max(0, Math.round(b0)); save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
         if (dirty || !r.id) throw new Error('Couldn’t save the game to the database. Check your signal and try again.');
+        if (freeTier()) { // the free tier: the team's free try, or a cut unlocked with an ad (a game already cut is free to cut again)
+          var use = (await q(sb.rpc('use_unlock', { p_code: A.active, p_kind: 'cut', p_target: r.id }))).data; unlLoad(true);
+          if (use === 'none') { CUT.stage = 'sync'; throw new Error('Your team’s free cut is used. Go back to Highlights and watch a short ad to unlock another, or get Gaffer for every game.'); }
+        }
+        var vOK = !(CUT.voice && hasGaffer() && aiYes && freeTier()) || await useVoice();
         // commentary: a line for each clip plus an intro and a sign-off, spoken by a cloud voice and mixed in on the phone
         var said = null; CUT.voiced = null;
         if (CUT.voice && hasGaffer() && !aiYes) CUT.voiced = AI_NO;
+        else if (CUT.voice && hasGaffer() && !vOK) CUT.voiced = AD_NOVOICE;
         else if (CUT.voice && hasGaffer()) {
           CUT.prog = 'Recording the commentary…'; var vp = $('cutProg'); if (vp) vp.textContent = CUT.prog;
           var sw = swears(), ft = 'Full time. ' + usFull(r) + ' ' + r.us + ', ' + r.opp + ' ' + r.them + '.';
@@ -4764,7 +4790,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
             [sw ? ft + ' ' + (r.us > r.them ? 'Get fucking in!' : r.us < r.them ? 'Absolute shambles. Pints are on the keeper.' : 'Honours even. Shite game, if we’re honest.') : ft]);
           words = words.map(spokenLine);
           try {
-            var vp2 = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words, voice: vp2.voice, style: vp2.style } }), vd = vr && vr.data;
+            var vp2 = adVoice(voicePick()), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: words, voice: vp2.voice, style: vp2.style } }), vd = vr && vr.data;
             if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) { said = vd.audio; CUT.voiced = true; }
             else CUT.voiced = (vd && vd.error) || (vr && vr.error && vr.error.message) || 'the voice service didn’t answer.';
           } catch (ve) { CUT.voiced = 'the voice service couldn’t be reached.'; }
@@ -6370,6 +6396,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     } catch (err) { TR.msg = (err && err.message) || 'The tracking didn’t finish.'; }
     TR.stage = 'setup'; if (!S.match) stayAwake(false); renderTrack();
   });
+  $('expAds').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.ads = e.target.checked; saveApp(); UNL.d = null; UNL.at = 0; renderOptions(); });
   $('expTrack').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.track = e.target.checked; saveApp(); renderOptions(); if (A.exp.track) planShow(); });
   $('soonOpen').addEventListener('click', function () { go('soon'); });
   armed($('optSignOut'), 'Tap again to sign out', function () { signOutAll(); });
@@ -6513,6 +6540,117 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     }
   });
   // ================= end of playing other teams
+  // ================= rewarded ads (the free tier). Nobody is shown an ad unless they ask for one: they choose to watch a
+  // short ad to unlock one thing. Another game's highlights (the newest game's are free), AI commentary on one cut or reel,
+  // or one more cut of a game's highlights (after the team's free try; one a month). Never during a game, and never for a
+  // paid team. The unlock is granted on the server: Google's AdMob calls the ad-reward edge function, signed, when the ad
+  // has been watched (0032_rewarded_ads.sql). Google's own test ads until Ethan's AdMob account is set up (config.js ads).
+  function adFree() { // THE check for "no ads here": a team with the team pass never sees one (teamPaid, from the per-team plan,
+    // once that's in), and in early access everyone has Gaffer (hasGaffer) unless the Experimental switch tries the free tier out
+    if (typeof teamPaid === 'function' && teamPaid()) return true;
+    return hasGaffer() && !(A.exp && A.exp.track && A.exp.ads);
+  }
+  function adsOK() { return !DROID && !!(CFG.ads && CFG.ads.rewarded) && !!sb && !!me && !!A.active && !!plugin('AdMob'); } // an ad can be shown here: the iPhone app, signed in
+  function freeTier() { return !adFree() && adsOK(); } // (the free tier's limits only apply where an ad can lift them)
+  var UNL = { code: null, d: null, busy: false, at: 0 }, AD = { busy: false, kind: null, target: null, msg: '', bad: false, setup: false, choices: false };
+  async function unlLoad(force) { // what this person (and team) has unlocked, from the server
+    if (!freeTier() || UNL.busy || (!force && UNL.code === A.active && (UNL.d || Date.now() - UNL.at < 30000))) return; // (no answer: asked again after half a minute, not on every redraw)
+    var code = A.active, d = null; UNL.busy = true; UNL.at = Date.now();
+    try { d = (await q(sb.rpc('my_unlocks', { p_code: code }))).data; } catch (e) {}
+    UNL.busy = false; if (UNL.code !== code) UNL.d = null; UNL.code = code; if (d) { UNL.d = d; adDraw(); }
+  }
+  function unl() { return UNL.code === A.active && UNL.d ? UNL.d : null; }
+  function newestCut() { // the newest game with highlights: free for everyone
+    for (var i = S.results.length - 1; i >= 0; i--) { var id = S.results[i].id; if (id && clips.some(function (c) { return c.game_id === id; })) return id; }
+    return null;
+  }
+  function hlLocked(r) { var u = unl(); return !!(freeTier() && r && r.id && r.id !== newestCut() && !(u && (u.games || []).indexOf(r.id) >= 0)); }
+  function cutLeft(r) { // can this game be cut now? (a game already cut is free to cut again)
+    if (!freeTier()) return true; var u = unl(); if (!u) return false;
+    return (u.cut_games || []).indexOf(r.id) >= 0 || !!u.free_cut || !!u.cut_ready;
+  }
+  function voiceLeft() { var u = unl(); return !freeTier() || !!(u && u.voice > 0); }
+  var AD_NOVOICE = 'watch a short ad first to unlock it.';
+  var AD_VOICE = 'Fenrir'; // commentary unlocked with an ad is in the free voice only (the other voices are paid one-offs)
+  function adVoice(vp) { return freeTier() ? { voice: AD_VOICE, style: vp.style } : vp; }
+  async function useVoice() { // uses one commentary unlock as the commentary is made
+    try { var r = (await q(sb.rpc('use_unlock', { p_code: A.active, p_kind: 'voice' }))).data; unlLoad(true); return r === 'ok'; } catch (e) { return false; }
+  }
+  function cutOffer(r) { // a gaffer on the free tier with no cut left
+    var u = unl();
+    if (!u) return '<p class="note">Checking how many cuts your team has left…</p>';
+    if (u.cut_month) return '<p class="note">Your team’s free cut, and this month’s cut from an ad, are used. Another unlocks on the 1st, or get Gaffer to cut every game.</p>';
+    return '<p class="note">Your team’s free cut is used. Watch a short ad to cut this game’s highlights (one a month), or get Gaffer to cut every game.</p>' + adBtn('cut', null, 'Watch a short ad for another cut');
+  }
+  function adBtn(kind, target, label) { // the button, and where that ad stands
+    var mine = AD.kind === kind && (AD.target || null) === (target || null);
+    return '<div class="actions"><button class="plain tint" type="button" data-ad="' + kind + '"' + (target ? ' data-adt="' + esc(target) + '"' : '') + (AD.busy ? ' disabled' : '') + '>' + esc(label) + '</button></div>' +
+      (mine && AD.msg ? '<p class="msg' + (AD.bad ? ' bad' : '') + '" role="status" data-admsg="1">' + esc(AD.msg) + '</p>' : '');
+  }
+  function adDraw() { if (S.view === 'highlights') renderHighlights(); else if (S.view === 'cut') renderCut(); if (!$('reelPop').hidden) renderRB(); if (S.view === 'options') renderOptions(); }
+  var AD_ERR = { sign_in: 'Sign in first.', no_team: 'This team couldn’t be found. Check your signal and try again.', not_allowed: 'Only the team’s gaffers can unlock a cut, and commentary is for the gaffers and the players who’ve joined as themselves.',
+    no_game: 'That game isn’t saved yet. Check your signal and try again.', month: 'Your team has had its cut from an ad this month. The next one unlocks on the 1st, or get Gaffer for every game.' };
+  async function adSetup(am) { // once a session: start Google's ads, ask about personalised ads where the law needs it (UK and EU), then Apple's tracking question
+    if (AD.setup) return;
+    await am.initialize({});
+    try { var ci = await am.requestConsentInfo(); if (ci && ci.status === 'REQUIRED' && ci.isConsentFormAvailable) ci = await am.showConsentForm(); AD.choices = !!(ci && ci.privacyOptionsRequirementStatus === 'REQUIRED');
+      if (ci && ci.canRequestAds === false) throw new Error('Ads can’t be shown until you’ve made a choice about them. Tap it again to see the choices.'); }
+    catch (e) { if (e && /choice/.test(e.message || '')) throw e; } // (no answer from Google about the form: carry on, it asks again next time)
+    try { var ts = await am.trackingAuthorizationStatus(); if (ts && ts.status === 'notDetermined') await am.requestTrackingAuthorization(); } catch (e) {} // (either answer still unlocks it; it only changes which ads Google picks)
+    AD.setup = true;
+  }
+  function adShow(am) { // shows the loaded ad; true once it's been watched to the end (closing it early unlocks nothing)
+    return new Promise(function (resolve, reject) {
+      var got = false, hs = [], end = function (fn, v) { hs.forEach(function (h) { Promise.resolve(h).then(function (x) { if (x && x.remove) x.remove(); }); }); fn(v); };
+      hs.push(am.addListener('onRewardedVideoAdReward', function () { got = true; }));
+      hs.push(am.addListener('onRewardedVideoAdDismissed', function () { setTimeout(function () { end(resolve, got); }, 300); })); // (the reward can land just after it closes)
+      hs.push(am.addListener('onRewardedVideoAdFailedToShow', function (e) { end(reject, new Error('The ad wouldn’t play' + (e && e.message ? ': ' + e.message : '') + '. Try again in a moment.')); }));
+      am.showRewardVideoAd().then(function () { got = true; }, function (e) { end(reject, new Error('The ad wouldn’t play' + (e && e.message ? ': ' + e.message : '') + '. Try again in a moment.')); });
+    });
+  }
+  async function adClaim(ticket) { // asks the server whether Google has said the ad was watched (it usually has within a few seconds)
+    for (var i = 0; i < 12; i++) {
+      var r = (await q(sb.rpc('ad_claim', { p_ticket: ticket, p_app_says: true }))).data;
+      if (r === 'granted') return true;
+      if (r === 'month') throw new Error(AD_ERR.month);
+      if (r !== 'waiting') throw new Error('That ad couldn’t be matched to your account. Try again.');
+      await new Promise(function (ok) { setTimeout(ok, 2000); });
+    }
+    return false;
+  }
+  var AD_DONE = { game: 'Unlocked. Enjoy the highlights.', voice: 'Commentary unlocked for your next cut or reel.', cut: 'Unlocked: you can cut another game’s highlights.' };
+  async function adWatch(kind, target) {
+    if (AD.busy) return;
+    var say = function (msg, bad) { AD.msg = msg; AD.bad = !!bad; adDraw(); };
+    AD = Object.assign(AD, { kind: kind, target: target || null, msg: '', bad: false });
+    if (S.match) { say('Ads never play during a game. Unlock it once the game’s finished.', true); return; } // (nor with a game set up: the watch and the subs come first)
+    var am = adsOK() ? plugin('AdMob') : null; if (!am) { say('Ads can only be watched in Gaffer’s iPhone app, signed in.', true); return; }
+    AD.busy = true; say('Getting the ad…');
+    try {
+      var tk = (await q(sb.rpc('ad_ticket', { p_code: A.active, p_kind: kind, p_target: target || null }))).data || {};
+      if (tk.error === 'not_needed') { AD.busy = false; await unlLoad(true); say(AD_DONE[kind]); return; }
+      if (tk.error || !tk.ticket) throw new Error(AD_ERR[tk.error] || 'Couldn’t get an ad. Check your signal and try again.');
+      await adSetup(am);
+      try { await am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }); }
+      catch (e) { throw new Error('No ad is available right now. Try again in a minute.'); }
+      say('The ad is playing…');
+      if (!(await adShow(am))) { AD.busy = false; say('The ad was closed before the end, so nothing was unlocked. Watch it to the end to unlock it.', true); return; }
+      say('Unlocking…');
+      var ok = await adClaim(tk.ticket);
+      AD.busy = false; await unlLoad(true);
+      say(ok ? AD_DONE[kind] : 'Thanks for watching. Google hasn’t confirmed it yet; it unlocks as soon as it does, so check back in a minute.');
+    } catch (e) { AD.busy = false; say((e && e.message) || 'Something went wrong with the ad. Try again.', true); }
+  }
+  document.addEventListener('click', function (e) { // every "watch an ad" button
+    var b = e.target.closest && e.target.closest('[data-ad]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation(); adWatch(b.getAttribute('data-ad'), b.getAttribute('data-adt'));
+  }, true);
+  async function adChoices() { // Settings: change the answer about personalised ads (Google needs this offered in the UK and EU)
+    var am = plugin('AdMob'); if (!am) return;
+    try { await adSetup(am); await am.showPrivacyOptionsForm(); AD.msg = ''; } catch (e) { AD.kind = 'choices'; AD.target = null; AD.msg = 'There are no ad choices to make where you are.'; AD.bad = false; }
+    renderOptions();
+  }
+  // ================= end of rewarded ads
   // ================= live streaming: a gaffer's GoPro or iPhone streams the game through Cloudflare (the live-stream edge function
   // makes the camera link and switches it on and off); everyone following the team watches it here, with the score held
   // back to match the picture. The stream itself never touches this app: GoPro Quik (or a streaming app on an iPhone) sends it, Cloudflare plays it.
@@ -7262,6 +7400,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function renderOptions() {
     renderNotes();
     var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = $('soonOpen').hidden = $('planOpen').hidden = !ex.track;
+    $('expAds').checked = !!ex.ads; $('expAdsRow').hidden = !ex.track;
+    $('optAds').hidden = !freeTier(); $('optAdsMsg').hidden = !(AD.kind === 'choices' && AD.msg); $('optAdsMsg').textContent = AD.kind === 'choices' ? AD.msg : '';
     var aiOn = aiAllowed(); $('optAI').hidden = !(sb && me);
     $('optAINote').textContent = aiOn ? 'Allowed on this phone: when you add commentary, the lines (players’ first names, the team names, the score and the minute) are sent to Google’s AI to make the voice.' : 'Not allowed on this phone: nothing is sent to Google. You’ll be asked when you add commentary.';
     $('optAIBtn').textContent = aiOn ? 'Stop sending to Google' : 'Allow it';

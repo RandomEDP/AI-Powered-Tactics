@@ -24,7 +24,7 @@ for (const [name, uses] of Object.entries(calls)) {
   for (const keys of uses) check(defs.some((p) => keys.every((k) => (p.proargnames || []).includes(k))), `${name} takes the arguments the app passes (${keys.join(', ') || 'none'})`);
 }
 for (const name of ['get_team', 'queue_goal', 'team_stream', 'username_status']) check(procs.filter((p) => p.proname === name).some((p) => p.anon), `${name} works without an account, as following a team does`);
-for (const name of ['create_team', 'claim_player', 'chat_send', 'chat_list', 'vote_fixture', 'challenge_send', 'challenge_reply', 'challenge_result', 'set_home', 'register_push', 'delete_my_account', 'team_push', 'my_challenges', 'find_teams', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'hide_clip'])
+for (const name of ['create_team', 'claim_player', 'chat_send', 'chat_list', 'vote_fixture', 'challenge_send', 'challenge_reply', 'challenge_result', 'set_home', 'register_push', 'delete_my_account', 'team_push', 'my_challenges', 'find_teams', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'hide_clip', 'ad_ticket', 'ad_claim', 'my_unlocks', 'use_unlock'])
   check(procs.filter((p) => p.proname === name).every((p) => !p.anon), `${name} cannot be called without signing in`);
 
 // ---------- tables: every column the app writes exists

@@ -114,8 +114,8 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0031`, **all applied to the live project**. New ones are numbered on from there |
-| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
+| `supabase/migrations/` | `0001` … `0031` are applied to the live project; `0032` (rewarded ads) is waiting for Ethan's go-ahead. New ones are numbered on from there |
+| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; not deployed yet), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
 | `.github/workflows/android.yml` | Every push: the `android` tests, then builds the Android app (`.apk` to install, `.aab` for Google Play) as the run's artifacts. Run by hand with "Upload to Google Play" for the internal testing track (needs the Android secrets, section 7) |
@@ -682,6 +682,32 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   and `kitIsLight` (tested in `tests/watch/main.swift`, 26). The clock is `@ScaledMetric`.
 - Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
 
+### Rewarded ads (the free tier; `0032_rewarded_ads.sql`, `ad-reward`; Ethan's idea instead of banners)
+- No banners. On the free tier someone chooses to watch a short ad (Google AdMob rewarded, `@capacitor-community/admob`
+  8.2.1, iPhone app only) to unlock one thing: an older game's highlights (the newest cut game's are free; per person, for
+  good), AI commentary on one cut or reel (per person, one use, **free voice only**: `AD_VOICE`/`adVoice`, the other
+  voices are paid one-offs), or one more cut for the team (gaffers; after the team's one free try; one a calendar month).
+- **Never during a game** (`adWatch` refuses while `S.match` is set) and **never for a paid team**: `adFree()` is the one
+  check (`teamPaid()` from the team pass, else `hasGaffer()`). Early access: everyone has Gaffer, so ads only show with
+  Experimental on and "Try the free tier" (`#expAds`, `A.exp.ads`). `freeTier()` = not ad-free and an ad can be shown
+  here; on the web and Android the limits don't apply (no ad to lift them).
+- **Server-side grant:** `ad_ticket` makes a ticket; the ad is loaded with `ssv {userId, customData: ticket}`; AdMob
+  calls `ad-reward` (deployed `--no-verify-jwt`; Google's ECDSA signature checked against its published keys), which calls
+  `ad_grant` (service role only). The app polls `ad_claim`. Google's test ads never call the server, so while
+  `ad_settings.trust_app` is true `ad_claim(p_app_says)` takes the app's word. Unlocks are used by `use_unlock` as the
+  cut/commentary starts; `my_unlocks` says what's left. Table `unlocks` (RLS, no policies).
+- First ad of a session: `initialize`, Google's consent form where the law needs it (UK/EU; Settings → Ads → Ad choices
+  reopens it), then Apple's tracking question (`NSUserTrackingUsageDescription`). Either answer still unlocks.
+- Test ads now: `config.js` `ads` (Google's test rewarded unit), `Info.plist` `GADApplicationIdentifier` (Google's test
+  app id) and `SKAdNetworkItems` (Google's own id only; add Google's full list before going live).
+- **Going live (Ethan's steps):** make an AdMob account and the iOS app and a rewarded unit; put the unit id in `config.js`
+  (`test: false`) and the app id in `Info.plist`; turn on server-side verification on the unit with the callback
+  `https://kvefpqigpqprxfelesrb.supabase.co/functions/v1/ad-reward`; set the secret `ADMOB_AD_UNITS`; then
+  `update public.ad_settings set trust_app = false`; update the App Privacy labels (Identifiers: device ID; Usage data;
+  coarse location; used for third-party advertising, tracking if allowed) and set up the UK/EU consent message in AdMob
+  (Privacy & messaging). Before the store build shows ads, App Review needs to see the tracking prompt: say where in the notes.
+- Tests: `ads.test.mjs` (the database, the real function with a stand-in Google key, and the phones).
+
 ### Other features (all in `index.html`)
 - Polls, the Games screen, game modes and tournaments, and the minutes planner (Aggressive ↔ Fairness).
 - Injuries and leaving, insights (ratings, MOTM, chemistry), and squad chat.
@@ -706,7 +732,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     you haven't deployed.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
   `GOOGLE_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `R2_ACCESS_KEY_ID`,
-  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan).
+  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan), and `ADMOB_AD_UNITS` (optional, once real ads are on).
 - **GitHub repository secrets:** `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`. For Android notifications:
   `GOOGLE_SERVICES_JSON` (the Firebase file; Ethan's to add). For Google Play (not set yet; Ethan's to make): `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`,
   `PLAY_SERVICE_ACCOUNT_JSON`.
@@ -858,6 +884,8 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   keys go in Supabase secrets, never chat). **His four answers are needed first:** who pays the fee (player £5 + 50p,
   or gaffer gets £5 minus it); the cut (50p or a percentage); when players are charged (on "I'm in" or after the game)
   and what happens if a game's called off (refund or credit); and whether to start step 1.
+- **Rewarded ads:** built and tested with Google's test ads; `0032` and `ad-reward` not applied/deployed until Ethan says
+  so. Then his AdMob steps in section 6, "Rewarded ads".
 - **Ideas he has raised but not built yet:**
   - ads in the free tier and the £4.99 Gaffer subscription (in-app purchase). Advice given: ads in the feed only once
     lots of people post (then about 1 in 8, never first); better: rewarded ads to unlock things (another game's

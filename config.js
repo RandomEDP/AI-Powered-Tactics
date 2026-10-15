@@ -10,5 +10,9 @@ window.APT_CONFIG = {
   clipsUrl: 'https://pub-256c81d54c3443eb8e0e013b111d2668.r2.dev',
   // Gaffer's App Store page, once it's live (https://apps.apple.com/app/id...). Empty until then: the guests' page says
   // to search the App Store instead.
-  appStore: ''
+  appStore: '',
+  // Rewarded ads (the free tier): the AdMob rewarded ad unit. These are Google's own test ads, which earn nothing and are
+  // safe to tap. When Ethan's AdMob account is set up: his rewarded unit id here, test: false, and his AdMob app id in
+  // ios/App/App/Info.plist (GADApplicationIdentifier). Ad unit ids are public by design (they're in every app that shows ads).
+  ads: { rewarded: 'ca-app-pub-3940256099942544/1712485313', test: true }
 };
