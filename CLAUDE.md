@@ -114,7 +114,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0031`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0031` are **applied to the live project**; `0032`–`0035` are on other branches (live); `0036` (Goal of the Week) is live too. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -568,6 +568,26 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   and their writes never touch theirs.
 - Tests: `linked.test.mjs` (two gaffers, a follower and the watch), `linkdb.test.mjs`, `stream.test.mjs` (kind `link`).
 
+### Goal of the Week, across every team (`0036_goal_of_the_week.sql`; Ethan asked)
+- Weeks run Monday to Sunday, UK time (`private.gotw_week`). A gaffer, with their team open, puts up one of its goals a
+  week (`gotw_nominate`; a clip from the last 14 days with a goal in it; picking another swaps it, `gotw_withdraw` takes it
+  down; a goal that's been up in an earlier week, or was pulled by a moderator, can't go up again). Only nominated clips are
+  ever shown outside their team, and never the team's code or squad.
+- Anyone signed in watches them and votes (`gotw_vote`, one a week, changeable; never for a team they play for or run).
+  Counts stay hidden until the week is over. Screen: `v-gotw` (`renderGotw`, `GW`, `gwLoad`), reached from the strip at
+  the top of Home and of Highlights (`gwStrip`, both platforms; Android's players vote too) and from the notification.
+- `gotw_board` settles ended weeks first (`private.gotw_settle`: most votes, a tie to the earliest nominated, at least one
+  vote) and returns this week's entries, your vote and the latest winner. The first phone to see a winner not yet
+  announced calls `team-notify` kind `gotw` (once a week, checked on the server: the winning team's people, the other
+  nominated teams' people and every voter; skipped as old news after 3 days).
+- The winning team's gaffer makes the winner's reel on their iPhone (`gwMake`: the goal's clip, optional AI commentary,
+  `joinReel` with an end card: kicker "Goal of the Week", the team's name and `outro.sponsor`), uploaded to
+  `<team>/gotw/` and kept with `gotw_save_reel`. A sponsor ("presented by") for a week goes in `gotw_sponsors` in the
+  dashboard; empty for now. `ReelGraphics.endCard` draws "PRESENTED BY …" under the kicker when it's set.
+- Reports: `gotw_report` → `gotw_reports`, `reported('gotw')`. A moderator takes a goal down by setting `pulled = true`
+  and `removed_at = now()` on its `gotw_noms` row.
+- Tests: `gotwdb.test.mjs`, `gotw.test.mjs`, `stream.test.mjs` (kind `gotw`).
+
 ### Games among the squad, with guests (`0020_games_among_the_squad.sql`)
 - New game → "Among ourselves" (`#gKind`, `D.kind = 'house'`, `renderHouse`): two named sides (Bibs and Shirts to start),
   any size, at least 2 a side, no fixed keeper and no subs plan. Squad players are set to a side or Out; guests are added
@@ -738,7 +758,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0031` are applied live (0031 went in as two parts, `0031a`/`0031b`, through the MCP). Add new ones as `supabase/migrations/0032_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0031` are applied live (0031 went in as two parts, `0031a`/`0031b`, through the MCP). `0036_goal_of_the_week.sql` is live (as two parts, `0036a` tables and `0036b` functions, through the MCP). `0032`–`0035` were taken by other work at the same time. Add new ones as `supabase/migrations/0037_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
@@ -747,7 +767,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Edge functions:** all five are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
-  - Deployed now: `team-notify` v23 (kind `live` from any team member, sent once; kind `report` tells the moderators; kind `link` for linked games; Android phones through Firebase; same as the repo), `live-stream` v5,
+  - Deployed now: `team-notify` v24 (kind `live` from any team member, sent once; kind `report` tells the moderators; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
     `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.

@@ -205,7 +205,7 @@ eq([(await lnk('tok-rival', 'ATHLET')).reason, APNS.length], ['old', 0], 'and no
 APNS.length = 0; reset();
 
 // ---------- team-notify: a report tells Gaffer's moderators straight away (Apple's 1.2: reports looked at within a day)
-Object.assign(DB, { moderators: [{ user_id: 'u-ethan' }], post_reports: [], profile_reports: [], message_reports: [], stream_reports: [] });
+Object.assign(DB, { moderators: [{ user_id: 'u-ethan' }], post_reports: [], profile_reports: [], message_reports: [], stream_reports: [], gotw_reports: [] });
 const rep = (who, what) => notify(who, { kind: 'report', what });
 APNS.length = 0;
 eq([(await rep('tok-jake', 'post')).status, APNS.length], [404, 0], 'nobody is told unless the caller really has just reported something');
@@ -219,6 +219,36 @@ APNS.length = 0; DB.message_reports.push({ user_id: 'u-chaplin', created_at: new
 eq([(await rep('tok-chaplin', 'chat')).sent, APNS[0].payload.aps.alert.body], [1, 'A chat message was reported. Have a look and deal with it within 24 hours.'], 'a chat message too');
 eq((await rep(null, 'post')).status, 401, 'and nobody signed out can set it off');
 APNS.length = 0;
+APNS.length = 0; DB.gotw_reports.push({ user_id: 'u-rival', created_at: new Date().toISOString() });
+eq([(await rep('tok-rival', 'gotw')).sent, APNS[0] && APNS[0].payload.aps.alert.body], [1, 'A Goal of the Week clip was reported. Have a look and deal with it within 24 hours.'], 'a Goal of the Week clip too');
+APNS.length = 0; reset();
+
+// ---------- team-notify: Goal of the Week is decided; the teams that had a goal up and everyone who voted are told, once
+USERS['tok-voter'] = 'u-voter';
+DB.push_tokens.push({ user_id: 'u-rival', token: 'phone-rival' }, { user_id: 'u-voter', token: 'phone-voter' }, { user_id: 'u-nobody', token: 'phone-nobody' });
+const decided = new Date().toISOString();
+Object.assign(DB, { gotw_winners: [{ week: '2026-10-05', nom_id: 'n-ath', team_id: 't-ath', votes: 3, sponsor: null, decided_at: decided, notified_at: null }, { week: '2026-09-28', nom_id: null, team_id: null, votes: 0, sponsor: null, decided_at: decided, notified_at: null }],
+  gotw_noms: [{ id: 'n-ath', week: '2026-10-05', team_id: 't-ath', removed_at: null }, { id: 'n-sop', week: '2026-10-05', team_id: 't-sop', removed_at: null }],
+  gotw_votes: [{ week: '2026-10-05', user_id: 'u-jake' }, { week: '2026-10-05', user_id: 'u-voter' }, { week: '2026-10-05', user_id: 'u-chaplin' }] });
+const gw = (who, week = '2026-10-05') => notify(who, { kind: 'gotw', week });
+eq((await gw(null)).status, 401, 'nobody signed out can set it off');
+eq([(await gw('tok-voter', '2026-09-28')).reason, APNS.length], ['no_winner', 0], 'a week nobody voted in tells nobody');
+eq([(await gw('tok-voter', 'nonsense')).status, APNS.length], [404, 0], 'nor a week that isn\'t one');
+r = await gw('tok-ethan');
+const told = (title) => APNS.filter((a) => a.payload.aps.alert.title === title).map((a) => a.to).sort();
+eq([r.sent, told('You won Goal of the Week!'), told('Goal of the Week')], [5, ['phone-rival'], ['phone-chaplin', 'phone-dan', 'phone-jake', 'phone-voter']],
+  'the winning team is told it won; the other team that had a goal up and everyone who voted are told who did (not whoever set it off, nor anyone else)');
+eq([APNS[0].payload.kind, APNS.find((a) => a.to === 'phone-voter').payload.aps.alert.body, APNS.find((a) => a.to === 'phone-rival').payload.aps.alert.body],
+  ['gotw', 'Athletico won with 3 votes. Tap to watch it.', 'Your goal won with 3 votes. Tap to watch it.'], 'worded by the server, with the votes');
+APNS.length = 0;
+eq([(await gw('tok-voter')).reason, APNS.length], ['already', 0], 'only once, however many phones ask');
+Object.assign(DB.gotw_winners[0], { notified_at: null, sponsor: 'Boot Co' });
+await Promise.all([gw('tok-voter'), gw('tok-jake'), gw('tok-rival')]);
+eq(APNS.length, 5, 'three phones asking at once still send it once (to everyone but whichever phone got there first)');
+check(APNS.every((a) => /^(You won )?Goal of the Week, presented by Boot Co!?$/.test(a.payload.aps.alert.title)), 'with the week\'s sponsor in it when there is one');
+APNS.length = 0; Object.assign(DB.gotw_winners[0], { notified_at: null, decided_at: new Date(Date.now() - 5 * 86400000).toISOString() });
+eq([(await gw('tok-voter')).reason, APNS.length], ['old', 0], 'and not at all if nobody opened Gaffer for days: it\'s old news by then');
+APNS.length = 0; reset();
 
 // ---------- team-notify: Android phones (the players' app) are sent theirs through Google's Firebase Cloud Messaging
 const FCM = [], OAUTH = [], fcmDead = new Set();
