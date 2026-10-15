@@ -699,7 +699,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   "go back to Gaffer" page Stripe returns to (never the github.io site). Secrets: `STRIPE_SECRET_KEY`,
   `STRIPE_WEBHOOK_SECRET`, optional `SHOP_RETURN_URL`; a `sk_live_` key is refused unless `SHOP_LIVE` is `yes`, and
   `config.js` `shopLive` drops the test-mode line. Ethan ships orders from the `shop_orders` table.
-- Not on Android. Test: `shop.test.mjs` (the real functions under Node with a stand-in Stripe, then the screen).
+- **Fulfilment** (Ethan: kits from a supplier at about £7 each with free postage; mounts he 3D prints and fits with rope
+  and a carabiner himself): once paid, `shop-webhook` emails the order through Resend, once (`emailed_at`; a failed send
+  answers 500 so Stripe retries). A kit goes to `SUPPLIER_EMAIL` (every shirt's name, number and size, the colours,
+  pattern and chest, the mock-up as SVGs from `kitSvg`, the badge, and the customer's address; never the price or the
+  customer's email), copied to `ORDERS_EMAIL` with what was paid; a mount goes only to `ORDERS_EMAIL` to print and post.
+  Secrets: `RESEND_API_KEY`, `SHOP_FROM` (a sender on a domain verified in Resend). Without them orders aren't emailed.
+- Not on Android. Test: `shop.test.mjs` (the real functions under Node with stand-ins for Stripe and Resend, then the screen).
 
 ### Other features (all in `index.html`)
 - Polls, the Games screen, game modes and tournaments, and the minutes planner (Aggressive ↔ Fairness).

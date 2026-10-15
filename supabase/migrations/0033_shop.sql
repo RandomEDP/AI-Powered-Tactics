@@ -22,7 +22,8 @@ create table if not exists public.shop_orders (
   email text,
   ship jsonb,                                                       -- {name, address, phone} from Stripe's payment page
   created_at timestamptz not null default now(),
-  paid_at timestamptz
+  paid_at timestamptz,
+  emailed_at timestamptz                                            -- when the order went to the supplier (a kit) or to Ethan (a mount)
 );
 create index if not exists shop_orders_user_idx on public.shop_orders (user_id, created_at desc);
 create index if not exists shop_orders_status_idx on public.shop_orders (status, created_at desc);

@@ -23,22 +23,24 @@ eq([num(fn, /kit: \{[^}]*price: (\d+)/), num(fn, /sponsored: (\d+)/)], [1499, 99
 const ENV = {}, DB = { shop_orders: [], teams: [{ id: 't-sop', code: 'SOPFC1' }] }, USERS = { 'tok-ethan': { id: 'u-ethan', email: 'gaffer@example.com' }, 'tok-jake': { id: 'u-jake', email: 'jake@example.com' } };
 let n = 0;
 function from(table) {
-  let op = 'select', body = null; const where = [];
+  let op = 'select', body = null, back = false; const where = [];
   const run = async () => {
     const rows = DB[table], hit = rows.filter((r) => where.every((w) => w(r)));
     if (op === 'insert') { const r = { id: crypto.randomUUID(), created_at: new Date(Date.now() + (++n)).toISOString(), ...body }; rows.push(r); return { data: [r], error: null }; }
-    if (op === 'update') { hit.forEach((r) => Object.assign(r, body)); return { data: null, error: null }; }
+    if (op === 'update') { hit.forEach((r) => Object.assign(r, body)); return { data: back ? hit.map((r) => ({ ...r })) : null, error: null }; }
     return { data: hit.map((r) => ({ ...r })), error: null };
   };
-  const b = { select() { return b; }, insert(o) { op = 'insert'; body = o; return b; }, update(o) { op = 'update'; body = o; return b; },
+  const b = { select() { if (op === 'update') back = true; return b; }, is(c, v) { where.push((r) => (r[c] ?? null) === v); return b; }, insert(o) { op = 'insert'; body = o; return b; }, update(o) { op = 'update'; body = o; return b; },
     eq(c, v) { where.push((r) => r[c] === v); return b; }, maybeSingle: () => run().then((x) => ({ data: x.data[0] || null })), single: () => run().then((x) => ({ data: x.data[0] || null, error: null })),
     then: (res, rej) => run().then(res, rej) };
   return b;
 }
 globalThis.__createClient = () => ({ from, auth: { getUser: async (t) => ({ data: { user: USERS[t] || null } }) } });
 const STRIPE = { sessions: {}, calls: [] };
+const MAIL = { sent: [], calls: 0, down: false };
 globalThis.fetch = async (url, init = {}) => {
   url = String(url); const reply = (s, o) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } });
+  if (url === 'https://api.resend.com/emails') { MAIL.calls++; if (MAIL.down) return reply(500, { message: 'Resend is down' }); MAIL.sent.push({ auth: init.headers.Authorization, ...JSON.parse(init.body) }); return reply(200, { id: 'em_' + MAIL.sent.length }); }
   const m = url.match(/^https:\/\/api\.stripe\.com\/v1\/checkout\/sessions(?:\/(.+))?$/); if (!m) throw new Error('unexpected fetch ' + url);
   STRIPE.calls.push({ method: init.method, auth: init.headers.Authorization, form: init.body ? Object.fromEntries(new URLSearchParams(init.body)) : null });
   if (init.method === 'POST') { const id = 'cs_test_' + (Object.keys(STRIPE.sessions).length + 1); STRIPE.sessions[id] = { id, url: 'https://checkout.stripe.com/c/pay/' + id, livemode: false, payment_status: 'unpaid', status: 'open' }; return reply(200, STRIPE.sessions[id]); }
@@ -121,6 +123,36 @@ r = await post(paid);
 eq([r.status, DB.shop_orders[2].status, DB.shop_orders[2].email], [200, 'paid', 'jake@example.com'], 'Stripe\'s own message marks the mount order paid');
 r = await post({ type: 'checkout.session.expired', data: { object: { metadata: { order: mountId } } } });
 eq(DB.shop_orders[2].status, 'paid', 'a later "expired" never un-pays a paid order');
+eq([MAIL.calls], [0], 'without the email secrets nothing is emailed, but the order is still marked paid');
+
+// ---------- a paid kit is emailed to the supplier, once
+Object.assign(ENV, { RESEND_API_KEY: 're_test', SHOP_FROM: 'Gaffer shop <orders@example.com>', SUPPLIER_EMAIL: 'supplier@example.com', ORDERS_EMAIL: 'owner@example.com' });
+const kitO = DB.shop_orders[0]; kitO.design.badge = 'data:image/png;base64,iVBORw0KGgo='; kitO.shirts[1].name = 'JOSÉ';
+const kitPaid = { type: 'checkout.session.completed', data: { object: { id: 'cs_test_1', livemode: false, payment_status: 'paid', metadata: { order: kitO.id }, customer_details: { email: 'gaffer@example.com' }, collected_information: STRIPE.sessions.cs_test_1.collected_information } } };
+MAIL.down = true; r = await post(kitPaid);
+eq([r.status, kitO.emailed_at ?? null], [500, null], 'if the email can\'t go, Stripe is told to try again and the order isn\'t marked as emailed');
+MAIL.down = false; r = await post(kitPaid);
+const sup = MAIL.sent.find((m) => m.to[0] === 'supplier@example.com'), own = MAIL.sent.find((m) => m.to[0] === 'owner@example.com');
+eq([r.status, MAIL.sent.length, !!kitO.emailed_at, sup.from, sup.reply_to, sup.auth], [200, 2, true, 'Gaffer shop <orders@example.com>', 'owner@example.com', 'Bearer re_test'], 'on Stripe\'s retry the kit goes to the supplier, with a copy to Ethan; the supplier\'s replies go to Ethan');
+const ref = 'GAF-' + kitO.id.replace(/-/g, '').slice(0, 8).toUpperCase();
+eq(sup.subject, `Kit order ${ref}: 8 shirts`, 'the subject has the order number and how many shirts');
+check(/1\. SPICE {2}1 {2}size M/.test(sup.text) && /2\. JOSÉ {2}2 {2}size M/.test(sup.text) && /8\. ETHAN {2}8 {2}size M/.test(sup.text), 'every shirt is listed with its name, number and size');
+check(/Main colour: #4c2bb0/.test(sup.text) && /Pattern: Vertical stripes/.test(sup.text) && /"GAFFER" in capitals across the chest/.test(sup.text) && /Shirts \(8: 8 × M\)/.test(sup.text), 'with the colours, the pattern, the GAFFER chest and a count of sizes');
+check(/Please post them to:\nE Example\n1 Test Street\nTesttown\nTE1 1ST\nUnited Kingdom\nPhone: 07000 000000/.test(sup.text), 'and the customer\'s address to post them to');
+check(!/£/.test(sup.text) && !/gaffer@example\.com/.test(sup.text), 'the supplier isn\'t told the price or the customer\'s email');
+eq(sup.attachments.map((x) => x.filename), [`${ref}-front.svg`, `${ref}-back.svg`, `${ref}-badge.png`], 'the mock-up front and back and the badge are attached');
+const backSvg = Buffer.from(sup.attachments[1].content, 'base64').toString('utf8'), frontSvg = Buffer.from(sup.attachments[0].content, 'base64').toString('utf8');
+check(/>SPICE<\/text>/.test(backSvg) && />1<\/text>/.test(backSvg) && />GAFFER<\/text>/.test(frontSvg) && /#4c2bb0/.test(frontSvg), 'the mock-up shows the colours, GAFFER on the front and a name and number on the back');
+check(/^Sent to the supplier: /.test(own.subject) && /Paid: £83\.91 \(including £3\.99 postage\) — TEST ORDER/.test(own.text) && /gaffer@example\.com/.test(own.text), 'Ethan\'s copy says what was paid, that it was a test, and the customer\'s email');
+r = await post(kitPaid); eq([r.status, MAIL.sent.length], [200, 2], 'Stripe sending the same message again doesn\'t email it twice');
+
+// ---------- a paid mount goes to Ethan to print
+const mnt = { id: crypto.randomUUID(), item: 'mount', lines: [{ qty: 2 }], total_pence: 2997, postage_pence: 399, status: 'awaiting_payment', live: false };
+DB.shop_orders.push(mnt);
+r = await post({ type: 'checkout.session.completed', data: { object: { livemode: false, payment_status: 'paid', metadata: { order: mnt.id }, customer_details: { email: 'jake@example.com' }, shipping_details: { name: 'J Player', address: { line1: '2 Test Road', city: 'Testtown', postal_code: 'TE2 2ND', country: 'GB' } } } } });
+const pm = MAIL.sent.slice(2);
+eq([r.status, pm.length, pm[0] && pm[0].to[0], pm[0] && /^Mount order GAF-/.test(pm[0].subject)], [200, 1, 'owner@example.com', true], 'a mount order goes only to Ethan, not the kit supplier');
+check(/Print 2 cage phone mounts, add the rope and carabiners, and post to:\nJ Player\n2 Test Road/.test(pm[0].text), 'saying how many to print and where to post them');
 const page = await hook.call(new Request('https://x.supabase.co/functions/v1/shop-webhook?done=1'));
 check(/Go back to Gaffer/.test(await page.text()), 'after paying, Stripe\'s page sends people to a line saying to go back to Gaffer');
 
