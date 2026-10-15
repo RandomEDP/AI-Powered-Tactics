@@ -71,16 +71,16 @@ Never put the `.p8` key, or any secret, in the code or in chat. GitHub secrets a
 
 ### Team pass: paying per team, from a team pot (one-time setup)
 
-The Gaffer tier is paid for per team. In the iPhone app anyone on the team can chip into the team's pot (69p, £1.49 or £2.49) or pay the whole £4.99. When the pot reaches £4.99 the whole team gets 30 days straight away, and anything over stays in the pot for the next month. Every one is a one-off purchase through Apple, never a subscription. Gaffer's server (`supabase/functions/team-pass`) checks each one with Apple before it counts. The card is on the Team page, behind the Experimental switch until the products below are live.
+The Gaffer tier is paid for per team. In the iPhone app anyone on the team can chip into the team's pot (99p, £1.99 or £2.99) or pay the whole £4.99. When the pot reaches £4.99 the whole team gets 30 days straight away, and anything over stays in the pot for the next month. Every one is a one-off purchase through Apple, never a subscription. Gaffer's server (`supabase/functions/team-pass`) checks each one with Apple before it counts. The card is on the Team page, behind the Experimental switch until the products below are live.
 
 1. **Agreements.** App Store Connect → Business: sign the Paid Apps agreement and fill in bank and tax details (nothing can be sold until they're active). Then join the [App Store Small Business Program](https://developer.apple.com/app-store/small-business-program/) so Apple takes 15%, not 30%.
 2. **Make the four purchases.** App Store Connect → Gaffer → Monetization → In-App Purchases → + → **Consumable** (each is credit into a team's pot, so it can be bought again and again):
 
    | Product ID | Price | Display name | Description |
    |---|---|---|---|
-   | `com.randomedp.aipoweredtactics.team.chip069` | £0.69 | Chip in 69p | 69p into your team's pot. At £4.99 the whole team gets a month. |
-   | `com.randomedp.aipoweredtactics.team.chip149` | £1.49 | Chip in £1.49 | £1.49 into your team's pot. At £4.99 the whole team gets a month. |
-   | `com.randomedp.aipoweredtactics.team.chip249` | £2.49 | Chip in £2.49 | £2.49 into your team's pot. At £4.99 the whole team gets a month. |
+   | `com.randomedp.aipoweredtactics.team.chip099` | £0.99 | Chip in 99p | 99p into your team's pot. At £4.99 the whole team gets a month. |
+   | `com.randomedp.aipoweredtactics.team.chip199` | £1.99 | Chip in £1.99 | £1.99 into your team's pot. At £4.99 the whole team gets a month. |
+   | `com.randomedp.aipoweredtactics.team.chip299` | £2.99 | Chip in £2.99 | £2.99 into your team's pot. At £4.99 the whole team gets a month. |
    | `com.randomedp.aipoweredtactics.team.month` | £4.99 | Pay the whole month | Fills your team's pot: the whole team gets the Gaffer tier for 30 days. |
 
    Each needs a review screenshot (the Team page's "Gaffer for the team" card) and a line of review notes ("Credit into the team's shared pot; when it reaches £4.99 every member of the team gets the Gaffer tier for 30 days"). They go to review with the next app version. Other countries get Apple's matching prices; each purchase puts the same amount in the pot wherever it was bought.

@@ -533,7 +533,7 @@
       if (!uid()) return no(401, '', 'Sign in first.');
       const t = d.teams.find((x) => x.code === String(b.code || '').trim().toUpperCase()); if (!t) return no(404, '', 'No such team.');
       if (!d.appleReady) return no(503, 'not_configured', 'Paying isn’t set up on Gaffer’s server yet. Nothing has been lost: it will count once it is.');
-      const B = 'com.randomedp.aipoweredtactics.team.', P = { [B + 'month']: ['month', 499], [B + 'chip069']: ['chip069', 69], [B + 'chip149']: ['chip149', 149], [B + 'chip249']: ['chip249', 249] }, tx = (d.apple || {})[b.transaction_id];
+      const B = 'com.randomedp.aipoweredtactics.team.', P = { [B + 'month']: ['month', 499], [B + 'chip099']: ['chip099', 99], [B + 'chip199']: ['chip199', 199], [B + 'chip299']: ['chip299', 299] }, tx = (d.apple || {})[b.transaction_id];
       if (!tx) return no(404, 'unknown', 'Apple doesn’t know that purchase.');
       if (!P[tx.productId]) return no(400, 'wrong_product', 'That purchase isn’t a team pass.');
       if (String(tx.account || '').toLowerCase() !== String(uid()).toLowerCase()) return no(403, 'not_yours', 'That purchase was made by another account.');

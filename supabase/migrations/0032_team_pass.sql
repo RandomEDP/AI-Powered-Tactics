@@ -1,5 +1,5 @@
 -- The team pass: the Gaffer tier is paid for per team, not per player, from a team pot. Anyone on the team can chip in
--- in the iPhone app, through Apple: 69p, £1.49, £2.49, or the whole £4.99 at once. Each chip-in goes into the pot (counted
+-- in the iPhone app, through Apple: 99p, £1.99, £2.99, or the whole £4.99 at once. Each chip-in goes into the pot (counted
 -- in pence of the UK price, whichever country it was bought in); when the pot reaches £4.99 the whole team gets 30 days
 -- straight away (added on to any time it already has), and anything over stays in the pot towards the next month. All
 -- are one-off purchases, never subscriptions, so nobody is charged again without choosing to.
@@ -19,7 +19,7 @@ create table if not exists public.pass_purchases (
   transaction_id text primary key check (transaction_id ~ '^[0-9A-Za-z_-]{1,64}$'), -- Apple's transaction id: each counts once
   team_id uuid not null references public.teams (id) on delete cascade,
   user_id uuid references auth.users (id) on delete set null,                      -- who paid (null once they delete their account)
-  product text not null check (product ~ '^[a-z0-9]{1,20}$'),   -- which button: month, chip069, chip149, chip249
+  product text not null check (product ~ '^[a-z0-9]{1,20}$'),   -- which button: month, chip099, chip199, chip299
   pence integer not null check (pence > 0 and pence <= 499),
   environment text not null default 'Production' check (environment in ('Production', 'Sandbox', 'Xcode')),
   at timestamptz not null default now()
