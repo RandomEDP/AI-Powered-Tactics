@@ -615,6 +615,28 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   "Goal for …? Log the goal" (`MatchState.asksScorer`, `confirmUs` in `ContentView.swift`) instead of who scored.
 - Tests: `solo.test.mjs` (phone, watch presses, no notifications, kept out of the record), `tests/watch/main.swift` (25).
 
+### The team pass: the Gaffer tier per team, from a team pot (`0032_team_pass.sql`, `team-pass`; Ethan asked, October 2026)
+- Anyone on the team chips into the team's pot in the iPhone app: 69p, £1.49, £2.49, or the whole £4.99 (Ethan: "chip in
+  however much you want until the team gets £4.99"). When the pot reaches 499 pence the whole team gets 30 days at once
+  (added on to any time left) and anything over stays in the pot (`team_pass.pot`). Apple **consumables**, ids
+  `com.randomedp.aipoweredtactics.team.chip069` / `.chip149` / `.chip249` / `.month`; credit is by product, the same in any
+  country. Gifting to others is allowed by guideline 3.1.1; taking money outside the App Store isn't (outside the US).
+- **Flow:** `TeamPassPlugin` (StoreKit 2) `buy({id, account})` puts the account's id on the purchase as `appAccountToken`;
+  JS keeps it in `apt-pass-pending` and calls `team-pass` `claim {code, transaction_id}`, which asks Apple's App Store
+  Server API (ES256 token from the In-App Purchase key; live, then sandbox), checks bundle, product, buyer and refunds, and
+  calls `pass_credit` (service role only; once per transaction; fills the pot, turns each full 499 into 30 days). Only then
+  does JS call `finish`. Unfinished ones are claimed again on every `passLoad` (after each pull) and from the plugin's
+  `transaction` event (Ask to Buy).
+- **`teamPaid(code?)` / `window.gafferTeamPaid`** is the one "this team has paid" check (the ads use it); it reads
+  `team_pass(code)` (anon allowed: paid, until, pot, who chipped in, never what each paid), kept per team in `apt-pass` for
+  no signal. SQL has `private.team_is_paid(team_id)`. `hasGaffer()` still returns true (early access).
+- **Card:** `#passCard` on the Team page (`renderPass`, `.passbar`), behind the Experimental switch until the products are
+  live (a paid team shows it to everyone). It says before anyone pays that a chip-in unlocks nothing until the pot is full.
+  "Runs out in N days" within 5. No buttons on the web or Android (no Google Play yet).
+- Live: migration 0032 applied and `team-pass` v1 deployed (15 October 2026). It says "not set up yet" until Ethan adds the
+  secrets `IAP_KEY_ID`, `IAP_ISSUER_ID`, `IAP_KEY_P8` (README "Team pass"); purchases wait on the phone till then. Refunds made after a purchase is counted aren't taken back yet (needs App Store Server
+  Notifications). Test: `teampass.test.mjs`.
+
 ### Live streaming (Gaffer tier; behind the experimental switch for gaffers) (`0017_live_streams.sql`, `live-stream`)
 - The GoPro (through GoPro Quik) or an iPhone (through a streaming app such as Larix Broadcaster) streams over RTMPS
   straight to **Cloudflare Stream**. The app never handles the video
@@ -702,6 +724,31 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   and `kitIsLight` (tested in `tests/watch/main.swift`, 26). The clock is `@ScaledMetric`.
 - Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
 
+### The shop (`0033_shop.sql`, `shop`, `shop-webhook`; behind the experimental switch; Ethan asked, October 2026)
+- Sells the **cage phone mount** (£12.99: grips the iPhone, hangs off the cage on a rope with a carabiner) and **team kits**
+  (£14.99 a shirt, £9.99 with GAFFER as the chest sponsor; at least 8 shirts an order, at most 30; £3.99 postage). The kit
+  designer (`v-shop`, `renderShop`, `SK`/`shopKit`) has two colours (`swatches`), a pattern (plain, stripes, hoops, halves,
+  sash), a badge (the team crest, a picture through `readCrest`, or none), the sponsor switch, and a row a shirt (name in
+  capitals up to 12 letters, number 0–99, size), started from the squad; `kitSvg` draws the front and the chosen
+  player's back live. Names go through `rude(…, true)`.
+- **Physical goods can't use Apple's in-app purchase** (3.1.3(e)), so it's Stripe Checkout (Apple Pay or card) opened in
+  Safari (`window.open`), never StoreKit. Temu was ruled out (no dropshipping, no custom printing). Kits only pay at
+  squad sizes from a sublimation teamwear maker (roughly £6–9 a shirt); single shirts through Printful cost more than £14.99.
+- The `shop` function prices everything itself from `CATALOGUE` (keep `SHOP` in `index.html` in step; the test checks),
+  saves `shop_orders` (service role only, RLS with no policies) as `awaiting_payment`, and returns Stripe's page. `orders`
+  lists the account's own and asks Stripe about any still waiting. `shop-webhook` (**verify_jwt = false**, checks Stripe's
+  signature with `STRIPE_WEBHOOK_SECRET`, 5-minute window) marks them paid with the address; its GET is the plain-text
+  "go back to Gaffer" page Stripe returns to (never the github.io site). Secrets: `STRIPE_SECRET_KEY`,
+  `STRIPE_WEBHOOK_SECRET`, optional `SHOP_RETURN_URL`; a `sk_live_` key is refused unless `SHOP_LIVE` is `yes`, and
+  `config.js` `shopLive` drops the test-mode line. Ethan ships orders from the `shop_orders` table.
+- **Fulfilment** (Ethan: kits from a supplier at about £7 each with free postage; mounts he 3D prints and fits with rope
+  and a carabiner himself): once paid, `shop-webhook` emails the order through Resend, once (`emailed_at`; a failed send
+  answers 500 so Stripe retries). A kit goes to `SUPPLIER_EMAIL` (every shirt's name, number and size, the colours,
+  pattern and chest, the mock-up as SVGs from `kitSvg`, the badge, and the customer's address; never the price or the
+  customer's email), copied to `ORDERS_EMAIL` with what was paid; a mount goes only to `ORDERS_EMAIL` to print and post.
+  Secrets: `RESEND_API_KEY`, `SHOP_FROM` (a sender on a domain verified in Resend). Without them orders aren't emailed.
+- Not on Android. Test: `shop.test.mjs` (the real functions under Node with stand-ins for Stripe and Resend, then the screen).
+
 ### Other features (all in `index.html`)
 - Polls, the Games screen, game modes and tournaments, and the minutes planner (Aggressive ↔ Fairness).
 - Injuries and leaving, insights (ratings, MOTM, chemistry), and squad chat.
@@ -724,6 +771,9 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
+- **The shop** (October 2026): `0033_shop.sql` is applied live, and `shop` v1 (verify_jwt = true) and `shop-webhook` v1
+  (**verify_jwt = false**, it checks Stripe's signature itself) are deployed, same as the repo. Its secrets (Stripe,
+  Resend, the supplier's and Ethan's email) are Ethan's to set; until then the Shop says paying isn't set up.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
   `GOOGLE_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `R2_ACCESS_KEY_ID`,
   `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan).

@@ -10,7 +10,7 @@ notifications asked for: [["team-notify","kickoff","SOP FC v Dog","Game started.
 zoom locked: manipulation
 coming soon hidden by default: true
 plans button before switching on: false
-plans pop-up: true | Gaffer £4.99 a monthCOMING SOON
+plans pop-up: true | Gaffer £4.99 a month for the whole teamCOMING SOON
 settings buttons: true true | sign out shown: true | Signed in as gaffer@example.com. Your team and stats stay put; sign back in to pick up where you left off.
 coming soon: v-soon | AI match reports / Ratings from the video / Team Elo rating and leaderboard / AI powered commentary
 first tap: Tap again to sign out

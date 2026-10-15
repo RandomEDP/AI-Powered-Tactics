@@ -1,0 +1,78 @@
+{
+  "identifier": "6B1E9D3A-2F4C-4C1B-9E2A-0C5F7A3D8E41",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "4.99",
+      "familyShareable": false,
+      "internalID": "6747000001",
+      "localizations": [
+        {
+          "description": "Fills your team's pot: the whole team gets the Gaffer tier for 30 days.",
+          "displayName": "Pay the whole month",
+          "locale": "en_GB"
+        }
+      ],
+      "productID": "com.randomedp.aipoweredtactics.team.month",
+      "referenceName": "Team pot: whole month",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "0.69",
+      "familyShareable": false,
+      "internalID": "6747000002",
+      "localizations": [
+        {
+          "description": "69p into your team's pot. At \u00a34.99 the whole team gets a month.",
+          "displayName": "Chip in 69p",
+          "locale": "en_GB"
+        }
+      ],
+      "productID": "com.randomedp.aipoweredtactics.team.chip069",
+      "referenceName": "Team pot: chip in 69p",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "1.49",
+      "familyShareable": false,
+      "internalID": "6747000003",
+      "localizations": [
+        {
+          "description": "\u00a31.49 into your team's pot. At \u00a34.99 the whole team gets a month.",
+          "displayName": "Chip in \u00a31.49",
+          "locale": "en_GB"
+        }
+      ],
+      "productID": "com.randomedp.aipoweredtactics.team.chip149",
+      "referenceName": "Team pot: chip in \u00a31.49",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "2.49",
+      "familyShareable": false,
+      "internalID": "6747000004",
+      "localizations": [
+        {
+          "description": "\u00a32.49 into your team's pot. At \u00a34.99 the whole team gets a month.",
+          "displayName": "Chip in \u00a32.49",
+          "locale": "en_GB"
+        }
+      ],
+      "productID": "com.randomedp.aipoweredtactics.team.chip249",
+      "referenceName": "Team pot: chip in \u00a32.49",
+      "type": "Consumable"
+    }
+  ],
+  "settings": {
+    "_applicationInternalID": "",
+    "_developerTeamID": "",
+    "_locale": "en_GB",
+    "_storefront": "GBR",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}
