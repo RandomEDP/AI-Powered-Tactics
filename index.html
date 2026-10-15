@@ -609,6 +609,14 @@ tr.past td { opacity: .45; }
 #mhPop .cliplist button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
 .mhbtn { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: 16px; padding: 16px; margin: 6px 0 10px; background: var(--on); color: var(--on-ink); font: inherit; }
 .mhbtn b { display: block; font-size: var(--t-body); } .mhbtn small { display: block; opacity: .85; font-size: var(--t-sub); margin-top: 2px; }
+.gwstrip { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: var(--r-card); padding: 14px 16px; margin: 0 0 12px; min-height: 44px; background: var(--surface); color: var(--ink); font: inherit; }
+.gwstrip b { display: block; font-size: var(--t-body); } .gwstrip small { display: block; color: var(--muted); font-size: var(--t-sub); margin-top: 2px; }
+.gwcup { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--on); color: var(--on-ink); } .gwcup svg { width: 24px; height: 24px; }
+.gwchev { margin-left: auto; color: var(--muted); font-size: var(--t-head); }
+.gwdot { display: inline-block; width: .7em; height: .7em; border-radius: 50%; margin-right: 8px; vertical-align: .05em; }
+.gwentry.voted { box-shadow: inset 0 0 0 2px var(--on); } .gwlabel { margin: 0; font-weight: 650; } .gwspon, .gwkick { margin: 0; font-size: var(--t-cap); font-weight: 750; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gwlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; } .gwlist li { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.gwlist li small { display: block; color: var(--muted); font-size: var(--t-sub); } .gwhead { margin-bottom: 12px; } #gwBody .hcard { margin-bottom: 12px; }
 .mhplay { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 255, 255, .22); font-size: var(--t-head); }
 #postPop, #postView { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #postPop[hidden], #postView[hidden] { display: none; }
@@ -1046,6 +1054,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div id="prBody"></div>
 </div>
 
+<div class="view" id="v-gotw" hidden>
+  <div class="bar"><button class="back" type="button" id="gwBack">Back</button><h1>Goal of the Week</h1></div>
+  <div id="gwBody"></div>
+</div>
+
 <div class="view" id="v-teamview" hidden>
   <div class="bar"><button class="back" type="button" id="tvBack">Back</button><h1 id="tvTitle">Team</h1></div>
   <div id="tvBody"></div>
@@ -1252,6 +1265,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 <div class="view" id="v-highlights" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1>Highlights</h1></div>
   <div class="toggle" id="hlToggle"><button type="button" data-by="game" aria-pressed="true">By game</button><button type="button" data-by="player" aria-pressed="false">By player</button></div>
+  <div id="hlGw"></div>
   <div class="view" id="hlList"></div>
 </div>
 
@@ -1538,7 +1552,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // The Android app is for players: the team's chat, answering polls and watching highlights. Nothing a gaffer does is in it
   // (no team settings, games, cutting or streaming), and it never runs the team, even for a gaffer's account.
   var DROID = !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'android');
-  var DROID_VIEWS = ['welcome', 'join', 'account', 'home', 'games', 'chat', 'highlights'];
+  var DROID_VIEWS = ['welcome', 'join', 'account', 'home', 'games', 'chat', 'highlights', 'gotw'];
   if (DROID) { // (Highlights is a tab there, and Notifications are on the Account tab, as there's no Settings)
     document.documentElement.classList.add('droid'); $('v-highlights').querySelector('.bar .back').hidden = true;
     $('aIn').insertBefore($('ntfSec'), $('aSignOut').parentNode); $('pushNext').textContent = 'Your phone will ask next. You can change this any time on the Account tab.';
@@ -1610,7 +1624,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var preels = []; // players' reels kept on their cards: [{pid, path, store, marks: [{t, label}], made_at}]
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live', 'shop'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'gotw', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live', 'shop'];
   function setRole(r) {
     if (DROID) r = 'viewer'; // (the Android app only ever follows the team)
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
@@ -1941,6 +1955,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       });
       P.addListener('pushNotificationReceived', function (n) { var d = n && n.data; if (!d || d.code !== A.active) return; if (d.kind === 'chat') chatPull(); else if (d.kind === 'challenge') rivalsPull(); else if (d.kind === 'link') linksPull(); else if (d.kind === 'live') { streamPull(); refetch(); } else refetch(); }); // arrived with the app open
       P.addListener('pushNotificationActionPerformed', function (a) {
+        if (a && a.notification && a.notification.data && a.notification.data.kind === 'gotw') { gwOpen(A.active ? 'home' : 'feed'); return; } // (Goal of the Week: every team's, not one)
         var code = a && a.notification && a.notification.data && a.notification.data.code; if (!code || !teamMeta(code)) return;
         var kind = a.notification.data.kind || 'kickoff';
         if (kind !== 'kickoff' && kind !== 'goal') { var to = kind === 'live' ? 'live' : kind === 'highlights' ? 'highlights' : kind === 'chat' ? 'chat' : kind === 'challenge' ? 'rivals' : kind === 'poll' || kind === 'nudge' ? 'games' : 'home'; if (A.active === code) { go(to); refetch(); } else openTeam(code, to); return; }
@@ -2250,7 +2265,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live', 'shop'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'gotw', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live', 'shop'];
   function go(view, keep) {
     if (view !== 'account' && AM === 'new') AM = 'in'; // (choosing a new password is only ever where the reset link lands)
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
@@ -2266,14 +2281,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if ((view === 'soon' || view === 'shop') && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome'; // (the shop stays behind Experimental until Stripe takes real payments)
     if (view === 'shop' && S.view !== 'shop') shopFrom = S.view;
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
-    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'feed', 'people', 'profile', 'teamview', 'shop'].indexOf(view) < 0) view = 'welcome';
+    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'feed', 'gotw', 'people', 'profile', 'teamview', 'shop'].indexOf(view) < 0) view = 'welcome';
     if (view === 'create' && S.view !== 'create') resetCreate();
     if (view === 'game' && !S.match) view = 'home';
     if (view === 'mins' && !D) view = 'home';
     if (view === 'setup' && !(keep && D)) newDraft();
     S.view = view; saveLocal();
     if (view === 'join') applyTheme(J.d.team.color);
-    else if (view === 'intro' || view === 'welcome' || view === 'account' || view === 'feed' || view === 'people' || view === 'profile') applyTheme(DEFAULT_COLOR); else if (view === 'teamview') applyTheme(TV && TV.d && TV.d.team.color || DEFAULT_COLOR); else if (view !== 'create') applyTheme();
+    else if (view === 'intro' || view === 'welcome' || view === 'account' || view === 'feed' || view === 'gotw' || view === 'people' || view === 'profile') applyTheme(DEFAULT_COLOR); else if (view === 'teamview') applyTheme(TV && TV.d && TV.d.team.color || DEFAULT_COLOR); else if (view !== 'create') applyTheme();
     var fresh = $('v-' + view).hidden;
     VIEWS.forEach(function (v) { $('v-' + v).hidden = v !== view; });
     if (view === 'intro' && fresh) { $('introTrack').scrollLeft = 0; introPaint(); }
@@ -2336,6 +2351,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'cut') renderCut();
     else if (S.view === 'account') renderAccount();
     else if (S.view === 'feed') renderFeed();
+    else if (S.view === 'gotw') renderGotw();
     else if (S.view === 'people') renderPeople();
     else if (S.view === 'profile') renderProfile();
     else if (S.view === 'teamview') renderTeamView();
@@ -2811,6 +2827,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       else html = items.map(function (x) { return x.html; }).join('');
     }
     if (FD.msg) html += '<p class="msg" role="status" id="fdMsg">' + esc(FD.msg) + '</p>';
+    if (me) html = gwStrip() + html;
     $('fdBody').innerHTML = html; autoScan();
   }
   $('fdFind').addEventListener('click', function () { PPL.msg = ''; go('people'); });
@@ -2821,7 +2838,209 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var b = e.target.closest('button'); if (!b) return; var a = b.getAttribute('data-fd');
     if (a === 'signin') { A.after = 'feed'; go('account'); } else if (a === 'teams') go('welcome'); else if (a === 'pick') unameOpen(false);
     else if (a === 'find') go('people'); else if (a === 'post') postOpen();
+    else if (b.getAttribute('data-gw')) gwOpen('feed');
     else if (b.getAttribute('data-prof')) openProfile(b.getAttribute('data-prof'), 'feed');
+  });
+
+  // ---- Goal of the Week, across every team on Gaffer (0036). Each week runs Monday to Sunday, UK time. A gaffer puts
+  // one of their team's goals up (a clip from the last two weeks); anyone signed in watches the week's goals and votes for
+  // one, never their own team's; nobody sees the counts until it's over. The first phone to look after the week ends has
+  // the winner decided, and asks team-notify (kind gotw) to tell the teams that had a goal up and everyone who voted. The
+  // winning team's gaffer makes the winner's reel on their iPhone, with the team's name on the end card (and the week's
+  // sponsor, "presented by", when there is one), and it's kept for everyone to watch.
+  var GW = { d: null, busy: false, tried: 0, msg: '', bad: false, back: 'feed', rep: null, told: {}, voice: false, mk: { busy: false, prog: '', msg: '', bad: false, path: null } };
+  var GW_ERR = { not_gaffer: 'Only a gaffer of the team can put a goal up.', no_clip: 'That clip has gone (it may have been cut again). Pick it again from the list.',
+    too_old: 'Only goals from the last two weeks can go up.', not_a_goal: 'That clip isn’t a goal, so it can’t go up for Goal of the Week.',
+    used: 'That goal has been up for Goal of the Week before, so it can’t go up again.', own_team: 'You can’t vote for your own team’s goal.',
+    closed: 'Voting for that week has closed. Here’s this week’s.', missing: 'That goal has been taken down. Here’s what’s up now.' };
+  function gwOpen(back) { GW.back = back || (S.view === 'gotw' ? GW.back : S.view); GW.msg = ''; GW.bad = false; GW.rep = null; go('gotw'); gwLoad(); }
+  async function gwLoad() {
+    if (!sb || !me || GW.busy) return;
+    GW.busy = true; GW.tried = Date.now();
+    try {
+      GW.d = (await q(sb.rpc('gotw_board'))).data || null;
+      var L = GW.d && GW.d.last;
+      if (L && L.entry && !L.notified && !GW.told[L.week]) { // (the week's just been decided: the teams and voters are told, once, by the server)
+        GW.told[L.week] = true;
+        try { sb.functions.invoke('team-notify', { body: { kind: 'gotw', week: L.week } }).then(function () {}, function () {}); } catch (e) {}
+      }
+    } catch (e) { if (S.view === 'gotw') { GW.msg = 'Couldn’t load Goal of the Week. Check your signal.'; GW.bad = true; } }
+    GW.busy = false; gwRedraw();
+  }
+  function gwRedraw() { if (S.view === 'gotw') renderGotw(); else if (S.view === 'feed') renderFeed(); else if (S.view === 'highlights') renderHighlights(); }
+  function gwWeek(w) { return dayText(Date.parse(w + 'T12:00:00Z')); }
+  // The way in, on Home and at the top of Highlights: what's up this week, and whether you've voted.
+  function gwStrip() {
+    if (!sb || !me) return '';
+    if (!GW.d && !GW.busy && Date.now() - GW.tried > 60000) setTimeout(gwLoad, 0);
+    var d = GW.d, n = d ? d.entries.length : 0, L = d && d.last && d.last.entry;
+    var sub = !d ? 'The best goals from every team on Gaffer, voted for by everyone.' : n ? n + (n === 1 ? ' goal is' : ' goals are') + ' up this week. ' + (d.voted ? 'You’ve voted.' : 'Watch them and vote.')
+      : L ? 'Week of ' + gwWeek(d.last.week) + ': ' + L.team + ' won.' : 'No goals up yet this week.';
+    return '<button class="gwstrip" type="button" data-gw="open"><span class="gwcup" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4h10v4a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M9.5 17h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' +
+      '<span><b>Goal of the Week' + (d && d.sponsor ? ', presented by ' + esc(d.sponsor) : '') + '</b><small>' + esc(sub) + '</small></span><span class="gwchev" aria-hidden="true">›</span></button>';
+  }
+  // This team's goals from the last two weeks that have been cut into clips: what its gaffer can put up.
+  function gwGoals() {
+    var since = Date.now() - 14 * 864e5, byId = {}; S.results.forEach(function (r) { if (r.id) byId[r.id] = r; });
+    return clips.filter(function (c) {
+      var r = byId[c.game_id]; if (!r || typeof c.at !== 'number' || c.at < since) return false;
+      var to = c.at + (+c.dur > 0 ? +c.dur : 14) * 1000;
+      return (r.ev || []).some(function (e) { return !e.hl && !e.lk && typeof e.at === 'number' && e.at >= c.at - 1000 && e.at <= to && (e.us || (r.house && e.p != null)); });
+    }).sort(function (a, b) { return b.at - a.at; }).map(function (c) { return { c: c, r: byId[c.game_id] }; });
+  }
+  function gwVideo(v, poster) { return v && v.path ? '<div class="vplayer"><video controls playsinline preload="metadata" src="' + esc(clipUrl(v) + (poster ? '#t=0.1' : '')) + '"></video></div>' : novid('This clip isn’t there any more.'); }
+  function gwGame(x) { return (x.house ? (x.house.a || 'Bibs') + ' v ' + (x.house.b || 'Shirts') : x.team + (x.opp ? ' v ' + x.opp : '')) + (x.played ? ', ' + dayText(x.played) : ''); }
+  function renderGotw() {
+    var d = GW.d, html = '';
+    if (!sb) html = '<div class="card"><p class="note">Goal of the Week needs an internet connection and an account.</p></div>';
+    else if (!me) html = '<div class="card"><h2>Goal of the Week</h2><p class="note">The best goals from every team on Gaffer, voted for by everyone. Sign in to watch them and vote.</p><div class="actions"><button class="plain primary" type="button" data-gwa="signin">Sign in</button></div></div>';
+    else if (!d) { html = '<p class="note">Loading…</p>'; if (!GW.busy) gwLoad(); }
+    else {
+      var ends = new Date(d.ends - 1), closes = ends.getDate() + ' ' + MON[ends.getMonth()];
+      html += '<div class="card gwhead"><h2>This week’s goals</h2>' + (d.sponsor ? '<p class="gwspon">Presented by ' + esc(d.sponsor) + '</p>' : '') +
+        '<p class="note">Gaffers put up their team’s best goal of the week. Watch them and vote for your favourite: one vote each, and not for your own team. Voting closes at midnight on Sunday ' + esc(closes) + ', and the winner is announced on Monday.</p>' +
+        '<p class="note">' + (d.votes ? d.votes + (d.votes === 1 ? ' vote' : ' votes') + ' so far. The counts are kept secret until it’s over.' : 'No votes yet.') + '</p></div>';
+      if (GW.msg) html += '<p class="msg' + (GW.bad ? ' bad' : '') + '" role="status" id="gwMsg">' + esc(GW.msg) + '</p>';
+      if (!d.entries.length) html += '<div class="hcard"><h3>Nothing up yet</h3><p class="note">No team has put a goal up this week yet. Gaffers put one up from here, once a game’s highlights are cut.</p></div>';
+      d.entries.forEach(function (x) {
+        var mine = d.voted === x.id;
+        html += '<article class="hcard gwentry' + (mine ? ' voted' : '') + '" data-gwid="' + esc(x.id) + '"><h3><span class="gwdot" style="background:' + esc(x.color || '#5629d7') + '"></span>' + esc(x.team) + (x.mine ? '<span class="badge you">Your team</span>' : '') + '</h3>' +
+          '<p class="note">' + esc(gwGame(x)) + '</p>' + gwVideo(x.video, true) + (x.video && x.video.label ? '<p class="gwlabel">' + esc(x.video.label) + '</p>' : '') +
+          '<div class="actions">' + (x.mine ? '<p class="note">You can’t vote for your own team’s goal.</p>' : '<button class="plain' + (mine ? ' tint' : ' primary') + '" type="button" data-gwvote="' + esc(x.id) + '" aria-pressed="' + mine + '">' + (mine ? 'Your vote' : 'Vote for this goal') + '</button>') +
+          (x.gaffer ? '<button class="plain danger" type="button" data-gwoff="1">Take it down</button>' : '') +
+          (!x.mine ? '<button class="plain quiet" type="button" data-gwrep="' + esc(x.id) + '">Report</button>' : '') + '</div>' +
+          (GW.rep === x.id ? '<div class="pmenu"><p class="note">Report this clip? Gaffer looks at every report.</p><div class="chips">' + ['Not their goal', 'Offensive', 'Spam', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-gwwhy="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div></div>' : '') +
+          '</article>';
+      });
+      html += gwPutUp() + gwWinner();
+    }
+    $('gwBody').innerHTML = html;
+  }
+  // A gaffer, with their team open: put one of its goals up (or swap it for another).
+  function gwPutUp() {
+    if (role !== 'owner' || !A.active || !teamId || DROID) return '';
+    var up = (GW.d.entries || []).filter(function (x) { return x.team_id === teamId; })[0], list = gwGoals();
+    var html = '<div class="hcard gwput"><h3>Put up one of ' + esc(teamName()) + '’s goals</h3><p class="note">' + (up ? 'You’ve put one up this week. Pick another to swap it.' : 'One goal a week. Everyone on Gaffer will be able to watch it, with its caption, your team’s name and who it was against.') + '</p>';
+    if (!list.length) return html + '<p class="note">None of your goals from the last two weeks have been cut into clips yet. Cut a game’s highlights first, from Highlights.</p></div>';
+    return html + '<ul class="gwlist">' + list.map(function (g) {
+      var on = up && up.game_id === g.c.game_id && up.at === g.c.at;
+      return '<li><span><b>' + esc(g.c.label || 'Goal') + '</b><small>' + esc(vs(g.r) + (dayOf(g.r) ? ', ' + dayOf(g.r) : '')) + '</small></span>' +
+        (on ? '<span class="badge you">Up this week</span>' : '<button class="plain tint" type="button" data-gwnom="' + esc(g.c.game_id) + '" data-at="' + g.c.at + '">Put it up</button>') + '</li>';
+    }).join('') + '</ul></div>';
+  }
+  // The latest winner: the reel when it's been made, otherwise the clip; the winning team's gaffer makes the reel.
+  function gwWinner() {
+    var L = GW.d.last, x = L && L.entry; if (!x) return '';
+    var reel = L.reel && L.reel.path ? L.reel : null, mineToMake = x.gaffer && x.team_id === teamId && role === 'owner' && !!RCp(), M = GW.mk;
+    var html = '<div class="hcard gwwin"><p class="gwkick">Winner, week of ' + esc(gwWeek(L.week)) + (L.sponsor ? ' · presented by ' + esc(L.sponsor) : '') + '</p>' +
+      '<h3><span class="gwdot" style="background:' + esc(x.color || '#5629d7') + '"></span>' + esc(x.team) + (x.mine ? '<span class="badge you">Your team</span>' : '') + '</h3>' +
+      '<p class="note">' + esc(gwGame(x)) + '. Won with ' + L.votes + (L.votes === 1 ? ' vote' : ' votes') + '.</p>' +
+      (reel ? gwVideo(reel) : gwVideo(x.video)) + (x.video && x.video.label ? '<p class="gwlabel">' + esc(x.video.label) + '</p>' : '');
+    var tools = '';
+    if (mineToMake) {
+      html += '<p class="note">' + (reel ? 'Your team’s winner’s reel is up for everyone to watch. Make it again if you like.' : 'You won! Make the winner’s reel: the goal, then a Goal of the Week card with ' + esc(teamName()) + '’s name on it. Everyone can watch it here, and you can share it.') + '</p>';
+      if (canVoice()) html += '<label class="check"><input type="checkbox" id="gwVoice"' + (GW.voice ? ' checked' : '') + (M.busy ? ' disabled' : '') + '> Add AI commentary</label>';
+      tools += '<button class="plain primary" type="button" data-gwmake="1"' + (M.busy ? ' disabled' : '') + '>' + (reel ? 'Make the reel again' : 'Make the winner’s reel') + '</button>';
+    }
+    if (reel && RCp() && !M.busy) tools += '<button class="plain" type="button" data-gwshare="1">Save or share it</button>';
+    if (M.path && !M.busy) tools += '<button class="plain" type="button" data-gwshare="mine">Share what you made</button>';
+    if (tools) html += '<div class="actions">' + tools + '</div>';
+    if (M.prog || M.msg) html += '<p class="msg' + (M.bad ? ' bad' : '') + '" role="status" id="gwMk">' + esc(M.prog || M.msg) + '</p>';
+    return html + '</div>';
+  }
+  async function gwNominate(game, at) {
+    if (!sb || !A.active || role !== 'owner') return;
+    GW.msg = 'Putting it up…'; GW.bad = false; renderGotw();
+    try {
+      var res = (await q(sb.rpc('gotw_nominate', { p_code: A.active, p_game: game, p_at: at }))).data || {};
+      if (res.error) { GW.msg = GW_ERR[res.error] || 'That couldn’t go up.'; GW.bad = true; }
+      else { GW.msg = 'It’s up for Goal of the Week. Everyone on Gaffer can watch it and vote until Sunday.'; }
+    } catch (e) { GW.msg = 'Couldn’t put it up. Check your signal and try again.'; GW.bad = true; }
+    GW.busy = false; await gwLoad(); window.scrollTo(0, 0);
+  }
+  async function gwWithdraw() {
+    if (!sb || !A.active || role !== 'owner') return;
+    try { await q(sb.rpc('gotw_withdraw', { p_code: A.active })); GW.msg = 'Taken down. You can put another up this week.'; GW.bad = false; }
+    catch (e) { GW.msg = 'Couldn’t take it down. Check your signal and try again.'; GW.bad = true; }
+    await gwLoad();
+  }
+  async function gwVote(id) {
+    if (!sb || !me || !GW.d || GW.d.voted === id) return;
+    var was = GW.d.voted; GW.d.voted = id; GW.msg = ''; renderGotw(); // (straight away here; the board read after confirms it)
+    try {
+      var res = (await q(sb.rpc('gotw_vote', { p_nom: id }))).data || {};
+      if (res.error) { GW.d.voted = was; GW.msg = GW_ERR[res.error] || 'That vote didn’t count.'; GW.bad = true; }
+      else { GW.msg = was ? 'Vote changed. You can change it until Sunday.' : 'Vote in. You can change it until Sunday.'; GW.bad = false; }
+    } catch (e) { GW.d.voted = was; GW.msg = 'Couldn’t vote. Check your signal and try again.'; GW.bad = true; }
+    await gwLoad();
+  }
+  async function gwReport(id, why) {
+    GW.rep = null;
+    try { await q(sb.rpc('gotw_report', { p_nom: id, p_reason: why })); reported('gotw'); GW.msg = 'Thanks. It’s been reported, and Gaffer looks at every report.'; GW.bad = false; }
+    catch (e) { GW.msg = 'Couldn’t report it. Check your signal and try again.'; GW.bad = true; }
+    renderGotw();
+  }
+  function gwSay(prog, msg, bad) { GW.mk.prog = prog || ''; if (msg !== undefined) GW.mk.msg = msg; GW.mk.bad = !!bad; if (S.view === 'gotw') renderGotw(); }
+  // The winner's reel, made on the winning gaffer's iPhone from the goal's clip (with its own commentary, if asked), with a
+  // Goal of the Week end card, then kept for everyone (<team>/gotw/...) and shared.
+  async function gwMake() {
+    var rc = RCp(), L = GW.d && GW.d.last, x = L && L.entry; if (!rc || !x || GW.mk.busy || x.team_id !== teamId || role !== 'owner') return;
+    var c = clips.filter(function (k) { return k.game_id === x.game_id && k.at === x.at; }).sort(function (a, b) { return a.seq - b.seq; })[0] || x.video;
+    if (!c || !c.path) { gwSay('', 'The clip for this goal has gone, so the reel can’t be made.', true); return; }
+    var r = S.results.filter(function (k) { return k.id === x.game_id; })[0] || null, name = teamName(), note = '';
+    GW.mk = { busy: true, prog: '', msg: '', bad: false, path: null }; gwSay(GW.voice && canVoice() ? 'Recording the commentary…' : 'Making the reel…');
+    var item = { url: clipSrc(c, false) }, intro = null, signOff = null;
+    if (GW.voice && canVoice() && !(await aiAsk())) note = ' No commentary: ' + AI_NO;
+    else if (GW.voice && canVoice()) {
+      var sweary = voicePick().style === 'sweary', who = name + (L.sponsor ? '. Goal of the Week is presented by ' + L.sponsor : '');
+      var lines = [sweary ? 'Goal of the Week. Get a load of this from ' + who + '.' : 'Here it is: your Goal of the Week, from ' + who + '.', c.vpath ? '' : (r ? commentaryFor(r, c, sweary) : ''),
+        sweary ? 'That’s your Goal of the Week. ' + name + ', what a fucking goal.' : 'That’s your Goal of the Week. ' + name + ', take a bow.'].map(spokenLine);
+      if (c.vpath) item.url = clipSrc(c, true); // (the goal's own commentary is already on its voiced copy)
+      try {
+        var vp = voicePick(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
+        if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) { intro = vd.audio[0] || null; signOff = vd.audio[2] || null; if (vd.audio[1]) { item.voice = vd.audio[1]; item.voiceAt = Math.max(0.5, (+c.dur || 14) - POST + 0.5); } }
+        else note = ' The commentary couldn’t be added: ' + ((vd && vd.error) || 'the voice service didn’t answer.');
+      } catch (e) { note = ' The commentary couldn’t be added: the voice service couldn’t be reached.'; }
+      gwSay('Making the reel…');
+    }
+    try {
+      var votes = L.votes + (L.votes === 1 ? ' vote' : ' votes'), label = String((x.video && x.video.label) || '').replace(/^\d+’?'?\s*/, '').replace(/\s*\(\d+–\d+\)$/, '');
+      var res = await rc.joinReel({ items: [item], introVoice: intro, outroVoice: signOff, file: 'goal-of-the-week-' + L.week + '.mp4', shrink: true,
+        outro: { kicker: 'Goal of the Week', sponsor: L.sponsor || '', title: name, sub: [label, 'Week of ' + gwWeek(L.week), 'Won with ' + votes].filter(Boolean).join(' · '), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
+      if (!res || !res.path) throw new Error('the reel didn’t come out.');
+      GW.mk.path = res.path; gwSay('Putting it up for everyone…');
+      var key = teamId + '/gotw/' + L.week + '-' + Date.now() + '.mp4', got = await clipCall('upload', { paths: [key] });
+      if (got && got.error && got.reason !== 'not_configured') throw new Error(got.error);
+      var inR2 = await upFile(res.path, key, got && got.urls ? got.urls[0] : null);
+      var kept = (await q(sb.rpc('gotw_save_reel', { p_week: L.week, p_path: key, p_store: inR2 ? 'r2' : null }))).data || {};
+      if (!kept.ok) { try { if (inR2) await clipCall('remove', { paths: [key] }); } catch (e) {} throw new Error(kept.error === 'not_yours' ? 'only the winning team’s gaffers can.' : 'it wasn’t accepted.'); }
+      if (kept.old) try { if (L.reel && L.reel.store === 'r2') await clipCall('remove', { paths: [kept.old] }); else await q(sb.storage.from('clips').remove([kept.old])); } catch (e) {}
+      GW.mk.busy = false; gwSay('', 'The winner’s reel is up for everyone to watch.' + note, false);
+      rc.share({ path: res.path }).catch(function () {});
+      await gwLoad();
+    } catch (e) { GW.mk.busy = false; gwSay('', 'Couldn’t make the reel: ' + ((e && e.message) || 'something went wrong.') + (GW.mk.path ? ' It’s still on this phone to share.' : ''), true); }
+  }
+  async function gwShare(own) {
+    var rc = RCp(), L = GW.d && GW.d.last; if (!rc || GW.mk.busy) return;
+    if (own && GW.mk.path) { rc.share({ path: GW.mk.path }).catch(function () {}); return; }
+    if (!L || !L.reel || !L.reel.path) return;
+    GW.mk = { busy: true, prog: '', msg: '', bad: false, path: null }; gwSay('Getting the reel…');
+    try { var res = await rc.joinReel({ items: [{ url: clipUrl(L.reel) }], file: 'goal-of-the-week-' + L.week + '.mp4' }); GW.mk.busy = false; GW.mk.path = res && res.path; gwSay('', ''); if (GW.mk.path) rc.share({ path: GW.mk.path }).catch(function () {}); }
+    catch (e) { GW.mk.busy = false; gwSay('', 'Couldn’t get the reel onto this phone. Check your signal and try again.', true); }
+  }
+  window.gafferGotw = { load: gwLoad, open: gwOpen, board: function () { return GW.d; }, signOut: function () { return signOutAll(); } }; // (for the tests)
+  $('gwBack').addEventListener('click', function () { go(GW.back && GW.back !== 'gotw' ? GW.back : (A.active ? 'home' : 'feed')); });
+  $('gwBody').addEventListener('change', function (e) { if (e.target.id === 'gwVoice') GW.voice = e.target.checked; });
+  $('gwBody').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || b.disabled) return; var g = function (k) { return b.getAttribute(k); };
+    if (g('data-gwa') === 'signin') { A.after = 'gotw'; go('account'); }
+    else if (g('data-gwvote')) gwVote(g('data-gwvote'));
+    else if (g('data-gwnom')) gwNominate(g('data-gwnom'), +g('data-at'));
+    else if (g('data-gwoff')) gwWithdraw();
+    else if (g('data-gwrep')) { GW.rep = GW.rep === g('data-gwrep') ? null : g('data-gwrep'); renderGotw(); }
+    else if (g('data-gwwhy') && GW.rep) gwReport(GW.rep, g('data-gwwhy'));
+    else if (g('data-gwmake')) gwMake();
+    else if (g('data-gwshare')) gwShare(g('data-gwshare') === 'mine');
   });
 
   // Likes, the ⋯ menu, deleting and reporting work the same wherever a post is shown (Home, a profile, a post on its own).
@@ -3226,7 +3445,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     me = null; closeTeam();
     A.teams.slice().forEach(function (t) { forgetTeam(t.code); });
     A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; preels = []; crest = null; J = null;
-    TP = { code: null, map: {}, at: 0 }; MYP = undefined; profAsked = null; PPL = { q: '', found: null, teams: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; FD = { posts: null, games: null, busy: false, msg: '', open: null, arm: null, seenAt: 0 }; $('unamePop').hidden = true; $('postPop').hidden = true; pplBadges();
+    TP = { code: null, map: {}, at: 0 }; MYP = undefined; profAsked = null; PPL = { q: '', found: null, teams: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; FD = { posts: null, games: null, busy: false, msg: '', open: null, arm: null, seenAt: 0 }; GW.d = null; GW.tried = 0; GW.msg = ''; GW.mk = { busy: false, prog: '', msg: '', bad: false, path: null }; $('unamePop').hidden = true; $('postPop').hidden = true; pplBadges();
     CH = { code: null, list: [], unread: 0 }; RV = { code: null, list: [], home: null, near: [], q: '', form: null, msg: '' }; myAsk = null; asks = []; askMsg = ''; S = blankTeam(); S.view = 'welcome'; role = 'viewer'; document.body.className = 'ro';
     saveApp(); applyTheme(); go('welcome');
   }
@@ -3609,11 +3828,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- the bar along the bottom: Home, Games, Settings
   function renderTabs() {
     if (AUTO.io) setTimeout(feedPick, 0); // (leaving the feed stops its video)
-    var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = role === 'owner';
+    var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'gotw', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = role === 'owner';
     if (DROID) show = !!A.active && DROID_VIEWS.indexOf(S.view) >= 0 && ['welcome', 'join'].indexOf(S.view) < 0; // (Team, Highlights, Games, Chat and Account)
     $('tabMe').textContent = DROID ? 'Account' : 'Profile';
     $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
-    var cur = S.view === 'profile' ? (PF.tab ? 'profile' : '') : S.view === 'options' ? (optFrom === 'profile' ? 'profile' : 'home') : S.view === 'people' || S.view === 'teamview' ? 'feed' : S.view === 'account' ? 'profile' : S.view;
+    var cur = S.view === 'profile' ? (PF.tab ? 'profile' : '') : S.view === 'options' ? (optFrom === 'profile' ? 'profile' : 'home') : S.view === 'people' || S.view === 'teamview' ? 'feed' : S.view === 'gotw' ? (GW.back === 'highlights' ? 'highlights' : 'feed') : S.view === 'account' ? 'profile' : S.view;
     Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === cur) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); if (v === 'games' || v === 'chat') b.hidden = !A.active; if (v === 'highlights') b.hidden = !DROID || !A.active; if (v === 'feed') b.hidden = DROID; });
     $('optViewer').hidden = own;
     var todo = myPid == null ? 0 : fixtures.filter(function (f) { return !(f.votes || []).some(function (v) { return v.pid === myPid; }); }).length;
@@ -4192,6 +4411,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function renderHighlights() {
     if (guestGame) { var gr = S.results.filter(function (x) { return x.id === guestGame; })[0]; if (gr && hlFocus !== gr) { hlFocus = gr; hlBy = 'game'; } }
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
+    $('hlGw').innerHTML = guestGame ? '' : gwStrip(); // (Goal of the Week, above the list)
     var own = role === 'owner', html = guestCard(), games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
     if (!games.length) { $('hlList').innerHTML = html + '<div class="hcard"><h3>No games yet</h3><p class="note">Highlights appear here after your first finished game. Every goal, assist and save you log is kept as a moment.</p></div>'; return; }
     if (hlBy === 'game') {
@@ -4402,6 +4622,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('toPlayerReels').addEventListener('click', function () { hlBy = 'player'; hlFocus = null; go('highlights'); });
   $('hlToggle').addEventListener('click', function (e) { var by = e.target.getAttribute('data-by'); if (by) { hlBy = by; renderHighlights(); } });
   $('hlList').addEventListener('toggle', function (e) { var d = e.target; if (d && d.hasAttribute && d.hasAttribute('data-hlopen')) HLOPEN[d.getAttribute('data-hlopen')] = d.open; }, true);
+  $('hlGw').addEventListener('click', function (e) { if (e.target.closest('[data-gw]')) gwOpen('highlights'); });
   $('hlList').addEventListener('click', function (e) {
     var mb = e.target.closest('[data-mh]'); if (mb) { mhOpen(+mb.getAttribute('data-mh')); return; }
     var sk = e.target.closest('[data-seek]');
@@ -7797,7 +8018,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   } catch (e) {}
   upgrade(S.match);
   if (S.match) lastBlock = curSeg(S.match);
-  var first = !A.introSeen && !DROID ? 'intro' : !A.active ? 'welcome' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
+  var first = !A.introSeen && !DROID ? 'intro' : !A.active ? 'welcome' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account', 'gotw'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
   go(first);
   setSync();
   connect();

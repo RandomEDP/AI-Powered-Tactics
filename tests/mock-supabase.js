@@ -100,6 +100,56 @@
       if (['fwd', 'def', 'mix', 'gk'].indexOf(a.p_position) < 0) return ok('position');
       const was = p.user_id; p.user_id = uid(); p.last_name = a.p_last_name || null; p.position = a.p_position; if (was !== uid()) followMates(d, t.id, uid()); store(d); return ok('ok');
     }
+    // ---------- Goal of the Week (0036), as the real functions behave: weeks run Monday to Sunday, UK time
+    if (name.startsWith('gotw_')) {
+      if (!uid()) return fail('Sign in first', '42501');
+      ['gotw_noms', 'gotw_votes', 'gotw_winners', 'gotw_sponsors', 'gotw_reports'].forEach((k) => { d[k] = d[k] || []; });
+      const parts = (ms) => { const o = {}; new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms)).forEach((p) => { o[p.type] = +p.value; }); return o; };
+      const weekOf = (ms) => { const o = parts(ms), day = new Date(Date.UTC(o.year, o.month - 1, o.day)); day.setUTCDate(day.getUTCDate() - (day.getUTCDay() + 6) % 7); return day.toISOString().slice(0, 10); };
+      const endsOf = (w) => { const dt = new Date(w + 'T00:00:00Z'); dt.setUTCDate(dt.getUTCDate() + 7); const u = dt.getTime(), o = parts(u); return u - (Date.UTC(o.year, o.month - 1, o.day, o.hour, o.minute, o.second) - u); };
+      const w = weekOf(Date.now()), isIn = (team) => d.players.some((p) => p.team_id === team && p.user_id === uid()) || isOrg(d, team);
+      const live = (n) => !n.removed_at;
+      const entry = (n) => { const t = d.teams.find((x) => x.id === n.team_id), g = d.games.find((x) => x.id === n.game_id); if (!t || !g) return null;
+        const c = d.clips.filter((x) => x.game_id === n.game_id && x.at === n.at).sort((a1, b1) => a1.seq - b1.seq)[0];
+        return { id: n.id, team_id: t.id, team: t.name, short: t.short, color: t.color, opp: g.opp, house: g.house ? { a: g.house.a, b: g.house.b } : null, played: g.ko_at ?? g.finished_at ?? null, game_id: n.game_id, at: n.at,
+          mine: isIn(t.id), gaffer: isOrg(d, t.id), video: c ? { path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur } : null }; };
+      const hash = (s1) => { let h = 0; for (const ch of s1) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; };
+      if (name === 'gotw_board') {
+        [...new Set(d.gotw_noms.filter((n) => n.week < w).map((n) => n.week))].sort().forEach((wk) => { if (d.gotw_winners.some((x) => x.week === wk)) return;
+          const ranked = d.gotw_noms.filter((n) => n.week === wk && live(n)).map((n) => ({ n, v: d.gotw_votes.filter((v) => v.nom_id === n.id && v.week === wk).length })).sort((a1, b1) => b1.v - a1.v || a1.n.created_at - b1.n.created_at);
+          const best = ranked[0] && ranked[0].v > 0 ? ranked[0] : null, sp = d.gotw_sponsors.find((x) => x.week === wk);
+          d.gotw_winners.push({ week: wk, nom_id: best ? best.n.id : null, team_id: best ? best.n.team_id : null, votes: best ? best.v : 0, sponsor: sp ? sp.name : null, reel: null, decided_at: Date.now(), notified_at: null }); });
+        store(d);
+        const last = d.gotw_winners.filter((x) => x.week < w && x.nom_id).sort((a1, b1) => (a1.week < b1.week ? 1 : -1))[0], sp = d.gotw_sponsors.find((x) => x.week === w);
+        const counted = d.gotw_votes.filter((v) => v.week === w && d.gotw_noms.some((n) => n.id === v.nom_id && live(n))), mineV = counted.find((v) => v.user_id === uid());
+        const ln = last && d.gotw_noms.find((n) => n.id === last.nom_id && !n.pulled);
+        return ok({ week: w, ends: endsOf(w), sponsor: sp ? sp.name : null, voted: mineV ? mineV.nom_id : null, votes: counted.length,
+          entries: d.gotw_noms.filter((n) => n.week === w && live(n)).sort((a1, b1) => hash(a1.id + uid()) - hash(b1.id + uid())).map(entry).filter(Boolean),
+          last: last ? { week: last.week, votes: last.votes, sponsor: last.sponsor, reel: last.reel, notified: !!last.notified_at, entry: ln ? entry(ln) : null } : null });
+      }
+      if (name === 'gotw_nominate') {
+        const t = d.teams.find((x) => x.code === String(a.p_code || '').trim().toUpperCase()); if (!t || !isOrg(d, t.id)) return ok({ error: 'not_gaffer' });
+        const c = d.clips.filter((x) => x.team_id === t.id && x.game_id === a.p_game && x.at === a.p_at).sort((a1, b1) => a1.seq - b1.seq)[0]; if (!c) return ok({ error: 'no_clip' });
+        if (c.at < Date.now() - 14 * 86400000) return ok({ error: 'too_old' });
+        const g = d.games.find((x) => x.id === c.game_id) || {}, to = c.at + (c.dur || 14) * 1000;
+        if (!d.game_events.some((e) => e.game_id === c.game_id && !e.from_link && e.at != null && e.at >= c.at - 1000 && e.at <= to && (e.kind === 'goal' || (e.kind === 'against' && e.pid != null && g.house)))) return ok({ error: 'not_a_goal' });
+        if (d.gotw_noms.some((n) => n.game_id === c.game_id && n.at === c.at && (n.pulled || (live(n) && n.week !== w)))) return ok({ error: 'used' });
+        if (d.gotw_noms.some((n) => n.week === w && n.team_id === t.id && live(n) && n.game_id === c.game_id && n.at === c.at)) return ok({ ok: true, week: w });
+        d.gotw_noms.forEach((n) => { if (n.week === w && n.team_id === t.id && live(n)) n.removed_at = Date.now(); });
+        d.gotw_noms.push({ id: crypto.randomUUID(), week: w, team_id: t.id, game_id: c.game_id, at: c.at, nominated_by: uid(), created_at: Date.now() + d.gotw_noms.length, removed_at: null, pulled: false });
+        store(d); return ok({ ok: true, week: w });
+      }
+      if (name === 'gotw_withdraw') { const t = d.teams.find((x) => x.code === String(a.p_code || '').trim().toUpperCase()); if (!t || !isOrg(d, t.id)) return ok(false);
+        const hit = d.gotw_noms.filter((n) => n.week === w && n.team_id === t.id && live(n)); hit.forEach((n) => { n.removed_at = Date.now(); }); store(d); return ok(hit.length > 0); }
+      if (name === 'gotw_vote') { const n = d.gotw_noms.find((x) => x.id === a.p_nom && live(x)); if (!n) return ok({ error: 'missing' }); if (n.week !== w) return ok({ error: 'closed' }); if (isIn(n.team_id)) return ok({ error: 'own_team' });
+        const v = d.gotw_votes.find((x) => x.week === w && x.user_id === uid()); if (v) v.nom_id = n.id; else d.gotw_votes.push({ week: w, user_id: uid(), nom_id: n.id }); store(d); return ok({ ok: true }); }
+      if (name === 'gotw_report') { if (!d.gotw_noms.some((n) => n.id === a.p_nom)) return ok(false); const r = d.gotw_reports.find((x) => x.nom_id === a.p_nom && x.user_id === uid());
+        if (r) r.reason = String(a.p_reason || ''); else d.gotw_reports.push({ nom_id: a.p_nom, user_id: uid(), reason: String(a.p_reason || '') }); store(d); return ok(true); }
+      if (name === 'gotw_save_reel') { const wn = d.gotw_winners.find((x) => x.week === a.p_week); if (!wn || !wn.team_id || !isOrg(d, wn.team_id)) return ok({ error: 'not_yours' });
+        const p = String(a.p_path || ''); if (!p.startsWith(wn.team_id + '/gotw/') || p.includes('..')) return ok({ error: 'bad_path' });
+        const old = wn.reel && wn.reel.path !== p ? wn.reel.path : null; wn.reel = { path: p, store: a.p_store === 'r2' ? 'r2' : null, made_at: Date.now() }; store(d); return ok({ ok: true, old }); }
+      return fail('no such function ' + name, '42883');
+    }
     // ---------- profiles and following (0023), as the real functions behave
     const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team', 'create_post', 'remove_post', 'like_post', 'report_post', 'get_feed', 'user_posts', 'my_reels', 'team_people', 'tag_post', 'untag_post', 'user_tagged'];
     if (PEOPLE.includes(name)) {
@@ -531,6 +581,9 @@
       const t = d.teams.find((x) => x.code === String(o.body.code || '').trim().toUpperCase()), st = t && d.team_streams.find((x) => x.team_id === t.id);
       if (!st || !st.started_at || st.notified_at || !(d.camera && st.enabled)) return { data: { sent: 0 }, error: null };
       st.notified_at = Date.now(); st.on_air_at = st.on_air_at || st.notified_at; d.livePushes = (d.livePushes || 0) + 1; store(d); return { data: { sent: 2, people: 2 }, error: null };
+    } if (name === 'team-notify' && o.body.kind === 'gotw') { // Goal of the Week decided: sent once, like the real one
+      const wn = (d.gotw_winners || []).find((x) => x.week === o.body.week); if (!wn || !wn.nom_id || wn.notified_at) return { data: { sent: 0 }, error: null };
+      wn.notified_at = Date.now(); d.gotwPushes = (d.gotwPushes || 0) + 1; store(d); return { data: { sent: 3, people: 3 }, error: null };
     } if (name === 'reel-voice') { // (with d.voicesSold, as the real one once 0034 is live: a paid voice only for whoever bought it)
       const b = o.body, style = b.style === 'sweary' ? 'sweary' : 'plain', voice = 'Fenrir';
       if (b.action === 'sample') { d.samples = d.samples || {}; const f = voice.toLowerCase() + '-' + style + '.mp3'; const made = !d.samples[f]; d.samples[f] = (d.samples[f] || 0) + 1; store(d); return { data: { url: 'data:audio/mpeg;base64,QUJD#' + f, made }, error: null }; }
