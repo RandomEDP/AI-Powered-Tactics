@@ -362,7 +362,11 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `aiAsk` first). Nothing is cut from the match video and no other clip is touched. The new copies go up under a new name
   (`01-<stamp>.mp4`, so no phone keeps the old one), the row points at them and the old files go. The game's one video is
   cleared and joined again from the clips (`mhMake` with `MKVER`, `reel-<stamp>.mp4`). On the web only the stats and
-  caption change, and it says to fix it again on the iPhone. Test: `reels.test.mjs`.
+  caption change, and it says to fix it again on the iPhone. Making the clip again can take minutes (Ethan's took 20 with
+  Gaffer put away) and coming back re-reads the team, so every change lands on whichever copy of the clip and game is
+  current (`mark`, `gameNow`), the phone's saved clips are rewritten (`clipsKeep`) and an open whole-match player moves
+  onto the new clip (`mhRebind`, also after every pull; a clip that won't load re-reads the team once). Before this the
+  phone kept playing the old file it had just deleted. Test: `reels.test.mjs`.
 - **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies) and its reel,
   to cut again from scratch.
 - **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each

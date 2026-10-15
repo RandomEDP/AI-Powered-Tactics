@@ -1713,7 +1713,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (!d) { forgetTeam(code); closeTeam(); S = blankTeam(); S.view = 'welcome'; go('welcome'); setSync('gone'); return; }
       teamId = d.team.id; orgCode = d.team.organiser_code || null; stale = false;
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
-      myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500);
+      myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500); mhRebind();
       if (S.view === 'home' || S.view === 'games') renderFixture();
       renderTabs(); tpLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
@@ -1729,7 +1729,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
           if (JSON.stringify(mine) !== JSON.stringify(saved)) { synced = saved; setRole('owner'); dirty = true; syncAll(); return; }
         }
       }
-      adopt(remote);
+      adopt(remote); mhRebind();
       setCrest(d.team.crest, true);
       synced = org ? snapshot() : null;
       var flipScore = false;
@@ -3782,6 +3782,19 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     return '<button class="mhbtn" type="button" data-mh="' + gi + '"><span class="mhplay" aria-hidden="true">▶</span><span><b>Watch the whole match highlights</b><small>' +
       list.length + (list.length === 1 ? ' moment' : ' moments') + ' · ' + mhTime(mhLength(list)) + '</small></span></button>';
   }
+  function clipsKeep() { // this phone's copy of the team's clips, kept for opening with no signal
+    if (!A.active) return;
+    try { var k = TKEY + A.active + ':roster', rc = JSON.parse(localStorage.getItem(k)) || {}; rc.clips = clips; localStorage.setItem(k, JSON.stringify(rc)); } catch (e) {}
+  }
+  function mhRebind() { // the whole-match player, open while the team is re-read (or a clip is made again): onto the current clips
+    if (!MH) return;
+    var r = S.results.filter(function (x) { return x.id === MH.r.id; })[0] || MH.r, list = clips.filter(function (c) { return c.game_id === r.id; });
+    if (!list.length) return;
+    var v = $('mhVideo'), was = v.getAttribute('src'), at = v.currentTime || 0, cur = MH.list[MH.i], i = cur ? list.map(function (c) { return c.seq; }).indexOf(cur.seq) : 0;
+    MH.r = r; MH.list = list; MH.reel = hasReel(r, list); MH.i = Math.max(0, i);
+    if (mhSrc() !== was) { var playing = !v.paused; mhLoad(MH.i, playing); if (MH.reel && was && /reel/.test(was)) try { v.currentTime = at; } catch (e) {} }
+    mhDraw();
+  }
   function mhOpen(gi) {
     var r = S.results[gi]; if (!r) return;
     var list = clips.filter(function (c) { return c.game_id === r.id; }); if (!list.length) return;
@@ -3878,6 +3891,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var was = { p: e.p, a: e.a }, p = FX.p, a = FX.a, said = function (id) { return id != null ? nm(id) : 'no one'; };
     var inClip = function () { return reelClips(r, 1e5, PRE, POST).filter(function (c) { return c.items.some(function (it) { return it.e === e; }); })[0]; };
     var pc = inClip(), row = pc && clips.filter(function (c) { return c.game_id === r.id && c.at === pc.at; })[0];
+    // Making the clip again can take minutes (longer if Gaffer is put away), and the team can be re-read meanwhile, which
+    // swaps this phone's clips and games for fresh copies. So every change below goes on whichever copy is current.
+    var mark = function (o) { clips.concat(row ? [row] : []).forEach(function (c) { if (c.game_id === r.id && c.seq === row.seq) Object.assign(c, o); }); };
+    var gameNow = function () { return S.results.filter(function (x) { return x.id === r.id; })[0] || r; };
     var main = pc && (pc.items.filter(function (x) { return !x.plain; })[0] || pc.items[0]).e === e, barWas = pc ? clipLook(r, pc).lower : null;
     // the stats: the event, and the goal and assist moved from one player to the other
     var per = r.per = r.per || {}, bump = function (id, k, d) { if (id == null) return; var x = per[id] = per[id] || { mins: 0, g: 0, a: 0 }; x[k] = Math.max(0, (x[k] || 0) + d); };
@@ -3888,7 +3905,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (!row) { clearTimeout(wt); await syncAll(); fixSay(told + '.'); return; }
       var now = inClip(); // its caption and whose clip it is
       await q(sb.from('clips').update({ label: now.labels.join(' / ').slice(0, 200), pids: now.pids }).eq('game_id', r.id).eq('seq', row.seq));
-      row.label = now.labels.join(' / ').slice(0, 200); row.pids = now.pids;
+      mark({ label: now.labels.join(' / ').slice(0, 200), pids: now.pids });
       clearTimeout(wt); await syncAll();
       var rc = RCp();
       if (!main || !barWas) { fixSay(told + ', and so is the clip’s caption.'); ping('changed'); return; }
@@ -3913,21 +3930,22 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (made.voiced) { var vR2 = await upFile(made.voiced.path, keys[1], r2 ? links[keys[1]] : null); if (vR2 === inR2) vKey = keys[1]; }
       var old = { path: row.path, vpath: row.vpath, store: row.store };
       await q(sb.from('clips').update({ path: keys[0], vpath: vKey, store: inR2 ? 'r2' : null }).eq('game_id', r.id).eq('seq', row.seq));
-      row.path = keys[0]; row.vpath = vKey; row.store = inR2 ? 'r2' : null;
+      mark({ path: keys[0], vpath: vKey, store: inR2 ? 'r2' : null }); clipsKeep();
       var gone = [old.path, old.vpath].filter(Boolean); // the old copies go
       try { if (old.store === 'r2') await clipCall('remove', { paths: gone }); else await q(sb.storage.from('clips').remove(gone)); } catch (ge) {}
       // the game's one video had the old clip in: it's joined again from the clips (nothing is cut again)
       var reelNote = '';
-      if (r.reel && r.reel.path) {
-        var oldReel = r.reel, rg = [oldReel.path, oldReel.vpath].filter(Boolean);
-        await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null;
+      var rr = gameNow(), oldReel = rr.reel && rr.reel.path ? rr.reel : r.reel && r.reel.path ? r.reel : null;
+      if (oldReel) {
+        var rg = [oldReel.path, oldReel.vpath].filter(Boolean);
+        await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null; rr.reel = null;
         try { await q(sb.from('clips').update({ reel_at: null }).eq('game_id', r.id)); } catch (ce) {}
-        clips.forEach(function (c) { if (c.game_id === r.id) c.reel_at = null; });
+        clips.forEach(function (c) { if (c.game_id === r.id) c.reel_at = null; }); clipsKeep();
         try { if (oldReel.store === 'r2') await clipCall('remove', { paths: rg }); else await q(sb.storage.from('clips').remove(rg)); } catch (re) {}
-        MKVER[r.id] = stamp; MKTRIED[r.id] = true; setTimeout(function () { mhMake(r, true); }, 300);
+        MKVER[r.id] = stamp; MKTRIED[r.id] = true; setTimeout(function () { mhMake(gameNow(), true); }, 300);
         reelNote = ' The game’s one video is being joined again with it; it carries on while you use Gaffer.';
       }
-      ping('changed');
+      ping('changed'); mhRebind();
       fixSay(told + ', and that clip has been made again with the right names.' + vNote + reelNote);
     } catch (err) { fixSay(told + ', but the clip couldn’t be made again: ' + ((err && err.message) || 'something went wrong') + ' Try Fix a goal again with a signal.', false, true); }
     if (S.view === 'highlights') renderHighlights();
@@ -3952,7 +3970,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     await q(sb.from('games').update({ reel: p.row }).eq('id', p.gid));
     for (var seq in p.at) { try { await q(sb.from('clips').update({ reel_at: p.at[seq] }).eq('game_id', p.gid).eq('seq', +seq)); } catch (e) {} }
     clips.forEach(function (c) { if (c.game_id === p.gid && p.at[c.seq] != null) c.reel_at = p.at[c.seq]; });
-    r = r || S.results.filter(function (x) { return x.id === p.gid; })[0]; if (r) r.reel = p.row;
+    var rn = S.results.filter(function (x) { return x.id === p.gid; })[0]; if (r && r !== rn) r.reel = p.row; r = rn || r; if (r) r.reel = p.row; clipsKeep();
     mkSetPending(mkPending().filter(function (x) { return x.gid !== p.gid; }));
     MK = { gid: p.gid, busy: false, prog: '', msg: 'It’s one video now, for everyone in the team.', bad: false, part: '', again: null }; ping('changed');
     if (MH && MH.r.id === p.gid) { var cur = MH.list[MH.i] && MH.list[MH.i].reel_at; MH.reel = hasReel(MH.r, MH.list); mhLoad(0, !$('mhVideo').paused); if (typeof cur === 'number') try { $('mhVideo').currentTime = cur; } catch (e) {} }
@@ -4025,6 +4043,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     $('mhMsg').hidden = !say; $('mhMsg').textContent = say; $('mhMsg').classList.toggle('bad', mine && MK.bad);
   }
   function mhClose() { MH = null; var v = $('mhVideo'); try { v.pause(); } catch (e) {} v.removeAttribute('src'); try { v.load(); } catch (e) {} $('mhPop').hidden = true; }
+  $('mhVideo').addEventListener('error', function () { if (MH && !MH.retried) { MH.retried = true; refetch(); } }); // (a clip made again on another phone: its old file has gone, so re-read the team once and play the new one)
   $('mhVideo').addEventListener('loadedmetadata', function () { if (MH && MH.reel) mhDraw(); }); // (now the ticks can be placed)
   $('mhVideo').addEventListener('ended', function () { if (MH && !MH.reel && MH.i < MH.list.length - 1) { mhLoad(MH.i + 1, true); mhDraw(); } }); // the next clip straight after
   $('mhVideo').addEventListener('timeupdate', function () { // (the reel: which moment is playing)
