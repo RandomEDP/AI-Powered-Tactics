@@ -6,6 +6,9 @@
 //   -> { added, until, pot, months, kind, pence }   until: when the team's pass runs out (ms, null before the pot first
 //      fills); pot: pence towards the next month; months: how many months this purchase started; added false if it was
 //      counted already
+// It also counts the commentary voices bought once (0034_voice_unlocks.sql), with { action: "voice", transaction_id }
+// (no team: a voice belongs to the account that bought it):
+//   -> { added, voice }         voice: "steve"
 // Errors come back as { error, reason } in plain words, reason one of: not_configured, unknown, not_yours, refunded,
 // wrong_app, wrong_product, xcode.
 // Secrets (Edge Functions > Secrets), from App Store Connect, Users and Access, Integrations, In-App Purchase:
@@ -22,6 +25,8 @@ export const PRODUCTS: Record<string, { kind: string; pence: number }> = {
   [BUNDLE + ".team.chip199"]: { kind: "chip199", pence: 199 },
   [BUNDLE + ".team.chip299"]: { kind: "chip299", pence: 299 },
 };
+// The commentary voices bought once (the free one isn't sold): East London Steve 18+. The app has the same (VOICE_BUY).
+export const VOICE_PRODUCTS: Record<string, string> = { [BUNDLE + ".voice.steve"]: "steve" };
 const APPLE = ["https://api.storekit.itunes.apple.com", "https://api.storekit-sandbox.itunes.apple.com"]; // live first, then TestFlight's
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
@@ -64,9 +69,9 @@ Deno.serve(async (req: Request) => {
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
     if (!who?.user) return json({ error: "Sign in first." }, 401);
-    if (input.action !== "claim") return json({ error: "Nothing to do." }, 400);
-    const { data: team } = await db.from("teams").select("id").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
-    if (!team) return json({ error: "No such team." }, 404);
+    if (input.action !== "claim" && input.action !== "voice") return json({ error: "Nothing to do." }, 400);
+    const { data: team } = input.action === "voice" ? { data: null } : await db.from("teams").select("id").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
+    if (!team && input.action !== "voice") return json({ error: "No such team." }, 404);
     const tx = String(input.transaction_id || "");
     if (!/^[0-9A-Za-z_-]{1,64}$/.test(tx)) return no(400, "unknown", "That purchase couldn't be found.");
     if (input.environment === "Xcode") return no(400, "xcode", "That was a test purchase made in Xcode, which Apple can't check. Try it in a TestFlight build.");
@@ -76,13 +81,18 @@ Deno.serve(async (req: Request) => {
     const t = await fromApple(await appleJwt(p8, keyId, issuer), tx);
     if (!t) return no(404, "unknown", "Apple doesn't know that purchase.");
     if (t.bundleId !== BUNDLE) return no(400, "wrong_app", "That purchase wasn't made in Gaffer.");
-    const product = PRODUCTS[t.productId];
-    if (!product) return no(400, "wrong_product", "That purchase isn't a team pass.");
+    const product = PRODUCTS[t.productId], voice = VOICE_PRODUCTS[t.productId];
+    if (input.action === "voice" ? !voice : !product) return no(400, "wrong_product", input.action === "voice" ? "That purchase isn't a commentary voice." : "That purchase isn't a team pass.");
     // The app puts the buyer's account id on every purchase, so nobody can claim a purchase someone else made.
     if (String(t.appAccountToken || "").toLowerCase() !== who.user.id.toLowerCase()) return no(403, "not_yours", "That purchase was made by another account.");
     if (t.revocationDate) return no(400, "refunded", "Apple refunded that purchase, so it doesn't count.");
+    if (input.action === "voice") {
+      const { data, error } = await db.rpc("voice_credit", { p_user: who.user.id, p_voice: voice, p_tx: String(t.transactionId || tx), p_env: t.environment === "Sandbox" ? "Sandbox" : "Production" });
+      if (error) return json({ error: /another account/.test(error.message) ? "That purchase already unlocked the voice for another Gaffer account." : "Couldn't save it. Try again in a moment." }, /another account/.test(error.message) ? 409 : 500);
+      return json(Object.assign({ voice }, data));
+    }
 
-    const { data, error } = await db.rpc("pass_credit", { p_team: team.id, p_user: who.user.id, p_tx: String(t.transactionId || tx), p_product: product.kind, p_pence: product.pence, p_env: t.environment === "Sandbox" ? "Sandbox" : "Production" });
+    const { data, error } = await db.rpc("pass_credit", { p_team: team!.id, p_user: who.user.id, p_tx: String(t.transactionId || tx), p_product: product.kind, p_pence: product.pence, p_env: t.environment === "Sandbox" ? "Sandbox" : "Production" });
     if (error) return json({ error: /another team/.test(error.message) ? "That purchase already paid for another team." : "Couldn't save it. Try again in a moment." }, /another team/.test(error.message) ? 409 : 500);
     return json(Object.assign({ kind: product.kind, pence: product.pence }, data));
   } catch (e) {

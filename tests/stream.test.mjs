@@ -294,7 +294,7 @@ eq(OAUTH.length, 1, 'and Gaffer stays signed in to Google for the hour, not once
 globalThis.fetch = preFcm; delete ENV.GOOGLE_SERVICE_ACCOUNT; APNS.length = 0; reset();
 
 // ---------- the commentary voice (reel-voice): the team's gaffers, and its players for their own reels; nobody else
-DB.voice_usage = [];
+DB.voice_usage = []; DB.voice_unlocks = []; DB.voice_settings = [{ id: 1, on_sale: false }];
 const voiceFn = await load('reel-voice');
 ENV.GOOGLE_TTS_KEY = 'tts-key';
 const before = globalThis.fetch;
@@ -307,10 +307,14 @@ eq(DB.voice_usage[0] && DB.voice_usage[0].chars, 2 * 'What a goal from Jake!'.le
 const ttsAsked = [];
 globalThis.fetch = async (url, init = {}) => { if (String(url).startsWith('https://texttospeech.googleapis.com/')) { ttsAsked.push(JSON.parse(init.body)); return new Response(JSON.stringify({ audioContent: 'QUFBQUFB' }), { status: 200 }); } return before(url, init); };
 const said = async (style) => { ttsAsked.length = 0; const out = await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['HOW THE FUCK has Jake scored that?'], style }); return [out.engine, (ttsAsked[0] && ttsAsked[0].input.prompt) || '', ttsAsked[0] && ttsAsked[0].input.text]; };
+eq((await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['HOW THE FUCK has Jake scored that?'], style: 'sweary' })).engine, 'gemini', 'until Steve is on sale (0034\'s switch), he isn\'t locked: today\'s app keeps working');
+DB.voice_settings = [{ id: 1, on_sale: true }];
+eq((await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['HOW THE FUCK has Jake scored that?'], style: 'sweary' })).reason, 'locked', 'East London Steve (Sweary) is bought once (voices.test.mjs has the rest): refused until it is');
+DB.voice_unlocks = [{ user_id: 'u-ethan', voice: 'steve' }];
 const [swEngine, swPrompt, swText] = await said('sweary');
 check(swEngine === 'gemini' && /foul-mouthed/.test(swPrompt) && /swear words and all/.test(swPrompt) && swText === 'HOW THE FUCK has Jake scored that?', 'Sweary (18+) is performed as a foul-mouthed pub commentator, the line said word for word');
 check(/broad, proper East London Cockney accent/.test(swPrompt) && /Never Australian/.test(swPrompt), 'in a proper East London Cockney accent, spelt out (it came out Australian)');
-check(/excitable British football commentator/.test((await said('hype'))[1]), 'Live commentator is still the excitable telly commentator');
+eq((await said('hype')).slice(0, 2), ['chirp', ''], 'the free voice is read straight (Chirp, free up to Google\'s million characters a month), even if an older app asks for the live commentator');
 
 // Google's per-minute limit on the commentator voice (what Ethan's reels kept hitting: every line was asked for at once)
 ENV.VOICE_RETRY_MS = '5';
@@ -326,7 +330,7 @@ globalThis.fetch = quota(3);
 const paced = await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['One.', 'Two.', 'Three.', 'Four.'], style: 'sweary' });
 eq([paced.engine, paced.audio, most], ['gemini', ['R0VNSU5J', 'R0VNSU5J', 'R0VNSU5J', 'R0VNSU5J'], 1], 'told to slow down, it asks one line at a time and tries again: every line is performed');
 busy = 0; most = 0; refusals = 0; globalThis.fetch = quota(1000);
-const flat = await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['One.', 'Two.'], style: 'hype' });
+const flat = await voiceFn('tok-ethan', { code: 'sopfc1', lines: ['One.', 'Two.'], style: 'sweary' });
 check(flat.engine === 'chirp' && flat.audio.every((a) => a === 'Q0hJUlA=') && /IAM & Admin, Quotas, search gemini-2.5-flash-tts/.test(flat.note || ''), `if Google keeps refusing, the lines are read straight and the note says which limit to raise (${flat.note})`);
 delete ENV.VOICE_RETRY_MS;
 
