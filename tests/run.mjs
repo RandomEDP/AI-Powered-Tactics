@@ -52,6 +52,11 @@ else {
     if (build.status !== 0) note('quiet chat plugin', false, 'does not compile\n' + build.stderr);
     else { const r = spawnSync(path.join(tmp, 'quiettests'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout + r.stderr); note('quiet chat plugin', r.status === 0, lastLine(r.stdout)); }
   }
+  if (want('beat')) { // the beat edit's plan as the phone reads it; beat.test.mjs also hands it the web app's own plans
+    const build = spawnSync('swiftc', [path.join(ROOT, 'plugins/reel-cutter/ios/Sources/ReelCutterPlugin/BeatEdit.swift'), path.join(HERE, 'beat/main.swift'), '-o', path.join(tmp, 'beatcheck')], { encoding: 'utf8' });
+    if (build.status !== 0) note('beat edit plans', false, 'does not compile\n' + build.stderr);
+    else { const r = spawnSync(path.join(tmp, 'beatcheck'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout); note('beat edit plans', r.status === 0, lastLine(r.stdout)); env.BEATCHECK = path.join(tmp, 'beatcheck'); }
+  }
   const cli = spawnSync('swiftc', [logic, path.join(HERE, 'watch/cli/main.swift'), '-o', path.join(tmp, 'watchbrain')], { encoding: 'utf8' });
   if (cli.status !== 0) note('watch logic for the whole-game tests', false, 'does not compile\n' + cli.stderr); else env.WATCHBRAIN = path.join(tmp, 'watchbrain');
 }

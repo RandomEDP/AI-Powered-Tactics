@@ -114,6 +114,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
+| `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
 | `supabase/migrations/` | `0001` … `0037` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made). New ones are numbered on from 0038 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
@@ -130,7 +131,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 | Class | What it does |
 |---|---|
-| `ReelCutterPlugin` | `pickVideo({slot})`, `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
+| `ReelCutterPlugin` | `beatEdit` (a beat edit, see Highlights; the plan is read by `BeatEdit.swift`), `pickVideo({slot})`, `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
 | `WatchLinkPlugin` | The phone side of the watch link. It keeps a durable inbox of watch presses (UserDefaults `watchlink.inbox`), `push({state, seen})` and `pending()` |
 | `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
@@ -383,6 +384,21 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   old file goes; `p_path` null takes it off). `joinReel` returns `marks`, saved as `[{t, label}]`. By player then plays it
   (`playerReelPlayer`, the same `.reelp`/`data-seek` as a game's reel), with the clips one by one folded away underneath.
   Anyone else can still make and share one; it just isn't put on the card. `get_team` returns `reels`.
+- **Beat edits** (Ethan: "a full Instagram edit to a specific song ... it needs to sync to the beat, have effects"; he
+  chose royalty-free music in the video over chart songs added in Instagram): "Make a beat edit" on a game's card and on
+  each player's card (iPhone app, anyone; `beOpen`/`renderBE`/`beMake`, `#beatPop`). Pick one of three tracks (▶ to hear
+  it; kept per phone in `apt-beat`). `beatPlan(moments, track)` (pure; `window.gafferBeatPlan` for tests) lays it out on
+  the track's beat grid: black-and-white two-beat glimpses in the build, the best moment's run-up slowing into the drop
+  so the ball goes in on it, then one moment every couple of bars (goals first, goals against left out, a replay when
+  there are too few), each landing on a bar with a flash, punch-in, shake and slow motion, the picture bouncing on every
+  other beat; the end card over the last bars. The plugin's `beatEdit` fetches the clean clips, puts each stretch exactly
+  where the plan says (`scaleTimeRange`), lays the track under it, draws every frame tall (720×1280: the clip across the
+  width, zoomed, over a blurred copy) through Core Image (`beatDraw`, per frame from `BeatPlan.frame(at:)` in
+  `BeatEdit.swift`), then a second pass puts the end card over the last bars (`export(..., outroOver:)`). Nothing is
+  uploaded; it goes to the share sheet. The music is synthesised by `scripts/make-music.py` (numpy/scipy, then ffmpeg),
+  so it's Gaffer's own and is never muted on Instagram; licensed tracks can be added later as more `BEATS` entries
+  (bpm, bars, drop, end) with their `.m4a` in `music/`. Tests: `beat.test.mjs` (the plan for every track and 1–9
+  moments, the sheet, the plugin call, the music's lengths against `BEATS` and the script), `tests/beat/main.swift`.
 - The old screens (the computer ffmpeg script, the season reels, watch-timecode import) are gone. A result's Highlights
   button opens Highlights with that game picked out (`hlShow`).
 
