@@ -717,7 +717,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - Ethan funds the Google usage himself.
 - **Two voices, one picker** (`0034_voice_unlocks.sql`; Ethan, October 2026: "remove all the voices for now apart from
   the base free one … and the sweary one, lets call it East London Steve 18+ … we only need to select the voice").
-  **Gaffer's commentator** is free and read straight (Fenrir on Chirp 3 HD, `FREE_STYLE = 'plain'` in `reel-voice`,
+  **Read it straight** is the free voice (Fenrir on Chirp 3 HD, `FREE_STYLE = 'plain'` in `reel-voice`,
   `VOICE_FREE_STYLE` in JS; Chirp's first million characters a month are free). **East London Steve 18+** is the
   Sweary delivery (key `steve`, style `sweary`), a £3.99 Apple **non-consumable** `com.randomedp.aipoweredtactics.voice.steve`,
   kept on the Gaffer account that bought it (`voice_unlocks`), so any phone signed in to it has him. There's no separate

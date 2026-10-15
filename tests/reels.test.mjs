@@ -234,7 +234,7 @@ join = (await calls(A, 'join')).pop();
 eq([said.body.lines.length, said.body.lines[0], said.body.lines[said.body.lines.length - 1]], [4, 'Chaplin’s highlights, for Sons of Pitches FC.', 'That’s Chaplin. What a player.'], 'a line for each clip, with an intro and a sign-off');
 
 // ---------- Sweary (18+): the same reel, called by a pub commentator who can't believe what he's watching
-eq(await A.page.$$eval('#rbVoiceName option', (o) => o.map((x) => x.textContent)), ['Gaffer’s commentator, free', 'East London Steve 18+'], 'there are two voices: the free one and East London Steve (18+)');
+eq(await A.page.$$eval('#rbVoiceName option', (o) => o.map((x) => x.textContent)), ['Read it straight, free', 'East London Steve 18+'], 'there are two voices: the free one and East London Steve (18+)');
 await A.page.selectOption('#rbVoiceName', 'steve'); await A.run(300);
 await A.click('#rbMake'); await A.run(1500);
 const sw = (w.db().calls || []).filter((x) => x.name === 'reel-voice').pop().body;

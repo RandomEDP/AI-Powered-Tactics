@@ -1,6 +1,6 @@
 // Commentary voices (Ethan: "Only let the free one usable … Let them hear it before unlock", then "remove all the voices
 // for now apart from the base free one … And the sweary one lets call it East London Steve 18+ … we only need to select
-// the voice"). Gaffer's commentator is free (read straight); East London Steve 18+ is a one-off £3.99 through Apple.
+// the voice"). Read it straight is free; East London Steve 18+ is a one-off £3.99 through Apple.
 // 1. The database (every migration in real Postgres): only Gaffer's server can unlock a voice; a purchase unlocks one
 //    voice for one account; my_voices says what you own and nothing about Apple; deleting an account forgets it.
 // 2. The real team-pass edge function ("voice"), with a stand-in Apple, writing to that database.
@@ -191,7 +191,7 @@ const bx = await A.page.locator('#camSvg').boundingBox(); await A.page.mouse.cli
 await A.click('#cutBody [data-cutdo="next"]');
 await A.page.evaluate(() => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => 200, set: () => {} }); });
 await A.click('#cutBody [data-cutdo="here"]'); await A.run(500);
-eq(await opts(A, '#cutVoiceName'), ['Gaffer’s commentator, free', 'East London Steve 18+, £3.99'], 'the highlight maker has two voices: the free one, and East London Steve at Apple\'s price');
+eq(await opts(A, '#cutVoiceName'), ['Read it straight, free', 'East London Steve 18+, £3.99'], 'the highlight maker has two voices: the free one, and East London Steve at Apple\'s price');
 eq(await A.visible('#cutVoiceStyle'), false, 'and no separate delivery to pick');
 eq(await A.page.$$eval('#cutBody [data-vo="buy"]', (b) => b.length), 0, 'with the free voice picked there\'s nothing to unlock');
 await A.page.selectOption('#cutVoiceName', 'steve'); await A.run(300);
@@ -211,7 +211,7 @@ eq(voiceCalls().filter((x) => x.body.action === 'sample').length, 1, 'hearing it
 await A.page.check('#cutVoice'); await A.run(200);
 await A.click('#cutBody [data-cutdo="go"]'); await A.run(500);
 eq([await A.visible('#aiPop'), voiceCalls().filter((x) => x.body.lines).length, await A.page.evaluate(() => window.__rc.filter((x) => x[0] === 'cut').length)], [false, 0, 0], 'cutting with Steve locked: nothing is recorded or cut');
-check(/East London Steve isn’t unlocked yet\. Unlock him under the voice, or pick Gaffer’s commentator, which is free\./.test(await A.text('#cutBody')), 'and it says why, and what to do');
+check(/East London Steve isn’t unlocked yet\. Unlock him under the voice, or pick Read it straight, which is free\./.test(await A.text('#cutBody')), 'and it says why, and what to do');
 
 // unlocking
 await A.click('#cutBody [data-vo="buy"]'); await A.run(1200);
@@ -226,7 +226,7 @@ await A.click('#cutBody [data-cutdo="finish"]'); await A.run(500);
 
 // a player's reel: the same picker; the free voice reads straight
 await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-preel="3"]'); await A.page.check('#rbVoice'); await A.run(300);
-eq(await opts(A, '#rbVoiceName'), ['Gaffer’s commentator, free', 'East London Steve 18+'], 'the reel builder knows Steve is unlocked');
+eq(await opts(A, '#rbVoiceName'), ['Read it straight, free', 'East London Steve 18+'], 'the reel builder knows Steve is unlocked');
 await A.page.selectOption('#rbVoiceName', 'free'); await A.run(300); await A.click('#rbMake'); await A.run(1500);
 eq(voiceCalls().pop().body.style, 'plain', 'the free voice is asked for read straight (free up to Google\'s million characters a month)');
 

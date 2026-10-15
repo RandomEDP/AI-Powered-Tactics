@@ -5225,7 +5225,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   });
   // ---- commentary voices (Ethan, October 2026: "remove all the voices for now apart from the base free one … And the
   // sweary one lets call it East London Steve 18+ … we only need to select the voice"). Two to pick from:
-  //   free:  Gaffer's commentator, free to everyone (Fenrir, delivered as VOICE_FREE_STYLE: read straight costs nothing
+  //   free:  Read it straight, free to everyone (Fenrir, delivered as VOICE_FREE_STYLE: read straight costs nothing
   //          up to Google's free million characters a month);
   //   steve: East London Steve 18+, the sweary Cockney pub commentator (0034_voice_unlocks.sql), a one-off £3.99 bought
   //          through Apple (TeamPassPlugin, the same plumbing as the team pass), counted on the account by team-pass
@@ -5233,13 +5233,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // Each has a sample to hear first (reel-voice "sample": one fixed line naming nobody, made once and kept, so it needs
   // no AI ask). Until 0034 is live and Steve is on sale (my_voices isn't there, or says null) Steve stays open, as Sweary was.
   var VOICE_FREE_STYLE = 'plain', VOICE_BUY = 'com.randomedp.aipoweredtactics.voice.';
-  var VOICES = [['free', 'Gaffer’s commentator'], ['steve', 'East London Steve 18+']];
+  var VOICES = [['free', 'Read it straight'], ['steve', 'East London Steve 18+']];
   function voiceKey() { var v = null; try { v = JSON.parse(localStorage.getItem('apt-voice')); } catch (e) {} return v && (v.v === 'steve' || v.style === 'sweary') ? 'steve' : 'free'; } // (older phones kept { voice, style })
   function voicePick(k) { k = k || voiceKey(); return { key: k, voice: 'Fenrir', style: k === 'steve' ? 'sweary' : VOICE_FREE_STYLE }; }
   function voiceSet(k) { try { localStorage.setItem('apt-voice', JSON.stringify({ v: k === 'steve' ? 'steve' : 'free' })); } catch (e) {} }
   var swears = function () { return voUse().style === 'sweary'; };
   var VO = { who: null, mine: null, open: false, price: '£3.99', priced: false, heard: false, at: 0, busy: '', msg: '', bad: false, samples: {}, audio: null };
-  function voName(k) { return k === 'steve' ? 'East London Steve' : 'Gaffer’s commentator'; }
+  function voName(k) { return k === 'steve' ? 'East London Steve' : 'Read it straight'; }
   function voState() { // what this account owns, kept on the phone per account so it's right with no signal
     var who = me ? me.id : null;
     if (VO.who !== who) { VO.who = who; VO.mine = null; VO.open = false; VO.at = 0; VO.msg = ''; try { var c = JSON.parse(localStorage.getItem('apt-voices:' + who) || 'null'); if (c) { VO.mine = c.mine || []; VO.open = !!c.open; } } catch (e) {} }
@@ -5248,7 +5248,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function voOwns(k) { var s = voState(); return k !== 'steve' || s.open || (s.mine || []).indexOf(k) >= 0; }
   function voLocked(k) { k = k || voiceKey(); return voOwns(k) ? [] : [k]; }
   function voUse() { return voicePick(voOwns(voiceKey()) ? voiceKey() : 'free'); } // (never asks for a voice that would be refused)
-  function voLockMsg(lock) { return voName(lock[0]) + ' isn’t unlocked yet. Unlock him under the voice, or pick Gaffer’s commentator, which is free.'; }
+  function voLockMsg(lock) { return voName(lock[0]) + ' isn’t unlocked yet. Unlock him under the voice, or pick Read it straight, which is free.'; }
   function voKeep() { try { localStorage.setItem('apt-voices:' + VO.who, JSON.stringify({ mine: VO.mine || [], open: VO.open })); } catch (e) {} }
   function voRedraw() {
     if (CUT && S.view === 'cut' && CUT.stage !== 'work') { cutKeep(); renderCut(); }
