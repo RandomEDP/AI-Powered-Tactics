@@ -11,6 +11,9 @@ window.APT_CONFIG = {
   // Gaffer's App Store page, once it's live (https://apps.apple.com/app/id...). Empty until then: the guests' page says
   // to search the App Store instead.
   appStore: '',
+  // The shop takes real payments only once Stripe's live key is set (and SHOP_LIVE on the shop function). Until then the
+  // shop says it's in test mode.
+  shopLive: false,
   // Rewarded ads (the free tier): the AdMob rewarded ad unit. These are Google's own test ads, which earn nothing and are
   // safe to tap. When Ethan's AdMob account is set up: his rewarded unit id here, test: false, and his AdMob app id in
   // ios/App/App/Info.plist (GADApplicationIdentifier). Ad unit ids are public by design (they're in every app that shows ads).

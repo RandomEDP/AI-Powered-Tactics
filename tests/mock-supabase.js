@@ -297,6 +297,13 @@
       } else r.pid = have.pid;
       r.status = 'approved'; store(d); return ok('ok');
     }
+    if (name === 'team_pass') { // (0032) anyone with the code: paid or not, until when, and who paid for this stretch
+      const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok(null);
+      const tp = (d.team_pass || []).find((x) => x.team_id === t.id), u = tp ? tp.paid_until : null;
+      const chips = (d.pass_purchases || []).filter((b) => b.team_id === t.id && b.at > Date.now() - 62 * 86400000).sort((x, y) => y.at - x.at).slice(0, 30)
+        .map((b) => ({ who: ((d.players.find((p) => p.team_id === t.id && p.user_id && p.user_id === b.user_id) || {}).name) || ((d.profiles || []).find((f) => f.user_id === b.user_id) || {}).username || 'Someone', at: b.at, me: !!uid() && b.user_id === uid() }));
+      return ok({ paid: !!u && u > Date.now(), until: u, pot: tp ? tp.pot : 0, goal: 499, chips });
+    }
     if (name === 'team_stream') { // anyone with the code: the stream that's on now (never the camera link)
       const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()), st = t && d.team_streams.find((x) => x.team_id === t.id);
       if (!st || !st.started_at || Date.now() - st.started_at > 4 * 3600000) return ok(null);
@@ -489,6 +496,34 @@
   const functions = { invoke: async (name, o) => { if (name === 'live-stream' && window.__offline) return { data: null, error: { message: 'Failed to send a request to the Edge Function' } };
     const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); if (name === 'live-stream') return liveStream(d, o.body);
     if (name === 'clip-store') return clipStore(d, o.body);
+    if (name === 'team-pass') { // (0032) as the real one: asks "Apple" (d.apple, set by the tests) about the purchase, then counts it once
+      const b = o.body, no = (status, reason, error) => ({ data: null, error: { message: error, context: { json: async () => ({ error, reason }) } } });
+      if (!uid()) return no(401, '', 'Sign in first.');
+      const t = d.teams.find((x) => x.code === String(b.code || '').trim().toUpperCase()); if (!t) return no(404, '', 'No such team.');
+      if (!d.appleReady) return no(503, 'not_configured', 'Paying isn’t set up on Gaffer’s server yet. Nothing has been lost: it will count once it is.');
+      const B = 'com.randomedp.aipoweredtactics.team.', P = { [B + 'month']: ['month', 499], [B + 'chip069']: ['chip069', 69], [B + 'chip149']: ['chip149', 149], [B + 'chip249']: ['chip249', 249] }, tx = (d.apple || {})[b.transaction_id];
+      if (!tx) return no(404, 'unknown', 'Apple doesn’t know that purchase.');
+      if (!P[tx.productId]) return no(400, 'wrong_product', 'That purchase isn’t a team pass.');
+      if (String(tx.account || '').toLowerCase() !== String(uid()).toLowerCase()) return no(403, 'not_yours', 'That purchase was made by another account.');
+      if (tx.revoked) return no(400, 'refunded', 'Apple refunded that purchase, so it doesn’t count.');
+      d.team_pass = d.team_pass || []; d.pass_purchases = d.pass_purchases || [];
+      const was = d.pass_purchases.find((x) => x.transaction_id === b.transaction_id); let tp = d.team_pass.find((x) => x.team_id === t.id);
+      if (was) { if (was.team_id !== t.id) return no(409, '', 'That purchase already paid for another team.'); return { data: { added: false, until: tp.paid_until, pot: tp.pot, months: 0, kind: P[tx.productId][0] }, error: null }; }
+      d.pass_purchases.push({ transaction_id: b.transaction_id, team_id: t.id, user_id: uid(), product: P[tx.productId][0], pence: P[tx.productId][1], at: Date.now() });
+      if (!tp) { tp = { team_id: t.id, paid_until: null, pot: 0 }; d.team_pass.push(tp); }
+      let months = 0; tp.pot += P[tx.productId][1];
+      while (tp.pot >= 499) { tp.pot -= 499; months++; tp.paid_until = Math.max(tp.paid_until || 0, Date.now()) + 30 * 86400000; }
+      store(d);
+      return { data: { added: true, until: tp.paid_until, pot: tp.pot, months, kind: P[tx.productId][0] }, error: null };
+    }
+    if (name === 'shop') { // (the shop function: prices are its own; here it only keeps the order and hands back a payment page)
+      if (!uid()) return { data: null, error: { message: 'Sign in first.', context: { json: async () => ({ error: 'Sign in first.' }) } } };
+      d.shop_orders = d.shop_orders || [];
+      if (o.body.action === 'orders') return { data: { orders: d.shop_orders.filter((x) => x.user_id === uid()).slice().reverse() }, error: null };
+      const b = o.body, n = b.item === 'kit' ? b.shirts.length : b.qty, each = b.item === 'kit' ? (b.design.sponsor ? 999 : 1499) : 1299;
+      const ord = { id: 'ord-' + (d.shop_orders.length + 1), user_id: uid(), item: b.item, lines: [{ qty: n, each }], total: n * each + 399, status: 'awaiting_payment', live: false, at: new Date().toISOString(), sponsor: !!(b.design && b.design.sponsor), shirts: b.item === 'kit' ? n : 0 };
+      d.shop_orders.push(ord); store(d); return { data: { url: 'https://checkout.stripe.com/c/pay/cs_test_' + ord.id, order: ord.id }, error: null };
+    }
     if (name === 'team-notify' && o.body.kind === 'live') { // sent once per stream, and only when the picture is really getting through (as the real one checks with Cloudflare)
       const t = d.teams.find((x) => x.code === String(o.body.code || '').trim().toUpperCase()), st = t && d.team_streams.find((x) => x.team_id === t.id);
       if (!st || !st.started_at || st.notified_at || !(d.camera && st.enabled)) return { data: { sent: 0 }, error: null };

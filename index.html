@@ -110,6 +110,9 @@ body.ro:not(.sc) .scr { display: none !important; }
 /* the button system: one .primary per screen (the most likely tap), .tint for a secondary action, plain grey for a set of
    choices, .quiet for a text-only link, .danger (red text) for anything that deletes or can't be undone */
 .plain.tint { background: var(--on-soft); color: var(--on); }
+.passbar { height: .5rem; border-radius: .25rem; background: var(--on-soft); overflow: hidden; margin: .25rem 0 .75rem; }
+.passbar span { display: block; height: 100%; background: var(--on); border-radius: inherit; }
+.passchips .plain { flex: 1; }
 .plain.quiet { background: none; color: var(--on); padding-inline: 8px; align-self: flex-start; }
 .danger, .plain.danger, .link.danger, .del.danger { color: var(--danger); }
 .plain.danger:not(.armed) { background: color-mix(in srgb, var(--danger) 10%, var(--fill)); }
@@ -433,6 +436,16 @@ tr.past td { opacity: .45; }
 .codeline .plain { min-height: 40px; padding-inline: 14px; font-size: var(--t-sub); }
 #orgCodeRow { display: flex; flex-direction: column; gap: 6px; }
 #aOut, #aIn { display: flex; flex-direction: column; gap: 16px; }
+.shopitem { display: flex; gap: 14px; align-items: flex-start; } .shopic { width: 56px; height: 56px; flex: none; color: var(--on); }
+.shoprow { display: flex; justify-content: space-between; align-items: center; gap: 12px; } .shopprice { font-size: var(--t-title); }
+.stepper { display: flex; align-items: center; gap: 10px; } .stepper .plain { min-height: 44px; min-width: 44px; padding: 0; font-size: var(--t-title); } .stepper span { min-width: 1.5em; text-align: center; font-weight: 700; }
+.kitprev { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } .kitprev figure { margin: 0; text-align: center; } .kitprev svg { width: 100%; height: auto; display: block; } .kitprev text { font-family: inherit; }
+.kitprev figcaption { font-size: var(--t-foot); color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+.kitrows { display: flex; flex-direction: column; gap: 6px; }
+.kitrow { display: grid; grid-template-columns: minmax(0, 1fr) 3.6em 4.6em 44px; gap: 6px; align-items: center; padding: 4px; border-radius: 12px; }
+.kitrow.is { background: var(--on-soft); }
+.kitrow input, .kitrow select { min-height: 44px; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: var(--t-body); padding-inline: 10px; }
+.kitsum { font-size: var(--t-body); } .ord { gap: 4px; padding: 14px 18px; } .ordst { font-weight: 650; font-size: var(--t-sub); } .ordst.paid, .ordst.sent { color: var(--on); } .ordst.cancelled, .ordst.refunded { color: var(--muted); }
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .sw { width: 42px; height: 42px; border-radius: 50%; border: 3px solid var(--bg); box-shadow: 0 0 0 2px transparent; cursor: pointer; padding: 0; }
 .sw.is { box-shadow: 0 0 0 3px var(--ink); }
@@ -791,6 +804,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .dot span { font-size: var(--t-foot); font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none; }
 .dot:active, .dot:active:not(:disabled) { transform: translate(-50%, -50%); filter: none; }
 .fxrow { grid-template-columns: 1fr auto; }
+.seg button.is[data-kpat] { background: var(--on); color: var(--on-ink); }
 .seg button.is[data-vote] { background: var(--on); color: var(--on-ink); }
 .seg button.is[data-vote="no"] { background: var(--muted); color: var(--bg); }
 .vplayer { display: flex; flex-direction: column; gap: 8px; }
@@ -1073,7 +1087,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <li>Fair subs, live scores, polls, stats, insights, the tactics board and the Apple Watch app</li>
     <li><b>One highlight reel to try.</b> Log the goals as they go in, point it at your GoPro or iPhone footage, and it cuts every goal into a reel with the score, your badge and an outro, ready to share</li>
     <li>Ads (not switched on yet)</li></ul></div>
-  <div class="tier pro"><h3>Gaffer <b>£4.99</b> a month<small>COMING SOON</small></h3><ul>
+  <div class="tier pro"><h3>Gaffer <b>£4.99</b> a month for the whole team<small>COMING SOON</small></h3><ul>
+    <li><b>One price for the team.</b> Everyone chips in what they like until the pot reaches £4.99, or the gaffer pays it all</li>
     <li>Everything in Free, with no ads</li>
     <li>Highlight reels for every game</li>
     <li><b>Stream your games live.</b> Your GoPro or any iPhone sends the game to the squad’s phones, with the score on screen</li>
@@ -1187,6 +1202,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div class="card" id="askCard" hidden></div>
   <div class="card" id="linkCard" hidden></div>
   <div class="card" id="liveCard" hidden></div>
+  <div class="card" id="passCard" hidden></div>
   <div class="card" id="fxCard" hidden></div>
   <div class="menu" id="homeMenu">
     <button class="primary" id="mResume" type="button" hidden><span id="mResumeLbl">Resume game</span><small id="mResumeSub"></small></button>
@@ -1195,6 +1211,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <button id="mHighlights" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg>Highlights<small id="mHlSub"></small></button>
     <button id="mInsights" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.4l2.5 5.3 5.8.8-4.2 4 1 5.8L12 16.5l-5.1 2.8 1-5.8-4.2-4 5.8-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Insights<small id="mInsSub"></small></button>
     <button id="mBoard" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 12h17" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>Tactics board<small>Line-ups and set pieces</small></button>
+    <button id="mShop" type="button" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 3.5 4 6l-1.5 4.5 3 1.2V20.5h13V11.7l3-1.2L20 6l-4.5-2.5c-.6 1.6-1.9 2.5-3.5 2.5s-2.9-.9-3.5-2.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Shop<small>Kits and the cage phone mount</small></button>
   </div>
   <p class="msg" id="lockMsg" role="status"></p>
   <button class="soon-pill" id="soonPill" type="button" data-go="soon" hidden><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9z"/></svg>Coming soon <small>AI reports and commentary</small></button>
@@ -1383,6 +1400,41 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <section><h2>Player reels</h2><p class="note">Every player’s clips, and a reel of their own to make and share, are in Highlights.</p><div class="actions"><button class="plain" type="button" id="toPlayerReels">Player highlights</button></div></section>
 </div>
 
+<div class="view" id="v-shop" hidden>
+  <div class="bar"><button class="back" type="button" id="shopBack">Back</button><h1>Shop</h1></div>
+  <p class="note warn" id="shopTest" hidden>Test mode: Stripe won’t charge a real card. Use Stripe’s test card 4242 4242 4242 4242.</p>
+  <div class="card" id="shopMount">
+    <div class="shopitem"><svg class="shopic" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4a6 6 0 0 1 6 6v3h-3v-3a3 3 0 0 0-6 0v3h-3v-3a6 6 0 0 1 6-6z" fill="currentColor"/><path d="M30 13h4v9h-4z" fill="currentColor"/><path d="M32 22c-6 4-10 4-14 1" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="3 3"/><rect x="21" y="24" width="22" height="36" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><path d="M17 30h4M17 50h4M43 30h4M43 50h4" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      <div><h2>Cage phone mount</h2><p class="note">3D printed in the UK. Grips your iPhone and hangs off the cage on its rope, clipped on with the carabiner, so you can film the whole game from behind the goal. Works with “Film with this iPhone”.</p></div></div>
+    <div class="shoprow"><b class="shopprice" id="mntPrice"></b>
+      <div class="stepper" role="group" aria-label="How many"><button class="plain" type="button" id="mntLess" aria-label="One fewer">−</button><span id="mntQty">1</span><button class="plain" type="button" id="mntMore" aria-label="One more">+</button></div></div>
+    <p class="note" id="mntTotal"></p>
+    <div class="actions"><button class="plain primary" type="button" id="mntBuy">Pay with Apple Pay or card</button></div>
+    <p class="msg" id="mntMsg" role="status" hidden></p>
+  </div>
+  <section id="kitSec">
+    <h2>Design your team’s kit</h2>
+    <p class="note">Shirts printed with your colours, badge, names and numbers. Ordered for the squad together, at least <span id="kitMinN"></span> shirts.</p>
+    <div class="kitprev" id="kitPrev" aria-label="How the kit looks"></div>
+    <div class="card">
+      <div class="field"><span>Main colour</span><div class="swatches" id="kitC1"></div></div>
+      <div class="field"><span>Second colour</span><div class="swatches" id="kitC2"></div></div>
+      <div class="field"><span>Pattern</span><div class="seg" id="kitPat" role="group" aria-label="Pattern"></div></div>
+      <div class="field"><span>Badge</span><div class="actions" id="kitBadge"></div><input class="vh" type="file" id="kitBadgeFile" accept="image/png,image/jpeg"></div>
+      <label class="check tgl" for="kitSpon"><input id="kitSpon" type="checkbox" role="switch"><span>Gaffer as the chest sponsor <small id="kitSponNote"></small></span></label>
+    </div>
+    <h2>Names and numbers</h2>
+    <p class="note">Tap a player to see their shirt from the back. Names go on in capitals, up to 12 letters.</p>
+    <div class="kitrows" id="kitRows"></div>
+    <div class="actions"><button class="plain tint" type="button" id="kitAdd">Add a shirt</button></div>
+    <div class="card"><p class="kitsum" id="kitSum"></p>
+      <div class="actions"><button class="plain primary" type="button" id="kitBuy">Pay with Apple Pay or card</button></div>
+      <p class="msg" id="kitMsg" role="status" hidden></p></div>
+  </section>
+  <section id="ordSec" hidden><h2>Your orders</h2><div id="ordList"></div></section>
+  <p class="note">Paid through Stripe with Apple Pay or a card, and posted in the UK. You’ll get an email from Stripe when you pay.</p>
+</div>
+
 <div class="view" id="v-options" hidden>
   <div class="bar"><button class="back" type="button" id="optBack">Back</button><h1>Settings</h1></div>
   <section id="ntfSec" hidden>
@@ -1455,9 +1507,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <section>
     <h2>Experimental</h2>
     <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
-    <label class="check tgl" for="expTrack"><input id="expTrack" type="checkbox" role="switch"><span>Show experimental features <small>Player tracking from a recording, a look at what’s being worked on, and the plans</small></span></label>
+    <label class="check tgl" for="expTrack"><input id="expTrack" type="checkbox" role="switch"><span>Show experimental features <small>Player tracking from a recording, a look at what’s being worked on, the plans and the shop</small></span></label>
     <label class="check tgl" for="expAds" id="expAdsRow" hidden><input id="expAds" type="checkbox" role="switch"><span>Try the free tier <small>See Gaffer as a team on the free plan: your own highlight reel is behind a 30-second ad you choose to watch (Google’s test ads)</small></span></label>
-    <div class="actions"><button class="plain" id="expTrackOpen" type="button" hidden>Open player tracking</button><button class="plain" id="soonOpen" type="button" hidden>What’s being worked on</button><button class="plain" id="planOpen" type="button" hidden>Plans</button></div>
+    <div class="actions"><button class="plain" id="expTrackOpen" type="button" hidden>Open player tracking</button><button class="plain" id="soonOpen" type="button" hidden>What’s being worked on</button><button class="plain" id="planOpen" type="button" hidden>Plans</button><button class="plain" id="shopOpen" type="button" hidden>Shop</button></div>
   </section>
 </div>
 
@@ -1565,7 +1617,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var preels = []; // players' reels kept on their cards: [{pid, path, store, marks: [{t, label}], made_at}]
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live', 'shop'];
   function setRole(r) {
     if (DROID) r = 'viewer'; // (the Android app only ever follows the team)
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
@@ -1734,7 +1786,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
       myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500); mhRebind();
       if (S.view === 'home' || S.view === 'games') renderFixture();
-      renderTabs(); tpLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
+      renderTabs(); tpLoad(); passLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
       var org = !DROID && !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
@@ -2206,7 +2258,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live', 'shop'];
   function go(view, keep) {
     if (view !== 'account' && AM === 'new') AM = 'in'; // (choosing a new password is only ever where the reset link lands)
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
@@ -2219,9 +2271,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (view !== 'game') $('subPop').hidden = true;
     if (view !== 'live') livePlayer(null); // stop the picture (and its data) once the stream is off screen
     if (view !== S.view) { if (MH) mhClose(); if (!$('postView').hidden) { $('postView').hidden = true; PV.post = null; } vidsStop(); } // another screen: nothing carries on playing
-    if (view === 'soon' && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome';
+    if ((view === 'soon' || view === 'shop') && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome'; // (the shop stays behind Experimental until Stripe takes real payments)
+    if (view === 'shop' && S.view !== 'shop') shopFrom = S.view;
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
-    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'feed', 'people', 'profile', 'teamview'].indexOf(view) < 0) view = 'welcome';
+    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'feed', 'people', 'profile', 'teamview', 'shop'].indexOf(view) < 0) view = 'welcome';
     if (view === 'create' && S.view !== 'create') resetCreate();
     if (view === 'game' && !S.match) view = 'home';
     if (view === 'mins' && !D) view = 'home';
@@ -2308,6 +2361,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'stats') renderStats();
     else if (S.view === 'insights') renderInsights();
     else if (S.view === 'live') renderLive();
+    else if (S.view === 'shop') renderShop();
     else renderOptions();
     if (S.view !== 'game') syncAlerts();
   }
@@ -3296,7 +3350,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function renderHome() {
     var r = recordLine(), m = S.match, own = role === 'owner';
     $('heroName').textContent = teamName(); renderCrest();
-    $('soonPill').hidden = !(A.exp && A.exp.track);
+    $('soonPill').hidden = !(A.exp && A.exp.track); $('mShop').hidden = !(A.exp && A.exp.track) || DROID;
     $('homeRecord').textContent = r ? r.short : 'Season starts here';
     // the form guide (last five league results, oldest first) and a live fact on each tile
     var lg = S.results.filter(function (x) { return !x.tour && !x.house && !x.friendly; }).slice().sort(function (a, b) { return (a.at || a.koAt || 0) - (b.at || b.koAt || 0); }).slice(-5);
@@ -3313,7 +3367,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     // you
     var pend = A.pending && A.pending.code === A.active && !me ? A.pending : null, card = $('meCard'), html = '';
     $('pendCard').hidden = !pend; if (pend) $('pendTitle').textContent = pend.ask ? 'Confirm your email to ask to join' : 'Confirm your email to join as ' + pend.name;
-    renderAsks(); renderLinkCard(); renderLiveCard();
+    renderAsks(); renderLinkCard(); renderLiveCard(); renderPass();
     if (myPid != null && P(myPid)) {
       var st = statsOf(S.results, myPid), last = (roster[myPid] || {}).last;
       html = '<h2>Your stats</h2><p class="note">' + esc(nm(myPid)) + (last ? ' ' + esc(last) : '') + (posOf(myPid) ? ', ' + posName(posOf(myPid)).toLowerCase() : '') + (st.saves ? ', ' + st.saves + (st.saves === 1 ? ' save' : ' saves') + ' in goal' : '') + '</p>' + statGrid(st) +
@@ -5842,6 +5896,116 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     return '<h4 class="lkh">From ' + esc(l.other.name) + '’s video</h4>' + clipPlayer(th.clips.map(function (c) { return Object.assign({}, c, { title: c.label }); }));
   }
 
+  // ---- the team pass (0032_team_pass.sql): the Gaffer tier is paid for per team, from a team pot. Anyone on it can chip
+  // in 69p, £1.49 or £2.49, or pay the whole £4.99, in the iPhone app, through Apple (TeamPassPlugin); when the pot
+  // reaches £4.99 the whole team gets 30 days at once, and anything over stays towards the next month. Each
+  // purchase is kept on this phone until Gaffer's server (team-pass) has checked it with Apple and counted it, and only
+  // then finished, so nothing is lost to a dropped signal. teamPaid() is the one check for "this team has paid" (the ads
+  // ask it, for one); window.gafferTeamPaid is the same.
+  var PASS_IDS = { chip069: 'com.randomedp.aipoweredtactics.team.chip069', chip149: 'com.randomedp.aipoweredtactics.team.chip149', chip249: 'com.randomedp.aipoweredtactics.team.chip249', month: 'com.randomedp.aipoweredtactics.team.month' };
+  var PASS_GOAL = 499; // pence: a full pot is a month
+  var PASS = { code: null, d: null, at: 0, price: { chip069: '69p', chip149: '£1.49', chip249: '£2.49', month: '£4.99' }, priced: false, busy: false, msg: '', bad: false, heard: false };
+  var PASSK = 'apt-pass', PASSP = 'apt-pass-pending'; // last known state per team (right with no signal); purchases not yet counted { tx: code }
+  function passJ(k) { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } }
+  function passPut(k, o) { try { localStorage.setItem(k, JSON.stringify(o)); } catch (e) {} }
+  function passOf(code) { return code === PASS.code && PASS.d ? PASS.d : passJ(PASSK)[code] || null; }
+  function teamPaid(code) { var d = passOf(code || A.active); return !!(d && d.until && d.until > Date.now()); }
+  window.gafferTeamPaid = teamPaid;
+  function passKind(id) { for (var k in PASS_IDS) if (PASS_IDS[k] === id) return k; return null; }
+  function passMoney(p) { return '£' + (p / 100).toFixed(2); }
+  function passDay(ms) { var t = new Date(ms); return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][t.getDay()] + ' ' + t.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][t.getMonth()]; } // "Wed 14 Oct"
+  function passKeep(code, d) { PASS.code = code; PASS.d = d; var all = passJ(PASSK); all[code] = d; passPut(PASSK, all); }
+  async function passLoad(force) {
+    var code = A.active; if (!sb || !code) return;
+    if (!force && PASS.code === code && Date.now() - PASS.at < 60000) return;
+    PASS.at = Date.now();
+    var TPp = plugin('TeamPass');
+    if (TPp && !PASS.heard) { PASS.heard = true; try { TPp.addListener('transaction', function (t) { passClaim(t); }); } catch (e) {} }
+    if (TPp && !PASS.priced) TPp.products({ ids: Object.keys(PASS_IDS).map(function (k) { return PASS_IDS[k]; }) }).then(function (r) {
+      ((r && r.products) || []).forEach(function (p) { var k = passKind(p.id); if (k && p.price) PASS.price[k] = p.price; }); PASS.priced = true; renderPass();
+    }, function () {});
+    try {
+      var was = teamPaid(code), r = await q(sb.rpc('team_pass', { p_code: code })); if (A.active !== code) return;
+      if (r.data) passKeep(code, r.data);
+      renderPass(); if (teamPaid(code) !== was) adDraw(); // (a team that's just paid loses the ad lock straight away, and the other way round)
+    } catch (e) {}
+    passRetry();
+  }
+  async function passRetry() { // purchases Apple has but Gaffer hasn't counted yet (no signal at the time, the app closed, Ask to Buy)
+    var TPp = plugin('TeamPass'); if (!TPp || !me) return;
+    try { var r = await TPp.unfinished(); ((r && r.list) || []).forEach(function (t) { passClaim(t); }); } catch (e) {}
+  }
+  var PASS_CLAIMING = {};
+  async function passClaim(t, code) {
+    var TPp = plugin('TeamPass'), kind = passKind(t && t.productId), tx = t && String(t.transactionId || '');
+    if (!TPp || !kind || !tx || !me || !sb || PASS_CLAIMING[tx]) return null;
+    if (t.account && t.account !== String(me.id).toLowerCase()) return null; // another account's purchase on this phone: theirs to claim
+    var pend = passJ(PASSP); code = code || pend[tx] || localStorage.getItem('apt-pass-for') || A.active; if (!code) return null;
+    pend[tx] = code; passPut(PASSP, pend); PASS_CLAIMING[tx] = true;
+    var none = 'Paid, but Gaffer’s server couldn’t be reached to count it. It will count by itself next time you open Gaffer.', out;
+    try {
+      var res = await sb.functions.invoke('team-pass', { body: { code: code, action: 'claim', transaction_id: tx, environment: t.environment || '' } });
+      if (res && res.data && !res.error) out = res.data;
+      else { var said = null; try { if (res && res.error && res.error.context && typeof res.error.context.json === 'function') said = await res.error.context.json(); } catch (e) {} out = { error: (said && said.error) || none, reason: said && said.reason }; }
+    } catch (e) { out = { error: none }; }
+    delete PASS_CLAIMING[tx];
+    // Counted, or never going to count (refunded, not a team pass, a test purchase from Xcode): finish it with Apple and forget it.
+    if (!out.error || ['refunded', 'wrong_app', 'wrong_product', 'xcode'].indexOf(out.reason) >= 0) {
+      try { await TPp.finish({ transactionId: tx }); } catch (e) {}
+      pend = passJ(PASSP); delete pend[tx]; passPut(PASSP, pend);
+    }
+    if (!out.error && code === A.active) {
+      var d = Object.assign({ chips: [] }, passOf(code) || {}, { paid: !!out.until && out.until > Date.now(), until: out.until, pot: out.pot || 0 });
+      passKeep(code, d); PASS.at = 0; passLoad(true);
+    }
+    if (code === A.active) {
+      PASS.msg = out.error ? out.error : out.months ? (kind === 'month' ? 'Thanks! ' : 'Thanks for chipping in! That filled the pot. ') + 'The whole team has the Gaffer tier until ' + passDay(out.until) + '.' + (out.pot ? ' ' + passMoney(out.pot) + ' is already in the pot for next month.' : '')
+        : 'Thanks for chipping in! The pot is at ' + passMoney(out.pot || 0) + ' of ' + passMoney(PASS_GOAL) + '.';
+      PASS.bad = !!out.error; renderPass();
+    }
+    return out;
+  }
+  async function passBuy(kind) {
+    var TPp = plugin('TeamPass'), code = A.active; if (PASS.busy || !code) return;
+    var say = function (m, bad) { PASS.msg = m; PASS.bad = !!bad; renderPass(); };
+    if (!TPp) { say('Paying is in Gaffer’s iPhone app. Anyone on the team can chip in from there.'); return; }
+    if (!me) { say('Sign in first, so the team knows who paid.', true); return; }
+    PASS.busy = true; say('Opening the App Store…');
+    try {
+      localStorage.setItem('apt-pass-for', code);
+      var r = await TPp.buy({ id: PASS_IDS[kind], account: String(me.id).toLowerCase() });
+      PASS.busy = false;
+      if (r.status === 'pending') say('Waiting for the purchase to be approved. It will count for the team as soon as it is.');
+      else if (r.status === 'bought') { say('Paid. Adding it to the team…'); await passClaim(r, code); }
+      else say('');
+    } catch (e) { PASS.busy = false; say((e && e.message) || 'The App Store couldn’t take the payment. Try again.', true); }
+  }
+  function renderPass() {
+    var el = $('passCard'); if (!el) return;
+    var d = passOf(A.active) || {}, paid = teamPaid(), exp = !!(A.exp && A.exp.track), pot = d.pot || 0;
+    var show = !!A.active && (exp || paid) && S.view === 'home'; // (behind the Experimental switch until the products are live; a paid team always sees who paid)
+    el.hidden = !show; if (!show) { el.innerHTML = ''; return; }
+    var left = paid ? Math.ceil((d.until - Date.now()) / 86400000) : 0;
+    var names = [], seen = {}; (d.chips || []).forEach(function (c) { var n = c.me ? 'you' : c.who; if (n && !seen[n]) { seen[n] = 1; names.push(n); } });
+    var thanks = !names.length ? '' : 'Thanks to ' + (names.length <= 3 ? names.slice(0, -1).join(', ') + (names.length > 1 ? ' and ' : '') + names[names.length - 1] : names.slice(0, 3).join(', ') + ' and ' + (names.length - 3) + ' more') + '.';
+    var native = !!plugin('TeamPass'), own = role === 'owner', p = PASS.price;
+    var bar = '<div class="passbar" role="progressbar" aria-valuemin="0" aria-valuemax="' + PASS_GOAL + '" aria-valuenow="' + pot + '" aria-label="Team pot"><span style="width:' + Math.round(100 * pot / PASS_GOAL) + '%"></span></div>';
+    var pots = '<p id="passPot"><b>' + (paid ? 'Next month’s pot: ' : 'Team pot: ') + passMoney(pot) + '</b> of ' + passMoney(PASS_GOAL) + '</p>' + bar;
+    var chips = ['chip069', 'chip149', 'chip249'].map(function (k) { return '<button class="plain tint" type="button" data-pass="' + k + '">' + esc(p[k]) + '</button>'; }).join('');
+    el.innerHTML = '<h2>Gaffer for the team</h2>' +
+      (paid ? '<p id="passState">Paid until ' + esc(passDay(d.until)) + '.' + (thanks ? ' ' + esc(thanks) : '') + '</p>' + (left <= 5 ? '<p class="note" id="passLow">Runs out in ' + left + (left === 1 ? ' day' : ' days') + '. Chip in to fill the pot for next month.</p>' : '')
+        : '<p id="passState">Everyone chips in what they like. When the pot reaches ' + esc(passMoney(PASS_GOAL)) + ', the whole team gets a month of the Gaffer tier.' + (thanks ? ' ' + esc(thanks) : '') + '</p>') +
+      pots +
+      '<p class="note">No ads, highlights for every game, live streams and AI commentary, for everyone on the team.</p>' +
+      (native ? '<div class="field"><span>Chip in</span><div class="actions passchips">' + chips + '</div></div>' +
+          '<div class="actions"><button class="' + (own ? 'plain primary' : 'plain') + '" type="button" data-pass="month">Pay the whole month (' + esc(p.month) + ')</button></div>' +
+          '<p class="note" id="passHow">Chipping in doesn’t unlock anything until the pot is full; anything over carries into the next month. One-off payments through Apple: nobody is charged again unless they choose to.</p>'
+        : '<p class="note">Anyone on the team can chip in from Gaffer’s iPhone app.</p>') +
+      (PASS.msg ? '<p class="msg' + (PASS.bad ? ' bad' : '') + '" id="passMsg" role="status">' + esc(PASS.msg) + '</p>' : '');
+    [].forEach.call(el.querySelectorAll('[data-pass]'), function (b) { b.disabled = PASS.busy; });
+  }
+  $('passCard').addEventListener('click', function (e) { var b = e.target.closest('[data-pass]'); if (b) passBuy(b.getAttribute('data-pass')); });
+
   // ---- extras when running as the iOS app: lock-screen alerts for changes, haptics, screen kept awake
   var NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   var DROID_PLUGINS = ['Haptics', 'GafferAndroid']; // what the Android app uses (and PushNotifications once the build has Firebase); everything else (the watch, cutting, filming) is iPhone only
@@ -6271,6 +6435,174 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
 
 
+  // ================= the shop: the cage phone mount and team kits (behind Experimental until Stripe takes real payments)
+  // Paid through Stripe's payment page (Apple Pay or card), opened in Safari: physical goods never go through Apple's
+  // in-app purchase (App Store guideline 3.1.3(e)). The shop edge function prices every order itself from its own
+  // catalogue, so keep SHOP in step with CATALOGUE in supabase/functions/shop/index.ts (tests/shop.test.mjs checks).
+  var SHOP = { mount: 1299, mountMax: 10, kit: 1499, sponsored: 999, min: 8, max: 30, postage: 399, sizes: ['YS', 'YM', 'YL', 'S', 'M', 'L', 'XL', 'XXL'],
+    patterns: [['plain', 'Plain'], ['stripes', 'Stripes'], ['hoops', 'Hoops'], ['halves', 'Halves'], ['sash', 'Sash']] };
+  var shopFrom = 'home', SK = null, SKQ = 1, SKO = null, SKBUSY = false, SKMSG = { mnt: null, kit: null };
+  var gbp = function (p) { return '£' + (p / 100).toFixed(2); };
+  var shirtName = function (n) { return String(n || '').toUpperCase().replace(/[^\p{L}' .-]/gu, '').trim().slice(0, 12); };
+  function shopKit() { // the kit being designed: starts from the open team's colour, crest and squad
+    var team = A.active || '';
+    if (SK && SK.team === team) return SK;
+    SK = { team: team, color: A.active && /^#[0-9a-f]{6}$/i.test(S.color || '') ? S.color.toLowerCase() : DEFAULT_COLOR, color2: '#ffffff', pattern: 'plain',
+      badge: A.active && /^data:image\/(png|jpeg);base64,/.test(crest || '') ? crest : null, sponsor: false, sel: 0,
+      rows: (A.active ? S.players : []).slice(0, SHOP.max).map(function (p) { return { name: shirtName(p.name), num: p.num == null ? '' : String(p.num), size: 'M' }; }) };
+    while (SK.rows.length < SHOP.min) SK.rows.push({ name: '', num: '', size: 'M' });
+    return SK;
+  }
+  function kitInk(c) { var n = parseInt(String(c).slice(1), 16); return 0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255) > 160 ? '#111111' : '#ffffff'; }
+  function kitSvg(k, back, row) { // one side of the shirt, drawn from the design
+    var id = 'kitclip' + (back ? 'b' : 'f'), ink = kitInk(k.color), plain = k.pattern === 'plain' || k.color2 === k.color;
+    var edge = ink === '#ffffff' ? (plain ? 'rgba(0,0,0,.45)' : 'rgba(0,0,0,.85)') : (plain ? 'rgba(255,255,255,.6)' : 'rgba(255,255,255,.9)'), sw = plain ? 1.2 : 3; // (a bold outline keeps names readable across stripes and hoops)
+    var body = 'M62 12 L82 6 Q100 20 118 6 L138 12 L188 42 L170 80 L150 68 L150 212 L50 212 L50 68 L30 80 L12 42 Z', pat = '', x, y;
+    if (k.pattern === 'stripes') for (x = 58; x < 150; x += 24) pat += '<rect x="' + x + '" y="0" width="12" height="220" fill="' + k.color2 + '"/>';
+    else if (k.pattern === 'hoops') for (y = 40; y < 220; y += 30) pat += '<rect x="0" y="' + y + '" width="200" height="15" fill="' + k.color2 + '"/>';
+    else if (k.pattern === 'halves') pat = '<rect x="' + (back ? 0 : 100) + '" y="0" width="100" height="220" fill="' + k.color2 + '"/>';
+    else if (k.pattern === 'sash') pat = '<polygon points="' + (back ? '40,0 80,0 200,190 200,230 160,230' : '160,0 120,0 0,190 0,230 40,230') + '" fill="' + k.color2 + '"/>';
+    var t = function (txt, y, size, more) { return '<text x="100" y="' + y + '" text-anchor="middle" font-size="' + size + '" font-weight="800" fill="' + ink + '" stroke="' + edge + '" stroke-width="' + sw + '" stroke-linejoin="round" paint-order="stroke"' + (more || '') + '>' + esc(txt) + '</text>'; };
+    var on = '';
+    if (!back) {
+      if (k.badge) on += '<image href="' + esc(k.badge) + '" x="114" y="40" width="24" height="24" preserveAspectRatio="xMidYMid meet" data-kit="badge"/>';
+      if (k.sponsor) on += t('GAFFER', 116, 22, ' letter-spacing="2" data-kit="sponsor"');
+    } else if (row) {
+      if (row.name) on += t(row.name, 60, 15, (row.name.length > 8 ? ' textLength="88" lengthAdjust="spacingAndGlyphs"' : '') + ' data-kit="name"');
+      if (row.num !== '' && row.num != null) on += t(String(row.num), 150, 70, ' data-kit="num"');
+    }
+    return '<svg viewBox="0 0 200 220" role="img" aria-label="' + (back ? 'Back' : 'Front') + ' of the shirt"><defs><clipPath id="' + id + '"><path d="' + body + '"/></clipPath></defs>' +
+      '<g clip-path="url(#' + id + ')"><rect width="200" height="220" fill="' + k.color + '"/>' + pat +
+      '<polygon points="12,42 22,36 40,74 30,80" fill="' + k.color2 + '"/><polygon points="188,42 178,36 160,74 170,80" fill="' + k.color2 + '"/></g>' +
+      '<path d="' + body + '" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="1.5"/><path d="M82 6 Q100 ' + (back ? 12 : 22) + ' 118 6" fill="none" stroke="' + k.color2 + '" stroke-width="5"/>' + on + '</svg>';
+  }
+  function kitPreview() {
+    var k = shopKit(), row = k.rows[k.sel] || k.rows[0];
+    $('kitPrev').innerHTML = '<figure>' + kitSvg(k, false) + '<figcaption>Front</figcaption></figure><figure>' + kitSvg(k, true, row) + '<figcaption>Back' + (row && (row.name || row.num !== '') ? ': ' + esc([row.name, row.num].filter(function (x) { return x !== ''; }).join(' ')) : '') + '</figcaption></figure>';
+  }
+  function kitEach() { return shopKit().sponsor ? SHOP.sponsored : SHOP.kit; }
+  function kitSum() {
+    var k = shopKit(), n = k.rows.length, short = Math.max(0, SHOP.min - n);
+    $('kitSum').innerHTML = esc(n + ' shirt' + (n === 1 ? '' : 's') + ' × ' + gbp(kitEach()) + ' + ' + gbp(SHOP.postage) + ' postage = ') + '<b>' + gbp(n * kitEach() + SHOP.postage) + '</b>' + (short ? '<br><span class="note">Add ' + short + ' more: a kit order is at least ' + SHOP.min + ' shirts.</span>' : '');
+    $('kitBuy').disabled = !!short || SKBUSY; $('kitAdd').disabled = n >= SHOP.max;
+  }
+  function kitRows() {
+    var k = shopKit();
+    $('kitRows').innerHTML = k.rows.map(function (r, i) {
+      return '<div class="kitrow' + (i === k.sel ? ' is' : '') + '" data-krow="' + i + '"><input type="text" maxlength="12" autocapitalize="characters" placeholder="NAME" aria-label="Name on shirt ' + (i + 1) + '" value="' + esc(r.name) + '" data-kf="name">' +
+        '<input type="text" inputmode="numeric" maxlength="2" placeholder="No." aria-label="Number on shirt ' + (i + 1) + '" value="' + esc(r.num) + '" data-kf="num">' +
+        '<select aria-label="Size of shirt ' + (i + 1) + '" data-kf="size">' + SHOP.sizes.map(function (s) { return '<option' + (s === r.size ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select>' +
+        '<button class="plain quiet" type="button" data-krm="' + i + '" aria-label="Remove shirt ' + (i + 1) + '">✕</button></div>';
+    }).join('');
+  }
+  function renderShop() {
+    var k = shopKit();
+    $('shopBack').textContent = { home: 'Home', options: 'Settings', feed: 'Home', profile: 'Profile' }[shopFrom] || 'Back';
+    $('shopTest').hidden = !!CFG.shopLive; // (config.js says when Stripe takes real payments)
+    $('mntPrice').textContent = gbp(SHOP.mount); $('mntQty').textContent = SKQ;
+    $('mntLess').disabled = SKQ <= 1; $('mntMore').disabled = SKQ >= SHOP.mountMax;
+    $('mntTotal').textContent = SKQ + ' × ' + gbp(SHOP.mount) + ' + ' + gbp(SHOP.postage) + ' postage = ' + gbp(SKQ * SHOP.mount + SHOP.postage);
+    $('mntBuy').disabled = SKBUSY;
+    ['mnt', 'kit'].forEach(function (w) { var m = SKMSG[w]; $(w + 'Msg').hidden = !m; $(w + 'Msg').textContent = m ? m.text : ''; $(w + 'Msg').classList.toggle('bad', !!(m && m.bad)); });
+    $('kitMinN').textContent = SHOP.min;
+    swatches($('kitC1'), k.color, function (c, fromPicker) { k.color = c; kitPreview(); if (!fromPicker) renderShop(); });
+    swatches($('kitC2'), k.color2, function (c, fromPicker) { k.color2 = c; kitPreview(); if (!fromPicker) renderShop(); });
+    $('kitPat').innerHTML = SHOP.patterns.map(function (p) { return '<button type="button" data-kpat="' + p[0] + '" class="' + (k.pattern === p[0] ? 'is' : '') + '" aria-pressed="' + (k.pattern === p[0]) + '">' + p[1] + '</button>'; }).join('');
+    var teamCrest = A.active && /^data:image\/(png|jpeg);base64,/.test(crest || '') ? crest : null;
+    $('kitBadge').innerHTML = (teamCrest ? '<button class="plain' + (k.badge === teamCrest ? ' tint' : '') + '" type="button" data-kbadge="crest">Team crest</button>' : '') +
+      '<button class="plain' + (k.badge && k.badge !== teamCrest ? ' tint' : '') + '" type="button" data-kbadge="own">' + (k.badge && k.badge !== teamCrest ? 'Change picture' : 'Choose a picture') + '</button>' +
+      '<button class="plain' + (!k.badge ? ' tint' : '') + '" type="button" data-kbadge="none">No badge</button>';
+    $('kitSpon').checked = k.sponsor;
+    $('kitSponNote').textContent = gbp(SHOP.sponsored) + ' a shirt with GAFFER across the chest, instead of ' + gbp(SHOP.kit) + ' with a plain chest.';
+    kitPreview(); kitRows(); kitSum();
+    renderOrders();
+    if (SKO === null) { SKO = []; shopOrders(); }
+  }
+  function renderOrders() {
+    var st = { awaiting_payment: 'Waiting for payment', paid: 'Paid, being made', sent: 'Posted', cancelled: 'Not paid', refunded: 'Refunded' };
+    $('ordSec').hidden = !(SKO && SKO.length);
+    $('ordList').innerHTML = (SKO || []).map(function (o) {
+      var what = o.item === 'kit' ? o.shirts + ' kit shirt' + (o.shirts === 1 ? '' : 's') + (o.sponsor ? ' (Gaffer sponsor)' : '') : ((o.lines && o.lines[0] && o.lines[0].qty) || 1) + ' × cage phone mount';
+      return '<div class="card ord" data-ord="' + esc(o.id) + '"><b>' + esc(what) + '</b><span class="note">' + esc(new Date(o.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })) + ' · ' + gbp(o.total) + (o.live === false ? ' · test' : '') + '</span><span class="ordst ' + esc(o.status) + '">' + esc(st[o.status] || o.status) + '</span></div>';
+    }).join('');
+  }
+  async function shopCall(body) { // the shop edge function: its answer, or { error } in plain words
+    var none = 'Couldn’t reach Gaffer’s server. Check your signal and try again.';
+    if (!sb || !sb.functions) return { error: none };
+    try {
+      var res = await sb.functions.invoke('shop', { body: body });
+      if (res && res.data && !res.error) return res.data;
+      var said = null; try { if (res && res.error && res.error.context && typeof res.error.context.json === 'function') said = await res.error.context.json(); } catch (e) {}
+      return { error: (said && said.error) || none, reason: said && said.reason };
+    } catch (e) { return { error: none }; }
+  }
+  async function shopOrders() {
+    if (!sb || !me) return;
+    var r = await shopCall({ action: 'orders' });
+    if (r && r.orders) { SKO = r.orders; if (S.view === 'shop') renderShop(); }
+  }
+  async function shopBuy(which, body) {
+    if (!sb || !me) { SKMSG[which] = { text: 'Sign in first, so your order is kept with your account.', bad: true }; renderShop(); acctOpen('in'); return; }
+    SKBUSY = true; SKMSG[which] = { text: 'Opening the payment page…' }; renderShop();
+    var r = await shopCall(Object.assign({ action: 'checkout', code: A.active || null }, body));
+    SKBUSY = false;
+    if (r.error || !r.url) { SKMSG[which] = { text: r.error || 'Couldn’t start the payment. Try again in a moment.', bad: true }; renderShop(); return; }
+    SKMSG[which] = { text: 'Pay on the page that’s just opened, then come back here. Your order shows under Your orders.' };
+    SKO = null; renderShop(); // (picks up the new order)
+    try { window.open(r.url, '_blank'); } catch (e) { location.href = r.url; }
+  }
+  function kitCheck() { // anything on a shirt the printer can't do, or that isn't allowed, in plain words
+    var k = shopKit();
+    for (var i = 0; i < k.rows.length; i++) {
+      var r = k.rows[i];
+      if (!/^[\p{L}' .-]{0,12}$/u.test(r.name)) return 'Shirt ' + (i + 1) + ': names can only have letters, spaces, dots, dashes or apostrophes.';
+      if (r.name && rude(r.name, true)) return 'Shirt ' + (i + 1) + ': that name can’t go on a shirt.';
+      if (r.num !== '' && !/^\d{1,2}$/.test(r.num)) return 'Shirt ' + (i + 1) + ': numbers go from 0 to 99.';
+    }
+    return null;
+  }
+  $('shopBack').addEventListener('click', function () { go(shopFrom === 'shop' ? 'home' : shopFrom || 'home'); });
+  $('mShop').addEventListener('click', function () { go('shop'); });
+  $('shopOpen').addEventListener('click', function () { go('shop'); });
+  $('mntLess').addEventListener('click', function () { SKQ = Math.max(1, SKQ - 1); renderShop(); });
+  $('mntMore').addEventListener('click', function () { SKQ = Math.min(SHOP.mountMax, SKQ + 1); renderShop(); });
+  $('mntBuy').addEventListener('click', function () { shopBuy('mnt', { item: 'mount', qty: SKQ }); });
+  $('kitBuy').addEventListener('click', function () {
+    var k = shopKit(), bad = kitCheck();
+    if (bad) { SKMSG.kit = { text: bad, bad: true }; renderShop(); return; }
+    shopBuy('kit', { item: 'kit', design: { color: k.color, color2: k.color2, pattern: k.pattern, sponsor: k.sponsor, badge: k.badge },
+      shirts: k.rows.map(function (r) { return { name: r.name, num: r.num === '' ? null : Number(r.num), size: r.size }; }) });
+  });
+  $('kitSpon').addEventListener('change', function (e) { shopKit().sponsor = e.target.checked; kitPreview(); kitSum(); });
+  $('kitPat').addEventListener('click', function (e) { var b = e.target.closest('[data-kpat]'); if (!b) return; shopKit().pattern = b.getAttribute('data-kpat'); renderShop(); });
+  $('kitBadge').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-kbadge]'); if (!b) return; var w = b.getAttribute('data-kbadge'), k = shopKit();
+    if (w === 'own') { $('kitBadgeFile').click(); return; }
+    k.badge = w === 'crest' ? crest : null; renderShop();
+  });
+  $('kitBadgeFile').addEventListener('change', function (e) {
+    readCrest(e.target.files[0]).then(function (u) { shopKit().badge = u; SKMSG.kit = null; e.target.value = ''; renderShop(); },
+      function (err) { e.target.value = ''; SKMSG.kit = { text: err.message, bad: true }; renderShop(); });
+  });
+  $('kitAdd').addEventListener('click', function () { var k = shopKit(); if (k.rows.length >= SHOP.max) return; k.rows.push({ name: '', num: '', size: 'M' }); k.sel = k.rows.length - 1; kitRows(); kitPreview(); kitSum(); });
+  $('kitRows').addEventListener('click', function (e) {
+    var k = shopKit(), rm = e.target.closest('[data-krm]');
+    if (rm) { k.rows.splice(+rm.getAttribute('data-krm'), 1); k.sel = Math.min(k.sel, Math.max(0, k.rows.length - 1)); kitRows(); kitPreview(); kitSum(); return; }
+    var row = e.target.closest('[data-krow]'); if (!row) return; var i = +row.getAttribute('data-krow');
+    if (i !== k.sel) { k.sel = i; Array.prototype.forEach.call($('kitRows').children, function (el, j) { el.classList.toggle('is', j === i); }); kitPreview(); }
+  });
+  $('kitRows').addEventListener('input', function (e) {
+    var f = e.target.getAttribute('data-kf'), row = e.target.closest('[data-krow]'); if (!f || !row) return;
+    var k = shopKit(), i = +row.getAttribute('data-krow'), r = k.rows[i]; if (!r) return;
+    if (f === 'name') { var v = e.target.value.toUpperCase().slice(0, 12); if (v !== e.target.value) e.target.value = v; r.name = v.trim(); }
+    else if (f === 'num') { var n = e.target.value.replace(/\D/g, '').slice(0, 2); if (n !== e.target.value) e.target.value = n; r.num = n; }
+    else r.size = e.target.value;
+    if (i !== k.sel) { k.sel = i; Array.prototype.forEach.call($('kitRows').children, function (el, j) { el.classList.toggle('is', j === i); }); }
+    kitPreview();
+  });
+  $('kitRows').addEventListener('change', function (e) { if (e.target.getAttribute('data-kf') === 'size') { var row = e.target.closest('[data-krow]'), r = row && shopKit().rows[+row.getAttribute('data-krow')]; if (r) r.size = e.target.value; } });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && S.view === 'shop') shopOrders(); }); // (back from paying)
+
   // ================= experimental: player tracking from a recording (iPhone app only; results stay on this phone)
   var TR = { stage: 'setup', src: null, msg: '', prog: '', res: null }, trBound = false;
   function trStore(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(TKEY + A.active + ':' + k)); localStorage.setItem(TKEY + A.active + ':' + k, JSON.stringify(v)); } catch (e) {} return null; }
@@ -6529,9 +6861,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // Never during a game, and never for a paid team. The unlock is granted on the server: Google's AdMob calls the ad-reward
   // edge function, signed, when the ad has been watched (0035_rewarded_ads.sql). Google's test ads until Ethan's AdMob
   // account is set up (config.js ads).
-  function adFree() { // THE check for "no ads here": a team with the team pass never sees one (teamPaid, from the per-team plan,
-    // once that's in), and in early access everyone has Gaffer (hasGaffer) unless the Experimental switch tries the free tier out
-    if (typeof teamPaid === 'function' && teamPaid()) return true;
+  function adFree() { // THE check for "no ads here": a team with the team pass never sees one (teamPaid, from the team pot),
+    // and in early access everyone has Gaffer (hasGaffer) unless the Experimental switch tries the free tier out
+    if (teamPaid()) return true;
     return hasGaffer() && !(A.exp && A.exp.track && A.exp.ads);
   }
   function adsOK() { return !DROID && !!(CFG.ads && CFG.ads.rewarded) && !!sb && !!me && !!A.active && !!plugin('AdMob'); } // an ad can be shown here: the iPhone app, signed in
@@ -7359,7 +7691,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   });
   function renderOptions() {
     renderNotes();
-    var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = $('soonOpen').hidden = $('planOpen').hidden = !ex.track;
+    var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = $('soonOpen').hidden = $('planOpen').hidden = $('shopOpen').hidden = !ex.track;
     $('expAds').checked = !!ex.ads; $('expAdsRow').hidden = !ex.track;
     $('optAds').hidden = !freeTier(); $('optAdsMsg').hidden = !(AD.kind === 'choices' && AD.msg); $('optAdsMsg').textContent = AD.kind === 'choices' ? AD.msg : '';
     var aiOn = aiAllowed(); $('optAI').hidden = !(sb && me);

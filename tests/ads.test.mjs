@@ -189,4 +189,9 @@ const db2 = w.db(); db2.player_reels.find((r) => r.pid === 2).path = jr(2); w.se
 await J.page.reload(); await J.run(2000); await openMine();
 eq(await J.page.$$eval(mine + ' [data-ad="reel"]', (b) => b.length), 1, 'a new reel is behind a new ad');
 
+// a team that has paid (the team pass, 0032) never sees an ad: the same reel plays straight away
+const db3 = w.db(); db3.team_pass = [{ team_id: tid, paid_until: Date.now() + 20 * 86400000, pot: 0 }]; w.setDb(db3);
+await J.page.reload(); await J.run(2000); await openMine();
+eq([await J.page.$$eval(mine + ' .reelp video', (v) => v.length), await J.page.$$eval(mine + ' [data-ad]', (b) => b.length), await J.page.evaluate(() => window.gafferTeamPaid())], [1, 0, true], 'a paid team: no ad, his reel plays');
+
 await done(A, J);
