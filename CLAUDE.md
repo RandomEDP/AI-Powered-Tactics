@@ -122,7 +122,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `android/` | The Android app shell (Capacitor). `MainActivity.java` (the back button), icons and splash in `app/src/main/res`, signing and version in `app/build.gradle`. `app/src/main/assets/public` is git-ignored and filled by `npx cap sync android` |
 | `.github/workflows/store-text.yml` | "Update App Store text" (run by hand): sends `store/text/*.txt` (name, subtitle, description, keywords, promotional text) to App Store Connect through `scripts/asc-text.mjs` with the `ASC_*` secrets. Unticked "Send it" only shows what would change. Test: `storetext.test.mjs` |
 | `.github/workflows/watch-shots.yml` | Takes Apple Watch App Store screenshots in a simulator (run by hand) |
-| `store/` | App Store pictures, in the folders App Store Connect wants. `node store/capture.mjs` takes real app screens (402×874 @3×) through the test harness, then `node store/compose.mjs` lays them out in the purple style; `store/src/` holds the tracking still, the icon and the earlier slides that are kept as they are |
+| `store/` | App Store pictures, in the folders App Store Connect wants, plus social pictures in `5 Social` (squares, stories, a wide one). `node store/capture.mjs` plays SOP FC 15–2 Dog Squad through the test harness and takes the redesigned app's screens (402×874 @3×, dark mode), then `node store/compose.mjs` lays them all out in the purple style. `store/src/footage/` holds stills from that game's real highlights (the score box and GOAL bar are Gaffer's own); the screens' videos show them. Nothing behind the Experimental switch goes in |
 | `shots/` | Raw screenshots from `tests/shots.mjs`, for checking the design |
 | `tests/` | Section 9 |
 
