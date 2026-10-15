@@ -114,8 +114,8 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0031` are **applied to the live project**; `0032`–`0035` are on other branches (live); `0036` (Goal of the Week) is live too. New ones are numbered on from there |
-| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
+| `supabase/migrations/` | `0001` … `0037` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made). New ones are numbered on from 0038 |
+| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
 | `.github/workflows/android.yml` | Every push: the `android` tests, then builds the Android app (`.apk` to install, `.aab` for Google Play) as the run's artifacts. Run by hand with "Upload to Google Play" for the internal testing track (needs the Android secrets, section 7) |
@@ -748,6 +748,40 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   and `kitIsLight` (tested in `tests/watch/main.swift`, 26). The clock is `@ScaledMetric`.
 - Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
 
+### Rewarded ads (the free tier; `0035_rewarded_ads.sql`, `ad-reward`; Ethan: "just a 30 second ad to see your own highlight reel")
+- No banners. On the free tier the one ad is on your own card in Highlights → By player: your kept player reel (0026) is
+  behind "Watch a 30-second ad" (Google AdMob rewarded, `@capacitor-community/admob` 8.2.1, iPhone app only). Watching
+  it unlocks that reel for you for good; a new reel needs a new ad. Other people's reels, games' highlights, cuts and
+  commentary are not gated (Ethan tried more unlocks and pulled back to this one, October 2026).
+- **Never during a game** (`adWatch` refuses while `S.match` is set) and **never for a paid team**: `adFree()` is the one
+  check (`teamPaid()` from the team pass, else `hasGaffer()`). Early access: everyone has Gaffer, so ads only show with
+  Experimental on and "Try the free tier" (`#expAds`, `A.exp.ads`). `freeTier()` = not ad-free and an ad can be shown
+  here; on the web and Android the reel isn't locked (no ad to lift it).
+- **Server-side grant:** `ad_ticket('reel', path)` (only the player themselves, only their current reel) makes a ticket;
+  the ad is loaded with `ssv {userId, customData: ticket}`; AdMob calls `ad-reward` (deployed `--no-verify-jwt`; Google's
+  ECDSA signature checked against its published keys), which calls `ad_grant` (service role only). The app polls
+  `ad_claim`; `my_unlocks` lists the unlocked reels (`reelLocked`). Google's test ads never call the server, so while
+  `ad_settings.trust_app` is true `ad_claim(p_app_says)` takes the app's word. Table `ad_unlocks` (RLS, no policies).
+- **Your own reel is made while the ad plays** (`0037_ad_reel_ahead.sql`; Ethan asked): on the free tier, Make the reel for
+  yourself (`rbAd()`) picks the new reel's file name first (`aheadStart`), starts the ad for that name (`adRun`; `ad_ticket`
+  takes a name in your own folder picked in the last week) and the reel together, puts the reel on your card with that
+  name, and shares it only once the ad was watched. Closed early: it's on your card, locked. The name, ticket and whether
+  the ad was watched are kept on the phone (`apt-ad-ahead`) until the reel is on the card, so if Gaffer is closed after
+  the ad, the next go uses the same name and needs no second ad.
+- First ad of a session: `initialize`, Google's consent form where the law needs it (UK/EU; Settings → Ads → Ad choices
+  reopens it), then Apple's tracking question (`NSUserTrackingUsageDescription`). Either answer still unlocks.
+- **Real ads are on (15 October 2026):** Gaffer's app id `ca-app-pub-2627873247729818~2068368869` is in `Info.plist`
+  (`GADApplicationIdentifier`) and its rewarded unit `ca-app-pub-2627873247729818/1194270899` in `config.js` `ads`
+  (`test: false`). Server-side verification is on in AdMob (its Verify URL call reached `ad-reward` and got a 200), and
+  `ad_settings.trust_app` is false, so only Google's signed call unlocks a reel. Ethan set up the UK/EU consent message,
+  the App Privacy labels and the review notes. To test without real ads, add the iPhone as a test device in AdMob
+  (Settings, Test devices); never tap real ads on your own phone (AdMob flags it). For Google's test ads in a build
+  instead, set `test: true` and `trust_app = true` together (test ads never call the server).
+- Not done: `SKAdNetworkItems` has Google's own id only (Google's full list couldn't be fetched from a cloud session; add
+  it from developers.google.com/admob/ios/3p-skadnetworks for better ad matching on iOS). `ADMOB_AD_UNITS` isn't set
+  (optional; the ticket check already ties a grant to one person and one reel).
+- Tests: `ads.test.mjs` (the database, the real function with a stand-in Google key, and the phones).
+
 ### The shop (`0033_shop.sql`, `shop`, `shop-webhook`; behind the experimental switch; Ethan asked, October 2026)
 - Sells the **cage phone mount** (£12.99: grips the iPhone, hangs off the cage on a rope with a carabiner) and **team kits**
   (£14.99 a shirt, £9.99 with GAFFER as the chest sponsor; at least 8 shirts an order, at most 30; £3.99 postage). The kit
@@ -788,11 +822,11 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   - Every new table gets RLS.
   - Functions are `security definer` with `set search_path = ''`, and their grants are revoked from public and anon.
     Follow the patterns in the existing files.
-- **Edge functions:** all five are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
+- **Edge functions:** all are deployed with **verify_jwt = true**, except `ad-reward` (false, see below). Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v24 (kind `live` from any team member, sent once; kind `report` tells the moderators; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
-    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **The shop** (October 2026): `0033_shop.sql` is applied live, and `shop` v1 (verify_jwt = true) and `shop-webhook` v1
@@ -800,7 +834,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   Resend, the supplier's and Ethan's email) are Ethan's to set; until then the Shop says paying isn't set up.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
   `GOOGLE_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `R2_ACCESS_KEY_ID`,
-  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan).
+  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan), and `ADMOB_AD_UNITS` (optional, once real ads are on).
 - **GitHub repository secrets:** `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`. For Android notifications:
   `GOOGLE_SERVICES_JSON` (the Firebase file; Ethan's to add). For Google Play (not set yet; Ethan's to make): `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`,
   `PLAY_SERVICE_ACCOUNT_JSON`.
@@ -952,6 +986,9 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   keys go in Supabase secrets, never chat). **His four answers are needed first:** who pays the fee (player £5 + 50p,
   or gaffer gets £5 minus it); the cut (50p or a percentage); when players are charged (on "I'm in" or after the game)
   and what happens if a game's called off (refund or credit); and whether to start step 1.
+- **Rewarded ads:** real ads are on (October 2026; section 6, "Rewarded ads"). In early access only people who turn on
+  Experimental, then "Try the free tier", see one. Check on a real phone (as an AdMob test device) that watching one
+  unlocks your reel.
 - **Ideas he has raised but not built yet:**
   - ads in the free tier and the £4.99 Gaffer subscription (in-app purchase). Advice given: ads in the feed only once
     lots of people post (then about 1 in 8, never first); better: rewarded ads to unlock things (another game's

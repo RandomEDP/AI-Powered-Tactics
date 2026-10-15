@@ -285,6 +285,25 @@
       Object.assign(r, { path: a.p_path ?? null, store: a.p_store === 'r2' ? 'r2' : null, marks: a.p_path == null ? [] : a.p_marks || [], made_by: uid(), made_at: Date.now() });
       store(d); return ok({ ok: true, old: old !== (a.p_path ?? null) && !(d.posts || []).some((x) => x.path === old && !x.removed_at) ? old : null });
     }
+    if (['ad_ticket', 'ad_claim', 'my_unlocks'].includes(name)) { // rewarded ads (0032): your own reel, unlocked by a ticket Google's signed call grants (or, with trust_app, the app's word)
+      d.unlocks = d.unlocks || []; const trust = d.ad_trust !== false;
+      const t = a.p_code ? d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()) : null;
+      if (name === 'ad_ticket') {
+        if (!uid()) return ok({ error: 'sign_in' }); if (!t) return ok({ error: 'no_team' });
+        const p = d.players.find((x) => x.team_id === t.id && x.user_id === uid()); if (a.p_kind !== 'reel' || !p) return ok({ error: 'not_allowed' });
+        const nu = new RegExp('^' + t.id + '/players/' + p.pid + '/reel-([0-9]{1,16})\\.mp4$').exec(a.p_target || ''); // (0037: or a name for a new reel, picked in the last week)
+        if (!(d.player_reels || []).some((r) => r.team_id === t.id && r.pid === p.pid && r.path === a.p_target) && !(nu && +nu[1] > Date.now() - 7 * 86400000 && +nu[1] < Date.now() + 86400000)) return ok({ error: 'no_reel' });
+        if (d.unlocks.some((u) => u.team_id === t.id && u.user_id === uid() && u.target === a.p_target && u.granted_at)) return ok({ error: 'not_needed' });
+        const id = 'tk-' + code(8); d.unlocks.push({ id, team_id: t.id, user_id: uid(), kind: 'reel', target: a.p_target, granted_at: null }); store(d); return ok({ ticket: id });
+      }
+      if (name === 'ad_claim') {
+        const u = d.unlocks.find((x) => x.id === a.p_ticket && x.user_id === uid()); if (!u) return ok('no_ticket');
+        if (u.granted_at) return ok('granted'); if (!(a.p_app_says && trust)) return ok('waiting');
+        u.granted_at = Date.now(); store(d); return ok('granted');
+      }
+      if (!t || !uid()) return ok(null);
+      return ok({ reels: [...new Set(d.unlocks.filter((u) => u.team_id === t.id && u.user_id === uid() && u.granted_at).map((u) => u.target))] });
+    }
     if (name === 'hide_clip') { // Remove from my highlights (0022): only the player themselves, keyed by the game and the moment
       if (!uid()) return fail('Sign in first', '42501');
       const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok('no_clip');
