@@ -1,13 +1,18 @@
 # Puts the App Store text in store/text (name, subtitle, description, keywords, promotional text) into App Store
-# Connect, using the same App Store Connect key as the TestFlight builds (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8).
+# Connect, and with "Pictures too" the App Store pictures in store/6 iPhone (6.9 inch), using the same App Store Connect
+# key as the TestFlight builds (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8).
 # Run by hand only. Leave "Send it" unticked first to see what would change.
-name: Update App Store text
+name: Update App Store text and pictures
 
 on:
   workflow_dispatch:
     inputs:
       send:
         description: Send it (unticked only shows what would change)
+        type: boolean
+        default: false
+      pictures:
+        description: Pictures too (replaces the App Store pictures with the ones in store/)
         type: boolean
         default: false
 
@@ -25,9 +30,21 @@ jobs:
       - name: Check the text
         run: node scripts/asc-text.mjs check
 
+      - name: Check the pictures
+        if: inputs.pictures
+        run: node scripts/asc-shots.mjs check
+
       - name: ${{ inputs.send && 'Send it to App Store Connect' || 'Show what would change' }}
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: node scripts/asc-text.mjs ${{ inputs.send && 'send' || 'show' }}
+
+      - name: ${{ inputs.send && 'Send the pictures to App Store Connect' || 'Show what would change in the pictures' }}
+        if: inputs.pictures
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: node scripts/asc-shots.mjs ${{ inputs.send && 'send' || 'show' }}

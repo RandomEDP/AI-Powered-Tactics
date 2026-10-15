@@ -135,6 +135,17 @@ for (const Z of SIZES) {
   }
 }
 
+// iPhone 6.9", 1320 × 2868: the 6.3" pictures drawn a touch bigger (the same shape). This is the set Apple requires and
+// the one scripts/asc-shots.mjs sends; Apple scales it down for smaller iPhones.
+{
+  const dir = path.join(HERE, '6 iPhone (6.9 inch)');
+  fs.mkdirSync(dir, { recursive: true }); for (const f of fs.readdirSync(dir)) if (f.endsWith('.png')) fs.unlinkSync(path.join(dir, f));
+  for (const f of fs.readdirSync(path.join(HERE, SIZES[0].dir)).filter((x) => x.endsWith('.png')).sort()) {
+    const img = data(path.join(HERE, SIZES[0].dir, f));
+    await render(1320, 2868, `<img src="${img}" style="position:absolute;left:0;top:0;width:1320px;height:2868px">`, path.join(dir, f.replace(/^iphone-/, 'iphone69-')));
+  }
+}
+
 // ---------- the header (3840 × 1646) and search result (1920 × 1280) pictures
 const headline = 'Your team,<br><em>sorted</em>', strap = 'Fair subs, polls, stats and highlights cut from your GoPro or iPhone footage.';
 {
