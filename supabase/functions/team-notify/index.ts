@@ -14,7 +14,9 @@
 // Anyone who has just reported something (a post, a profile, a chat message or a live stream) calls it with
 // { kind: "report", what }: Gaffer's moderators are told straight away, so it's looked at within a day. It only goes if
 // the caller really did report something in the last 10 minutes.
-// The wording of those six is written here, not by the caller.
+// A gaffer who has just linked today's game with another team on Gaffer, or accepted a link, calls it with
+// { code, kind: "link", link: <id> }: the other team's gaffers are told.
+// The wording of those seven is written here, not by the caller.
 // Needs these secrets (Edge Functions > Secrets):
 //   APNS_KEY_P8   the contents of an Apple Push Notifications key (.p8)
 //   APNS_KEY_ID   that key's ID
@@ -64,7 +66,7 @@ async function fcmSignIn() {
 }
 
 const DROID_KINDS = ["kickoff", "goal", "poll", "nudge", "highlights", "chat"];
-const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge", "join", "live", "report"];
+const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge", "join", "live", "report", "link"];
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
 Deno.serve(async (req: Request) => {
@@ -73,7 +75,7 @@ Deno.serve(async (req: Request) => {
     const input = await req.json();
     const kind = KINDS.includes(input.kind) ? input.kind : "kickoff";
     let title = clean(input.title, 80), text = clean(input.body, 180);
-    if (!["claimed", "chat", "challenge", "join", "live", "report"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
+    if (!["claimed", "chat", "challenge", "join", "live", "report", "link"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
@@ -164,6 +166,24 @@ Deno.serve(async (req: Request) => {
         : c.rounds > 0 ? `${mine} suggested changes` : `${mine} want ${game}`;
       const words = c.status === "proposed" ? `${when}. Open Gaffer to answer.` : `That was ${game} on ${when}.`;
       return json({ sent: await send(to, other.code, "challenge", heading, words) });
+    }
+
+    if (kind === "link") { // asked to link today's game, or the link accepted: the other team's gaffers, once, just after
+      if (!isGaffer) return json({ error: "Only a gaffer can do that" }, 403);
+      const { data: l } = await db.from("game_links").select("id,from_team,to_team,status,updated_at").eq("id", String(input.link || "")).maybeSingle();
+      if (!l || (l.from_team !== team.id && l.to_team !== team.id)) return json({ error: "No such game" }, 404);
+      if (Date.now() - new Date(l.updated_at).getTime() > 300000) return json({ sent: 0, reason: "old" });
+      const asked = l.status === "proposed" && l.from_team === team.id, took = l.status === "accepted" && l.to_team === team.id;
+      if (!asked && !took) return json({ sent: 0, reason: "nothing" });
+      const { data: other } = await db.from("teams").select("id,code,name").eq("id", asked ? l.to_team : l.from_team).maybeSingle();
+      if (!other) return json({ error: "No such team" }, 404);
+      if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
+      const { data: theirGaffers } = await db.from("team_members").select("user_id").eq("team_id", other.id);
+      const mine = clean(team.name, 60);
+      return json({ sent: await send((theirGaffers || []).map((g) => g.user_id as string), other.code, "link",
+        asked ? `${mine} want to link today's game` : `${mine} accepted the linked game`,
+        asked ? "Accept it in Gaffer and both teams' goals make one score, and either team's clips go in the game's highlights."
+          : "Their goals now count in your score, and their clips go in the game's highlights.") });
     }
 
     if (kind === "join") { // from someone not in the team yet: only if they really have a request waiting, and only once for it
