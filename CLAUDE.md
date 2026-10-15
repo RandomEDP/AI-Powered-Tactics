@@ -616,10 +616,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - Tests: `solo.test.mjs` (phone, watch presses, no notifications, kept out of the record), `tests/watch/main.swift` (25).
 
 ### The team pass: the Gaffer tier per team, from a team pot (`0032_team_pass.sql`, `team-pass`; Ethan asked, October 2026)
-- Anyone on the team chips into the team's pot in the iPhone app: 69p, £1.49, £2.49, or the whole £4.99 (Ethan: "chip in
+- Anyone on the team chips into the team's pot in the iPhone app: 99p, £1.99, £2.99, or the whole £4.99 (Ethan: "chip in
   however much you want until the team gets £4.99"). When the pot reaches 499 pence the whole team gets 30 days at once
   (added on to any time left) and anything over stays in the pot (`team_pass.pot`). Apple **consumables**, ids
-  `com.randomedp.aipoweredtactics.team.chip069` / `.chip149` / `.chip249` / `.month`; credit is by product, the same in any
+  `com.randomedp.aipoweredtactics.team.chip099` / `.chip199` / `.chip299` / `.month`; credit is by product, the same in any
   country. Gifting to others is allowed by guideline 3.1.1; taking money outside the App Store isn't (outside the US).
 - **Flow:** `TeamPassPlugin` (StoreKit 2) `buy({id, account})` puts the account's id on the purchase as `appAccountToken`;
   JS keeps it in `apt-pass-pending` and calls `team-pass` `claim {code, transaction_id}`, which asks Apple's App Store
@@ -633,7 +633,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Card:** `#passCard` on the Team page (`renderPass`, `.passbar`), behind the Experimental switch until the products are
   live (a paid team shows it to everyone). It says before anyone pays that a chip-in unlocks nothing until the pot is full.
   "Runs out in N days" within 5. No buttons on the web or Android (no Google Play yet).
-- Live: migration 0032 applied and `team-pass` v1 deployed (15 October 2026). It says "not set up yet" until Ethan adds the
+- Live: migration 0032 applied and `team-pass` v4 deployed (15 October 2026; chip-ins 99p, £1.99, £2.99). It says "not set up yet" until Ethan adds the
   secrets `IAP_KEY_ID`, `IAP_ISSUER_ID`, `IAP_KEY_P8` (README "Team pass"); purchases wait on the phone till then. Refunds made after a purchase is counted aren't taken back yet (needs App Store Server
   Notifications). Test: `teampass.test.mjs`.
 
@@ -792,7 +792,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v24 (kind `live` from any team member, sent once; kind `report` tells the moderators; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
-    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v2 (team pot and voices), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **The shop** (October 2026): `0033_shop.sql` is applied live, and `shop` v1 (verify_jwt = true) and `shop-webhook` v1

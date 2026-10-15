@@ -1,5 +1,5 @@
-// The team pass (0032_team_pass.sql): someone on a team has chipped into the team's pot in the iPhone app (69p, £1.49,
-// £2.49, or the whole £4.99 month), through Apple; each full £4.99 in the pot gives the team 30 days. Before it counts,
+// The team pass (0032_team_pass.sql): someone on a team has chipped into the team's pot in the iPhone app (99p, £1.99,
+// £2.99, or the whole £4.99 month), through Apple; each full £4.99 in the pot gives the team 30 days. Before it counts,
 // this asks Apple itself about the purchase (App Store Server API, "Get Transaction Info"), so a made-up or refunded
 // purchase never pays for anything, and each purchase counts once, for one team.
 // Called by anyone signed in, with { code, action: "claim", transaction_id }:
@@ -21,9 +21,9 @@ const BUNDLE = "com.randomedp.aipoweredtactics";
 export const GOAL = 499;
 export const PRODUCTS: Record<string, { kind: string; pence: number }> = {
   [BUNDLE + ".team.month"]: { kind: "month", pence: 499 },
-  [BUNDLE + ".team.chip069"]: { kind: "chip069", pence: 69 },
-  [BUNDLE + ".team.chip149"]: { kind: "chip149", pence: 149 },
-  [BUNDLE + ".team.chip249"]: { kind: "chip249", pence: 249 },
+  [BUNDLE + ".team.chip099"]: { kind: "chip099", pence: 99 },
+  [BUNDLE + ".team.chip199"]: { kind: "chip199", pence: 199 },
+  [BUNDLE + ".team.chip299"]: { kind: "chip299", pence: 299 },
 };
 // The commentary voices bought once (the free one isn't sold): East London Steve 18+. The app has the same (VOICE_BUY).
 export const VOICE_PRODUCTS: Record<string, string> = { [BUNDLE + ".voice.steve"]: "steve" };
