@@ -402,12 +402,14 @@ enum ReelGraphics {
         return box
     }
 
-    /// The whole end card, shown from `at`: { kicker?, title, sub, color, ink, crest? } from JS.
+    /// The whole end card, shown from `at`: { kicker?, sponsor?, title, sub, color, ink, crest? } from JS. `sponsor` is the
+    /// "presented by" name under the kicker (Goal of the Week); none, no line.
     static func endCard(_ outro: [String: Any], at: Double, u base: CGFloat, size: CGSize, margin: CGFloat) -> CALayer {
         let background = color(outro["color"] as? String, fallback: UIColor(red: 0.36, green: 0.16, blue: 0.53, alpha: 1))
         let ink = color(outro["ink"] as? String, fallback: .white)
         let crest = picture(outro["crest"])
         let kicker = (outro["kicker"] as? String ?? "Highlights").uppercased()
+        let sponsor = (outro["sponsor"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let card = CALayer()
         card.frame = CGRect(origin: .zero, size: size)
         card.masksToBounds = true
@@ -441,6 +443,7 @@ enum ReelGraphics {
             let width = size.width - margin * 2
             if let crest = crest { add(picture(crest, frame: CGRect(x: 0, y: 0, width: u * 15, height: u * 15)), u * 2.4) }
             add(line(kicker, font: UIFont.systemFont(ofSize: u * 2.6, weight: .heavy), color: ink.withAlphaComponent(0.75), kern: u * 0.45), u * 1.0)
+            if !sponsor.isEmpty { add(line("PRESENTED BY " + sponsor.uppercased(), font: UIFont.systemFont(ofSize: u * 2.0, weight: .bold), color: ink.withAlphaComponent(0.6), kern: u * 0.3), u * 1.4) }
             add(block(outro["title"] as? String ?? "", font: UIFont.systemFont(ofSize: u * 6.6, weight: .black), color: ink, maxWidth: width, centred: true), u * 1.0)
             let sub = outro["sub"] as? String ?? ""
             if !sub.isEmpty { add(block(sub, font: UIFont.systemFont(ofSize: u * 3.1, weight: .semibold), color: ink.withAlphaComponent(0.8), maxWidth: width, centred: true), 0) }

@@ -16,7 +16,9 @@
 // the caller really did report something in the last 10 minutes.
 // A gaffer who has just linked today's game with another team on Gaffer, or accepted a link, calls it with
 // { code, kind: "link", link: <id> }: the other team's gaffers are told.
-// The wording of those seven is written here, not by the caller.
+// Anyone signed in whose app sees that last week's Goal of the Week has been decided calls it with { kind: "gotw", week }:
+// everyone in the teams that had a goal up that week, and everyone who voted, is told who won, once however many ask.
+// The wording of those eight is written here, not by the caller.
 // Needs these secrets (Edge Functions > Secrets):
 //   APNS_KEY_P8   the contents of an Apple Push Notifications key (.p8)
 //   APNS_KEY_ID   that key's ID
@@ -65,8 +67,8 @@ async function fcmSignIn() {
   return fcm;
 }
 
-const DROID_KINDS = ["kickoff", "goal", "poll", "nudge", "highlights", "chat"];
-const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge", "join", "live", "report", "link"];
+const DROID_KINDS = ["kickoff", "goal", "poll", "nudge", "highlights", "chat", "gotw"];
+const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge", "join", "live", "report", "link", "gotw"];
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
 Deno.serve(async (req: Request) => {
@@ -75,7 +77,7 @@ Deno.serve(async (req: Request) => {
     const input = await req.json();
     const kind = KINDS.includes(input.kind) ? input.kind : "kickoff";
     let title = clean(input.title, 80), text = clean(input.body, 180);
-    if (!["claimed", "chat", "challenge", "join", "live", "report", "link"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
+    if (!["claimed", "chat", "challenge", "join", "live", "report", "link", "gotw"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
@@ -120,14 +122,48 @@ Deno.serve(async (req: Request) => {
 
     if (kind === "report") { // somebody has just reported something: tell the moderators, if they really did
       const since = Date.now() - 600000, me = who.user.id, recent = (rows: { created_at: string }[] | null) => (rows || []).some((r) => new Date(r.created_at).getTime() > since);
-      const [a, b, c, d] = await Promise.all([
+      const [a, b, c, d, e] = await Promise.all([
         db.from("post_reports").select("created_at").eq("user_id", me), db.from("profile_reports").select("created_at").eq("reporter", me),
-        db.from("message_reports").select("created_at").eq("user_id", me), db.from("stream_reports").select("created_at").eq("user_id", me)]);
-      if (![a.data, b.data, c.data, d.data].some(recent)) return json({ error: "Nothing reported" }, 404);
+        db.from("message_reports").select("created_at").eq("user_id", me), db.from("stream_reports").select("created_at").eq("user_id", me),
+        db.from("gotw_reports").select("created_at").eq("user_id", me)]);
+      if (![a.data, b.data, c.data, d.data, e.data].some(recent)) return json({ error: "Nothing reported" }, 404);
       if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
-      const what = ({ post: "A post", profile: "A profile", chat: "A chat message", stream: "A live stream" } as Record<string, string>)[String(input.what)] || "Something";
+      const what = ({ post: "A post", profile: "A profile", chat: "A chat message", stream: "A live stream", gotw: "A Goal of the Week clip" } as Record<string, string>)[String(input.what)] || "Something";
       const { data: mods } = await db.from("moderators").select("user_id");
       return json({ sent: await send((mods || []).map((m) => m.user_id as string), "", "report", "Something was reported in Gaffer", `${what} was reported. Have a look and deal with it within 24 hours.`) });
+    }
+
+    if (kind === "gotw") { // last week's Goal of the Week has been decided: the teams that had a goal up, and everyone who voted
+      const week = String(input.week || "");
+      if (!/^\d{4}-\d\d-\d\d$/.test(week)) return json({ error: "No such week" }, 404);
+      const { data: win } = await db.from("gotw_winners").select("week,nom_id,team_id,votes,sponsor,decided_at,notified_at").eq("week", week).maybeSingle();
+      if (!win || !win.nom_id || !win.team_id) return json({ sent: 0, reason: "no_winner" });
+      if (win.notified_at) return json({ sent: 0, reason: "already" });
+      const at = new Date().toISOString(); // only the first phone to get here sends it
+      const { data: got } = await db.from("gotw_winners").update({ notified_at: at }).eq("week", week).is("notified_at", null).select("week");
+      if (!got || !got.length) return json({ sent: 0, reason: "already" });
+      if (Date.now() - new Date(win.decided_at).getTime() > 3 * 86400000) return json({ sent: 0, reason: "old" }); // (nobody looked all week: old news)
+      if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
+      const [{ data: champs }, { data: noms }, { data: votes }] = await Promise.all([
+        db.from("teams").select("id,name").eq("id", win.team_id).maybeSingle(),
+        db.from("gotw_noms").select("team_id").eq("week", week).is("removed_at", null),
+        db.from("gotw_votes").select("user_id").eq("week", week)]);
+      if (!champs) return json({ sent: 0, reason: "no_winner" });
+      const people = async (id: string) => {
+        const [{ data: ps }, { data: gs }] = await Promise.all([
+          db.from("players").select("user_id").eq("team_id", id).not("user_id", "is", null), db.from("team_members").select("user_id").eq("team_id", id)]);
+        return [...(ps || []), ...(gs || [])].map((r) => r.user_id as string);
+      };
+      const ours = new Set(await people(win.team_id));
+      const others = new Set<string>();
+      for (const t of new Set((noms || []).map((n) => n.team_id as string))) if (t !== win.team_id) (await people(t)).forEach((u) => others.add(u));
+      (votes || []).forEach((v) => others.add(v.user_id as string));
+      ours.forEach((u) => others.delete(u));
+      const name = clean(champs.name, 60), n = Number(win.votes) || 0, many = `${n} ${n === 1 ? "vote" : "votes"}`;
+      const heading = `Goal of the Week${win.sponsor ? `, presented by ${clean(win.sponsor, 40)}` : ""}`;
+      const sent = await send([...ours], "", "gotw", `You won ${heading}!`, `Your goal won with ${many}. Tap to watch it.`)
+        + await send([...others], "", "gotw", heading, `${name} won with ${many}. Tap to watch it.`);
+      return json({ sent, people: ours.size + others.size });
     }
 
     const { data: team } = await db.from("teams").select("id,code,name,short").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
