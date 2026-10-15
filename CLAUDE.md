@@ -496,7 +496,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   (the old Mute) and, if they have a profile, calls `block_user` (`chUser` asks `team_people` for the username if the
   phone doesn't know it; it's kept in `chatMutedU` because the server won't say who a blocked person is). Unblock undoes both.
 - **AI commentary asks first** (`aiAsk`, `#aiPop`, `apt-ai` per phone): before any line goes to `reel-voice` (cutting
-  with commentary, a reel with a voice, Hear this voice), saying what is sent (first names, team names, score, minute),
+  with commentary, a reel with a voice), saying what is sent (first names, team names, score, minute),
   to Google, and that it isn't used for training. Not now: nothing is sent and it's made without commentary (`AI_NO`).
   Settings → AI commentary (`#optAI`) shows where it stands and allows or stops it. The privacy page covers Google.
 - Tests: `safety.test.mjs`, `reels.test.mjs` (the ask), `live.test.mjs` (stream reports), `stream.test.mjs` (kind
@@ -633,7 +633,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Card:** `#passCard` on the Team page (`renderPass`, `.passbar`), behind the Experimental switch until the products are
   live (a paid team shows it to everyone). It says before anyone pays that a chip-in unlocks nothing until the pot is full.
   "Runs out in N days" within 5. No buttons on the web or Android (no Google Play yet).
-- Live: migration 0032 applied and `team-pass` v3 deployed (15 October 2026; chip-ins 99p, £1.99, £2.99). It says "not set up yet" until Ethan adds the
+- Live: migration 0032 applied and `team-pass` v4 deployed (15 October 2026; chip-ins 99p, £1.99, £2.99). It says "not set up yet" until Ethan adds the
   secrets `IAP_KEY_ID`, `IAP_ISSUER_ID`, `IAP_KEY_P8` (README "Team pass"); purchases wait on the phone till then. Refunds made after a purchase is counted aren't taken back yet (needs App Store Server
   Notifications). Test: `teampass.test.mjs`.
 
@@ -690,6 +690,30 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     (about 90 s in all; the rest are read straight). Ethan can raise the limit: Google Cloud, IAM & Admin, Quotas,
     gemini-2.5-flash-tts.
 - Ethan funds the Google usage himself.
+- **Two voices, one picker** (`0034_voice_unlocks.sql`; Ethan, October 2026: "remove all the voices for now apart from
+  the base free one … and the sweary one, lets call it East London Steve 18+ … we only need to select the voice").
+  **Gaffer's commentator** is free and read straight (Fenrir on Chirp 3 HD, `FREE_STYLE = 'plain'` in `reel-voice`,
+  `VOICE_FREE_STYLE` in JS; Chirp's first million characters a month are free). **East London Steve 18+** is the
+  Sweary delivery (key `steve`, style `sweary`), a £3.99 Apple **non-consumable** `com.randomedp.aipoweredtactics.voice.steve`,
+  kept on the Gaffer account that bought it (`voice_unlocks`), so any phone signed in to it has him. There's no separate
+  delivery choice any more: `voiceKey()`/`voiceSet()` keep `apt-voice` `{v}` (an old `style: 'sweary'` reads as Steve),
+  `voicePick()` turns the key into voice and style. Same plumbing as the team pass: `TeamPassPlugin` `buy`, then
+  `team-pass` `{action: 'voice', transaction_id}` checks it with Apple (`VOICE_PRODUCTS`) and calls `voice_credit`
+  (service role only; one purchase, one account), then `finish`. `owned({sync})` (StoreKit `currentEntitlements`, after
+  `AppStore.sync()` when asked) is Restore purchases. `reel-voice` refuses the sweary style to anyone who hasn't bought
+  Steve (`reason: 'locked'`, `locked: ['steve']`). More voices can be sold the same way later.
+  - **The on-sale switch:** `voice_settings.on_sale` (one row, off to start). While it's off `my_voices()` returns null (the
+    app keeps Steve open, `VO.open`) and `reel-voice` doesn't check, so nobody pays until Ethan turns it on after the
+    product is approved (`update public.voice_settings set on_sale = true`). 0034 and both functions are live (October 2026).
+  - JS: `voiceBox(pre)` is the picker in the cut and the reel builder (prices from Apple, Unlock, Restore, Hear a sample);
+    `voOwns`, `voLocked`, `voUse` (the voice actually asked for; never a locked one); the cut and `rbMake` stop with
+    `voLockMsg` before anything is recorded. Owned voices are kept per account in `apt-voices:<user id>`. Until 0034 is
+    live (`my_voices` missing) every voice stays open (`VO.open`), so shipping the app first changes nothing.
+  - **Samples:** `reel-voice` `{action: 'sample', style}` returns a public address in the `voice-samples` bucket,
+    making the MP3 the first time (one fixed line per delivery, naming nobody, so no AI ask and no team allowance).
+  - Cost (October 2026): a typical Steve reel is about a minute of Gemini TTS, about 1.5p; £3.99 leaves about £2.83
+    after VAT and Apple's 15%, so about 190 reels. The team allowance (40,000 characters, about 50p a month) caps the worst case.
+  - Tests: `voices.test.mjs` (database, both functions, the app on two iPhones), `stream.test.mjs` (Steve locked), `reels.test.mjs` (the picker).
 
 ### The look (the redesign, October 2026; Ethan asked for it after a review against Apple's design guidelines)
 - **Text follows the iPhone's text size.** Every `font-size` is a token on one scale (`--t-large` 1.75rem, `--t-title`,
@@ -768,7 +792,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v24 (kind `live` from any team member, sent once; kind `report` tells the moderators; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
-    `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **The shop** (October 2026): `0033_shop.sql` is applied live, and `shop` v1 (verify_jwt = true) and `shop-webhook` v1
@@ -913,7 +937,7 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   your own Shortcuts library). Builds after 112 have "Mark a highlight" in the iPhone's Shortcuts app; check it can be
   added, shows on the watch, and marks a highlight mid-game (see Phone ↔ Apple Watch).
 - **Voice:** the `GOOGLE_SERVICE_ACCOUNT` secret is set and works; the commentator voice was being refused by Google's
-  per-minute limit. Ethan to ask Google for a higher limit (see AI commentary); then check "Hear this voice" says Playing.
+  per-minute limit. Ethan to ask Google for a higher limit (see AI commentary); then check "Hear a sample" plays the commentator.
 - **Profiles:** check the username pop-up on the phone, follow someone private and accept it, pick clips, and that the
   feed leaves out SOP's own games. Push notifications for follow requests aren't built yet.
 - **Copyright:** `LICENSE` says all rights reserved (with third-party licences kept). The repo stays public for GitHub

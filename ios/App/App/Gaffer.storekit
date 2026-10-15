@@ -61,6 +61,21 @@
       "productID": "com.randomedp.aipoweredtactics.team.chip299",
       "referenceName": "Team pot: chip in \u00a32.99",
       "type": "Consumable"
+    },
+    {
+      "displayPrice": "3.99",
+      "familyShareable": false,
+      "internalID": "6747000101",
+      "localizations": [
+        {
+          "description": "East London Steve, the sweary Cockney pub commentator, for your highlight reels (18+). Yours to keep.",
+          "displayName": "East London Steve 18+",
+          "locale": "en_GB"
+        }
+      ],
+      "productID": "com.randomedp.aipoweredtactics.voice.steve",
+      "referenceName": "Voice: East London Steve",
+      "type": "NonConsumable"
     }
   ],
   "settings": {
