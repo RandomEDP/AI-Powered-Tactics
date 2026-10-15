@@ -1071,7 +1071,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <li>Fair subs, live scores, polls, stats, insights, the tactics board and the Apple Watch app</li>
     <li><b>One highlight reel to try.</b> Log the goals as they go in, point it at your GoPro or iPhone footage, and it cuts every goal into a reel with the score, your badge and an outro, ready to share</li>
     <li>Ads (not switched on yet)</li></ul></div>
-  <div class="tier pro"><h3>Gaffer <b>£4.99</b> a month<small>COMING SOON</small></h3><ul>
+  <div class="tier pro"><h3>Gaffer <b>£4.99</b> a month for the whole team<small>COMING SOON</small></h3><ul>
+    <li><b>One price for the team.</b> The gaffer can pay it, or everyone chips in their share</li>
     <li>Everything in Free, with no ads</li>
     <li>Highlight reels for every game</li>
     <li><b>Stream your games live.</b> Your GoPro or any iPhone sends the game to the squad’s phones, with the score on screen</li>
@@ -1184,6 +1185,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <div class="actions"><button class="plain primary" type="button" data-go="account">Sign in</button></div></div>
   <div class="card" id="askCard" hidden></div>
   <div class="card" id="liveCard" hidden></div>
+  <div class="card" id="passCard" hidden></div>
   <div class="card" id="fxCard" hidden></div>
   <div class="menu" id="homeMenu">
     <button class="primary" id="mResume" type="button" hidden><span id="mResumeLbl">Resume game</span><small id="mResumeSub"></small></button>
@@ -1715,7 +1717,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
       myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500);
       if (S.view === 'home' || S.view === 'games') renderFixture();
-      renderTabs(); tpLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
+      renderTabs(); tpLoad(); passLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
       var org = !DROID && !!d.is_organiser;
       rememberTeam(code, d.team.name, org);
@@ -3289,7 +3291,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     // you
     var pend = A.pending && A.pending.code === A.active && !me ? A.pending : null, card = $('meCard'), html = '';
     $('pendCard').hidden = !pend; if (pend) $('pendTitle').textContent = pend.ask ? 'Confirm your email to ask to join' : 'Confirm your email to join as ' + pend.name;
-    renderAsks(); renderLiveCard();
+    renderAsks(); renderLiveCard(); renderPass();
     if (myPid != null && P(myPid)) {
       var st = statsOf(S.results, myPid), last = (roster[myPid] || {}).last;
       html = '<h2>Your stats</h2><p class="note">' + esc(nm(myPid)) + (last ? ' ' + esc(last) : '') + (posOf(myPid) ? ', ' + posName(posOf(myPid)).toLowerCase() : '') + (st.saves ? ', ' + st.saves + (st.saves === 1 ? ' save' : ' saves') + ' in goal' : '') + '</p>' + statGrid(st) +
@@ -5582,6 +5584,105 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var ev = at ? stampAt(m, o, at) : stamped(m, o);
     pick = null; addGoal(ev, at || undefined);
   });
+
+  // ---- the team pass (0032_team_pass.sql): the Gaffer tier is paid for per team. Anyone on it can pay the month (£4.99)
+  // or chip in one player's share (69p, an eighth of a month) in the iPhone app, through Apple (TeamPassPlugin). Each
+  // purchase is kept on this phone until Gaffer's server (team-pass) has checked it with Apple and counted it, and only
+  // then finished, so nothing is lost to a dropped signal. teamPaid() is the one check for "this team has paid" (the ads
+  // ask it, for one); window.gafferTeamPaid is the same.
+  var PASS_IDS = { month: 'com.randomedp.aipoweredtactics.team.month', chip: 'com.randomedp.aipoweredtactics.team.chip' };
+  var PASS = { code: null, d: null, at: 0, price: { month: '£4.99', chip: '69p' }, priced: false, busy: false, msg: '', bad: false, heard: false };
+  var PASSK = 'apt-pass', PASSP = 'apt-pass-pending'; // last known state per team (right with no signal); purchases not yet counted { tx: code }
+  function passJ(k) { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } }
+  function passPut(k, o) { try { localStorage.setItem(k, JSON.stringify(o)); } catch (e) {} }
+  function passOf(code) { return code === PASS.code && PASS.d ? PASS.d : passJ(PASSK)[code] || null; }
+  function teamPaid(code) { var d = passOf(code || A.active); return !!(d && d.until && d.until > Date.now()); }
+  window.gafferTeamPaid = teamPaid;
+  function passKind(id) { return id === PASS_IDS.month ? 'month' : id === PASS_IDS.chip ? 'chip' : null; }
+  function passDay(ms) { var t = new Date(ms); return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][t.getDay()] + ' ' + t.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][t.getMonth()]; } // "Wed 14 Oct"
+  function passKeep(code, d) { PASS.code = code; PASS.d = d; var all = passJ(PASSK); all[code] = d; passPut(PASSK, all); }
+  async function passLoad(force) {
+    var code = A.active; if (!sb || !code) return;
+    if (!force && PASS.code === code && Date.now() - PASS.at < 60000) return;
+    PASS.at = Date.now();
+    var TPp = plugin('TeamPass');
+    if (TPp && !PASS.heard) { PASS.heard = true; try { TPp.addListener('transaction', function (t) { passClaim(t); }); } catch (e) {} }
+    if (TPp && !PASS.priced) TPp.products({ ids: [PASS_IDS.month, PASS_IDS.chip] }).then(function (r) {
+      ((r && r.products) || []).forEach(function (p) { var k = passKind(p.id); if (k && p.price) PASS.price[k] = p.price; }); PASS.priced = true; renderPass();
+    }, function () {});
+    try {
+      var r = await q(sb.rpc('team_pass', { p_code: code })); if (A.active !== code) return;
+      if (r.data) passKeep(code, r.data);
+      renderPass();
+    } catch (e) {}
+    passRetry();
+  }
+  async function passRetry() { // purchases Apple has but Gaffer hasn't counted yet (no signal at the time, the app closed, Ask to Buy)
+    var TPp = plugin('TeamPass'); if (!TPp || !me) return;
+    try { var r = await TPp.unfinished(); ((r && r.list) || []).forEach(function (t) { passClaim(t); }); } catch (e) {}
+  }
+  var PASS_CLAIMING = {};
+  async function passClaim(t, code) {
+    var TPp = plugin('TeamPass'), kind = passKind(t && t.productId), tx = t && String(t.transactionId || '');
+    if (!TPp || !kind || !tx || !me || !sb || PASS_CLAIMING[tx]) return null;
+    if (t.account && t.account !== String(me.id).toLowerCase()) return null; // another account's purchase on this phone: theirs to claim
+    var pend = passJ(PASSP); code = code || pend[tx] || localStorage.getItem('apt-pass-for') || A.active; if (!code) return null;
+    pend[tx] = code; passPut(PASSP, pend); PASS_CLAIMING[tx] = true;
+    var none = 'Paid, but Gaffer’s server couldn’t be reached to count it. It will count by itself next time you open Gaffer.', out;
+    try {
+      var res = await sb.functions.invoke('team-pass', { body: { code: code, action: 'claim', transaction_id: tx, environment: t.environment || '' } });
+      if (res && res.data && !res.error) out = res.data;
+      else { var said = null; try { if (res && res.error && res.error.context && typeof res.error.context.json === 'function') said = await res.error.context.json(); } catch (e) {} out = { error: (said && said.error) || none, reason: said && said.reason }; }
+    } catch (e) { out = { error: none }; }
+    delete PASS_CLAIMING[tx];
+    // Counted, or never going to count (refunded, not a team pass, a test purchase from Xcode): finish it with Apple and forget it.
+    if (!out.error || ['refunded', 'wrong_app', 'wrong_product', 'xcode'].indexOf(out.reason) >= 0) {
+      try { await TPp.finish({ transactionId: tx }); } catch (e) {}
+      pend = passJ(PASSP); delete pend[tx]; passPut(PASSP, pend);
+    }
+    if (!out.error && code === A.active) {
+      var d = Object.assign({ chips: [] }, passOf(code) || {}, { paid: out.until > Date.now(), until: out.until });
+      passKeep(code, d); PASS.at = 0; passLoad(true);
+    }
+    if (code === A.active) { PASS.msg = out.error ? out.error : (kind === 'chip' ? 'Thanks for chipping in! ' : 'Thanks! ') + 'The team is paid until ' + passDay(out.until) + '.'; PASS.bad = !!out.error; renderPass(); }
+    return out;
+  }
+  async function passBuy(kind) {
+    var TPp = plugin('TeamPass'), code = A.active; if (PASS.busy || !code) return;
+    var say = function (m, bad) { PASS.msg = m; PASS.bad = !!bad; renderPass(); };
+    if (!TPp) { say('Paying is in Gaffer’s iPhone app. Anyone on the team can chip in from there.'); return; }
+    if (!me) { say('Sign in first, so the team knows who paid.', true); return; }
+    PASS.busy = true; say('Opening the App Store…');
+    try {
+      localStorage.setItem('apt-pass-for', code);
+      var r = await TPp.buy({ id: PASS_IDS[kind], account: String(me.id).toLowerCase() });
+      PASS.busy = false;
+      if (r.status === 'pending') say('Waiting for the purchase to be approved. It will count for the team as soon as it is.');
+      else if (r.status === 'bought') { say('Paid. Adding it to the team…'); await passClaim(r, code); }
+      else say('');
+    } catch (e) { PASS.busy = false; say((e && e.message) || 'The App Store couldn’t take the payment. Try again.', true); }
+  }
+  function renderPass() {
+    var el = $('passCard'); if (!el) return;
+    var d = passOf(A.active), paid = teamPaid(), exp = !!(A.exp && A.exp.track);
+    var show = !!A.active && (exp || paid) && S.view === 'home'; // (behind the Experimental switch until the products are live; a paid team always sees who paid)
+    el.hidden = !show; if (!show) { el.innerHTML = ''; return; }
+    var left = paid ? Math.ceil((d.until - Date.now()) / 86400000) : 0;
+    var names = [], seen = {}; ((d && d.chips) || []).forEach(function (c) { var n = c.me ? 'you' : c.who; if (n && !seen[n]) { seen[n] = 1; names.push(n); } });
+    var thanks = !names.length ? '' : ' Thanks to ' + (names.length <= 3 ? names.slice(0, -1).join(', ') + (names.length > 1 ? ' and ' : '') + names[names.length - 1] : names.slice(0, 3).join(', ') + ' and ' + (names.length - 3) + ' more') + '.';
+    var native = !!plugin('TeamPass'), own = role === 'owner', p = PASS.price;
+    var month = '<button class="plain ' + (own ? 'primary' : 'tint') + '" type="button" data-pass="month">Pay for the month (' + esc(p.month) + ')</button>';
+    var chip = '<button class="plain ' + (own ? 'tint' : 'primary') + '" type="button" data-pass="chip">Chip in (' + esc(p.chip) + ')</button>';
+    el.innerHTML = '<h2>Gaffer for the team</h2>' +
+      (paid ? '<p id="passState">Paid until ' + esc(passDay(d.until)) + '.' + esc(thanks) + '</p>' + (left <= 5 ? '<p class="note" id="passLow">Runs out in ' + left + (left === 1 ? ' day' : ' days') + '. Chip in to keep it going.</p>' : '')
+        : '<p id="passState">' + esc(p.month) + ' covers the whole team for a month. Or everyone chips in ' + esc(p.chip) + ': eight chip-ins make a month.' + esc(thanks) + '</p>') +
+      '<p class="note">No ads, highlights for every game, live streams and AI commentary, for everyone on the team.</p>' +
+      (native ? '<div class="actions">' + (own ? month + chip : chip + month) + '</div><p class="note">One-off payments through Apple. Nobody is charged again unless they choose to.</p>'
+        : '<p class="note">Anyone on the team can chip in from Gaffer’s iPhone app.</p>') +
+      (PASS.msg ? '<p class="msg' + (PASS.bad ? ' bad' : '') + '" id="passMsg" role="status">' + esc(PASS.msg) + '</p>' : '');
+    [].forEach.call(el.querySelectorAll('[data-pass]'), function (b) { b.disabled = PASS.busy; });
+  }
+  $('passCard').addEventListener('click', function (e) { var b = e.target.closest('[data-pass]'); if (b) passBuy(b.getAttribute('data-pass')); });
 
   // ---- extras when running as the iOS app: lock-screen alerts for changes, haptics, screen kept awake
   var NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());

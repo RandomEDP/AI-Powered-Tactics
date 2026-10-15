@@ -1,0 +1,48 @@
+{
+  "identifier" : "6B1E9D3A-2F4C-4C1B-9E2A-0C5F7A3D8E41",
+  "nonRenewingSubscriptions" : [
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "6747000001",
+      "localizations" : [
+        {
+          "description" : "The Gaffer tier for your whole team for 30 days.",
+          "displayName" : "Pay for the month",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.randomedp.aipoweredtactics.team.month",
+      "referenceName" : "Team pass: a month",
+      "type" : "NonRenewingSubscription"
+    },
+    {
+      "displayPrice" : "0.69",
+      "familyShareable" : false,
+      "internalID" : "6747000002",
+      "localizations" : [
+        {
+          "description" : "One player's share of the team's month: about 4 days.",
+          "displayName" : "Chip in",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.randomedp.aipoweredtactics.team.chip",
+      "referenceName" : "Team pass: chip in",
+      "type" : "NonRenewingSubscription"
+    }
+  ],
+  "products" : [ ],
+  "settings" : {
+    "_applicationInternalID" : "",
+    "_developerTeamID" : "",
+    "_locale" : "en_GB",
+    "_storefront" : "GBR",
+    "_storeKitErrors" : [ ]
+  },
+  "subscriptionGroups" : [ ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

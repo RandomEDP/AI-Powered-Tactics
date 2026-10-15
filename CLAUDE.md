@@ -564,6 +564,27 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   "Goal for …? Log the goal" (`MatchState.asksScorer`, `confirmUs` in `ContentView.swift`) instead of who scored.
 - Tests: `solo.test.mjs` (phone, watch presses, no notifications, kept out of the record), `tests/watch/main.swift` (25).
 
+### The team pass: the Gaffer tier per team, with chip in (`0032_team_pass.sql`, `team-pass`; Ethan asked, October 2026)
+- One price for the team: anyone on it can **Pay for the month** (£4.99, 720 hours) or **Chip in** (69p, 90 hours, so eight
+  make a month) in the iPhone app. Both are Apple **non-renewing subscriptions** (one-off; nobody is charged again), product
+  ids `com.randomedp.aipoweredtactics.team.month` / `.team.chip`. Gifting to others is allowed by guideline 3.1.1; taking
+  money outside the App Store isn't (outside the US storefront).
+- **Flow:** `TeamPassPlugin` (StoreKit 2) `buy({id, account})` puts the account's id on the purchase as `appAccountToken`;
+  JS keeps it in `apt-pass-pending` and calls `team-pass` `claim {code, transaction_id}`, which asks Apple's App Store
+  Server API (ES256 token from the In-App Purchase key; live, then sandbox), checks bundle, product, buyer and refunds, and
+  calls `pass_credit` (service role only; once per transaction; adds on from `paid_until` or now). Only then does JS call
+  `finish`. Unfinished ones are claimed again on every `passLoad` (after each pull) and from the plugin's `transaction`
+  event (Ask to Buy).
+- **`teamPaid(code?)` / `window.gafferTeamPaid`** is the one "this team has paid" check (the ads use it); it reads
+  `team_pass(code)` (anon allowed: paid, until, who chipped in, never money), kept per team in `apt-pass` for no signal.
+  SQL has `private.team_is_paid(team_id)`. `hasGaffer()` still returns true (early access).
+- **Card:** `#passCard` on the Team page (`renderPass`), behind the Experimental switch until the products are live (a
+  paid team shows it to everyone); gaffers see Pay for the month first, players Chip in; "Runs out in N days" within 5.
+  No buttons on the web or Android (no Google Play yet).
+- Not applied yet: migration 0032 and `team-pass` wait for Ethan's OK; secrets `IAP_KEY_ID`, `IAP_ISSUER_ID`, `IAP_KEY_P8`
+  (Ethan's, README "Team pass"). Refunds made after a purchase is counted aren't taken back yet (needs App Store Server
+  Notifications). Test: `teampass.test.mjs`.
+
 ### Live streaming (Gaffer tier; behind the experimental switch for gaffers) (`0017_live_streams.sql`, `live-stream`)
 - The GoPro (through GoPro Quik) or an iPhone (through a streaming app such as Larix Broadcaster) streams over RTMPS
   straight to **Cloudflare Stream**. The app never handles the video
