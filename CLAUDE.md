@@ -729,8 +729,9 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
-- **Not applied yet (Ethan to approve):** `0033_shop.sql`, and the `shop` and `shop-webhook` functions (the webhook with
-  verify_jwt = false). Until then the Shop says paying isn't set up.
+- **The shop** (October 2026): `0033_shop.sql` is applied live, and `shop` v1 (verify_jwt = true) and `shop-webhook` v1
+  (**verify_jwt = false**, it checks Stripe's signature itself) are deployed, same as the repo. Its secrets (Stripe,
+  Resend, the supplier's and Ethan's email) are Ethan's to set; until then the Shop says paying isn't set up.
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
   `GOOGLE_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `R2_ACCESS_KEY_ID`,
   `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan).
