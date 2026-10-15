@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Gaffer: 5-a-Side Team Manager. Copyright © 2026 Ethan Davison-Pearce. All rights reserved. See LICENSE. -->
+<!-- Gaffer: Small-Sided Football. Copyright © 2026 Ethan Davison-Pearce. All rights reserved. See LICENSE. -->
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
@@ -608,6 +608,8 @@ tr.past td { opacity: .45; }
 #npPrev { width: 100%; border-radius: 12px; background: #000; aspect-ratio: 16 / 9; }
 .allclips summary { font-weight: 700; color: var(--muted); cursor: pointer; padding-block: 8px; }
 .prteams button { border: 0; border-radius: 999px; padding: 6px 12px; font: inherit; font-weight: 700; font-size: var(--t-sub); }
+.ofind .note, .olink p { margin: 0 0 6px; } .olink p:last-of-type { margin-bottom: 0; }
+.linkline { margin: 0 0 10px; } .lkh { margin: 14px 0 6px; font-size: var(--t-sub); }
 .tdot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
 .tvcrest { width: 64px; height: 64px; object-fit: contain; border-radius: 12px; }
 #tvBody { display: flex; flex-direction: column; gap: 14px; } #tvBody .card h2:first-child { margin-top: 0; }
@@ -707,7 +709,7 @@ tr.past td { opacity: .45; }
 #tabs .tabrow { max-width: 552px; margin-inline: auto; display: grid; grid-template-columns: repeat(5, 1fr); }
 /* the Android app is for players: chat, polls and highlights, with nothing a gaffer does */
 html:not(.droid) #tabs .droidtab, html.droid #tabs [data-tab="feed"],
-html.droid :is(#wStart, #pplBtn, #introOpen, #aOrgSec, #mOptions, #mNew, #mResume, #mStats, #mInsights, #mBoard, #soonPill, #askCard, #liveCard, #squadSec, #homeNote, #gamesNew, #rivalsOpen, #kickPop, #unamePop) { display: none !important; }
+html.droid :is(#wStart, #pplBtn, #introOpen, #aOrgSec, #mOptions, #mNew, #mResume, #mStats, #mInsights, #mBoard, #soonPill, #askCard, #linkCard, #liveCard, #squadSec, #homeNote, #gamesNew, #rivalsOpen, #kickPop, #unamePop) { display: none !important; }
 #boardBody { display: flex; flex-direction: column; gap: 14px; }
 .tbsvg { width: 100%; display: block; border-radius: var(--r-card); touch-action: none; user-select: none; -webkit-user-select: none; }
 .campitch { width: 100%; max-width: 300px; align-self: center; display: block; border-radius: var(--r-card); touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair; }
@@ -829,7 +831,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       </div>
       <div class="itext">
         <h1>Run match day from your pocket</h1>
-        <p>Built for 5-a-side and other small-sided teams. Pick who's playing, and the app looks after the subs, the clock, the stats and the highlights.</p>
+        <p>Built for small-sided football: fives, sevens and everything in between. Pick who's playing, and the app looks after the subs, the clock, the stats and the highlights.</p>
       </div>
     </div></article>
 
@@ -1187,6 +1189,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div class="card" id="pendCard" hidden><h2 id="pendTitle"></h2><p class="note">Tap the link in the email we sent you, then sign in here to finish joining.</p>
     <div class="actions"><button class="plain primary" type="button" data-go="account">Sign in</button></div></div>
   <div class="card" id="askCard" hidden></div>
+  <div class="card" id="linkCard" hidden></div>
   <div class="card" id="liveCard" hidden></div>
   <div class="card" id="passCard" hidden></div>
   <div class="card" id="fxCard" hidden></div>
@@ -1246,6 +1249,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div id="oppSetup">
   <label class="field" for="oppPick" id="oppPickWrap" hidden>Played them before?<select id="oppPick"></select></label>
   <label class="field" for="opp" id="oppWrap">Who are you playing?<input id="opp" type="text" placeholder="Opponent's name" autocomplete="off" maxlength="40"></label>
+  <div class="card ofind" id="oppFind" hidden></div>
+  <div class="card olink" id="oppLink" hidden></div>
   <p class="msg bad" id="oppErr" hidden>Enter the opponent's name before you carry on.</p>
   <p class="msg" id="tourLine" hidden></p>
   <label class="check tgl" for="friendly" id="friendlyWrap"><input id="friendly" type="checkbox" role="switch"><span>Friendly <small>Kept out of the league record and stats</small></span></label>
@@ -1285,6 +1290,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
 <div class="view" id="v-game" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1 id="gameTitle"></h1></div>
+  <p class="note linkline" id="linkLine" hidden></p>
 
   <div class="clock" id="clock">
     <div class="phase"><span id="phase"></span><span id="played"></span></div>
@@ -1477,6 +1483,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- backend: Supabase. config.js holds the project URL and publishable key (both are meant to be public;
   // the database's row level security decides who can change what).
   var CFG = window.APT_CONFIG || {}, sb = null;
+  // The app's full name, as on the App Store and the reels' end card. Change it here (and the fallback in ReelGraphics.swift).
+  var APP_NAME = 'Gaffer: Small-Sided Football';
   try { if (window.supabase && CFG.url && CFG.key) sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }); } catch (e) { sb = null; }
   var SESSION = Math.random().toString(36).slice(2, 10); // tells this device's own broadcasts apart from others'
   var me = null; // the signed-in gaffer account, if any
@@ -1550,6 +1558,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // role in the open team: owner = gaffer (runs games); scorer = follower who may log goals; viewer = follower
   var role = 'viewer', teamId = null, orgCode = null;
   var clips = []; // highlight clips stored for this team
+  var LK = { list: [], code: null, busy: false, again: false, sending: false, busyA: false, msg: '', chan: null, chanId: null, t: null, armed: 0 }; // games linked with other teams on Gaffer (see "playing another team on Gaffer")
+  var LINK_WIN = 90000, OF = { t: null, list: [] }; // (OF: teams found for the New game screen's opponent)
   var preels = []; // players' reels kept on their cards: [{pid, path, store, marks: [{t, label}], made_at}]
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
@@ -1597,12 +1607,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         if (e.kind === 'goal') { o.us = true; o.p = e.pid; o.a = e.assist; }
         else if (e.kind === 'against') { o.us = false; o.p = e.pid; o.a = e.assist; } // (a scorer only in a game among the squad)
         else { o.hl = true; o.p = e.pid; if (e.kind === 'save') o.k = 'save'; }
-        if (e.watch) o.w = true; if (e.by_team) o.by = 'team';
+        if (e.watch) o.w = true; if (e.by_team) o.by = 'team'; if (e.from_link) o.lk = true; // (a goal the other team logged, in a linked game)
         if (e.on_pitch && e.on_pitch.length) o.on = e.on_pitch;
         return stripNull(o);
       });
       return stripNull({ id: g.id, opp: g.opp, friendly: g.friendly, us: g.us, them: g.them, half: g.half, koAt: g.ko_at, htAt: g.ht_at, h2At: g.h2_at,
-        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: g.side === 7 ? 7 : null, tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null, reel: g.reel || null });
+        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: g.side === 7 ? 7 : null, tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null, reel: g.reel || null, link: g.link || null });
     });
     s.match = d.live || null;
     return s;
@@ -1619,11 +1629,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var row = { id: r.id, team_id: tid, seq: i, opp: (r.opp || '').slice(0, 60), friendly: !!r.friendly, us: r.us | 0, them: r.them | 0, half: whole(r.half),
       ko_at: whole(r.koAt), ht_at: whole(r.htAt), h2_at: whole(r.h2At), ft_at: whole(r.ftAt), finished_at: whole(r.at),
       sync: typeof r.sync === 'number' && isFinite(r.sync) ? r.sync : null, pre: whole(r.pre), post: whole(r.post), cap: r.cap == null ? null : !!r.cap, lineups: r.lu || null, periods: r.periods === 1 ? 1 : null, side: r.side === 7 ? 7 : null, tournament_id: r.tour || null, tournament: r.tourName ? String(r.tourName).slice(0, 60) : null, house: r.house || null };
+    if (r.link) row.link = r.link; // (only for a linked game, so every other game saves the same as before 0031)
     var players = Object.keys(r.per || {}).filter(function (k) { return whole(+k) === +k; }).map(function (k) { var x = r.per[k]; return { game_id: r.id, pid: +k, mins: x.mins | 0, goals: x.g | 0, assists: x.a | 0, scored_on: x.gf == null ? null : x.gf | 0, conceded: x.ga == null ? null : x.ga | 0 }; });
     var events = (r.ev || []).map(function (e, j) {
       return { game_id: r.id, seq: j, kind: e.hl ? (e.k === 'save' ? 'save' : 'highlight') : e.us ? 'goal' : 'against',
         pid: whole(e.p), assist: whole(e.a), min: whole(e.min), x: whole(e.x), at: whole(e.at), watch: !!e.w, by_team: !!e.by, on_pitch: e.on && e.on.length ? e.on.map(whole).filter(function (id) { return id != null; }) : null };
     });
+    if (r.link) events.forEach(function (x, j) { x.from_link = !!(r.ev[j] || {}).lk; }); // (a linked game: which goals the other team logged. Every row has it, as a missing column is sent as null)
     return { row: row, players: players, events: events };
   }
   function snapshot() { // what the database should hold, as comparable strings
@@ -1693,7 +1705,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (A.active === code) {
         synced = kept; try { localStorage.setItem(TKEY + code + ':synced', JSON.stringify(kept)); } catch (e) {}
         if (!refused) setSync('ok');
-        ping('changed');
+        ping('changed'); if (snap.live !== prev.live) linkPing();
       }
       if (refused) throw refused;
     } catch (e) {
@@ -1718,7 +1730,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (!d) { forgetTeam(code); closeTeam(); S = blankTeam(); S.view = 'welcome'; go('welcome'); setSync('gone'); return; }
       teamId = d.team.id; orgCode = d.team.organiser_code || null; stale = false;
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
-      myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500);
+      myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500); mhRebind();
       if (S.view === 'home' || S.view === 'games') renderFixture();
       renderTabs(); tpLoad(); passLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
@@ -1734,7 +1746,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
           if (JSON.stringify(mine) !== JSON.stringify(saved)) { synced = saved; setRole('owner'); dirty = true; syncAll(); return; }
         }
       }
-      adopt(remote);
+      adopt(remote); mhRebind();
       setCrest(d.team.crest, true);
       synced = org ? snapshot() : null;
       var flipScore = false;
@@ -1746,7 +1758,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (flipScore) { S.followersCanScore = true; save(); } // teams made before everyone could log goals: switched on once, and Options can switch it off
       if (wantGame === code) { wantGame = null; if (S.match) go('game'); }
       pushSetup(); if (CH.code !== code) chatPull(); if (RV.code !== code || S.view === 'games') rivalsPull();
-      joinPull(code, org); streamPull();
+      joinPull(code, org); streamPull(); linksPull();
       if (org) sb.rpc('team_push', { p_code: code }).then(function (r) { if (A.active !== code || !r || !Array.isArray(r.data)) return; pushPids = {}; r.data.forEach(function (id) { pushPids[id] = 1; }); pushFor = code; if (S.view === 'home') renderHome(); }, function () {});
     } catch (e) { setSync(navigator.onLine === false ? 'offline' : 'err'); }
   }
@@ -1793,6 +1805,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (chan && sb) { try { sb.removeChannel(chan); } catch (e) {} }
     chan = null; chanCode = null; teamId = null; orgCode = null; synced = null; dirty = false; clearTimeout(wt); clearInterval(pollT);
     myAsk = null; asks = []; askMsg = '';
+    if (LK.chan && sb) { try { sb.removeChannel(LK.chan); } catch (e) {} } LK.chan = null; LK.chanId = null; LK.list = []; LK.code = null; LK.msg = '';
     if (LV) { clearTimeout(LV.statT); LV.statT = null; LV.code = null; LV.s = null; LV.link = null; LV.msg = ''; LV.cam = false; LV.arm = null; livePlayer(null); }
   }
   function listen(code) {
@@ -1807,7 +1820,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       .on('broadcast', { event: 'goal' }, function (m) { lockScore(m.payload || {}); if (role === 'owner') pullGoals(); })
       .subscribe();
     clearInterval(pollT); // a slow safety net in case a broadcast is missed
-    pollT = setInterval(function () { if (document.hidden) return; if (S.match || liveOn()) streamPull(); if (role !== 'owner' && S.match) refetch(); else if (role === 'owner' && stale && !dirty && !syncing) pull(); else if (role === 'owner' && S.match) pullGoals(); }, 20000);
+    pollT = setInterval(function () { if (document.hidden) return; if (S.match || liveOn()) streamPull(); if (role !== 'owner' && S.match) refetch(); else if (role === 'owner' && stale && !dirty && !syncing) pull(); else if (role === 'owner' && S.match) pullGoals(); if (S.match && (S.match.link || S.match.linkTo)) linksPull(); }, 20000);
   }
   // Open a team: show this device's copy straight away, then catch up with the database and follow it live.
   function openTeam(code, view) {
@@ -1818,6 +1831,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     S.view = view || 'home';
     try { crest = localStorage.getItem(TKEY + code + ':crest'); } catch (e) { crest = null; }
     try { var rc = JSON.parse(localStorage.getItem(TKEY + code + ':roster')) || {}; roster = rc.roster || {}; myPid = me && rc.myPid != null ? rc.myPid : null; fixtures = rc.fixtures || []; clips = rc.clips || []; preels = rc.reels || []; } catch (e) { roster = {}; myPid = null; fixtures = []; clips = []; preels = []; }
+    try { LK.list = JSON.parse(localStorage.getItem(TKEY + code + ':links')) || []; LK.code = code; } catch (e) { LK.list = []; }
     applyTheme(); renderCrest(); upgrade(S.match); lastBlock = S.match ? curSeg(S.match) : -1; pick = null; outPick = null;
     var org = !DROID && !!(meta && meta.org && me);
     role = org ? 'owner' : 'viewer'; document.body.className = org ? '' : 'ro';
@@ -1878,7 +1892,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         var uid = me.id, on = function () { sb.rpc('register_push', DROID ? { p_token: t.value, p_platform: 'android' } : { p_token: t.value }).then(function (r) { if (!r || !r.error) { pushSaved = uid; pushGone = null; } }, function () {}); };
         try { P.checkPermissions().then(function (r) { if (r && r.receive === 'denied') pushOff(P); else on(); }, on); } catch (e) { on(); }
       });
-      P.addListener('pushNotificationReceived', function (n) { var d = n && n.data; if (!d || d.code !== A.active) return; if (d.kind === 'chat') chatPull(); else if (d.kind === 'challenge') rivalsPull(); else if (d.kind === 'live') { streamPull(); refetch(); } else refetch(); }); // arrived with the app open
+      P.addListener('pushNotificationReceived', function (n) { var d = n && n.data; if (!d || d.code !== A.active) return; if (d.kind === 'chat') chatPull(); else if (d.kind === 'challenge') rivalsPull(); else if (d.kind === 'link') linksPull(); else if (d.kind === 'live') { streamPull(); refetch(); } else refetch(); }); // arrived with the app open
       P.addListener('pushNotificationActionPerformed', function (a) {
         var code = a && a.notification && a.notification.data && a.notification.data.code; if (!code || !teamMeta(code)) return;
         var kind = a.notification.data.kind || 'kickoff';
@@ -2147,6 +2161,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (e.p != null) t.g[e.p] = (t.g[e.p] || 0) + 1;
       if (e.a != null) t.a[e.a] = (t.a[e.a] || 0) + 1;
     });
+    var lv = m.link && !m.house ? linkView(m) : null; // a game linked with another team on Gaffer: their goals count too
+    if (lv) { t.us += lv.usX.length; t.them += lv.themX.length; }
     return t;
   }
   var chips = function (m, list, cls) {
@@ -3294,7 +3310,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     // you
     var pend = A.pending && A.pending.code === A.active && !me ? A.pending : null, card = $('meCard'), html = '';
     $('pendCard').hidden = !pend; if (pend) $('pendTitle').textContent = pend.ask ? 'Confirm your email to ask to join' : 'Confirm your email to join as ' + pend.name;
-    renderAsks(); renderLiveCard(); renderPass();
+    renderAsks(); renderLinkCard(); renderLiveCard(); renderPass();
     if (myPid != null && P(myPid)) {
       var st = statsOf(S.results, myPid), last = (roster[myPid] || {}).last;
       html = '<h2>Your stats</h2><p class="note">' + esc(nm(myPid)) + (last ? ' ' + esc(last) : '') + (posOf(myPid) ? ', ' + posName(posOf(myPid)).toLowerCase() : '') + (st.saves ? ', ' + st.saves + (st.saves === 1 ? ' save' : ' saves') + ' in goal' : '') + '</p>' + statGrid(st) +
@@ -3715,7 +3731,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     setTimeout(function () { if (!askBusy) { askMsg = ''; renderAsks(); } }, 6000);
   });
   $('mResume').addEventListener('click', function () { go('game'); });
-  armed($('mNew'), 'Scrap the game in progress?', function () { if (role !== 'owner') return; if (S.match) { if (liveOn()) liveEnd(); S.match = null; save(); } go('setup'); }, function () { return !!S.match; });
+  armed($('mNew'), 'Scrap the game in progress?', function () { if (role !== 'owner') return; if (S.match) { if (liveOn()) liveEnd(); linkDrop(S.match); S.match = null; save(); } go('setup'); }, function () { return !!S.match; });
   $('mStats').addEventListener('click', function () { go('stats'); });
   $('mHighlights').addEventListener('click', function () { go('highlights'); });
   $('mInsights').addEventListener('click', function () { go('insights'); });
@@ -3787,6 +3803,19 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     return '<button class="mhbtn" type="button" data-mh="' + gi + '"><span class="mhplay" aria-hidden="true">▶</span><span><b>Watch the whole match highlights</b><small>' +
       list.length + (list.length === 1 ? ' moment' : ' moments') + ' · ' + mhTime(mhLength(list)) + '</small></span></button>';
   }
+  function clipsKeep() { // this phone's copy of the team's clips, kept for opening with no signal
+    if (!A.active) return;
+    try { var k = TKEY + A.active + ':roster', rc = JSON.parse(localStorage.getItem(k)) || {}; rc.clips = clips; localStorage.setItem(k, JSON.stringify(rc)); } catch (e) {}
+  }
+  function mhRebind() { // the whole-match player, open while the team is re-read (or a clip is made again): onto the current clips
+    if (!MH) return;
+    var r = S.results.filter(function (x) { return x.id === MH.r.id; })[0] || MH.r, list = clips.filter(function (c) { return c.game_id === r.id; });
+    if (!list.length) return;
+    var v = $('mhVideo'), was = v.getAttribute('src'), at = v.currentTime || 0, cur = MH.list[MH.i], i = cur ? list.map(function (c) { return c.seq; }).indexOf(cur.seq) : 0;
+    MH.r = r; MH.list = list; MH.reel = hasReel(r, list); MH.i = Math.max(0, i);
+    if (mhSrc() !== was) { var playing = !v.paused; mhLoad(MH.i, playing); if (MH.reel && was && /reel/.test(was)) try { v.currentTime = at; } catch (e) {} }
+    mhDraw();
+  }
   function mhOpen(gi) {
     var r = S.results[gi]; if (!r) return;
     var list = clips.filter(function (c) { return c.game_id === r.id; }); if (!list.length) return;
@@ -3838,7 +3867,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // cut again from the match video and no other clip touched. The game's one video is then joined again from the clips.
   var FX = null, MKVER = {};
   function fixGoals(r) { // the goals that name a player (ours; in a game among the squad, both sides')
-    return (r.ev || []).map(function (e, i) { return { e: e, i: i }; }).filter(function (x) { return !x.e.hl && (x.e.us || r.house); });
+    return (r.ev || []).map(function (e, i) { return { e: e, i: i }; }).filter(function (x) { return !x.e.hl && !x.e.lk && (x.e.us || r.house); }); // (not a goal the other team logged, in a linked game)
   }
   function fixCands(r, e) { // who could have scored it: those who played, on the side that scored
     var side = r.house ? (e.us ? 'a' : 'b') : null, ids = Object.keys(r.per || {}).map(Number).filter(function (id) { return isFinite(id); });
@@ -3883,6 +3912,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var was = { p: e.p, a: e.a }, p = FX.p, a = FX.a, said = function (id) { return id != null ? nm(id) : 'no one'; };
     var inClip = function () { return reelClips(r, 1e5, PRE, POST).filter(function (c) { return c.items.some(function (it) { return it.e === e; }); })[0]; };
     var pc = inClip(), row = pc && clips.filter(function (c) { return c.game_id === r.id && c.at === pc.at; })[0];
+    // Making the clip again can take minutes (longer if Gaffer is put away), and the team can be re-read meanwhile, which
+    // swaps this phone's clips and games for fresh copies. So every change below goes on whichever copy is current.
+    var mark = function (o) { clips.concat(row ? [row] : []).forEach(function (c) { if (c.game_id === r.id && c.seq === row.seq) Object.assign(c, o); }); };
+    var gameNow = function () { return S.results.filter(function (x) { return x.id === r.id; })[0] || r; };
     var main = pc && (pc.items.filter(function (x) { return !x.plain; })[0] || pc.items[0]).e === e, barWas = pc ? clipLook(r, pc).lower : null;
     // the stats: the event, and the goal and assist moved from one player to the other
     var per = r.per = r.per || {}, bump = function (id, k, d) { if (id == null) return; var x = per[id] = per[id] || { mins: 0, g: 0, a: 0 }; x[k] = Math.max(0, (x[k] || 0) + d); };
@@ -3893,7 +3926,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (!row) { clearTimeout(wt); await syncAll(); fixSay(told + '.'); return; }
       var now = inClip(); // its caption and whose clip it is
       await q(sb.from('clips').update({ label: now.labels.join(' / ').slice(0, 200), pids: now.pids }).eq('game_id', r.id).eq('seq', row.seq));
-      row.label = now.labels.join(' / ').slice(0, 200); row.pids = now.pids;
+      mark({ label: now.labels.join(' / ').slice(0, 200), pids: now.pids });
       clearTimeout(wt); await syncAll();
       var rc = RCp();
       if (!main || !barWas) { fixSay(told + ', and so is the clip’s caption.'); ping('changed'); return; }
@@ -3918,21 +3951,22 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (made.voiced) { var vR2 = await upFile(made.voiced.path, keys[1], r2 ? links[keys[1]] : null); if (vR2 === inR2) vKey = keys[1]; }
       var old = { path: row.path, vpath: row.vpath, store: row.store };
       await q(sb.from('clips').update({ path: keys[0], vpath: vKey, store: inR2 ? 'r2' : null }).eq('game_id', r.id).eq('seq', row.seq));
-      row.path = keys[0]; row.vpath = vKey; row.store = inR2 ? 'r2' : null;
+      mark({ path: keys[0], vpath: vKey, store: inR2 ? 'r2' : null }); clipsKeep();
       var gone = [old.path, old.vpath].filter(Boolean); // the old copies go
       try { if (old.store === 'r2') await clipCall('remove', { paths: gone }); else await q(sb.storage.from('clips').remove(gone)); } catch (ge) {}
       // the game's one video had the old clip in: it's joined again from the clips (nothing is cut again)
       var reelNote = '';
-      if (r.reel && r.reel.path) {
-        var oldReel = r.reel, rg = [oldReel.path, oldReel.vpath].filter(Boolean);
-        await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null;
+      var rr = gameNow(), oldReel = rr.reel && rr.reel.path ? rr.reel : r.reel && r.reel.path ? r.reel : null;
+      if (oldReel) {
+        var rg = [oldReel.path, oldReel.vpath].filter(Boolean);
+        await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null; rr.reel = null;
         try { await q(sb.from('clips').update({ reel_at: null }).eq('game_id', r.id)); } catch (ce) {}
-        clips.forEach(function (c) { if (c.game_id === r.id) c.reel_at = null; });
+        clips.forEach(function (c) { if (c.game_id === r.id) c.reel_at = null; }); clipsKeep();
         try { if (oldReel.store === 'r2') await clipCall('remove', { paths: rg }); else await q(sb.storage.from('clips').remove(rg)); } catch (re) {}
-        MKVER[r.id] = stamp; MKTRIED[r.id] = true; setTimeout(function () { mhMake(r, true); }, 300);
+        MKVER[r.id] = stamp; MKTRIED[r.id] = true; setTimeout(function () { mhMake(gameNow(), true); }, 300);
         reelNote = ' The game’s one video is being joined again with it; it carries on while you use Gaffer.';
       }
-      ping('changed');
+      ping('changed'); mhRebind();
       fixSay(told + ', and that clip has been made again with the right names.' + vNote + reelNote);
     } catch (err) { fixSay(told + ', but the clip couldn’t be made again: ' + ((err && err.message) || 'something went wrong') + ' Try Fix a goal again with a signal.', false, true); }
     if (S.view === 'highlights') renderHighlights();
@@ -3957,7 +3991,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     await q(sb.from('games').update({ reel: p.row }).eq('id', p.gid));
     for (var seq in p.at) { try { await q(sb.from('clips').update({ reel_at: p.at[seq] }).eq('game_id', p.gid).eq('seq', +seq)); } catch (e) {} }
     clips.forEach(function (c) { if (c.game_id === p.gid && p.at[c.seq] != null) c.reel_at = p.at[c.seq]; });
-    r = r || S.results.filter(function (x) { return x.id === p.gid; })[0]; if (r) r.reel = p.row;
+    var rn = S.results.filter(function (x) { return x.id === p.gid; })[0]; if (r && r !== rn) r.reel = p.row; r = rn || r; if (r) r.reel = p.row; clipsKeep();
     mkSetPending(mkPending().filter(function (x) { return x.gid !== p.gid; }));
     MK = { gid: p.gid, busy: false, prog: '', msg: 'It’s one video now, for everyone in the team.', bad: false, part: '', again: null }; ping('changed');
     if (MH && MH.r.id === p.gid) { var cur = MH.list[MH.i] && MH.list[MH.i].reel_at; MH.reel = hasReel(MH.r, MH.list); mhLoad(0, !$('mhVideo').paused); if (typeof cur === 'number') try { $('mhVideo').currentTime = cur; } catch (e) {} }
@@ -4030,6 +4064,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     $('mhMsg').hidden = !say; $('mhMsg').textContent = say; $('mhMsg').classList.toggle('bad', mine && MK.bad);
   }
   function mhClose() { MH = null; var v = $('mhVideo'); try { v.pause(); } catch (e) {} v.removeAttribute('src'); try { v.load(); } catch (e) {} $('mhPop').hidden = true; }
+  $('mhVideo').addEventListener('error', function () { if (MH && !MH.retried) { MH.retried = true; refetch(); } }); // (a clip made again on another phone: its old file has gone, so re-read the team once and play the new one)
   $('mhVideo').addEventListener('loadedmetadata', function () { if (MH && MH.reel) mhDraw(); }); // (now the ticks can be placed)
   $('mhVideo').addEventListener('ended', function () { if (MH && !MH.reel && MH.i < MH.list.length - 1) { mhLoad(MH.i + 1, true); mhDraw(); } }); // the next clip straight after
   $('mhVideo').addEventListener('timeupdate', function () { // (the reel: which moment is playing)
@@ -4102,7 +4137,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!guestGame) return '';
     var r = S.results.filter(function (x) { return x.id === guestGame; })[0], store = String(CFG.appStore || '');
     return '<div class="hcard guestcard" id="guestCard"><h3>Thanks for playing</h3><p class="note">' + (r ? 'These are the highlights from <b>' + esc(vs(r)) + '</b> with ' + esc(teamName()) + '. They show up here once they’ve been cut.' : 'Loading the game…') + '</p>' +
-      (NATIVE ? '' : store ? '<div class="actions"><a class="plain primary btnlink" href="' + esc(store) + '" target="_blank" rel="noopener">Get Gaffer on the App Store</a></div>' : '<p class="note">Get Gaffer for iPhone: search for “Gaffer 5-a-Side” on the App Store.</p>') +
+      (NATIVE ? '' : store ? '<div class="actions"><a class="plain primary btnlink" href="' + esc(store) + '" target="_blank" rel="noopener">Get Gaffer on the App Store</a></div>' : '<p class="note">Get Gaffer for iPhone: search for “' + esc(APP_NAME.replace(':', '')) + '” on the App Store.</p>') +
       '<p class="note">Want your own stats and clips? Make an account, then join a team with its code, or start your own.</p><div class="actions"><button class="plain" type="button" data-guest="account">Make an account</button><button class="plain" type="button" data-guest="welcome">Join or start a team</button><button class="link" type="button" data-guest="close">Close</button></div></div>';
   }
   function renderHighlights() {
@@ -4126,7 +4161,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
             : own ? (NATIVE ? 'No video for this game yet.' : 'No video for this game yet. Open the iPhone app to cut it from a video on your phone.') : 'No video for this game yet. Ask your gaffer to generate it.',
             cutBtn);
-        html += guests + '</div>';
+        html += guests + linkClipsHtml(r) + '</div>';
       });
     } else {
       var byId = {}; S.results.forEach(function (r) { byId[r.id] = r; });
@@ -4286,7 +4321,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     }
     try {
       var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, file: (slugify(who) || 'player') + '-highlights.mp4',
-        outro: { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null } });
+        outro: { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
       RB.path = res && res.path; RB.msg = 'The reel is ready.';
       if (RB.path) rc.share({ path: RB.path }).catch(function () {});
       if (RB.path && res.marks && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
@@ -4433,7 +4468,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (r.periods !== 1 && typeof r.h2At === 'number' && at >= r.h2At) return half + Math.max(0, (at - r.h2At) / 1000);
     return typeof r.koAt === 'number' ? Math.max(0, (at - r.koAt) / 1000) : 0;
   }
-  function endCard(r) { return { kicker: 'Full time', title: usFull(r) + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: [dayOf(r), 'Highlights'].filter(Boolean).join(' · '), color: S.color, ink: inkColour(), crest: r.house ? null : crest || null }; }
+  function endCard(r) { return { kicker: 'Full time', title: usFull(r) + ' ' + r.us + '–' + r.them + ' ' + r.opp, sub: [dayOf(r), 'Highlights'].filter(Boolean).join(' · '), color: S.color, ink: inkColour(), crest: r.house ? null : crest || null, app: APP_NAME }; }
   function lookFor(r) { return { home: abbr(usOf(r)), away: abbr(r.opp), color: S.color, ink: inkColour(), crest: crest || null }; }
   function clipLook(r, c) { // { bug, lower } for one clip of the plan
     var rel = Math.max(0, c.t - c.start), dur = c.end - c.start, from = c.at - rel * 1000, to = from + dur * 1000;
@@ -4593,7 +4628,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       '<div class="lk-mark"><img src="icons/icon-192.png" alt="">GAFFER</div>' +
       '<div class="lk-lower"><span class="lk-tag"' + (low.color ? ' style="background:' + esc(low.color) + ';color:' + esc(low.ink || '#111') + '"' : '') + '>' + esc(String(low.tag).toUpperCase()) + '</span><span class="lk-panel"><b>' + esc(low.title) + '</b>' + (low.sub ? '<small>' + esc(low.sub) + '</small>' : '') + '</span></div></div>' +
       '<div class="lk-frame lk-end" id="lkEnd" aria-hidden="true"><div class="lk-endin">' + (end.crest ? img(end.crest, 'lk-ec') : '') + '<span class="lk-kick">' + esc(end.kicker.toUpperCase()) + '</span><b class="lk-title">' + esc(end.title) + '</b>' +
-      (end.sub ? '<span class="lk-sub">' + esc(end.sub) + '</span>' : '') + '<i class="lk-rule"></i>' + img('icons/icon-192.png', 'lk-icon') + '<b class="lk-app">Gaffer: 5-a-Side Team Manager</b><span class="lk-badge">' + APPLE + '<span><small>Download on the</small>App Store</span></span></div></div>' +
+      (end.sub ? '<span class="lk-sub">' + esc(end.sub) + '</span>' : '') + '<i class="lk-rule"></i>' + img('icons/icon-192.png', 'lk-icon') + '<b class="lk-app">' + esc(APP_NAME) + '</b><span class="lk-badge">' + APPLE + '<span><small>Download on the</small>App Store</span></span></div></div>' +
       '<label class="check" for="cutBug"><input id="cutBug" type="checkbox"' + (CUT.bug !== false ? ' checked' : '') + '><span>Score, clock and crest on every clip <small>(the clock ticks, and the score changes as the ball goes in)</small></span></label></section>';
   }
   function sameVideo(a, b) { return !!(a && b) && Math.abs((a.duration || 0) - (b.duration || 0)) < 0.5 && a.created === b.created && (a.created != null || a.path === b.path); }
@@ -4870,7 +4905,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     FM.g = D.fmt;
     S.players.forEach(function (p, i) { D.sel[p.id] = i < MAXP() ? 'start' : 'out'; });
     if (D.keeper != null && D.sel[D.keeper] === 'out') D.keeper = null;
-    autoPick(); $('opp').value = ''; $('friendly').checked = false; $('oppErr').hidden = true;
+    autoPick(); $('opp').value = ''; $('friendly').checked = false; $('oppErr').hidden = true; OF.list = []; renderOppFind(); renderOppLink();
     var seen = {}, names = [];
     S.results.forEach(function (r) { var n = (r.opp || '').trim(), k = n.toLowerCase(); if (n && n !== 'Opponents' && !r.house && !seen[k]) { seen[k] = 1; names.push(n); } });
     names.sort(function (a, b) { return a.localeCompare(b); });
@@ -4936,10 +4971,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     renderSetup();
   });
   $('oppPick').addEventListener('change', function (e) {
-    $('opp').value = e.target.value; $('oppWrap').hidden = !!e.target.value; if (e.target.value) $('oppErr').hidden = true;
+    $('opp').value = e.target.value; if (D) { D.link = null; D.linked = null; } OF.list = []; renderOppFind(); renderOppLink(); $('oppWrap').hidden = !!e.target.value; if (e.target.value) $('oppErr').hidden = true;
     if (!e.target.value) $('opp').focus();
   });
-  $('opp').addEventListener('input', function () { if ($('opp').value.trim()) $('oppErr').hidden = true; });
+  $('opp').addEventListener('input', function () { if ($('opp').value.trim()) $('oppErr').hidden = true; oppFind(); });
   $('auto').addEventListener('click', function () { autoPick(); D.manualBench = false; renderSetup(); });
   // ---- a game among the squad (and any guests): two sides of any size, no fixed keeper, no subs plan. "Us" is the first
   // side and the opponents the second, so the clock, the watch, highlights and everything else work as for any game.
@@ -5108,7 +5143,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function tacticSits(ids, benchIds, k, B, T, squadPos, t) {
     var out = {}, total = B * k, n = ids.length;
     ids.forEach(function (id) { out[id] = 0; });
-    if (!n || !k) return out;
+    if (!n || !k) return { sits: out, fr: {}, hasStats: false }; // (nobody on the bench: no subs to plan. This once returned the bare sits, and a squad with no subs couldn't start a game)
     var cap = B - 1; // everyone plays at least one stretch (5 minutes)
     // fairness: equal shares; any extra bench time goes to whoever has played most this season, then squad order
     var fairOrder = ids.slice().sort(function (a, b) { return (T[b].mins - T[a].mins) || (squadPos[a] - squadPos[b]); });
@@ -5221,8 +5256,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
                 half: F.half, sub: F.sub, pitch: F.side, periods: F.periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
     if (D.fx) S.match.fx = D.fx;
     if (D.tour) { S.match.tour = D.tour.id; S.match.tourName = D.tour.name; }
+    var lt = D.linked || D.link; // another team on Gaffer: already linked (they asked), or to be asked now
+    if (lt && lt.name === S.match.opp) { var who = { id: lt.id, name: lt.name, short: lt.short || '', color: lt.color }; if (D.linked) { S.match.link = D.linked.link; S.match.linkTeam = who; } else S.match.linkTo = who; }
     fmtRemember(D.tour ? 'tournament' : 'game', F);
-    D = null; lastBlock = -1; pick = null; save(); go('game');
+    D = null; lastBlock = -1; pick = null; save(); go('game'); linkSend(); linkListen();
   });
 
   // ---- game
@@ -5529,7 +5566,16 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       '</div></div></div>';
     $('picker').innerHTML = html;
     html = '';
-    m.events.slice().reverse().forEach(function (e) {
+    var ll = linkLine(m); $('linkLine').hidden = !ll; $('linkLine').innerHTML = ll;
+    var lv = !m.house && m.link ? linkView(m) : null, shown = m.events.slice(), lname = lv ? linkName(m) : '';
+    if (lv) lv.themX.concat(lv.usX).forEach(function (g) { putEvent({ events: shown }, Object.assign(linkEv(m, g, lv.usX.indexOf(g) >= 0), { lg: g })); }); // the other team's own goals, where they fall
+    shown.reverse().forEach(function (e) {
+      var lg = lv ? (e.lg || (lv.named.filter(function (x) { return x.e === e; })[0] || {}).g) : null; // the other team's word on a goal: their scorer, or that they logged it
+      if (lg) {
+        html += '<li><span class="t">' + ml(e) + '</span><span>' + (e.us ? 'Goal for ' + esc(usOf(m)) : '<span class="ag">Goal for ' + esc(m.opp) + (lg.p ? ': ' + esc(lg.p) + '</span>' + (lg.a ? ' <span class="note">(set up by ' + esc(lg.a) + ')</span>' : '') : '</span>')) +
+          (e.lg ? ' <span class="tagf">Logged by ' + esc(lname) + '</span>' : '') + '</span></li>';
+        return;
+      }
       var setUp = e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '';
       var who = e.hl ? (e.k === 'save' ? '<span class="note">Save by ' + esc(nm(e.p)) + '</span>' : role === 'owner' && typeof e.at === 'number' && !m.solo ? '<button class="link hlwho" type="button" data-hlwho="' + e.at + '">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked: whose?') + '</button>'
         : '<span class="note">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked') + '</span>') : !e.us ? (m.house && e.p != null ? '<span class="ag">' + esc(nm(e.p)) + ' for ' + esc(m.opp) + '</span>' + setUp : '<span class="ag">Goal for ' + esc(m.opp) + '</span>') :
@@ -5587,6 +5633,209 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var ev = at ? stampAt(m, o, at) : stamped(m, o);
     pick = null; addGoal(ev, at || undefined);
   });
+
+  // ---- playing another team on Gaffer (0031; Ethan: "type in another team's name when starting a new game and select
+  // them, so it loads all of their players, and either team can upload footage and they can both mark the score").
+  // On New game the opponent's name also searches Gaffer's teams (search_teams); picking one links the game. The request
+  // goes when the game is set up (link_game, and team-notify kind "link" to their gaffers), and nothing of either team is
+  // shared until they accept on their Home. Then each team logs its own goals in its own game, and team_links gives each
+  // side the other's goals (scorers by name), squad and clips. Both phones add the two sides up the same way, so they show
+  // one score: a goal logged on both counts once (matched by time, within LINK_WIN). At full time the other side's goals
+  // are kept in this team's game (`lk`, game_events.from_link), and put right if the other side fixes theirs later.
+  function linkOf(id) { return id ? LK.list.filter(function (l) { return l.id === id; })[0] || null : null; }
+  function linkName(m) { var l = linkOf(m.link); return (l && l.other.name) || (m.linkTeam || m.linkTo || {}).name || m.opp; }
+  function linkUsed(id) { return (S.match && S.match.link === id) || S.results.some(function (r) { return r.link === id; }); }
+  function linkPair(mine, theirs) { // each of their goals is matched to the nearest of ours within LINK_WIN; the rest add to the score
+    var used = {}, extra = [], pairs = [];
+    (theirs || []).forEach(function (g) {
+      var best = -1, bd = LINK_WIN + 1;
+      mine.forEach(function (e, i) { if (used[i] || typeof e.at !== 'number' || typeof g.at !== 'number') return; var dd = Math.abs(e.at - g.at); if (dd < bd) { bd = dd; best = i; } });
+      if (best >= 0) { used[best] = 1; pairs.push({ e: mine[best], g: g }); } else extra.push(g);
+    });
+    return { extra: extra, pairs: pairs };
+  }
+  // A linked game (the live one, or a finished one's `ev`): which of the other side's goals add to this side's own.
+  // `themX` their goals we didn't log against ourselves, `usX` our goals they logged that we didn't, `named` our own
+  // "Goal against" with their scorer. Goals this side only took from them (`lk`) never count twice.
+  function linkView(m) {
+    var l = m && m.link ? linkOf(m.link) : null; if (!l || l.status !== 'accepted' || !l.their) return null;
+    var evs = (m.events || m.ev || []).filter(function (e) { return !e.hl && !e.lk && typeof e.us === 'boolean'; });
+    var them = linkPair(evs.filter(function (e) { return !e.us; }), l.their.goals), us = linkPair(evs.filter(function (e) { return e.us; }), l.their.against);
+    return { l: l, themX: them.extra, usX: us.extra, named: them.pairs };
+  }
+  function linkEv(r, g, us) { // one of the other side's goals as an event in this side's game, its minute by this side's clock
+    var o = { us: !!us, lk: true, at: g.at }, half = r.half || 15, second = r.periods !== 1 && typeof r.h2At === 'number' && g.at >= r.h2At, start = second ? r.h2At : r.koAt;
+    if (typeof start === 'number' && typeof g.at === 'number' && g.at >= start) {
+      var whistle = second || r.periods === 1 ? r.ftAt : r.htAt, ms = (typeof whistle === 'number' && g.at > whistle ? whistle : g.at) - start;
+      o.min = (second ? half : 0) + Math.min(half, Math.floor(ms / 60000) + 1); if (ms >= half * 60000) o.x = Math.floor((ms - half * 60000) / 60000) + 1;
+    } else { if (g.min != null) o.min = g.min; if (g.x) o.x = g.x; }
+    return o;
+  }
+  function linkFinal(m) { // full time: the game's events with the other team's goals put in (who was on the pitch for them too)
+    var all = m.events.slice(), lv = !m.house && m.link ? linkView(m) : null; if (!lv) return all;
+    lv.themX.concat(lv.usX).forEach(function (g) {
+      var e = linkEv(m, g, lv.usX.indexOf(g) >= 0), st = typeof g.at === 'number' && typeof m.koAt === 'number' && g.at >= m.koAt ? stampAt(m, { us: e.us }, g.at) : null;
+      if (st && st.on) e.on = st.on; putEvent({ events: all }, e);
+    });
+    return all;
+  }
+  // Finished linked games (gaffers): the other side's goals kept in ours, redone when theirs change (a goal fixed or
+  // undone after the whistle, or their game finishing after ours).
+  function linkRefold() {
+    if (role !== 'owner' || stale) return;
+    var changed = false, key = function (list) { return JSON.stringify(list.map(function (e) { return [e.at, !!e.us]; }).sort()); };
+    S.results.forEach(function (r) {
+      if (!r.link || r.house) return;
+      var lv = linkView(r); if (!lv || lv.l.their.phase === 'none') return; // (their game not on Gaffer yet, or not saved yet: keep what we have)
+      var keep = (r.ev || []).filter(function (e) { return !e.lk; }), was = (r.ev || []).filter(function (e) { return e.lk; });
+      var add = lv.themX.map(function (g) { return linkEv(r, g, false); }).concat(lv.usX.map(function (g) { return linkEv(r, g, true); }));
+      if (key(was) === key(add) && r.us != null) return;
+      r.ev = keep.concat(add).sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
+      var goals = r.ev.filter(function (e) { return !e.hl; }); r.us = goals.filter(function (e) { return e.us; }).length; r.them = goals.length - r.us;
+      changed = true;
+    });
+    if (changed) save();
+  }
+  async function linksPull(force) {
+    var code = A.active; if (!sb || !code) return;
+    if (LK.busy && !force) { LK.again = true; return; }
+    LK.busy = true;
+    try {
+      var r = await q(sb.rpc('team_links', { p_code: code })); if (A.active !== code) return;
+      var list = Array.isArray(r.data) ? r.data : [], was = JSON.stringify(LK.list);
+      LK.list = list; LK.code = code;
+      try { localStorage.setItem(TKEY + code + ':links', JSON.stringify(list)); } catch (e) {}
+      linkListen(); linkSend(); linkRefold();
+      if (was !== JSON.stringify(list)) { watchPush(); linkDraw(); }
+    } catch (e) {} finally {
+      LK.busy = false;
+      if (LK.again) { LK.again = false; clearTimeout(LK.t); LK.t = setTimeout(linksPull, 300); }
+    }
+  }
+  function linkDraw() { if (S.view === 'game') renderScore(); else if (S.view === 'home') renderHome(); else if (S.view === 'highlights') renderHighlights(); }
+  // The other team's phones say "changed" on a channel only the two teams know (the link's id), so each sees the other's goals straight away
+  function linkListen() {
+    var m = S.match, id = sb && m && m.link && (linkOf(m.link) || {}).status === 'accepted' ? m.link : null;
+    if (id === LK.chanId) return;
+    if (LK.chan) { try { sb.removeChannel(LK.chan); } catch (e) {} LK.chan = null; }
+    LK.chanId = id; if (!id) return;
+    LK.chan = sb.channel('link:' + id, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'changed' }, function () { clearTimeout(LK.t); LK.t = setTimeout(linksPull, 250); }).subscribe();
+  }
+  function linkPing() { if (LK.chan && S.match && S.match.link === LK.chanId) LK.chan.send({ type: 'broadcast', event: 'changed', payload: { by: SESSION } }).catch(function () {}); }
+  function linkNotify(id) { try { if (sb && sb.functions) sb.functions.invoke('team-notify', { body: { code: A.active, kind: 'link', link: id } }).catch(function () {}); } catch (e) {} }
+  async function linkSend() { // the request goes once the game is set up, or the next time there's signal
+    var m = S.match, code = A.active; if (!sb || role !== 'owner' || stale || !m || !m.linkTo || m.link || LK.sending) return;
+    var gid = m.gid, to = m.linkTo; LK.sending = true;
+    try {
+      var r = await sb.rpc('link_game', { p_code: code, p_to: to.id });
+      m = S.match; if (A.active !== code || !m || m.gid !== gid || m.link) return;
+      if (r && r.error) { if (!r.error.code) return; m.linkErr = 'Couldn’t link the game with ' + to.name + ' (' + String(r.error.message || 'it was turned down').replace(/\.$/, '') + ').'; delete m.linkTo; } // (it carries on as a game against a name)
+      else if (r && r.data) { m.link = r.data; m.linkTeam = to; delete m.linkTo; delete m.linkErr; linkNotify(r.data); }
+      else return;
+      save(); linkDraw(); if (m.link) linksPull(true);
+    } catch (e) {} finally { LK.sending = false; }
+  }
+  async function linkCancel(id) { if (!sb || role !== 'owner') return null; try { var r = await q(sb.rpc('link_answer', { p_code: A.active, p_id: id, p_action: 'cancel' })); return r.data; } catch (e) { return null; } }
+  function linkDrop(m) { var l = m && m.link ? linkOf(m.link) : null; if (l && l.status === 'proposed' && l.sent) linkCancel(l.id).then(function () { linksPull(); }); } // a scrapped game takes back a request nobody has answered
+  function linkLine(m) { // under the game's title: where the link stands
+    if (!m || m.house || m.solo) return '';
+    var own = role === 'owner', other = esc(linkName(m)), un = function (t) { return own ? ' <button class="link" type="button" data-unlink="1">' + (Date.now() < LK.armed ? 'Tap again to unlink' : t) + '</button>' : ''; };
+    if (m.linkErr && !m.link) return esc(m.linkErr) + ' Log their goals with Goal against.';
+    if (m.linkTo && !m.link) return 'Asking ' + other + ' to link this game. Until they accept, log their goals with Goal against.';
+    if (!m.link) return '';
+    var l = linkOf(m.link);
+    if (!l) return 'Linked with ' + other + '.';
+    if (l.status === 'proposed') return 'Waiting for ' + other + ' to accept the link. Until they do, log their goals with Goal against.' + un('Don’t link');
+    if (l.status !== 'accepted') return other + (l.status === 'declined' ? ' turned the link down' : ' isn’t linked any more') + ', so log their goals with Goal against.';
+    var th = l.their || {}, sq = (th.squad || []).length ? ' Their squad: ' + esc(th.squad.join(', ')) + '.' : '';
+    return (th.phase === 'none' ? 'Linked with ' + other + '. Their goals count here once their gaffer starts the game in Gaffer.'
+      : 'Linked with ' + other + '. Their goals show here as they log them, and a goal logged on both phones counts once.') + sq + un('Unlink');
+  }
+  $('linkLine').addEventListener('click', async function (e) {
+    var m = S.match; if (!e.target.closest('[data-unlink]') || !m || !m.link || role !== 'owner') return;
+    if (Date.now() >= LK.armed) { LK.armed = Date.now() + 4000; renderScore(); setTimeout(function () { if (S.view === 'game') renderScore(); }, 4100); return; }
+    LK.armed = 0; await linkCancel(m.link); await linksPull(true); renderScore(); watchPush();
+  });
+  // Home, for gaffers: another team asking to link a game
+  function renderLinkCard() {
+    var el = $('linkCard'); if (!el) return;
+    var ins = role === 'owner' ? LK.list.filter(function (l) { return !l.sent && l.status === 'proposed'; }) : [], show = ins.length || (role === 'owner' && LK.msg);
+    el.hidden = !show; if (!show) { el.innerHTML = ''; return; }
+    el.innerHTML = ins.map(function (l) {
+      var when = new Date(l.at).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+      return '<div class="askrow"><p><b><span class="tdot" style="background:' + teamCol(l.other.color) + '"></span>' + esc(l.other.name) + ' want to link a game with you</b><br><span class="note">Asked ' + esc(when) +
+        '. Accept and each team logs its own goals, both phones show one score, and either team’s clips go in the game’s highlights. They’ll see the names of your squad for that game.</span></p>' +
+        '<div class="actions"><button class="plain primary" type="button" data-lyes="' + esc(l.id) + '"' + (LK.busyA ? ' disabled' : '') + '>Accept</button><button class="plain" type="button" data-lno="' + esc(l.id) + '"' + (LK.busyA ? ' disabled' : '') + '>Turn down</button></div></div>';
+    }).join('') + (LK.msg ? '<p class="msg" role="status">' + esc(LK.msg) + '</p>' : '');
+  }
+  $('linkCard').addEventListener('click', async function (e) {
+    var b = e.target.closest('button'); if (!b || LK.busyA || role !== 'owner' || !sb) return;
+    var yes = b.getAttribute('data-lyes'), id = yes || b.getAttribute('data-lno'), l = linkOf(id), code = A.active; if (!id || !l) return;
+    LK.busyA = true; LK.msg = ''; renderLinkCard();
+    try {
+      var r = await q(sb.rpc('link_answer', { p_code: code, p_id: id, p_action: yes ? 'accept' : 'decline' }));
+      if (r.data !== 'ok') LK.msg = r.data === 'closed' ? 'That one has already been answered, or ' + l.other.name + ' called it off.' : 'That request isn’t there any more.';
+      else if (!yes) LK.msg = 'Turned down. ' + l.other.name + ' carry on logging their game on their own.';
+      else linkNotify(id);
+      await linksPull(true);
+      if (yes && r.data === 'ok') linkStart(linkOf(id) || l);
+    } catch (err) { LK.msg = 'Couldn’t do that. Check your signal and try again.'; }
+    LK.busyA = false; if (S.view === 'home') renderHome();
+    if (LK.msg) { var said = LK.msg; setTimeout(function () { if (LK.msg === said) { LK.msg = ''; renderLinkCard(); } }, 10000); }
+  });
+  function linkStart(l) { // accepted on this phone: this team's side of the game
+    var m = S.match, o = l.other, th = l.their || {}, who = { id: o.id, name: o.name, short: o.short || '', color: o.color };
+    if (m && !m.house && !m.solo && !m.link && m.phase !== 'ft') { // a game against them already going: that's the one
+      m.link = l.id; m.linkTeam = who; m.opp = o.name; delete m.linkTo; delete m.linkErr; save(); linkListen(); go('game'); return;
+    }
+    if (th.phase === 'ft' && !linkUsed(l.id)) { // their game is over: the result goes straight in, from what they logged
+      S.results.push({ id: uuid(), opp: o.name, us: 0, them: 0, friendly: !!th.friendly, koAt: th.ko_at || null, htAt: th.ht_at || null, h2At: th.h2_at || null, ftAt: th.ft_at || null,
+        half: th.half || S.half, periods: th.periods === 1 ? 1 : null, per: {}, ev: [], at: th.ft_at || Date.now(), link: l.id });
+      linkRefold(); save(); var r = S.results[S.results.length - 1];
+      LK.msg = 'Added to your results: ' + teamShort() + ' ' + r.us + '–' + r.them + ' ' + o.name + '. Their clips are in its highlights.'; renderHome(); return;
+    }
+    if (m) { LK.msg = 'Accepted. Finish the game you’re in, then start a new game and pick ' + o.name + ' from Gaffer’s teams: it joins up with theirs.'; renderHome(); return; }
+    go('setup'); if (!D) return; // (New game, against them, already linked)
+    D.linked = Object.assign({ link: l.id }, who); $('opp').value = o.name; $('oppErr').hidden = true; OF.list = []; renderOppFind(); renderOppLink();
+  }
+  // New game: the opponent's name also finds teams on Gaffer
+  function oppFind() {
+    clearTimeout(OF.t);
+    var v = $('opp').value.trim(), x = D && (D.linked || D.link);
+    if (x && v !== x.name) { D.link = null; D.linked = null; renderOppLink(); }
+    if (!sb || !me || role !== 'owner' || v.length < 2 || (D && (D.link || D.linked))) { OF.list = []; renderOppFind(); return; }
+    OF.t = setTimeout(async function () {
+      try { var r = await q(sb.rpc('search_teams', { p_query: v })); if ($('opp').value.trim() !== v || !D || D.link || D.linked) return; OF.list = (r.data || []).filter(function (t) { return t.id !== teamId; }).slice(0, 5); } catch (e) { OF.list = []; }
+      renderOppFind();
+    }, 350);
+  }
+  function renderOppFind() {
+    var el = $('oppFind'), show = OF.list.length > 0; el.hidden = !show; if (!show) { el.innerHTML = ''; return; }
+    el.innerHTML = '<p class="note">On Gaffer. Pick a team to link the game with theirs.</p>' + OF.list.map(function (t) {
+      return '<div class="prow"><button class="who" type="button" data-oteam="' + esc(t.id) + '"><b><span class="tdot" style="background:' + teamCol(t.color) + '"></span>' + esc(t.name) + '</b><small>' + t.players + (t.players === 1 ? ' player' : ' players') + '</small></button><button class="plain" type="button" data-oteam="' + esc(t.id) + '">Pick</button></div>';
+    }).join('');
+  }
+  function renderOppLink() {
+    var el = $('oppLink'), x = D && (D.linked || D.link); el.hidden = !x; if (!x) { el.innerHTML = ''; return; }
+    el.innerHTML = '<p><b><span class="tdot" style="background:' + teamCol(x.color) + '"></span>' + (D.linked ? 'Linked with ' : 'Linking with ') + esc(x.name) + ' on Gaffer</b></p><p class="note">' +
+      (D.linked ? 'They’ve accepted. Each team logs its own goals, both phones show one score, and either team’s clips go in the game’s highlights.'
+        : 'Their gaffer is asked to accept when you set the game up. Once they do, each team logs its own goals, both phones show one score, and either team’s clips go in the game’s highlights.') +
+      '</p><div class="actions"><button class="link" type="button" data-ounlink="1">Don’t link</button></div>';
+  }
+  $('oppFind').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-oteam]'); if (!b || !D) return;
+    var t = OF.list.filter(function (x) { return x.id === b.getAttribute('data-oteam'); })[0]; if (!t) return;
+    var who = { id: t.id, name: t.name, short: t.short || '', color: t.color };
+    var open = LK.list.filter(function (l) { return l.status === 'accepted' && !l.sent && l.other.id === t.id && !linkUsed(l.id); })[0]; // (they asked, and it was accepted here)
+    if (open) D.linked = Object.assign({ link: open.id }, who); else D.link = who;
+    $('opp').value = t.name; $('oppErr').hidden = true; OF.list = []; renderOppFind(); renderOppLink();
+  });
+  $('oppLink').addEventListener('click', function (e) { if (!e.target.closest('[data-ounlink]') || !D) return; D.link = null; D.linked = null; renderOppLink(); });
+  function linkClipsHtml(r) { // a linked game's clips cut by the other team, in this team's highlights
+    var l = r.link ? linkOf(r.link) : null, th = l && l.status === 'accepted' ? l.their : null; if (!th || !(th.clips || []).length) return '';
+    return '<h4 class="lkh">From ' + esc(l.other.name) + '’s video</h4>' + clipPlayer(th.clips.map(function (c) { return Object.assign({}, c, { title: c.label }); }));
+  }
 
   // ---- the team pass (0032_team_pass.sql): the Gaffer tier is paid for per team, from a team pot. Anyone on it can chip
   // in 69p, £1.49 or £2.49, or pay the whole £4.99, in the iPhone app, through Apple (TeamPassPlugin); when the pot
@@ -5969,13 +6218,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   armed($('endHalf'), 'End it early?', function () { endHalf(); }, function () { var m = S.match; return !!m && elapsed(m) < halfMs(m); });
   armed($('finish'), 'Tap again to finish', function () {
     var m = S.match; if (!m) return;
-    var gm = gameMins(m), t = tally(m), per = {};
+    var gm = gameMins(m), t = tally(m), per = {}, all = linkFinal(m); // (a linked game: with the other team's goals, as the score has them)
     Object.keys(gm).forEach(function (k) { if (P(+k)) per[k] = { mins: gm[k], g: t.g[k] || 0, a: t.a[k] || 0, gf: 0, ga: 0 }; });
     if (m.house) m.events.forEach(function (e) { if (e.hl) return; Object.keys(per).forEach(function (k) { per[k][(sideOf(m, +k) === 'a') === !!e.us ? 'gf' : 'ga']++; }); }); // for and against by side
-    else m.events.forEach(function (e) { if (e.hl || !e.on) return; e.on.forEach(function (id) { if (per[id]) per[id][e.us ? 'gf' : 'ga']++; }); });
-    var ev = m.events.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; if (e.on) o.on = e.on; } return o; });
+    else all.forEach(function (e) { if (e.hl || !e.on) return; e.on.forEach(function (id) { if (per[id]) per[id][e.us ? 'gf' : 'ga']++; }); });
+    var ev = all.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; if (e.on) o.on = e.on; if (e.lk) o.lk = true; } return o; });
     var lu = m.segs.filter(function (s) { return s.to > s.from; }).map(function (s) { return { h: s.h, f: s.from, t: s.to, on: (s.gk != null ? [s.gk] : []).concat(s.on) }; });
-    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.pitch === 7 ? 7 : null, tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now(), house: m.house ? JSON.parse(JSON.stringify(m.house)) : null });
+    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.pitch === 7 ? 7 : null, tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now(), house: m.house ? JSON.parse(JSON.stringify(m.house)) : null, link: m.link || null });
     if (!m.house) S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
     if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
     var played = m.fx ? RV.list.filter(function (c) { return c.fixture === m.fx; })[0] : null; // a game against another team on the app: tell them our score

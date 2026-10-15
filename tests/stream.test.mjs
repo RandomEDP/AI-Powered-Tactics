@@ -186,6 +186,24 @@ eq([row().notified_at, (await tell('tok-chaplin')).sent], [null, 3], 'the next g
 APNS.length = 0; await S('tok-ethan', 'stop');
 eq([(await tell('tok-jake')).reason, APNS.length], ['not_live', 0], 'and nothing once the stream has ended');
 
+// ---------- team-notify: linking today's game with another team on Gaffer tells that team's gaffers (and only them)
+APNS.length = 0; DB.push_tokens.push({ user_id: 'u-rival', token: 'phone-rival' });
+DB.game_links = [{ id: 'l1', from_team: 't-sop', to_team: 't-ath', status: 'proposed', updated_at: new Date().toISOString() }];
+const lnk = (who, code, link = 'l1') => notify(who, { code, kind: 'link', link });
+eq([(await lnk('tok-jake', 'SOPFC1')).status, APNS.length], [403, 0], 'a player can\'t set it off');
+eq([(await lnk('tok-ethan', 'SOPFC1', 'nope')).status, APNS.length], [404, 0], 'nor for a link that isn\'t there');
+r = await lnk('tok-ethan', 'SOPFC1');
+eq([r.sent, APNS.map((a) => a.to), APNS[0] && APNS[0].payload.kind, APNS[0] && APNS[0].payload.code, APNS[0] && APNS[0].payload.aps.alert.title],
+  [1, ['phone-rival'], 'link', 'ATHLET', "Sons of Pitches FC want to link today's game"], 'asking: the other team\'s gaffer is told, worded by the server, and tapping it opens their own team');
+APNS.length = 0;
+eq([(await lnk('tok-rival', 'ATHLET')).reason, APNS.length], ['nothing', 0], 'the team asked can\'t send it back before answering');
+DB.game_links[0].status = 'accepted';
+r = await lnk('tok-rival', 'ATHLET');
+eq([r.sent, APNS.map((a) => a.to).sort(), APNS[0] && APNS[0].payload.code, APNS[0] && APNS[0].payload.aps.alert.title], [2, ['phone-dan', 'phone-ethan'], 'SOPFC1', 'Athletico accepted the linked game'], 'accepting: the asking team\'s gaffers are told (not its players)');
+APNS.length = 0; DB.game_links[0].updated_at = new Date(Date.now() - 600000).toISOString();
+eq([(await lnk('tok-rival', 'ATHLET')).reason, APNS.length], ['old', 0], 'and not again later');
+APNS.length = 0; reset();
+
 // ---------- team-notify: a report tells Gaffer's moderators straight away (Apple's 1.2: reports looked at within a day)
 Object.assign(DB, { moderators: [{ user_id: 'u-ethan' }], post_reports: [], profile_reports: [], message_reports: [], stream_reports: [] });
 const rep = (who, what) => notify(who, { kind: 'report', what });

@@ -11,11 +11,13 @@ goes in it, this file included.
 
 ## 1. Who and what
 
-- **Owner:** Ethan (GitHub `RandomEDP`). He is the gaffer (team admin) of his own 5-a-side team, Sons of Pitches FC
+- **Owner:** Ethan (GitHub `RandomEDP`). He is the gaffer (team admin) of his own small-sided (5-a-side) team, Sons of Pitches FC
   ("SOP FC"). They have a purple kit and a crowned-eagle crest. The squad is 8 including the keeper, the keeper stays on,
   games are 2 × 15 min with 5-minute subs, and everyone should play about the same. The team uses the app every week.
   Games are filmed on a GoPro mounted on the cage, running through half time, and/or on phones.
-- **The app:** "Gaffer: 5-a-Side Team Manager". It was called "AI Powered Tactics", which is why the repo, bundle ID and
+- **The app:** "Gaffer: Small-Sided Football" (`APP_NAME` near the top of the script in `index.html`, also passed to the
+  reels' end card as `outro.app`). Never call it a "5-a-side" app (Ethan, October 2026; `tests/wording.test.mjs` checks):
+  "5-a-side" only names the game format. Before that it was "Gaffer: 5-a-Side Team Manager", and before that it was called "AI Powered Tactics", which is why the repo, bundle ID and
   package names still say that.
   - It's an iPhone app (Capacitor wrapper), plus an Apple Watch companion, plus the same web app on GitHub Pages.
   - It's on TestFlight and has been submitted to App Store review.
@@ -112,14 +114,15 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
-| `supabase/migrations/` | `0001` … `0030`, **all applied to the live project**. New ones are numbered on from there |
+| `supabase/migrations/` | `0001` … `0031`, **all applied to the live project**. New ones are numbered on from there |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
 | `.github/workflows/android.yml` | Every push: the `android` tests, then builds the Android app (`.apk` to install, `.aab` for Google Play) as the run's artifacts. Run by hand with "Upload to Google Play" for the internal testing track (needs the Android secrets, section 7) |
 | `android/` | The Android app shell (Capacitor). `MainActivity.java` (the back button), icons and splash in `app/src/main/res`, signing and version in `app/build.gradle`. `app/src/main/assets/public` is git-ignored and filled by `npx cap sync android` |
+| `.github/workflows/store-text.yml` | "Update App Store text and pictures" (run by hand): sends `store/text/*.txt` (name, subtitle, description, keywords, promotional text) to App Store Connect through `scripts/asc-text.mjs` with the `ASC_*` secrets; with "Pictures too" ticked, `scripts/asc-shots.mjs` also replaces the 6.9" iPhone pictures with `store/6 iPhone (6.9 inch)` (only on a version that can still be edited; new ones go up before the old ones are deleted). Unticked "Send it" only shows what would change. Tests: `storetext.test.mjs`, `storeshots.test.mjs` |
 | `.github/workflows/watch-shots.yml` | Takes Apple Watch App Store screenshots in a simulator (run by hand) |
-| `store/` | App Store pictures, in the folders App Store Connect wants. `node store/capture.mjs` takes real app screens (402×874 @3×) through the test harness, then `node store/compose.mjs` lays them out in the purple style; `store/src/` holds the tracking still, the icon and the earlier slides that are kept as they are |
+| `store/` | App Store pictures, in the folders App Store Connect wants, plus social pictures in `5 Social` (squares, stories, a wide one). `node store/capture.mjs` plays SOP FC 15–2 Dog Squad through the test harness and takes the redesigned app's screens (402×874 @3×, dark mode), then `node store/compose.mjs` lays them all out in the purple style. `store/src/footage/` holds stills from that game's real highlights (the score box and GOAL bar are Gaffer's own); the screens' videos show them. Nothing behind the Experimental switch goes in |
 | `shots/` | Raw screenshots from `tests/shots.mjs`, for checking the design |
 | `tests/` | Section 9 |
 
@@ -302,7 +305,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   (crest on the team colour, short names from `abbr`, the score, which changes as the ball goes in, and the match clock
   ticking a second at a time, carrying on through the second half), a bar along the bottom ("GOAL", the scorer, the minute
   and who set it up) that slides in just after the moment, Gaffer's mark top right, and the end card (kicker "FULL TIME",
-  the result, the crest, then Gaffer's icon, "Gaffer: 5-a-Side Team Manager" and a "Download on the App Store" badge drawn
+  the result, the crest, then Gaffer's icon, the app's name (`outro.app`) and a "Download on the App Store" badge drawn
   with the phone's Apple logo symbol). JS works out each clip's `bug {clock, us, them, changes}` and `lower {at, tag, title,
   sub}` in `clipLook`; the clock comes from the video once kick-off is marked (`cutPlan` sets `c.clock`). The cut screen
   shows the same design in HTML ("How the clips look", `lookPreview`) with a switch for the score box (`CUT.bug`). The app
@@ -362,7 +365,11 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `aiAsk` first). Nothing is cut from the match video and no other clip is touched. The new copies go up under a new name
   (`01-<stamp>.mp4`, so no phone keeps the old one), the row points at them and the old files go. The game's one video is
   cleared and joined again from the clips (`mhMake` with `MKVER`, `reel-<stamp>.mp4`). On the web only the stats and
-  caption change, and it says to fix it again on the iPhone. Test: `reels.test.mjs`.
+  caption change, and it says to fix it again on the iPhone. Making the clip again can take minutes (Ethan's took 20 with
+  Gaffer put away) and coming back re-reads the team, so every change lands on whichever copy of the clip and game is
+  current (`mark`, `gameNow`), the phone's saved clips are rewritten (`clipsKeep`) and an open whole-match player moves
+  onto the new clip (`mhRebind`, also after every pull; a clip that won't load re-reads the team once). Before this the
+  phone kept playing the old file it had just deleted. Test: `reels.test.mjs`.
 - **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies) and its reel,
   to cut again from scratch.
 - **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each
@@ -537,6 +544,30 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   the back button; a gaffer's account on Android writes nothing; no iPhone plugin is asked for). `tests/lib.mjs`
   `android: true` stands in for Capacitor's Android bridge.
 
+### Playing another team on Gaffer (`0031_linked_games.sql`; Ethan asked)
+- New game → the opponent's name also searches Gaffer's teams (`oppFind`, `search_teams`, `#oppFind`); picking one sets
+  `D.link` (`#oppLink` says so; changing the name unlinks). Setting the game up puts `m.linkTo` on the match and
+  `linkSend` calls `link_game` (`game_links`, status `proposed`), sets `m.link`/`m.linkTeam` and calls `team-notify` kind
+  `link` (the other team's gaffers; again on accepting, to the asking team's). No signal: it's sent on the next pull.
+- **Nothing is shared until the team asked accepts** (`#linkCard` on their Home, `link_answer` accept/decline; either
+  side can `cancel`, "Unlink" on the game screen; scrapping a game takes back an unanswered request, `linkDrop`).
+  Accepting attaches a game against them already going, puts their finished game straight into the results, or opens
+  New game already linked (`D.linked`). Picking a team that has an accepted, unused link uses it.
+- `team_links(code)` (anyone with the code, like `get_team`; requests to the team only for its gaffers) gives each
+  accepted link's other side (`private.link_side`): its own goals (scorers' names), goals it logged against itself, its
+  squad's names, and its clips once finished. From its live game while on (`state.link`), else its game with `games.link`.
+  Goals a side only took from the other (`lk` / `game_events.from_link`) are never sent back.
+- **One score** (`linkView`, inside `tally`, so the watch and followers agree): each side's own goals, plus the other side's
+  that it didn't log itself, matched one to one by time within `LINK_WIN` (90 s). Both teams' phones work it out the same
+  way. The game screen lists their goals with their scorer (`linkLine` says where the link stands and their squad).
+  Updates: a broadcast `changed` on `link:<id>` after each save of the live game (`linkPing`), and every 20 s.
+- **Full time** (`linkFinal`): the other side's extra goals go into the result as `lk` events (minute by our clock, who was
+  on), `r.link` kept. `linkRefold` (gaffers, after each `team_links`) redoes them when theirs change (their game finishing
+  later, a goal fixed); not while their side shows `phase: 'none'`. Fix a goal skips `lk` goals.
+- Their clips show under the game in Highlights ("From <team>'s video", `linkClipsHtml`); our own clips, cutting, reels
+  and their writes never touch theirs.
+- Tests: `linked.test.mjs` (two gaffers, a follower and the watch), `linkdb.test.mjs`, `stream.test.mjs` (kind `link`).
+
 ### Games among the squad, with guests (`0020_games_among_the_squad.sql`)
 - New game → "Among ourselves" (`#gKind`, `D.kind = 'house'`, `renderHouse`): two named sides (Bibs and Shirts to start),
   any size, at least 2 a side, no fixed keeper and no subs plan. Squad players are set to a side or Out; guests are added
@@ -682,7 +713,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0030` are applied live. Add new ones as `supabase/migrations/0031_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0031` are applied live (0031 went in as two parts, `0031a`/`0031b`, through the MCP). Add new ones as `supabase/migrations/0032_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
@@ -691,7 +722,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Edge functions:** all five are deployed with **verify_jwt = true**. Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
-  - Deployed now: `team-notify` v22 (kind `live` from any team member, sent once; kind `report` tells the moderators; Android phones through Firebase; same as the repo), `live-stream` v5,
+  - Deployed now: `team-notify` v23 (kind `live` from any team member, sent once; kind `report` tells the moderators; kind `link` for linked games; Android phones through Firebase; same as the repo), `live-stream` v5,
     `reel-voice` v17 (players allowed too; Sweary delivery in a Cockney accent; paced for Google's per-minute limit), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
@@ -708,7 +739,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 ## 8. Apple / App Store
 
 - **App Store review:**
-  - The name is "Gaffer: 5-a-Side Team Manager".
+  - The name is "Gaffer: 5-a-Side Team Manager" in App Store Connect until Ethan changes it there; the repo now says
+    "Gaffer: Small-Sided Football" (28 of the 30 characters allowed).
+  - **The store text lives in `store/text/`** and goes to App Store Connect with the "Update App Store text and pictures" workflow,
+    never by hand from chat. Apple only takes the name, subtitle, description and keywords on a version that can still be
+    edited; while one waits for review or is live, only the promotional text changes (the log says which). Subtitle
+    "Your team, sorted" (the tagline isn't final; the watch is a feature, never the headline).
   - Apple asked for information under Guideline 2.1; a reply was drafted and Ethan has dealt with it.
   - The reviewer demo account is his.
   - **Account deletion (Guideline 5.1.1(v)):** Apple turned a build down for having no way to delete an account. It
