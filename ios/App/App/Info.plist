@@ -70,7 +70,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose your team crest, or a match recording to cut highlights from (read straight from your library, without copying it).</string>
 	<key>NSUserTrackingUsageDescription</key>
-	<string>Gaffer only shows an ad when you choose to watch one to unlock something. Allowing this lets Google show ads that suit you better; either way, the ad still unlocks it.</string>
+	<string>Gaffer only shows an ad when you choose to watch one to see your highlight reel. Allowing this lets Google show ads that suit you better; either way, the ad still unlocks it.</string>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>SKAdNetworkItems</key>

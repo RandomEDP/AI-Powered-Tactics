@@ -682,30 +682,30 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   and `kitIsLight` (tested in `tests/watch/main.swift`, 26). The clock is `@ScaledMetric`.
 - Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
 
-### Rewarded ads (the free tier; `0032_rewarded_ads.sql`, `ad-reward`; Ethan's idea instead of banners)
-- No banners. On the free tier someone chooses to watch a short ad (Google AdMob rewarded, `@capacitor-community/admob`
-  8.2.1, iPhone app only) to unlock one thing: an older game's highlights (the newest cut game's are free; per person, for
-  good), AI commentary on one cut or reel (per person, one use, **free voice only**: `AD_VOICE`/`adVoice`, the other
-  voices are paid one-offs), or one more cut for the team (gaffers; after the team's one free try; one a calendar month).
+### Rewarded ads (the free tier; `0032_rewarded_ads.sql`, `ad-reward`; Ethan: "just a 30 second ad to see your own highlight reel")
+- No banners. On the free tier the one ad is on your own card in Highlights → By player: your kept player reel (0026) is
+  behind "Watch a 30-second ad" (Google AdMob rewarded, `@capacitor-community/admob` 8.2.1, iPhone app only). Watching
+  it unlocks that reel for you for good; a new reel needs a new ad. Other people's reels, games' highlights, cuts and
+  commentary are not gated (Ethan tried more unlocks and pulled back to this one, October 2026).
 - **Never during a game** (`adWatch` refuses while `S.match` is set) and **never for a paid team**: `adFree()` is the one
   check (`teamPaid()` from the team pass, else `hasGaffer()`). Early access: everyone has Gaffer, so ads only show with
   Experimental on and "Try the free tier" (`#expAds`, `A.exp.ads`). `freeTier()` = not ad-free and an ad can be shown
-  here; on the web and Android the limits don't apply (no ad to lift them).
-- **Server-side grant:** `ad_ticket` makes a ticket; the ad is loaded with `ssv {userId, customData: ticket}`; AdMob
-  calls `ad-reward` (deployed `--no-verify-jwt`; Google's ECDSA signature checked against its published keys), which calls
-  `ad_grant` (service role only). The app polls `ad_claim`. Google's test ads never call the server, so while
-  `ad_settings.trust_app` is true `ad_claim(p_app_says)` takes the app's word. Unlocks are used by `use_unlock` as the
-  cut/commentary starts; `my_unlocks` says what's left. Table `unlocks` (RLS, no policies).
+  here; on the web and Android the reel isn't locked (no ad to lift it).
+- **Server-side grant:** `ad_ticket('reel', path)` (only the player themselves, only their current reel) makes a ticket;
+  the ad is loaded with `ssv {userId, customData: ticket}`; AdMob calls `ad-reward` (deployed `--no-verify-jwt`; Google's
+  ECDSA signature checked against its published keys), which calls `ad_grant` (service role only). The app polls
+  `ad_claim`; `my_unlocks` lists the unlocked reels (`reelLocked`). Google's test ads never call the server, so while
+  `ad_settings.trust_app` is true `ad_claim(p_app_says)` takes the app's word. Table `unlocks` (RLS, no policies).
 - First ad of a session: `initialize`, Google's consent form where the law needs it (UK/EU; Settings → Ads → Ad choices
   reopens it), then Apple's tracking question (`NSUserTrackingUsageDescription`). Either answer still unlocks.
 - Test ads now: `config.js` `ads` (Google's test rewarded unit), `Info.plist` `GADApplicationIdentifier` (Google's test
   app id) and `SKAdNetworkItems` (Google's own id only; add Google's full list before going live).
-- **Going live (Ethan's steps):** make an AdMob account and the iOS app and a rewarded unit; put the unit id in `config.js`
+- **Going live (Ethan's steps):** make an AdMob account, the iOS app and a rewarded unit; put the unit id in `config.js`
   (`test: false`) and the app id in `Info.plist`; turn on server-side verification on the unit with the callback
   `https://kvefpqigpqprxfelesrb.supabase.co/functions/v1/ad-reward`; set the secret `ADMOB_AD_UNITS`; then
   `update public.ad_settings set trust_app = false`; update the App Privacy labels (Identifiers: device ID; Usage data;
   coarse location; used for third-party advertising, tracking if allowed) and set up the UK/EU consent message in AdMob
-  (Privacy & messaging). Before the store build shows ads, App Review needs to see the tracking prompt: say where in the notes.
+  (Privacy & messaging). App Review needs to find the tracking prompt: say where in the review notes.
 - Tests: `ads.test.mjs` (the database, the real function with a stand-in Google key, and the phones).
 
 ### Other features (all in `index.html`)
