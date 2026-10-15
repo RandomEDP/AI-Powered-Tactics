@@ -1,6 +1,7 @@
 // The team pass (0032_team_pass.sql): someone on a team has chipped into the team's pot in the iPhone app (69p, £1.49,
-// £2.49, or the whole £4.99 month), through Apple; each full £4.99 in the pot gives the team 30 days. Before it counts, this asks Apple itself about the purchase (App Store Server API, "Get Transaction
-// Info"), so a made-up or refunded purchase never pays for anything, and each purchase counts once, for one team.
+// £2.49, or the whole £4.99 month), through Apple; each full £4.99 in the pot gives the team 30 days. Before it counts,
+// this asks Apple itself about the purchase (App Store Server API, "Get Transaction Info"), so a made-up or refunded
+// purchase never pays for anything, and each purchase counts once, for one team.
 // Called by anyone signed in, with { code, action: "claim", transaction_id }:
 //   -> { added, until, pot, months, kind, pence }   until: when the team's pass runs out (ms, null before the pot first
 //      fills); pot: pence towards the next month; months: how many months this purchase started; added false if it was

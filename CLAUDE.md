@@ -582,8 +582,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Card:** `#passCard` on the Team page (`renderPass`, `.passbar`), behind the Experimental switch until the products are
   live (a paid team shows it to everyone). It says before anyone pays that a chip-in unlocks nothing until the pot is full.
   "Runs out in N days" within 5. No buttons on the web or Android (no Google Play yet).
-- Not applied yet: migration 0032 and `team-pass` wait for Ethan's OK; secrets `IAP_KEY_ID`, `IAP_ISSUER_ID`, `IAP_KEY_P8`
-  (Ethan's, README "Team pass"). Refunds made after a purchase is counted aren't taken back yet (needs App Store Server
+- Live: migration 0032 applied and `team-pass` v1 deployed (15 October 2026). It says "not set up yet" until Ethan adds the
+  secrets `IAP_KEY_ID`, `IAP_ISSUER_ID`, `IAP_KEY_P8` (README "Team pass"); purchases wait on the phone till then. Refunds made after a purchase is counted aren't taken back yet (needs App Store Server
   Notifications). Test: `teampass.test.mjs`.
 
 ### Live streaming (Gaffer tier; behind the experimental switch for gaffers) (`0017_live_streams.sql`, `live-stream`)
