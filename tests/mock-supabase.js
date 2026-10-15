@@ -304,6 +304,16 @@
       if (!t || !uid()) return ok(null);
       return ok({ reels: [...new Set(d.unlocks.filter((u) => u.team_id === t.id && u.user_id === uid() && u.granted_at).map((u) => u.target))] });
     }
+    if (name === 'clip_hits' || name === 'set_clip_hit') { // when the ball goes in (0038): kept by game and moment, as seconds from it
+      const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); d.clip_hits = d.clip_hits || [];
+      if (name === 'clip_hits') return ok(t ? d.clip_hits.filter((h) => h.team_id === t.id && h.off != null).map((h) => ({ game_id: h.game_id, at: h.at, off: h.off })) : []);
+      if (!uid()) return fail('Sign in first', '42501');
+      if (!t || !(isOrg(d, t.id) || d.players.some((p) => p.team_id === t.id && p.user_id === uid()))) return ok('not_in_team');
+      if (a.p_off != null && !(a.p_off >= -60 && a.p_off <= 60)) return ok('bad');
+      if (!d.clips.some((c) => c.team_id === t.id && c.game_id === a.p_game && c.at === a.p_at)) return ok('no_clip');
+      d.clip_hits = d.clip_hits.filter((h) => !(h.game_id === a.p_game && h.at === a.p_at)).concat([{ team_id: t.id, game_id: a.p_game, at: a.p_at, off: a.p_off }]);
+      window.__mockCalls.push('hit:' + a.p_at + ':' + a.p_off); store(d); return ok('ok');
+    }
     if (name === 'hide_clip') { // Remove from my highlights (0022): only the player themselves, keyed by the game and the moment
       if (!uid()) return fail('Sign in first', '42501');
       const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok('no_clip');

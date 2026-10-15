@@ -115,7 +115,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0037` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made). New ones are numbered on from 0038 |
+| `supabase/migrations/` | `0001` … `0038` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits). New ones are numbered on from 0039 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -397,7 +397,16 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `BeatEdit.swift`), then a second pass puts the end card over the last bars (`export(..., outroOver:)`). Nothing is
   uploaded; it goes to the share sheet. The music is synthesised by `scripts/make-music.py` (numpy/scipy, then ffmpeg),
   so it's Gaffer's own and is never muted on Instagram; licensed tracks can be added later as more `BEATS` entries
-  (bpm, bars, drop, end) with their `.m4a` in `music/`. Tests: `beat.test.mjs` (the plan for every track and 1–9
+  (bpm, bars, drop, end) with their `.m4a` in `music/`.
+  **When the ball goes in** (`0038_goal_moments.sql`; Ethan: "pretty much all of the goals are out of sync", then "an on device
+  way of looking at the clips, deciding when the ball goes in"): the logged moment is often seconds out, so the sheet lists
+  the moments it lands on the beat (`beStars`, `#beLuList`); tapping one shows its clean clip (`renderLU`, `#beVid`, ±1/0.2 s
+  nudges) and "The ball goes in here" saves it (`luSet`): kept per phone (`apt-hits:<code>`) and for the team
+  (`set_clip_hit`, gaffers and claimed players; `clip_hits(code)` reads them), by game and moment as seconds from the moment
+  (`off`), so a re-cut keeps it. Unlined clips use `clipRel` (PRE in; a longer clip holding two moments was wrongly put
+  6 s from its end). `beatPlan`'s run-ups keep their end on the moment and stars their start (`endsAt`/`startsAt`), even at
+  a clip's edge. Not automatic yet (spotting the ball in the picture isn't reliable; the cheer in the sound could give a
+  first guess). Tests: `beat.test.mjs` (the plan for every track and 1–9
   moments, the sheet, the plugin call, the music's lengths against `BEATS` and the script), `tests/beat/main.swift`.
 - The old screens (the computer ffmpeg script, the season reels, watch-timecode import) are gone. A result's Highlights
   button opens Highlights with that game picked out (`hlShow`).

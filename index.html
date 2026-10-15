@@ -662,6 +662,9 @@ tr.past td { opacity: .45; }
 .tracks .trk small { color: var(--muted); font-size: var(--t-foot); font-weight: 500; }
 .tracks .trk[aria-pressed="true"] { border-color: var(--on); background: var(--on-soft); }
 .tracks .hear { min-width: 56px; padding-inline: 12px; }
+#beVid { display: block; width: 100%; max-height: 46vh; border-radius: 8px; background: #000; margin: 8px 0; }
+.benudge { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0; }
+.benudge button { min-height: 44px; padding-inline: 4px; }
 #reelPop .planbox { max-height: calc(100vh - 32px); overflow-y: auto; }
 #rbPrev { display: block; width: 100%; max-height: 220px; border-radius: 8px; background: #000; margin: 8px 0; }
 .rblist { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
@@ -2352,7 +2355,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // page. False lets Android put the app away.
   window.gafferBack = function () {
     if (MH) { mhClose(); return true; }
-    if (!$('beatPop').hidden) { beClose(); return true; }
+    if (!$('beatPop').hidden) { if (BE.lu != null && !BE.busy) { luStop(); BE.lu = null; renderBE(); } else beClose(); return true; }
     if (!$('askPop').hidden) { $('askNo').click(); return true; }
     if (!$('postView').hidden) { $('postView').hidden = true; PV.post = null; return true; }
     var bar = curBar(), b = bar && bar.querySelector('.back');
@@ -4686,6 +4689,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     // stretch `out` beats of clip m from `from` (kept inside the clip, the speed eased if the clip is too short)
     function put(m, from, beats, speed, o) {
       var out = T(at + beats) - T(at), len = out * speed;
+      if (o.endsAt && from < 0) { len = Math.max(0.05, len + from); from = 0; } // (a run-up keeps its end on the moment: slower, if the clip starts too close to it)
+      if (o.startsAt && from + len > m.len - 0.05) len = Math.max(0.05, m.len - 0.05 - from); // (and a moment keeps its start on it)
       if (len > m.len - 0.05) len = m.len - 0.05;
       from = Math.max(0, Math.min(from, m.len - 0.05 - len));
       segs.push({ i: m.i, t: T(at), out: Math.round(out * 1e4) / 1e4, from: Math.round(from * 1e3) / 1e3, len: Math.round(len * 1e3) / 1e3, mono: !!o.mono, z0: o.z0 || 1.3, z1: o.z1 || o.z0 || 1.3 });
@@ -4713,18 +4718,19 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       put(m, m.at + off, step, 1, { mono: true, z0: 1.4, z1: 1.5 });
       k++;
     }
-    put(first, first.at - 0.4 * bt - 3 * bt, 3, 1, { mono: true, z0: 1.3, z1: 1.42 });
-    put(first, first.at - 0.4 * bt, 1, 0.4, { mono: true, z0: 1.42, z1: 1.6 });
+    var r0 = Math.min(0.4 * bt, first.at / 2); // (the slowest bit, cut short if the moment is right at the start of its clip)
+    put(first, first.at - r0 - 3 * bt, 3, 1, { mono: true, z0: 1.3, z1: 1.42, endsAt: true });
+    put(first, first.at - r0, 1, r0 / bt, { mono: true, z0: 1.42, z1: 1.6, endsAt: true });
     // the drop: each star's moment lands on a bar, in slow motion with a flash, then the celebration, then the next
     // star's run-up into the next bar; the picture bounces on every beat that isn't slowed down
     stars.forEach(function (m, n) {
       var H = D + Math.round(n * (E - D) / stars.length / 4) * 4, next = n + 1 < stars.length ? D + Math.round((n + 1) * (E - D) / stars.length / 4) * 4 : E;
       var W = next - H, slow = Math.min(2, Math.floor(W / 4)), run = n + 1 < stars.length ? Math.min(4, Math.floor(W / 2)) : 0, cel = W - slow - run;
       at = H; hit(H, n === 0);
-      put(m, m.at, slow, 0.5, { z0: 1.55, z1: 1.35 });
+      put(m, m.at, slow, 0.5, { z0: 1.55, z1: 1.35, startsAt: true });
       var room = m.len - (m.at + slow * bt * 0.5) - 0.1;
       if (cel > 0) put(m, m.at + slow * bt * 0.5, cel, Math.max(0.3, Math.min(1, room / (cel * bt))), { z0: 1.3, z1: 1.36 });
-      if (run > 0) { var nx = stars[n + 1]; put(nx, nx.at - run * bt * 1.15, run, 1.15, { z0: 1.28, z1: 1.4 }); }
+      if (run > 0) { var nx = stars[n + 1]; put(nx, nx.at - run * bt * 1.15, run, 1.15, { z0: 1.28, z1: 1.4, endsAt: true }); }
       for (var b = H + slow; b < next; b++) fx.push({ t: T(b), k: 'punch', d: 0.18, a: 0.04 });
     });
     // under the end card (which covers all of it): the last star carries on, slowed if need be
@@ -4733,9 +4739,33 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     return { segs: segs, fx: fx, len: T(tr.bars * 4), outroAt: T(E), stars: stars.map(function (m) { return m.i; }) };
   }
   window.gafferBeatPlan = function (ms, id) { return beatPlan(ms, BEATS.filter(function (t) { return t.id === id; })[0] || BEATS[0]); };
-  function beatMoments(list, kindOf) { // the clips, oldest first, as beatPlan wants them
-    return list.map(function (c) { var len = c.dur || PRE + POST; return { len: len, at: Math.max(0, len - POST), kind: kindOf(c) }; });
+  function beatMoments(list, kindOf) { // the clips, oldest first, as beatPlan wants them: where the ball goes in if someone has lined it up
+    return list.map(function (c) { var len = +c.dur || PRE + POST, hit = clipHit(c); return { len: len, at: hit != null ? hit : clipRel(c), kind: kindOf(c) }; });
   }
+  // ---- when the ball goes in, lined up by eye on the phone (0038; Ethan: the goals were out of sync, as the moment logged is
+  // often a few seconds out). Kept by game and moment as seconds from the moment (so a re-cut keeps it), on the phone and,
+  // for anyone in the team, on Gaffer's server so every phone has it.
+  var HITS = {}; // 'game id:moment' -> seconds from the moment the clip was cut around to the ball going in
+  function hitKey(c) { return c.game_id + ':' + c.at; }
+  function hitsLoad() { try { HITS = JSON.parse(localStorage.getItem('apt-hits:' + A.active) || '{}') || {}; } catch (e) { HITS = {}; } }
+  function hitsKeep() { try { localStorage.setItem('apt-hits:' + A.active, JSON.stringify(HITS)); } catch (e) {} }
+  async function hitsPull() { // the team's (theirs win: they're the latest; one only on this phone, not sent yet, stays)
+    if (!sb || !A.active) return;
+    try {
+      var got = (await q(sb.rpc('clip_hits', { p_code: A.active }))).data;
+      if (Array.isArray(got)) { got.forEach(function (h) { if (typeof h.off === 'number') HITS[h.game_id + ':' + h.at] = h.off; }); hitsKeep(); }
+    } catch (e) {}
+  }
+  function clipRel(c) { // where the moment a clip was cut around is in it: PRE seconds in, or less if the video started late
+    var r = S.results.filter(function (x) { return x.id === c.game_id; })[0] || {}, pre = r.pre != null ? +r.pre : PRE, post = r.post != null ? +r.post : POST, d = +c.dur || pre + post;
+    return d > pre + post + 0.05 ? pre : Math.max(0, d - post); // (a longer clip holds moments close together: it starts PRE before the first)
+  }
+  window.gafferClipRel = function (c) { return clipRel(c); };
+  function clipHit(c) { // where the ball goes in, in seconds into the clip, once someone has lined it up
+    var h = HITS[hitKey(c)]; if (typeof h !== 'number' || !isFinite(h)) return null;
+    return Math.max(0, Math.min(+c.dur || PRE + POST, clipRel(c) + h));
+  }
+  var secs1 = function (t) { t = Math.max(0, t || 0); return Math.floor(t / 60) + ':' + (t % 60 < 10 ? '0' : '') + (t % 60).toFixed(1); };
   function beatKind(c) { // what a clip of a game shows: our goal, theirs, a save or another highlight
     var r = S.results.filter(function (x) { return x.id === c.game_id; })[0], best = null;
     ((r && r.ev) || []).forEach(function (e) { if (typeof e.at === 'number' && Math.abs(e.at - (c.at || 0)) < 1500 && (!best || Math.abs(e.at - c.at) < Math.abs(best.at - c.at))) best = e; });
@@ -4754,17 +4784,47 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   function beOpen(src) {
     var keep = BE.track; try { keep = keep || localStorage.getItem('apt-beat'); } catch (e) {}
-    BE = { game: src.game, pid: src.pid, track: BEATS.some(function (t) { return t.id === keep; }) ? keep : BEATS[0].id, busy: false, prog: '', msg: '', bad: false, path: null, hear: null };
-    $('beatPop').hidden = false; renderBE();
+    BE = { game: src.game, pid: src.pid, track: BEATS.some(function (t) { return t.id === keep; }) ? keep : BEATS[0].id, busy: false, prog: '', msg: '', bad: false, path: null, hear: null, lu: null };
+    hitsLoad(); $('beatPop').hidden = false; renderBE();
+    hitsPull().then(function () { if (BE.lu == null) renderBE(); });
   }
-  function beClose() { if (BE.busy) return; beHear(null); $('beatPop').hidden = true; }
+  function beClose() { if (BE.busy) return; beHear(null); luStop(); BE.lu = null; $('beatPop').hidden = true; }
+  function luStop() { var v = $('beVid'); if (v) try { v.pause(); } catch (e) {} }
+  function beStars(list, plan) { // the clips the edit lands on the beat, in the order they come
+    return plan ? plan.stars.filter(function (v, i, a) { return a.indexOf(v) === i; }).filter(function (i) { return list[i]; }) : [];
+  }
+  function renderLU(list, stars) { // one clip, to watch and tap where the ball goes in
+    var i = BE.lu, c = list[i], n = stars.indexOf(i), hit = clipHit(c), goal = c.kind === 'goal' || c.kind === 'against';
+    $('beBody').innerHTML = '<h2 id="beTitle">' + (goal ? 'When does the ball go in?' : 'When is the moment?') + '</h2>' +
+      '<p class="note">' + esc(String(c.label || '').replace(/\s{2,}/g, ' · ')) + (n >= 0 ? ' (' + (n + 1) + ' of ' + stars.length + ')' : '') + '</p>' +
+      '<video id="beVid" playsinline controls preload="auto" src="' + esc(clipSrc(c, false)) + '"></video>' +
+      '<p class="note" id="beAt" aria-live="polite"></p>' +
+      '<div class="benudge">' + [-1, -0.2, 0.2, 1].map(function (d) { return '<button class="plain" type="button" data-benudge="' + d + '" aria-label="' + (d < 0 ? 'Back ' : 'Forward ') + Math.abs(d) + ' seconds">' + (d < 0 ? '−' : '+') + Math.abs(d) + 's</button>'; }).join('') + '</div>' +
+      '<p class="note">' + (goal ? 'Stop the video on the moment the ball crosses the line, then tap below. ' : 'Stop the video on the moment, then tap below. ') + 'It lands on the beat there.' + (hit == null ? ' Until it’s done, Gaffer goes by when it was logged.' : '') + '</p>' +
+      '<div class="actions"><button class="plain primary" type="button" id="beHit">' + (goal ? 'The ball goes in here' : 'It happens here') + '</button>' +
+      '<button class="plain tint" type="button" id="beAgain">Watch it again</button>' +
+      (hit != null ? '<button class="plain quiet" type="button" id="beUnhit">Clear it</button>' : '') +
+      '<button class="plain" type="button" id="beLuBack">Back</button></div>';
+    var v = $('beVid'), start = hit != null ? hit : clipRel(c), at = function () { var el = $('beAt'); if (el) el.textContent = 'Stopped at ' + secs1(v.currentTime) + (hit != null ? '. Lined up at ' + secs1(hit) + '.' : '. Gaffer’s guess is ' + secs1(clipRel(c)) + '.'); };
+    v.addEventListener('loadedmetadata', function () { try { v.currentTime = Math.min(start, (v.duration || start + 1) - 0.05); } catch (e) {} at(); });
+    v.addEventListener('timeupdate', at); v.addEventListener('seeked', at); at();
+  }
+  async function luSet(c, t) { // where the ball goes in (seconds into the clip; null clears it), on this phone and for the team
+    var off = t == null ? null : Math.round((t - clipRel(c)) * 100) / 100;
+    if (off == null) delete HITS[hitKey(c)]; else HITS[hitKey(c)] = off;
+    hitsKeep(); BE.path = null; BE.msg = '';
+    if (sb && A.active && c.at != null) try { await q(sb.rpc('set_clip_hit', { p_code: A.active, p_game: c.game_id, p_at: c.at, p_off: off })); } catch (e) {} // (no signal or not signed in: it's kept on this phone)
+  }
   function beHear(id) { // a track played on its own, to choose one
     var au = $('beAudio'); BE.hear = id;
     try { if (id) { au.src = 'music/' + id + '.m4a'; var p = au.play(); if (p && p.catch) p.catch(function () {}); } else au.pause(); } catch (e) {}
   }
   function renderBE() {
     if ($('beatPop').hidden) return;
-    var list = beSource(), tr = BEATS.filter(function (t) { return t.id === BE.track; })[0], plan = beatPlan(beatMoments(list, function (c) { return c.kind; }), tr);
+    var list = beSource(), tr = BEATS.filter(function (t) { return t.id === BE.track; })[0], plan = beatPlan(beatMoments(list, function (c) { return c.kind; }), tr), stars = beStars(list, plan);
+    if (BE.lu != null && list[BE.lu]) { renderLU(list, stars); return; }
+    BE.lu = null;
+    var left = stars.filter(function (i) { return clipHit(list[i]) == null; }).length;
     var gr = BE.game != null ? S.results[BE.game] : null, who = gr ? usFull(gr) + ' ' + gr.us + '–' + gr.them + ' ' + gr.opp : nm(BE.pid), used = plan ? plan.stars.filter(function (v, i, a) { return a.indexOf(v) === i; }).length : 0;
     var html = '<h2 id="beTitle">Beat edit</h2><p class="note">' + esc(who) + '. Every cut lands on the beat and the ball goes in on the drop, with slow motion and a flash on each moment. Tall, for Reels, TikTok and Stories.</p>' +
       '<ul class="tracks">' + BEATS.map(function (t) {
@@ -4773,6 +4833,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
           '<button class="plain hear" type="button" data-behear="' + t.id + '" aria-label="' + (BE.hear === t.id ? 'Stop ' : 'Play ') + esc(t.name) + '">' + (BE.hear === t.id ? '■' : '▶') + '</button></li>';
       }).join('') + '</ul>' +
       '<p class="note" id="beCount">' + (plan ? (used === 1 ? 'Shows 1 moment' : 'Shows ' + used + ' moments') + (used < list.length ? ' of ' + list.length + ' (the best ones, goals first)' : '') + ', ' + Math.round(beatLen(tr)) + ' seconds with the end card.' : 'There are no clips to make it from yet.') + '</p>' +
+      (stars.length ? '<h3>When the ball goes in</h3><p class="note" id="beLuNote">' + (left ? 'Each of these lands on the beat. Watch each one and tap when the ball goes in, so it lands spot on. ' + (left === stars.length ? 'None are' : left + ' aren’t') + ' lined up yet; until then Gaffer goes by when they were logged, which can be a few seconds out.' : 'All lined up, so every one lands on the beat.') + '</p>' +
+        '<ul class="tracks" id="beLuList">' + stars.map(function (i) { var c = list[i], hit = clipHit(c);
+          return '<li><button class="trk" type="button" data-belu="' + i + '"' + (BE.busy ? ' disabled' : '') + '>' + esc(String(c.label || 'Highlight').split(/\s{2,}/)[0]) + '<small>' + (hit != null ? '✓ Lined up' : 'Not lined up yet') + '</small></button></li>'; }).join('') + '</ul>' : '') +
       '<p class="note">The music is Gaffer’s own, so you can post it anywhere and it won’t be muted.</p>' +
       '<p class="msg busy" id="beProg">' + esc(BE.prog || '') + '</p>' + (BE.msg ? '<p class="msg' + (BE.bad ? ' bad' : '') + '" role="status" id="beMsg">' + esc(BE.msg) + '</p>' : '') +
       '<div class="actions">' + (BE.path && !BE.busy ? '<button class="plain primary" type="button" id="beShare">Share or save it</button>' : '<button class="plain primary" type="button" id="beMake"' + (BE.busy || !plan ? ' disabled' : '') + '>Make the edit</button>') +
@@ -4802,6 +4865,17 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (b.id === 'beMake') beMake();
     else if (b.id === 'beShare') { var rc = RCp(); if (rc && BE.path) rc.share({ path: BE.path }).catch(function () {}); }
     else if (b.hasAttribute('data-betrack')) { BE.track = b.getAttribute('data-betrack'); try { localStorage.setItem('apt-beat', BE.track); } catch (err) {} BE.path = null; BE.msg = ''; renderBE(); }
+    else if (b.hasAttribute('data-belu')) { beHear(null); BE.lu = +b.getAttribute('data-belu'); renderBE(); }
+    else if (b.id === 'beLuBack') { luStop(); BE.lu = null; renderBE(); }
+    else if (b.hasAttribute('data-benudge')) { var v = $('beVid'); if (v) { try { v.pause(); v.currentTime = Math.max(0, Math.min((v.duration || 1e3) - 0.05, v.currentTime + +b.getAttribute('data-benudge'))); } catch (err) {} } }
+    else if (b.id === 'beAgain') { var va = $('beVid'), cl = beSource()[BE.lu]; if (va && cl) { var from = clipHit(cl); from = from != null ? from : clipRel(cl); try { va.currentTime = Math.max(0, from - 3); var pp = va.play(); if (pp && pp.catch) pp.catch(function () {}); } catch (err) {} } }
+    else if (b.id === 'beHit' || b.id === 'beUnhit') {
+      var vh = $('beVid'), list = beSource(), ch = list[BE.lu]; if (!ch) return;
+      luStop(); luSet(ch, b.id === 'beHit' && vh ? vh.currentTime : null);
+      var tr = BEATS.filter(function (t) { return t.id === BE.track; })[0], st = beStars(list, beatPlan(beatMoments(list, function (c) { return c.kind; }), tr));
+      var next = b.id === 'beHit' ? st.filter(function (i) { return i !== BE.lu && clipHit(list[i]) == null; })[0] : undefined; // (on to the next one not done, else back to the list)
+      BE.lu = next != null ? next : null; renderBE();
+    }
     else if (b.hasAttribute('data-behear')) { var id = b.getAttribute('data-behear'); beHear(BE.hear === id ? null : id); renderBE(); }
   });
   $('beAudio').addEventListener('ended', function () { BE.hear = null; renderBE(); });
