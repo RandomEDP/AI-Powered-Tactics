@@ -678,8 +678,11 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   **Links:** what's sent is still the website link. Once the App Clip is live, `config.js` `appClip` (the Default App Clip
   Link from App Store Connect) makes the website offer it on an iPhone (`clipLink`, `#guestClip`). For one link that opens
   the App Clip on iPhones and the website elsewhere, the website has to be on a domain with an
-  `apple-app-site-association` file naming the App Clip, and the App Clip needs `appclips:<domain>` in its entitlements
-  (Ethan's new domain; not done yet). App Store Connect needs the App Clip card (a 3000×2000 picture, subtitle, "View").
+  `apple-app-site-association` file naming the App Clip, and the App Clip needs `appclips:<domain>` in its entitlements.
+  Done for gaffermanager.app (16 October 2026, for 1.1): `.well-known/apple-app-site-association` names the App Clip
+  (`appclips`) and hands only personal links (`?me=`) to the full app (`applinks`); the App Clip has `appclips:gaffermanager.app`
+  and the full app `appclips:` and `applinks:gaffermanager.app`. Still Ethan's: an Advanced App Clip Experience for
+  `https://gaffermanager.app/` in App Store Connect. App Store Connect needs the App Clip card (a 3000×2000 picture, subtitle, "View").
   Signing: CI's automatic signing registers the App Clip's bundle id, but it can't create an app group (build 246 failed on `com.apple.security.application-groups`). Ethan registered `group.com.randomedp.aipoweredtactics` on Apple's developer site and enabled it on both bundle ids (16 October 2026), so both entitlements files ask for it again. Any new capability needing an identifier made in the portal has to be registered there first.
 - Tests: `friendly.test.mjs` (four phones: setup, the game, what counts where, links, a guest claiming, the App Clip's
   handover), `friendlydb.test.mjs` (with `friendly_preview`), `clip.test.mjs` (the project files), `tests/clip/main.swift`.
