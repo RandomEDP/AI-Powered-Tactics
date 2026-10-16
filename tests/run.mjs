@@ -1,6 +1,7 @@
 // Runs everything:  node tests/run.mjs            (add --update to accept what the walk-throughs print now)
 //   1. the watch's logic, on its own                      tests/watch/main.swift
 //      and the phone's store of the watch's presses        tests/plugin/main.swift (the real plugin source, built off-phone)
+//      and the App Clip's logic                            tests/clip/main.swift
 //   2. the suites that check as they go                   tests/*.test.mjs  (link.test.mjs plays whole games between phone and watch)
 //   3. the older walk-throughs, compared with what they printed last time   tests/golden/*.txt
 // Needs: node, the `playwright` package with Chromium, and swiftc (any Swift 5.9+; without it the watch parts are skipped, loudly).
@@ -56,6 +57,11 @@ else {
     const build = spawnSync('swiftc', [path.join(ROOT, 'plugins/reel-cutter/ios/Sources/ReelCutterPlugin/BeatEdit.swift'), path.join(HERE, 'beat/main.swift'), '-o', path.join(tmp, 'beatcheck')], { encoding: 'utf8' });
     if (build.status !== 0) note('beat edit plans', false, 'does not compile\n' + build.stderr);
     else { const r = spawnSync(path.join(tmp, 'beatcheck'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout); note('beat edit plans', r.status === 0, lastLine(r.stdout)); env.BEATCHECK = path.join(tmp, 'beatcheck'); }
+  }
+  if (want('clip')) { // Gaffer's App Clip: how it reads a friendly's personal link, what it hands the full app, the call it makes
+    const build = spawnSync('swiftc', [path.join(ROOT, 'ios/App/Clip/ClipLogic.swift'), path.join(HERE, 'clip/main.swift'), '-o', path.join(tmp, 'cliptests')], { encoding: 'utf8' });
+    if (build.status !== 0) note('App Clip logic', false, 'does not compile\n' + build.stderr);
+    else { const r = spawnSync(path.join(tmp, 'cliptests'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout); note('App Clip logic', r.status === 0, lastLine(r.stdout)); }
   }
   const cli = spawnSync('swiftc', [logic, path.join(HERE, 'watch/cli/main.swift'), '-o', path.join(tmp, 'watchbrain')], { encoding: 'utf8' });
   if (cli.status !== 0) note('watch logic for the whole-game tests', false, 'does not compile\n' + cli.stderr); else env.WATCHBRAIN = path.join(tmp, 'watchbrain');

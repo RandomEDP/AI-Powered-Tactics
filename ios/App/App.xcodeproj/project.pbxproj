@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA57C0DE0000000000000107 /* ClipApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000102 /* ClipApp.swift */; };
+		AA57C0DE0000000000000108 /* ClipLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000103 /* ClipLogic.swift */; };
+		AA57C0DE0000000000000109 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000104 /* Assets.xcassets */; };
+		AA57C0DE000000000000010A /* Clip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = AA57C0DE0000000000000101 /* Clip.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -29,6 +33,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		AA57C0DE0000000000000110 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA57C0DE000000000000010F;
+			remoteInfo = Clip;
+		};
 		AA57C0DE0000000000000020 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
@@ -39,6 +50,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		AA57C0DE0000000000000112 /* Embed App Clips */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/AppClips";
+			dstSubfolderSpec = 16;
+			files = (
+				AA57C0DE000000000000010A /* Clip.app in Embed App Clips */,
+			);
+			name = "Embed App Clips";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA57C0DE0000000000000018 /* Embed Watch Content */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -53,6 +75,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA57C0DE0000000000000101 /* Clip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Clip.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA57C0DE0000000000000102 /* ClipApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipApp.swift; sourceTree = "<group>"; };
+		AA57C0DE0000000000000103 /* ClipLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipLogic.swift; sourceTree = "<group>"; };
+		AA57C0DE0000000000000104 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA57C0DE0000000000000105 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA57C0DE0000000000000106 /* Clip.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Clip.entitlements; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		AA57C0DE00000000000000F3 /* whistle.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = whistle.wav; sourceTree = "<group>"; };
@@ -78,6 +106,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		AA57C0DE000000000000010D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3011FED79650016851F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -96,12 +131,25 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		AA57C0DE000000000000010B /* Clip */ = {
+			isa = PBXGroup;
+			children = (
+				AA57C0DE0000000000000102 /* ClipApp.swift */,
+				AA57C0DE0000000000000103 /* ClipLogic.swift */,
+				AA57C0DE0000000000000104 /* Assets.xcassets */,
+				AA57C0DE0000000000000105 /* Info.plist */,
+				AA57C0DE0000000000000106 /* Clip.entitlements */,
+			);
+			path = Clip;
+			sourceTree = "<group>";
+		};
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				AA57C0DE0000000000000007 /* Watch */,
+				AA57C0DE000000000000010B /* Clip */,
 				504EC3051FED79650016851F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -111,6 +159,7 @@
 			children = (
 				504EC3041FED79650016851F /* App.app */,
 				AA57C0DE0000000000000001 /* Watch.app */,
+				AA57C0DE0000000000000101 /* Clip.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -151,6 +200,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		AA57C0DE000000000000010F /* Clip */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA57C0DE0000000000000113 /* Build configuration list for PBXNativeTarget "Clip" */;
+			buildPhases = (
+				AA57C0DE000000000000010C /* Sources */,
+				AA57C0DE000000000000010D /* Frameworks */,
+				AA57C0DE000000000000010E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Clip;
+			productName = Clip;
+			productReference = AA57C0DE0000000000000101 /* Clip.app */;
+			productType = "com.apple.product-type.application.on-demand-install-capable";
+		};
 		504EC3031FED79650016851F /* App */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
@@ -159,11 +225,13 @@
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
 				AA57C0DE0000000000000018 /* Embed Watch Content */,
+				AA57C0DE0000000000000112 /* Embed App Clips */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				AA57C0DE0000000000000021 /* PBXTargetDependency */,
+				AA57C0DE0000000000000111 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -208,6 +276,10 @@
 						CreatedOnToolsVersion = 15.0;
 						ProvisioningStyle = Automatic;
 					};
+					AA57C0DE000000000000010F = {
+						CreatedOnToolsVersion = 16.0;
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */;
@@ -228,11 +300,20 @@
 			targets = (
 				504EC3031FED79650016851F /* App */,
 				AA57C0DE000000000000001F /* Watch */,
+				AA57C0DE000000000000010F /* Clip */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		AA57C0DE000000000000010E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA57C0DE0000000000000109 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3021FED79650016851F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -258,6 +339,15 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		AA57C0DE000000000000010C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA57C0DE0000000000000107 /* ClipApp.swift in Sources */,
+				AA57C0DE0000000000000108 /* ClipLogic.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -284,6 +374,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AA57C0DE0000000000000111 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA57C0DE000000000000010F /* Clip */;
+			targetProxy = AA57C0DE0000000000000110 /* PBXContainerItemProxy */;
+		};
 		AA57C0DE0000000000000021 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AA57C0DE000000000000001F /* Watch */;
@@ -311,6 +406,58 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		AA57C0DE0000000000000114 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Clip/Clip.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Clip/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.randomedp.aipoweredtactics.Clip;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		AA57C0DE0000000000000115 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Clip/Clip.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Clip/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.randomedp.aipoweredtactics.Clip;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
@@ -519,6 +666,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		AA57C0DE0000000000000113 /* Build configuration list for PBXNativeTarget "Clip" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA57C0DE0000000000000114 /* Debug */,
+				AA57C0DE0000000000000115 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
