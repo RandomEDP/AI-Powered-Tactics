@@ -553,8 +553,8 @@ tr.past td { opacity: .45; }
 #planPop[hidden] { display: none; }
 #unamePop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #unamePop[hidden] { display: none; }
-#termsPop, #aiPop, #fixPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
-#termsPop[hidden], #aiPop[hidden], #fixPop[hidden] { display: none; }
+#termsPop, #aiPop, #fixPop, #noAdPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#termsPop[hidden], #aiPop[hidden], #fixPop[hidden], #noAdPop[hidden] { display: none; }
 #fixPop .planbox { max-height: 86vh; overflow-y: auto; }
 #aiPop { z-index: 50; } #termsPop { z-index: 51; } /* (the AI question can come up over Fix a goal; the terms over everything) */
 .fxgoals { display: grid; gap: 8px; margin: 10px 0; }
@@ -1136,6 +1136,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div class="actions"><button class="plain primary" id="tmAgree" type="button">I agree</button><button class="link" id="tmOut" type="button">Sign out</button></div>
 </div></div>
 
+<div id="noAdPop" role="dialog" aria-labelledby="noAdTitle" hidden><div class="planbox">
+  <h2 id="noAdTitle">No ads to show right now</h2>
+  <p id="noAdText">Google hasn’t got an ad for you at the moment. Try again in a few minutes.</p>
+  <div class="actions"><button class="plain primary" id="noAdOk" type="button">OK</button></div>
+</div></div>
 <div id="aiPop" role="dialog" aria-labelledby="aiTitle" hidden><div class="planbox">
   <h2 id="aiTitle">The commentary is made by Google’s AI</h2>
   <p>To make the commentator’s voice, Gaffer sends the lines it has written to Google (its Gemini and Text-to-Speech AI), through Gaffer’s server. The lines have players’ first names or nicknames, the team names, the score and the minute.</p>
@@ -4833,7 +4838,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       ahead = await aheadStart(RB.pid); AD.busy = true;
       var adSay = function (m) { if (!RB.busy || RB.prog.indexOf('ready for when') >= 0) return; RB.ad = m === 'The ad is playing…' ? 'The ad is playing. Your reel is being made at the same time.' : m; var el = $('rbAd'); if (el) el.textContent = RB.ad; else renderRB(); };
       adP = adRun('reel', ahead.key, { say: adSay, ticket: function (t) { ahead.ticket = t; ahead.watched = false; aheadPut(ahead); }, watched: function () { ahead.watched = true; aheadPut(ahead); } })
-        .then(function (r) { return { r: r }; }, function (e) { return { err: (e && e.message) || 'Something went wrong with the ad.' }; });
+        .then(function (r) { return { r: r }; }, function (e) { return { err: (e && e.message) || 'Something went wrong with the ad.', noAd: !!(e && e.noAd) }; });
+      adP.then(function (a) { if (a.noAd) noAdPop('Google hasn’t got an ad for you at the moment. Your reel is still made and goes on your card, locked: watch an ad there to see it once one’s available.'); });
+      adP.then(function (a) { // no ad (or closed early) while the reel is still being made: say so now, not once the reel is ready (Ethan saw "Loading the ad…" for good)
+        if (!RB.busy || RB.prog.indexOf('ready for when') >= 0 || a.r === 'unlocked' || a.r === 'waiting') return;
+        AD.busy = false; RB.ad = (a.r === 'closed' ? 'The ad was closed before the end.' : a.err) + ' Your reel is still being made; it’ll go on your card, locked, and you can watch an ad there to see it.';
+        var el = $('rbAd'); if (el) el.textContent = RB.ad; else renderRB();
+      });
     }
     var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
     if (RB.voice && canVoice() && !(await aiAsk())) RB.note = 'No commentary: ' + AI_NO + ' The reel was made without it.';
@@ -7916,7 +7927,15 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function adStep(p, ms) { // one of Google's steps, given up on after ms (an answer that never comes left it on "Getting the ad…" for good)
     return new Promise(function (ok, no) { var t = setTimeout(function () { ok(AD_LATE); }, ms); Promise.resolve(p).then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); no(e); }); });
   }
-  var AD_MS = { init: 10000, consent: 15000, form: 120000, track: 5000, ask: 60000, load: 30000, open: 20000 }; window.gafferAdMs = AD_MS; // (tests shorten these)
+  var AD_MS = { init: 10000, consent: 15000, form: 120000, track: 5000, ask: 60000, load: 30000, open: 20000, server: 15000 }; window.gafferAdMs = AD_MS; // (tests shorten these)
+  function noAd(msg) { var e = new Error(msg); e.noAd = true; return e; } // (Google had no ad: a pop-up says so, Ethan asked)
+  function noAdPop(text) { var p = $('noAdPop'); if (!p) return; $('noAdText').textContent = text; p.hidden = false; }
+  document.addEventListener('click', function (e) { if (e.target && e.target.id === 'noAdOk') $('noAdPop').hidden = true; });
+  async function adRpc(name, args) { // Gaffer's own server, given up on too (a weak signal could also leave it on "Getting the ad…" for good)
+    var r = await adStep(q(sb.rpc(name, args)), AD_MS.server);
+    if (r === AD_LATE) throw new Error('Gaffer’s server didn’t answer. Check your signal and try again.');
+    return r;
+  }
   async function adSetup(am, say) { // once a session: start Google's ads, ask about personalised ads where the law needs it (UK and EU), then Apple's tracking question
     if (AD.setup) return;
     say = say || function () {};
@@ -7944,7 +7963,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   async function adClaim(ticket) { // asks the server whether Google has said the ad was watched (it usually has within a few seconds)
     for (var i = 0; i < 12; i++) {
-      var r = (await q(sb.rpc('ad_claim', { p_ticket: ticket, p_app_says: true }))).data;
+      var r = (await adRpc('ad_claim', { p_ticket: ticket, p_app_says: true })).data;
       if (r === 'granted') return true;
       if (r !== 'waiting') throw new Error('That ad couldn’t be matched to your account. Try again.');
       await new Promise(function (ok) { setTimeout(ok, 2000); });
@@ -7958,7 +7977,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (S.match) throw new Error('Ads never play during a game. Watch your reel once the game’s finished.'); // (nor with a game set up: the watch and the subs come first)
     var am = adsOK() ? plugin('AdMob') : null; if (!am) throw new Error('Ads can only be watched in Gaffer’s iPhone app, signed in.');
     say('Getting the ad…');
-    var tk = (await q(sb.rpc('ad_ticket', { p_code: A.active, p_kind: kind, p_target: target || null }))).data || {};
+    var tk = (await adRpc('ad_ticket', { p_code: A.active, p_kind: kind, p_target: target || null })).data || {};
     if (tk.error === 'not_needed') return 'unlocked';
     if (tk.error || !tk.ticket) throw new Error(AD_ERR[tk.error] || 'Couldn’t get an ad. Check your signal and try again.');
     if (o.ticket) o.ticket(tk.ticket);
@@ -7966,8 +7985,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     say('Loading the ad…');
     var ld;
     try { ld = await adStep(am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }), AD_MS.load); }
-    catch (e) { throw new Error('Google had no ad to show right now' + (e && e.message ? ' (' + e.message + ')' : '') + '. Try again in a minute.'); }
-    if (ld === AD_LATE) throw new Error('Google didn’t send an ad in time. Try again in a minute.');
+    catch (e) { throw noAd('Google had no ad to show right now' + (e && e.message ? ' (' + e.message + ')' : '') + '. Try again in a minute.'); }
+    if (ld === AD_LATE) throw noAd('Google didn’t send an ad in time. Try again in a minute.');
     say('The ad is playing…');
     if (!(await adShow(am))) return 'closed';
     if (o.watched) o.watched();
@@ -7984,7 +8003,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (got === 'closed') { say('The ad was closed before the end, so your reel is still locked. Watch it to the end to see your reel.', true); return; }
       AD.msg = got === 'waiting' ? 'Thanks for watching. Google hasn’t confirmed it yet; your reel unlocks as soon as it does, so check back in a minute.' : ''; AD.bad = false;
       await unlLoad(true); adDraw();
-    } catch (e) { AD.busy = false; say((e && e.message) || 'Something went wrong with the ad. Try again.', true); }
+    } catch (e) { AD.busy = false; say((e && e.message) || 'Something went wrong with the ad. Try again.', true); if (e && e.noAd) noAdPop('Google hasn’t got an ad for you at the moment, so your reel stays locked for now. Try again in a few minutes.'); }
   }
   // Making your own reel on the free tier: the ad plays while the phone makes it, so it's ready when the ad ends. The reel's
   // file name is picked first and the ad unlocks that name (ad_ticket allows a name in your own folder, 0037). What's
@@ -7996,7 +8015,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   async function aheadStart(pid) {
     var was = aheadGet(), mine = was && was.code === A.active && was.pid === pid && was.key && was.key.indexOf(teamId + '/players/' + pid + '/reel-') === 0;
     if (!mine) { was = { code: A.active, pid: pid, key: teamId + '/players/' + pid + '/reel-' + Date.now() + '.mp4' }; aheadPut(was); }
-    else if (was.ticket && was.watched) try { await q(sb.rpc('ad_claim', { p_ticket: was.ticket, p_app_says: true })); } catch (e) {} // (watched last time, before Gaffer was closed)
+    else if (was.ticket && was.watched) try { await adRpc('ad_claim', { p_ticket: was.ticket, p_app_says: true }); } catch (e) {} // (watched last time, before Gaffer was closed)
     return was;
   }
   document.addEventListener('click', function (e) { // every "watch an ad" button
