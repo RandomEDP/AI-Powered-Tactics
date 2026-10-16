@@ -593,6 +593,10 @@ tr.past td { opacity: .45; }
 .pbar small { margin-left: auto; color: var(--muted); }
 .post .cap { padding: 4px 12px 12px; margin: 0; overflow-wrap: anywhere; } .post .cap.empty { padding-bottom: 6px; }
 .post .pmenu { padding: 0 12px 12px; }
+.pcm { padding: 0 12px 10px; } .pcm:empty { display: none; } .pcm .link { min-height: 36px; padding-inline: 0; text-decoration: none; }
+.pcmt { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; } .pcmt p { flex: 1; margin: 0; overflow-wrap: anywhere; } .pcmt p .plink { font-weight: 700; color: var(--ink); }
+.pcmt small { color: var(--muted); font-size: var(--t-foot); padding-top: 3px; } .pcmt .link { min-height: 32px; padding: 0 4px; text-decoration: none; }
+.pcm .pmenu { padding: 2px 0 8px; } .pcmform { display: flex; gap: 8px; margin-top: 6px; } .pcmform input { flex: 1; min-width: 0; font: inherit; font-size: var(--t-body); color: var(--ink); background: var(--bg); border: 1.5px solid transparent; border-radius: var(--r-ctl); padding: 10px 14px; } .pcmform input:focus { border-color: var(--on); outline: none; } .pcm .note { margin: 4px 0; }
 .ighead { display: flex; align-items: center; gap: 18px; margin: 4px 0 10px; }
 .igcounts { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; }
 .igcounts b { display: block; font-size: var(--t-head); } .igcounts small { color: var(--muted); font-size: var(--t-foot); }
@@ -2860,6 +2864,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // clips or their player reel, with a caption, likes, and a menu to take your own down or report someone else's. Games
   // played by the people you follow (in teams you're not in or following already) come in between, as before.
   var FD = { posts: null, games: null, busy: false, msg: '', open: null, arm: null, seenAt: 0 };
+  var BUBBLE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-11.6 7.1L4 20l1.4-4.1A8 8 0 1 1 20 11.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
   var HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.4-7.5-10A4.2 4.2 0 0 1 12 7.3 4.2 4.2 0 0 1 19.5 10c0 5.6-7.5 10-7.5 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
   function postSrc(x) { var v = x.video || {}; return clipUrl(v.vpath && sayOn ? { path: v.vpath, store: v.store } : { path: v.path, store: v.store }); }
   function postCard(x) {
@@ -2868,13 +2873,91 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       '<span><b>' + esc(x.username) + '</b><small>' + esc([x.team, x.kind === 'reel' ? 'Player reel' : (x.video && x.video.label) || ''].filter(Boolean).join(' · ')) + '</small></span></button>' +
       '<button class="link" type="button" data-pmore="' + esc(x.id) + '" aria-label="More">⋯</button></header>' +
       '<div class="pvid"><video playsinline muted loop preload="metadata" data-auto="1" src="' + esc(postSrc(x) + '#t=0.1') + '"></video><button class="snd" type="button" data-snd="1" aria-pressed="' + AUTO.sound + '">' + (AUTO.sound ? 'Sound on' : 'Sound off') + '</button></div>' +
-      '<div class="pbar"><button type="button" data-like="' + esc(x.id) + '" aria-pressed="' + !!x.liked + '" aria-label="Like">' + HEART + '<span>' + x.likes + '</span></button><small>' + esc(dayText(x.at)) + '</small></div>' +
+      '<div class="pbar"><button type="button" data-like="' + esc(x.id) + '" aria-pressed="' + !!x.liked + '" aria-label="Like">' + HEART + '<span>' + x.likes + '</span></button>' +
+      '<button type="button" data-pcm="' + esc(x.id) + '" aria-expanded="' + (CM.open === x.id) + '" aria-label="Comments">' + BUBBLE + '<span>' + (x.comments || 0) + '</span></button><small>' + esc(dayText(x.at)) + '</small></div>' +
       '<p class="cap' + (x.caption ? '' : ' empty') + '">' + (x.caption ? '<b>' + esc(x.username) + '</b> ' + esc(x.caption) : '') + '</p>' +
       ((x.tags || []).length ? '<p class="ptags">With ' + x.tags.map(function (t) { return '<button type="button" class="plink" data-plink="' + esc(t.username) + '">@' + esc(t.username) + '</button>'; }).join(', ') + '</p>' : '') +
       (open ? '<div class="pmenu">' + (x.tagged_me && !x.mine ? '<button class="plain" type="button" data-puntag="' + esc(x.id) + '">Remove me from this post</button>' : '') + (x.mine ? '<button class="plain danger" type="button" data-pdel="' + esc(x.id) + '">' + (armed ? 'Tap again to delete it' : 'Delete this post') + '</button>'
         : '<p class="note">Report this post? Gaffer looks at every report.</p><div class="chips">' + ['Not their clip', 'Offensive', 'Spam', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-preport="' + esc(x.id) + '" data-why="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>') + '</div>' : '') +
-      '</article>';
+      '<div class="pcm" data-pcmbox="' + esc(x.id) + '">' + cmHtml(x) + '</div></article>';
   }
+  // ---- comments on posts (0039; Ethan, for 1.1). The bubble under a post opens its comments, oldest first, with a box to
+  // add one. ⋯ on a comment: Delete (your own, or anyone's on your own post; two taps), or Report and Block (someone
+  // else's), as Apple asks for anything people share. Only the comments are redrawn, so a playing video carries on.
+  var CM = { open: null, list: {}, menu: null, arm: null, msg: '', busy: false };
+  function cmHtml(x) {
+    if (CM.open !== x.id) return x.comments ? '<button class="link" type="button" data-pcm="' + esc(x.id) + '">' + (x.comments === 1 ? 'View 1 comment' : 'View all ' + x.comments + ' comments') + '</button>' : '';
+    var list = CM.list[x.id], html = '';
+    if (!list) html = '<p class="note">Loading comments…</p>';
+    else if (!list.length) html = '<p class="note">No comments yet. Say something nice.</p>';
+    else html = list.map(function (c) {
+      var menu = CM.menu === c.id ? '<div class="pmenu">' + (c.can_remove ? '<button class="plain danger" type="button" data-cdel="' + esc(c.id) + '">' + (CM.arm === c.id ? 'Tap again to delete it' : 'Delete this comment') + '</button>' : '') +
+        (c.mine ? '' : '<p class="note">Report this comment? Gaffer looks at every report.</p><div class="chips">' + ['Offensive', 'Bullying', 'Spam', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-crep="' + esc(c.id) + '" data-why="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>' +
+          '<button class="plain danger" type="button" data-cblock="' + esc(c.username) + '">Block @' + esc(c.username) + '</button>') + '</div>' : '';
+      return '<div class="pcmt" data-cmid="' + esc(c.id) + '"><p><button type="button" class="plink" data-plink="' + esc(c.username) + '">' + esc(c.username) + '</button> ' + esc(c.body) + '</p><small>' + esc(dayText(c.at)) + '</small>' +
+        '<button class="link" type="button" data-cmore="' + esc(c.id) + '" aria-label="More">⋯</button></div>' + menu;
+    }).join('');
+    return html + (CM.msg ? '<p class="note" role="status">' + esc(CM.msg) + '</p>' : '') +
+      '<form class="pcmform" data-cform="' + esc(x.id) + '"><input type="text" maxlength="300" placeholder="Add a comment…" aria-label="Add a comment" enterkeyhint="send" autocomplete="off"><button class="plain tint" type="submit"' + (CM.busy ? ' disabled' : '') + '>Post</button></form>';
+  }
+  function cmDraw(id) { // just the comments and the count, keeping whatever's half typed
+    var x = id && postsEverywhere(id)[0]; if (!x) return;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-pcmbox="' + id + '"]'), function (box) {
+      var inp = box.querySelector('input'), val = inp ? inp.value : '', had = inp && document.activeElement === inp;
+      box.innerHTML = cmHtml(x);
+      var ni = box.querySelector('input'); if (ni) { ni.value = val; if (had) ni.focus(); }
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.pbar [data-pcm="' + id + '"]'), function (b) { b.setAttribute('aria-expanded', CM.open === id); var n = b.querySelector('span'); if (n) n.textContent = x.comments || 0; });
+  }
+  function cmCount(id) { var n = (CM.list[id] || []).length; postsEverywhere(id).forEach(function (x) { x.comments = n; }); }
+  async function cmLoad(id) {
+    try { var r = (await q(sb.rpc('post_comments', { p_id: id }))).data; CM.list[id] = r || []; if (!r) CM.msg = 'That post isn’t there any more.'; cmCount(id); }
+    catch (err) { CM.list[id] = CM.list[id] || []; CM.msg = 'Couldn’t load the comments. Check your signal.'; }
+    cmDraw(id);
+  }
+  function cmPostOf(cid) { for (var k in CM.list) if ((CM.list[k] || []).some(function (c) { return c.id === cid; })) return k; return null; }
+  document.body.addEventListener('click', async function (e) {
+    var b = e.target.closest('[data-pcm],[data-cmore],[data-cdel],[data-crep],[data-cblock]'); if (!b || !sb || !me) return;
+    var id, pid;
+    if ((id = b.getAttribute('data-pcm'))) { var was = CM.open; CM.open = was === id ? null : id; CM.menu = CM.arm = null; CM.msg = ''; if (was && was !== id) cmDraw(was); cmDraw(id); if (CM.open) cmLoad(id); return; }
+    if ((id = b.getAttribute('data-cmore'))) { CM.menu = CM.menu === id ? null : id; CM.arm = null; CM.msg = ''; cmDraw(cmPostOf(id)); return; }
+    if ((id = b.getAttribute('data-cdel'))) {
+      pid = cmPostOf(id); if (!pid) return;
+      if (CM.arm !== id) { CM.arm = id; cmDraw(pid); setTimeout(function () { if (CM.arm === id) { CM.arm = null; cmDraw(pid); } }, 3000); return; }
+      var gone = false; try { gone = (await q(sb.rpc('remove_comment', { p_id: id }))).data; } catch (err) {}
+      if (gone) CM.list[pid] = CM.list[pid].filter(function (c) { return c.id !== id; }); else CM.msg = 'Couldn’t delete it. Check your signal.';
+      CM.menu = CM.arm = null; cmCount(pid); cmDraw(pid); return;
+    }
+    if ((id = b.getAttribute('data-crep'))) {
+      pid = cmPostOf(id);
+      try { await q(sb.rpc('report_comment', { p_id: id, p_reason: b.getAttribute('data-why') || '' })); CM.msg = 'Thanks. Gaffer will look at that comment within 24 hours.'; reported('comment'); } catch (err) { CM.msg = 'Couldn’t send that. Check your signal.'; }
+      CM.menu = null; cmDraw(pid); return;
+    }
+    if ((id = b.getAttribute('data-cblock'))) {
+      pid = CM.open;
+      try { await q(sb.rpc('block_user', { p_username: id, p_block: true })); CM.msg = 'Blocked @' + id + '. You won’t see each other any more. Unblock them from Find people.';
+        Object.keys(CM.list).forEach(function (k) { CM.list[k] = CM.list[k].filter(function (c) { return c.username.toLowerCase() !== id.toLowerCase(); }); cmCount(k); });
+        PPL.follows = null; PPL.found = null;
+      } catch (err) { CM.msg = 'Couldn’t block them. Check your signal.'; }
+      CM.menu = null; cmDraw(pid);
+    }
+  });
+  document.addEventListener('submit', async function (e) {
+    var f = e.target.closest ? e.target.closest('[data-cform]') : null; if (!f) return;
+    e.preventDefault();
+    var id = f.getAttribute('data-cform'), inp = f.querySelector('input'), v = inp.value.replace(/\s+/g, ' ').trim();
+    if (!v || CM.busy || !sb || !me) return;
+    if (!MYP) { unameOpen(false); return; }
+    if (rude(v, true)) { CM.msg = 'That comment has a word Gaffer doesn’t allow, so it wasn’t posted. Please change it.'; cmDraw(id); return; }
+    CM.busy = true; CM.msg = ''; cmDraw(id);
+    try {
+      var r = (await q(sb.rpc('add_comment', { p_id: id, p_body: v }))).data || {};
+      if (r.comment) { CM.list[id] = (CM.list[id] || []).concat([r.comment]); cmCount(id); Array.prototype.forEach.call(document.querySelectorAll('[data-cform="' + id + '"] input'), function (x) { x.value = ''; }); }
+      else if (r.error === 'no_profile') unameOpen(false);
+      else CM.msg = r.error === 'missing' ? 'That post isn’t there any more.' : r.error === 'too_many' ? 'You’ve commented a lot today. Try again tomorrow.' : 'Write something first.';
+    } catch (err) { CM.msg = 'Couldn’t post that. Check your signal.'; }
+    CM.busy = false; cmDraw(id);
+  });
   function gameCard(x) {
     return '<div class="card feedcard"><h3>' + scoreBug(x) + (x.when > FD.seenAt && FD.seenAt ? '<span class="badge new">New</span>' : '') + '</h3><p class="note">' + esc([x.team_name, dayText(x.when)].filter(Boolean).join(', ')) + '</p>' +
       (x.people || []).map(function (p) { return personRow(p, '<span class="note">' + esc(didText(p)) + '</span>'); }).join('') +

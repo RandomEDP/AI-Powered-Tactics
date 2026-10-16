@@ -205,7 +205,7 @@ eq([(await lnk('tok-rival', 'ATHLET')).reason, APNS.length], ['old', 0], 'and no
 APNS.length = 0; reset();
 
 // ---------- team-notify: a report tells Gaffer's moderators straight away (Apple's 1.2: reports looked at within a day)
-Object.assign(DB, { moderators: [{ user_id: 'u-ethan' }], post_reports: [], profile_reports: [], message_reports: [], stream_reports: [], gotw_reports: [] });
+Object.assign(DB, { moderators: [{ user_id: 'u-ethan' }], post_reports: [], profile_reports: [], message_reports: [], stream_reports: [], gotw_reports: [], comment_reports: [] });
 const rep = (who, what) => notify(who, { kind: 'report', what });
 APNS.length = 0;
 eq([(await rep('tok-jake', 'post')).status, APNS.length], [404, 0], 'nobody is told unless the caller really has just reported something');
@@ -221,6 +221,8 @@ eq((await rep(null, 'post')).status, 401, 'and nobody signed out can set it off'
 APNS.length = 0;
 APNS.length = 0; DB.gotw_reports.push({ user_id: 'u-rival', created_at: new Date().toISOString() });
 eq([(await rep('tok-rival', 'gotw')).sent, APNS[0] && APNS[0].payload.aps.alert.body], [1, 'A Goal of the Week clip was reported. Have a look and deal with it within 24 hours.'], 'a Goal of the Week clip too');
+APNS.length = 0; DB.comment_reports.push({ user_id: 'u-dan', created_at: new Date().toISOString() });
+eq([(await rep('tok-dan', 'comment')).sent, APNS[0] && APNS[0].payload.aps.alert.body], [1, 'A comment was reported. Have a look and deal with it within 24 hours.'], 'a comment on a post too');
 APNS.length = 0; reset();
 
 // ---------- team-notify: Goal of the Week is decided; the teams that had a goal up and everyone who voted are told, once
