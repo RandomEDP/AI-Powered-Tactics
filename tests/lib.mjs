@@ -45,7 +45,7 @@ export async function world() {
   let held = null, release = () => {}; // live updates between phones can be held back for a moment, to make two things happen "at once"
   let worldT = T0 + 1500; // every phone in a world keeps the same time, as real phones do
   const advance = async (ms, skip) => { for (let left = ms; left > 0; left -= 250) for (const c of clocks) if (c !== skip) await c.runFor(Math.min(250, left)); worldT += ms; };
-  const phone = async ({ db = false, native = false, android = false, firebase = false, clock = true, label = 'phone', storage = null, viewport = { width: 390, height: 844 }, scale = 1 } = {}) => {
+  const phone = async ({ db = false, native = false, android = false, firebase = false, clock = true, label = 'phone', storage = null, viewport = { width: 390, height: 844 }, scale = 1, config = null } = {}) => {
     const at = worldT - 1500;
     const ctx = await browser.newContext({ viewport, deviceScaleFactor: scale, storageState: storage || undefined, serviceWorkers: 'block', timezoneId: 'Europe/London', locale: 'en-GB' }); // (a bigger screen and scale: the App Store pictures, store/make.mjs)
     made.push(ctx);
@@ -55,6 +55,7 @@ export async function world() {
       return u.startsWith(base) ? r.continue() : r.abort();
     });
     await ctx.addInitScript(() => { if (!localStorage.getItem('apt-app')) localStorage.setItem('apt-app', JSON.stringify({ teams: [], active: null, view: 'welcome', introSeen: true, plansSeen: true })); });
+    if (config) await ctx.addInitScript((cf) => { let c; Object.defineProperty(window, 'APT_CONFIG', { configurable: true, get: () => c, set: (v) => { c = Object.assign({}, v, cf); } }); }, config); // (config.js values for this phone, e.g. linkUrl)
     if (native) await ctx.addInitScript(() => {
       const T = window.__t = { watch: [], haptics: [], notes: [], pending: [], watchCb: null };
       // The native half of the watch link. Like the real plugin it keeps every press from the watch on disk (here: localStorage,

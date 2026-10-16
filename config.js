@@ -5,6 +5,10 @@ window.APT_CONFIG = {
   key: 'sb_publishable_GVY0NOJ3upPsqoGztDN_4g_6g2I67hJ',
   // where account confirmation emails send people when they sign up from the iOS app
   siteUrl: 'https://randomedp.github.io/AI-Powered-Tactics/',
+  // Gaffer's own web address for links that go to people outside the app (a friendly's personal links, the guests' link
+  // after a game among the squad), Ethan's domain (October 2026). Never the GitHub address,
+  // which must never be sent to anyone (Ethan); with this empty, the buttons that send those links don't show.
+  linkUrl: 'https://gaffermanager.app/',
   // where highlight clips play from: the Cloudflare R2 bucket's public address (clips are uploaded through the clip-store
   // edge function, which holds the R2 key). Public by design, like the clips themselves.
   clipsUrl: 'https://pub-256c81d54c3443eb8e0e013b111d2668.r2.dev',

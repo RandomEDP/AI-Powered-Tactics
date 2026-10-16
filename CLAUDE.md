@@ -105,7 +105,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | Path | What |
 |---|---|
 | `index.html` | The whole app (about 6,800 lines: HTML, CSS, JS in one file). Sections are marked `// ---- name` and `// ================= name`; grep for them |
-| `config.js` | Supabase URL, publishable key, `siteUrl` for confirmation emails |
+| `config.js` | Supabase URL, publishable key, `siteUrl` for confirmation emails, `linkUrl` (Ethan's domain `https://gaffermanager.app/`) for every link sent to people outside the app. Never send the GitHub address to anyone: with `linkUrl` empty the buttons that send links (`linkBase`) don't show |
 | `sw.js` | Offline cache. **Bump `CACHE` on every web change** |
 | `privacy.html`, `support.html` | App Store pages (linked from the listing). The privacy page must cover any new data (it covers squad chat, for example) |
 | `vendor/` | Bundled Supabase JS and fonts, so the app works with no signal |
