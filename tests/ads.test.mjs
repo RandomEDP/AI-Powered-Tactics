@@ -244,6 +244,9 @@ await J.click('#rbClose'); await J.run(800);
 await J.page.evaluate(() => { window.__hang = { show: true }; Object.assign(window.gafferAdMs, { load: 30000, open: 3000 }); });
 await J.click(mine + ' [data-ad="reel"]'); await J.run(5000);
 check(/didn’t open/.test(await J.text(mine)), 'an ad that loads but never opens: it stops and says so');
+await J.page.evaluate(() => { window.__hang = { server: true }; Object.assign(window.gafferAdMs, { open: 20000, server: 2000 }); });
+await J.click(mine + ' [data-ad="reel"]'); await J.run(3500);
+eq([/server didn’t answer/.test(await J.text(mine)), await J.page.$eval(mine + ' [data-ad="reel"]', (b) => b.disabled)], [true, false], 'Gaffer\'s own server not answering: it stops on "Getting the ad…", says so, and can be tapped again');
 await J.page.evaluate(() => { window.__hang = null; }); await J.page.reload(); await J.run(2000);  await openMine();
 
 // Gaffer closed after the ad was watched but before the reel was made: that ad counts for the next go

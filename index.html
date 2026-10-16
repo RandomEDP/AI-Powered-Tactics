@@ -7915,7 +7915,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function adStep(p, ms) { // one of Google's steps, given up on after ms (an answer that never comes left it on "Getting the ad…" for good)
     return new Promise(function (ok, no) { var t = setTimeout(function () { ok(AD_LATE); }, ms); Promise.resolve(p).then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); no(e); }); });
   }
-  var AD_MS = { init: 10000, consent: 15000, form: 120000, track: 5000, ask: 60000, load: 30000, open: 20000 }; window.gafferAdMs = AD_MS; // (tests shorten these)
+  var AD_MS = { init: 10000, consent: 15000, form: 120000, track: 5000, ask: 60000, load: 30000, open: 20000, server: 15000 }; window.gafferAdMs = AD_MS; // (tests shorten these)
+  async function adRpc(name, args) { // Gaffer's own server, given up on too (a weak signal could also leave it on "Getting the ad…" for good)
+    var r = await adStep(q(sb.rpc(name, args)), AD_MS.server);
+    if (r === AD_LATE) throw new Error('Gaffer’s server didn’t answer. Check your signal and try again.');
+    return r;
+  }
   async function adSetup(am, say) { // once a session: start Google's ads, ask about personalised ads where the law needs it (UK and EU), then Apple's tracking question
     if (AD.setup) return;
     say = say || function () {};
@@ -7943,7 +7948,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   async function adClaim(ticket) { // asks the server whether Google has said the ad was watched (it usually has within a few seconds)
     for (var i = 0; i < 12; i++) {
-      var r = (await q(sb.rpc('ad_claim', { p_ticket: ticket, p_app_says: true }))).data;
+      var r = (await adRpc('ad_claim', { p_ticket: ticket, p_app_says: true })).data;
       if (r === 'granted') return true;
       if (r !== 'waiting') throw new Error('That ad couldn’t be matched to your account. Try again.');
       await new Promise(function (ok) { setTimeout(ok, 2000); });
@@ -7957,7 +7962,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (S.match) throw new Error('Ads never play during a game. Watch your reel once the game’s finished.'); // (nor with a game set up: the watch and the subs come first)
     var am = adsOK() ? plugin('AdMob') : null; if (!am) throw new Error('Ads can only be watched in Gaffer’s iPhone app, signed in.');
     say('Getting the ad…');
-    var tk = (await q(sb.rpc('ad_ticket', { p_code: A.active, p_kind: kind, p_target: target || null }))).data || {};
+    var tk = (await adRpc('ad_ticket', { p_code: A.active, p_kind: kind, p_target: target || null })).data || {};
     if (tk.error === 'not_needed') return 'unlocked';
     if (tk.error || !tk.ticket) throw new Error(AD_ERR[tk.error] || 'Couldn’t get an ad. Check your signal and try again.');
     if (o.ticket) o.ticket(tk.ticket);
@@ -7995,7 +8000,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   async function aheadStart(pid) {
     var was = aheadGet(), mine = was && was.code === A.active && was.pid === pid && was.key && was.key.indexOf(teamId + '/players/' + pid + '/reel-') === 0;
     if (!mine) { was = { code: A.active, pid: pid, key: teamId + '/players/' + pid + '/reel-' + Date.now() + '.mp4' }; aheadPut(was); }
-    else if (was.ticket && was.watched) try { await q(sb.rpc('ad_claim', { p_ticket: was.ticket, p_app_says: true })); } catch (e) {} // (watched last time, before Gaffer was closed)
+    else if (was.ticket && was.watched) try { await adRpc('ad_claim', { p_ticket: was.ticket, p_app_says: true }); } catch (e) {} // (watched last time, before Gaffer was closed)
     return was;
   }
   document.addEventListener('click', function (e) { // every "watch an ad" button
