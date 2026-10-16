@@ -1507,6 +1507,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <p class="note" id="optAINote"></p>
     <div class="actions"><button class="plain" id="optAIBtn" type="button"></button></div>
   </section>
+  <section id="optRate" hidden>
+    <h2>Enjoying Gaffer?</h2>
+    <p class="note">A quick review on the App Store helps other teams find Gaffer.</p>
+    <div class="actions"><button class="plain tint" id="optRateBtn" type="button">Rate Gaffer on the App Store</button></div>
+    <p class="msg" id="optRateMsg" role="status" hidden></p>
+  </section>
   <section id="optAds" hidden>
     <h2>Ads</h2>
     <p class="note">Gaffer is free with one kind of ad: a 30-second ad you choose to watch to see your own highlight reel. There are never ads during a game.</p>
@@ -2131,6 +2137,33 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('aiNo').addEventListener('click', function () { aiAnswer(false); });
   var AI_NO = 'you chose not to send the lines to Google, which makes the voice.';
   $('optAIBtn').addEventListener('click', function () { aiSet(!aiAllowed()); renderOptions(); });
+
+  // ---- reviews on the App Store
+  // Settings has "Rate Gaffer on the App Store" (the iPhone app, or the website once CFG.appStore is set). Apple's own
+  // stars are asked for once a phone, after a good moment: a reel or highlights video shared from the share sheet (not
+  // cancelled), never during a game. iOS decides whether they actually show (never in TestFlight).
+  var RATE = { msg: '' };
+  function rateId() { var m = String(CFG.appStore || '').match(/id(\d+)/); return m ? m[1] : ''; }
+  function rateCan() { return !!plugin('AppReview') || (!NATIVE && !DROID && !!rateId()); }
+  async function rateWrite() {
+    var ar = plugin('AppReview'); RATE.msg = '';
+    if (!ar) { if (rateId()) window.open('https://apps.apple.com/app/id' + rateId() + '?action=write-review', '_blank'); return; }
+    try { await ar.write({ id: rateId() }); } catch (e) { RATE.msg = (e && e.message) || 'Couldn’t open the App Store. Search for Gaffer in the App Store and leave a review there.'; }
+    renderOptions();
+  }
+  function rateAsked() { try { return !!localStorage.getItem('apt-rate'); } catch (e) { return true; } }
+  function rateAsk() {
+    var ar = plugin('AppReview');
+    if (!ar || rateAsked() || (S && S.match)) return false;
+    try { localStorage.setItem('apt-rate', String(Date.now())); } catch (e) { return false; }
+    setTimeout(function () { ar.ask().catch(function () {}); }, 1200); // once the share sheet has gone
+    return true;
+  }
+  function rateAfter(sharing) { // a share sheet's promise; asks for the stars if the person actually shared
+    return Promise.resolve(sharing).then(function (r) { if (r && r.completed) rateAsk(); return r; }).catch(function () {});
+  }
+  window.gafferRateAsk = rateAsk; window.gafferRateAfter = rateAfter;
+  $('optRateBtn').addEventListener('click', rateWrite);
   $('optAdsBtn').addEventListener('click', function () { adChoices(); });
 
   function lvSay(t, bad) { $('lvRepMsg').textContent = t; $('lvRepMsg').className = 'msg' + (bad ? ' bad' : ''); $('lvRepMsg').hidden = !t; }
@@ -3065,16 +3098,16 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (!kept.ok) { try { if (inR2) await clipCall('remove', { paths: [key] }); } catch (e) {} throw new Error(kept.error === 'not_yours' ? 'only the winning team’s gaffers can.' : 'it wasn’t accepted.'); }
       if (kept.old) try { if (L.reel && L.reel.store === 'r2') await clipCall('remove', { paths: [kept.old] }); else await q(sb.storage.from('clips').remove([kept.old])); } catch (e) {}
       GW.mk.busy = false; gwSay('', 'The winner’s reel is up for everyone to watch.' + note, false);
-      rc.share({ path: res.path }).catch(function () {});
+      rateAfter(rc.share({ path: res.path }));
       await gwLoad();
     } catch (e) { GW.mk.busy = false; gwSay('', 'Couldn’t make the reel: ' + ((e && e.message) || 'something went wrong.') + (GW.mk.path ? ' It’s still on this phone to share.' : ''), true); }
   }
   async function gwShare(own) {
     var rc = RCp(), L = GW.d && GW.d.last; if (!rc || GW.mk.busy) return;
-    if (own && GW.mk.path) { rc.share({ path: GW.mk.path }).catch(function () {}); return; }
+    if (own && GW.mk.path) { rateAfter(rc.share({ path: GW.mk.path })); return; }
     if (!L || !L.reel || !L.reel.path) return;
     GW.mk = { busy: true, prog: '', msg: '', bad: false, path: null }; gwSay('Getting the reel…');
-    try { var res = await rc.joinReel({ items: [{ url: clipUrl(L.reel) }], file: 'goal-of-the-week-' + L.week + '.mp4' }); GW.mk.busy = false; GW.mk.path = res && res.path; gwSay('', ''); if (GW.mk.path) rc.share({ path: GW.mk.path }).catch(function () {}); }
+    try { var res = await rc.joinReel({ items: [{ url: clipUrl(L.reel) }], file: 'goal-of-the-week-' + L.week + '.mp4' }); GW.mk.busy = false; GW.mk.path = res && res.path; gwSay('', ''); if (GW.mk.path) rateAfter(rc.share({ path: GW.mk.path })); }
     catch (e) { GW.mk.busy = false; gwSay('', 'Couldn’t get the reel onto this phone. Check your signal and try again.', true); }
   }
   window.gafferGotw = { load: gwLoad, open: gwOpen, board: function () { return GW.d; }, signOut: function () { return signOutAll(); } }; // (for the tests)
@@ -4368,13 +4401,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!MH) return; var r = MH.r, rc = RCp();
     if (!rc) { if (MH.reel) window.open(clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }), '_blank'); else { MK.msg = 'Open the iPhone app to save these highlights.'; mhDraw(); } return; }
     if (EX.busy) return;
-    if (EX.path && EX.gid === r.id + ':' + sayOn) { rc.share({ path: EX.path }).catch(function () {}); return; }
+    if (EX.path && EX.gid === r.id + ':' + sayOn) { rateAfter(rc.share({ path: EX.path })); return; }
     EX = { busy: true, path: null, gid: r.id + ':' + sayOn }; MK.msg = 'Getting the video ready to save…'; MK.bad = false; mhDraw();
     try {
       var items = MH.reel ? [{ url: clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }) }] : MH.list.map(function (c) { return { url: clipSrc(c, sayOn) }; });
       var res = await rc.joinReel(MH.reel ? { items: items, file: folderOf(r) + '-highlights.mp4' } : { items: items, file: folderOf(r) + '-highlights.mp4', outro: endCard(r) });
       EX.path = res && res.path; MK.msg = '';
-      if (EX.path) rc.share({ path: EX.path }).catch(function () {});
+      if (EX.path) rateAfter(rc.share({ path: EX.path }));
     } catch (e) { MK.msg = 'Couldn’t get it ready: ' + ((e && e.message) || 'something went wrong.'); MK.bad = true; }
     EX.busy = false; mhDraw();
   }
@@ -4606,7 +4639,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     try {
       var res = await rc.joinReel({ items: list.map(function (c) { return { url: clipSrc(c, voiced) }; }), file: folderOf(r) + '-highlights.mp4', outro: endCard(r) });
       DL.path = res && res.path; DL.msg = 'The reel is ready' + (voiced ? ', with commentary' : '') + '.';
-      if (DL.path) rc.share({ path: DL.path }).catch(function () {});
+      if (DL.path) rateAfter(rc.share({ path: DL.path }));
     } catch (e) { DL.msg = (e && e.message) || 'Couldn’t make the reel.'; DL.bad = true; }
     DL.busy = false; DL.prog = ''; if (S.view === 'highlights') renderHighlights();
   }
@@ -4679,7 +4712,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, file: (slugify(who) || 'player') + '-highlights.mp4',
         outro: { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
       RB.path = res && res.path; RB.msg = 'The reel is ready.'; RB.locked = !!adP;
-      if (RB.path && !adP) rc.share({ path: RB.path }).catch(function () {});
+      if (RB.path && !adP) rateAfter(rc.share({ path: RB.path }));
       var kept = false;
       if (RB.path && res.marks && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
         RB.prog = 'Putting it on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card…'; renderRB();
@@ -4689,7 +4722,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (adP) { // the ad, which has been playing all along
         var doneMsg = RB.msg; RB.msg = ''; RB.ad = ''; RB.prog = 'Your reel is ready for when the ad ends…'; renderRB();
         var ad = await adP; AD.busy = false; RB.ad = ''; RB.msg = doneMsg;
-        if (ad.r === 'unlocked') { RB.locked = false; rc.share({ path: RB.path }).catch(function () {}); }
+        if (ad.r === 'unlocked') { RB.locked = false; rateAfter(rc.share({ path: RB.path })); }
         else if (ad.r === 'waiting') RB.msg = 'Thanks for watching. Google hasn’t confirmed the ad yet; your reel unlocks on your card in Highlights as soon as it does.';
         else { RB.msg = (ad.r === 'closed' ? 'The ad was closed before the end, so your reel is locked.' : ad.err) + (kept ? ' It’s on your card in Highlights: watch the ad there to see it.' : ''); RB.bad = ad.r !== 'closed'; }
         if (kept) aheadPut(null); // (it's your reel now; the card's own button covers the rest)
@@ -4703,7 +4736,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var b = e.target.closest('button'); if (!b || b.disabled) return;
     if (b.id === 'rbClose') { if (!RB.busy) $('reelPop').hidden = true; }
     else if (b.id === 'rbMake') rbMake();
-    else if (b.id === 'rbShare') { var rc = RCp(); if (rc && RB.path) rc.share({ path: RB.path }).catch(function () {}); }
+    else if (b.id === 'rbShare') { var rc = RCp(); if (rc && RB.path) rateAfter(rc.share({ path: RB.path })); }
     else if (b.hasAttribute('data-rbprev')) { RB.pv = b.getAttribute('data-rbprev'); renderRB(); var v = $('rbPrev'); if (v) try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {} }
   });
   $('reelPop').addEventListener('change', function (e) {
@@ -4922,7 +4955,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         file: (slugify(r ? folderOf(r) : who) || 'gaffer') + '-' + tr.id + '.mp4',
         outro: r ? endCard(r) : { kicker: 'Player edit', title: who, sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
       BE.path = res && res.path; BE.msg = 'The edit is ready.';
-      if (BE.path) rc.share({ path: BE.path }).catch(function () {});
+      if (BE.path) rateAfter(rc.share({ path: BE.path }));
     } catch (e) { BE.msg = (e && e.message) || 'Couldn’t make the edit.'; BE.bad = true; }
     BE.busy = false; BE.prog = ''; renderBE();
   }
@@ -4931,7 +4964,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var b = e.target.closest('button'); if (!b || b.disabled) return;
     if (b.id === 'beClose') beClose();
     else if (b.id === 'beMake') beMake();
-    else if (b.id === 'beShare') { var rc = RCp(); if (rc && BE.path) rc.share({ path: BE.path }).catch(function () {}); }
+    else if (b.id === 'beShare') { var rc = RCp(); if (rc && BE.path) rateAfter(rc.share({ path: BE.path })); }
     else if (b.hasAttribute('data-betrack')) { BE.track = b.getAttribute('data-betrack'); try { localStorage.setItem('apt-beat', BE.track); } catch (err) {} BE.path = null; BE.msg = ''; renderBE(); }
     else if (b.hasAttribute('data-beevery')) { BE.every = b.getAttribute('data-beevery') === '1'; try { localStorage.setItem('apt-beat-all', BE.every ? 'yes' : 'no'); } catch (err) {} BE.path = null; BE.msg = ''; renderBE(); }
     else if (b.hasAttribute('data-belu')) { beHear(null); BE.lu = +b.getAttribute('data-belu'); renderBE(); }
@@ -4973,7 +5006,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (e.target.getAttribute('data-beat') !== null) beOpen({ game: +e.target.getAttribute('data-beat') });
     else if (e.target.getAttribute('data-pbeat') !== null) beOpen({ pid: +e.target.getAttribute('data-pbeat') });
     else if (e.target.getAttribute('data-fixg') !== null) fixOpen(+e.target.getAttribute('data-fixg'));
-    else if (e.target.getAttribute('data-dlshare') !== null) { var rc2 = RCp(); if (rc2 && DL.path) rc2.share({ path: DL.path }).catch(function () {}); }
+    else if (e.target.getAttribute('data-dlshare') !== null) { var rc2 = RCp(); if (rc2 && DL.path) rateAfter(rc2.share({ path: DL.path })); }
     else if (e.target.getAttribute('data-preel') !== null) rbOpen(+e.target.getAttribute('data-preel'));
     else if (e.target.getAttribute('data-preeloff') !== null) { // off the card (the file goes too)
       var offPid = +e.target.getAttribute('data-preeloff');
@@ -5558,7 +5591,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       } catch (err) { CUT.msg = (err && err.message) || 'Something went wrong while cutting.'; }
       renderCut();
     } else if (act === 'retry') { CUT.stage = CUT.cams.some(function (k) { return k.src; }) ? 'sync' : 'cams'; CUT.msg = ''; renderCut(); }
-    else if (act === 'share') { try { await rc.share({ path: CUT.reel }); } catch (err) { CUT.msg = (err && err.message) || 'Couldn’t open the share sheet.'; renderCut(); } }
+    else if (act === 'share') { try { var shared = await rc.share({ path: CUT.reel }); if (shared && shared.completed) rateAsk(); } catch (err) { CUT.msg = (err && err.message) || 'Couldn’t open the share sheet.'; renderCut(); } }
     else if (act === 'finish') { try { await rc.cleanup(); } catch (err) {} CUT = null; go('highlights'); }
   });
 
@@ -7550,20 +7583,32 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function adDraw() { if (S.view === 'highlights') renderHighlights(); if (S.view === 'options') renderOptions(); }
   var AD_ERR = { sign_in: 'Sign in first.', no_team: 'This team couldn’t be found. Check your signal and try again.', no_reel: 'That reel has been replaced. Pull down to refresh and try again.',
     not_allowed: 'Only you can unlock your own reel. Join the squad as yourself first.' };
-  async function adSetup(am) { // once a session: start Google's ads, ask about personalised ads where the law needs it (UK and EU), then Apple's tracking question
+  var AD_LATE = {}; // (not an answer: a step that took too long)
+  function adStep(p, ms) { // one of Google's steps, given up on after ms (an answer that never comes left it on "Getting the ad…" for good)
+    return new Promise(function (ok, no) { var t = setTimeout(function () { ok(AD_LATE); }, ms); Promise.resolve(p).then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); no(e); }); });
+  }
+  var AD_MS = { init: 10000, consent: 15000, form: 120000, track: 5000, ask: 60000, load: 30000, open: 20000 }; window.gafferAdMs = AD_MS; // (tests shorten these)
+  async function adSetup(am, say) { // once a session: start Google's ads, ask about personalised ads where the law needs it (UK and EU), then Apple's tracking question
     if (AD.setup) return;
-    await am.initialize({});
-    try { var ci = await am.requestConsentInfo(); if (ci && ci.status === 'REQUIRED' && ci.isConsentFormAvailable) ci = await am.showConsentForm();
-      if (ci && ci.canRequestAds === false) throw new Error('Ads can’t be shown until you’ve made a choice about them. Tap it again to see the choices.'); }
-    catch (e) { if (e && /choice/.test(e.message || '')) throw e; } // (no answer from Google about the form: carry on, it asks again next time)
-    try { var ts = await am.trackingAuthorizationStatus(); if (ts && ts.status === 'notDetermined') await am.requestTrackingAuthorization(); } catch (e) {} // (either answer still unlocks it; it only changes which ads Google picks)
+    say = say || function () {};
+    say('Starting Google’s ads…');
+    if ((await adStep(am.initialize({}), AD_MS.init)) === AD_LATE) throw new Error('Google’s ads didn’t start. Check your signal and try again.');
+    say('Checking your ad choices…');
+    try { var ci = await adStep(am.requestConsentInfo(), AD_MS.consent); // (no answer from Google about the form: carry on, it asks again next time)
+      if (ci !== AD_LATE && ci && ci.status === 'REQUIRED' && ci.isConsentFormAvailable) { ci = await adStep(am.showConsentForm(), AD_MS.form); if (ci === AD_LATE) ci = null; }
+      if (ci && ci !== AD_LATE && ci.canRequestAds === false) throw new Error('Ads can’t be shown until you’ve made a choice about them. Tap it again to see the choices.'); }
+    catch (e) { if (e && /choice/.test(e.message || '')) throw e; }
+    try { var ts = await adStep(am.trackingAuthorizationStatus(), AD_MS.track); if (ts && ts !== AD_LATE && ts.status === 'notDetermined') await adStep(am.requestTrackingAuthorization(), AD_MS.ask); } catch (e) {} // (either answer still unlocks it; it only changes which ads Google picks)
     AD.setup = true;
   }
   function adShow(am) { // shows the loaded ad; true once it's been watched to the end (closing it early unlocks nothing)
     return new Promise(function (resolve, reject) {
       var got = false, hs = [], end = function (fn, v) { hs.forEach(function (h) { Promise.resolve(h).then(function (x) { if (x && x.remove) x.remove(); }); }); fn(v); };
-      hs.push(am.addListener('onRewardedVideoAdReward', function () { got = true; }));
-      hs.push(am.addListener('onRewardedVideoAdDismissed', function () { setTimeout(function () { end(resolve, got); }, 300); })); // (the reward can land just after it closes)
+      var open = false, seen = function () { open = true; }; // (iOS can fail to put the ad up without saying so; give up if it hasn't opened)
+      setTimeout(function () { if (!open) end(reject, new Error('The ad didn’t open. Close any other pop-up and try again.')); }, AD_MS.open);
+      hs.push(am.addListener('onRewardedVideoAdShowed', seen));
+      hs.push(am.addListener('onRewardedVideoAdReward', function () { got = true; seen(); }));
+      hs.push(am.addListener('onRewardedVideoAdDismissed', function () { seen(); setTimeout(function () { end(resolve, got); }, 300); })); // (the reward can land just after it closes)
       hs.push(am.addListener('onRewardedVideoAdFailedToShow', function (e) { end(reject, new Error('The ad wouldn’t play' + (e && e.message ? ': ' + e.message : '') + '. Try again in a moment.')); }));
       am.showRewardVideoAd().then(function () { got = true; }, function (e) { end(reject, new Error('The ad wouldn’t play' + (e && e.message ? ': ' + e.message : '') + '. Try again in a moment.')); });
     });
@@ -7588,9 +7633,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (tk.error === 'not_needed') return 'unlocked';
     if (tk.error || !tk.ticket) throw new Error(AD_ERR[tk.error] || 'Couldn’t get an ad. Check your signal and try again.');
     if (o.ticket) o.ticket(tk.ticket);
-    await adSetup(am);
-    try { await am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }); }
-    catch (e) { throw new Error('No ad is available right now. Try again in a minute.'); }
+    await adSetup(am, say);
+    say('Loading the ad…');
+    var ld;
+    try { ld = await adStep(am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }), AD_MS.load); }
+    catch (e) { throw new Error('Google had no ad to show right now' + (e && e.message ? ' (' + e.message + ')' : '') + '. Try again in a minute.'); }
+    if (ld === AD_LATE) throw new Error('Google didn’t send an ad in time. Try again in a minute.');
     say('The ad is playing…');
     if (!(await adShow(am))) return 'closed';
     if (o.watched) o.watched();
@@ -8383,6 +8431,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = $('soonOpen').hidden = $('planOpen').hidden = $('shopOpen').hidden = !ex.track;
     $('expAds').checked = !!ex.ads; $('expAdsRow').hidden = !ex.track;
     $('optAds').hidden = !freeTier(); $('optAdsMsg').hidden = !(AD.kind === 'choices' && AD.msg); $('optAdsMsg').textContent = AD.kind === 'choices' ? AD.msg : '';
+    $('optRate').hidden = !rateCan(); $('optRateMsg').hidden = !RATE.msg; $('optRateMsg').textContent = RATE.msg;
     var aiOn = aiAllowed(); $('optAI').hidden = !(sb && me);
     $('optAINote').textContent = aiOn ? 'Allowed on this phone: when you add commentary, the lines (players’ first names, the team names, the score and the minute) are sent to Google’s AI to make the voice.' : 'Not allowed on this phone: nothing is sent to Google. You’ll be asked when you add commentary.';
     $('optAIBtn').textContent = aiOn ? 'Stop sending to Google' : 'Allow it';
