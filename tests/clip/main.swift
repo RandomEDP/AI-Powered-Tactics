@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 // Gaffer's App Clip, off the phone: the real ios/App/Clip/ClipLogic.swift (how it reads a friendly's personal link, what
 // it hands the full app, the one call it makes, and what it says), built here with plain Swift.

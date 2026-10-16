@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking // (URLRequest, off Apple's systems: tests/clip/main.swift on Linux)
+#endif
 
 // Gaffer's App Clip: a friendly's personal link, opened on an iPhone with nothing installed. It shows that one player's
 // games and clips from the friendly (the database's friendly_preview, by the link's token, with no account), and offers
