@@ -47,6 +47,16 @@ db.profiles.push({ user_id: 'u-sam', username: 'sam_watches', name: 'Sam', priva
 w.setDb(db);
 await A.page.reload(); await A.run(2500);
 
+// ---------- Goal of the Week is on the Team page for everyone, with Experimental off (Ethan, before 1.1)
+await A.page.evaluate(() => { const b = document.querySelector('#tabs [data-tab="home"]'); if (b) b.click(); }); await A.run(500);
+eq(await A.view(), 'home', 'the Team page');
+check(!(await A.page.evaluate(() => { try { const a = JSON.parse(localStorage.getItem('apt-app') || '{}'); return !!(a.exp && a.exp.track); } catch (e) { return false; } })), 'Experimental is off');
+check(await A.visible('#mGotw'), 'the Team page has a Goal of the Week tile');
+await A.click('#mGotw'); await A.run(1200);
+eq(await A.view(), 'gotw', 'which opens Goal of the Week');
+await A.click('#gwBack'); await A.run(400);
+eq(await A.view(), 'home', 'and Back goes back to the Team page');
+
 // ---------- Ethan puts Jake's goal up, from Highlights
 await A.page.evaluate(() => { const b = document.querySelector('#mHighlights') || document.querySelector('[data-go="highlights"]'); if (b) b.click(); }); await A.run(800);
 check(/Goal of the Week/.test(await A.text('#hlGw .gwstrip')), 'Highlights starts with Goal of the Week');
