@@ -135,6 +135,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 | `WatchLinkPlugin` | The phone side of the watch link. It keeps a durable inbox of watch presses (UserDefaults `watchlink.inbox`), `push({state, seen})` and `pending()` |
 | `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
+| `AppReviewPlugin` | Reviews on the App Store: `ask()` (Apple's own stars, `AppStore.requestReview`) and `write({id})` (opens Gaffer's page on Write a Review; with no id it looks the app up by bundle id in Apple's public lookup and keeps it) |
 | `MatchVisionPlugin` | Experimental player tracking (YOLOX-S onnx plus Vision, reading shirt numbers) |
 | `LiveCamPlugin` | "Film with this iPhone": `start({url,title})`, `show()`, `stop()`, `state()`, event `state`. Streams the iPhone's camera over RTMPS to the camera link (HaishinKit 2.2.5, 720p ~2.5 Mbps, adaptive) and records 1080p HEVC to Photos at the same time (`CamRecorder`, its own AVAssetWriter, stamped with the start time). Native full-screen `CamScreen`, laid out for a phone on its side (the app stays portrait; the screen turns its contents by the accelerometer) |
 
@@ -839,6 +840,15 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   customer's email), copied to `ORDERS_EMAIL` with what was paid; a mount goes only to `ORDERS_EMAIL` to print and post.
   Secrets: `RESEND_API_KEY`, `SHOP_FROM` (a sender on a domain verified in Resend). Without them orders aren't emailed.
 - Not on Android. Test: `shop.test.mjs` (the real functions under Node with stand-ins for Stripe and Resend, then the screen).
+
+### Reviews on the App Store (Ethan asked, October 2026)
+- Settings has **Rate Gaffer on the App Store** (`#optRate`, `rateWrite`; the iPhone app, or the website once `config.js`
+  `appStore` is set). It opens Gaffer's page on Write a Review (`AppReviewPlugin.write`; the id comes from `CFG.appStore`
+  if set, else the phone looks it up).
+- Apple's own stars (`rateAsk`) are asked for **once a phone** (`apt-rate`), just after someone shares a reel or
+  highlights video and doesn't cancel the share sheet (`rateAfter` wraps every reel `share`; the cut's checks
+  `completed`), never during a game (`S.match`). iOS decides whether they show and never shows them in TestFlight.
+- Test: `rate.test.mjs`.
 
 ### Other features (all in `index.html`)
 - Polls, the Games screen, game modes and tournaments, and the minutes planner (Aggressive ↔ Fairness).
