@@ -49,8 +49,7 @@ eq(await A.page.evaluate(() => window.gafferRateAsk()), false, 'even after Gaffe
 // ---------- never during a game
 await A.page.evaluate(() => { localStorage.removeItem('apt-rate'); window.__rv.length = 0; });
 if (await A.view() !== 'home') { await A.click('#tabs [data-tab="home"]'); await A.run(400); }
-await A.click('#mNew'); await A.run(300); await A.click('#gKind [data-kind="solo"]'); await A.run(200);
-await A.page.fill('#sOpp', 'Dog Squad'); await A.click('#sKick'); await A.run(500);
+await A.newGame('Dog Squad'); await A.run(500);
 eq(await A.view(), 'game', 'a game is on');
 await A.page.evaluate(() => window.gafferRateAfter(Promise.resolve({ completed: true }))); await A.run(2000);
 eq([await said(A), await A.page.evaluate(() => !!localStorage.getItem('apt-rate'))], [[], false], 'a share during a game asks nothing, and the one go is kept for later');
