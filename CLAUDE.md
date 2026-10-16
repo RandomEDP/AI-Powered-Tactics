@@ -362,7 +362,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   and handed to the team (`mkFinish`) when its upload answers, or, if Gaffer was closed, the next time the team loads
   and its public address answers a HEAD (`mkResume`). `joinReel` asks iOS for background time like the cut; if iOS
   stops it anyway (put away too long), it says "Paused…" and starts again by itself when Gaffer is back
-  (`visibilitychange`, `MK.again`). Not used: iOS 26's continued-processing tasks (reported not to fire on release).
+  (`visibilitychange`, `MK.again`), at most twice by itself (`MKPAUSED`), then it says to keep Gaffer on screen and leaves it for the day; opening the whole-match player starts it again. Not used: iOS 26's continued-processing tasks (reported not to fire on release).
+  **Every join has its own folder** (`WorkFolders.swift`, `tests/folders/main.swift`): `joinReel` used to clear one shared `reel` folder, so the copy with commentary deleted the copy without it before it went up and the one video never finished (Ethan, build 248). Folders go after a day. `joinReel({job})` is said back with its progress, so the one video (`job: 'mk'`) and someone's reel waiting behind it on the plugin's one queue don't show each other's progress, and the one video isn't started by itself while another reel is being joined (`joinsBusy`).
 - **Fix a goal** (Ethan: "pressed it wrong in the heat of the moment"; game card, gaffers, `fixOpen`/`renderFix`/`fixApply`,
   `#fixPop`): pick the goal (`fixGoals`: ours, or both sides among the squad), then who scored and set it up (`fixCands`:
   those in the game's `per`, on that side). It moves the goal and assist in `r.per` and the event, and `syncAll` rewrites

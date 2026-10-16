@@ -58,6 +58,11 @@ else {
     if (build.status !== 0) note('beat edit plans', false, 'does not compile\n' + build.stderr);
     else { const r = spawnSync(path.join(tmp, 'beatcheck'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout); note('beat edit plans', r.status === 0, lastLine(r.stdout)); env.BEATCHECK = path.join(tmp, 'beatcheck'); }
   }
+  if (want('folders') || want('reels')) { // each reel being joined on the phone gets its own folder, so one never deletes another's video
+    const build = spawnSync('swiftc', [path.join(ROOT, 'plugins/reel-cutter/ios/Sources/ReelCutterPlugin/WorkFolders.swift'), path.join(HERE, 'folders/main.swift'), '-o', path.join(tmp, 'folders')], { encoding: 'utf8' });
+    if (build.status !== 0) note('reel work folders', false, 'does not compile\n' + build.stderr);
+    else { const r = spawnSync(path.join(tmp, 'folders'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout); note('reel work folders', r.status === 0, lastLine(r.stdout)); }
+  }
   if (want('clip')) { // Gaffer's App Clip: how it reads a friendly's personal link, what it hands the full app, the call it makes
     const build = spawnSync('swiftc', [path.join(ROOT, 'ios/App/Clip/ClipLogic.swift'), path.join(HERE, 'clip/main.swift'), '-o', path.join(tmp, 'cliptests')], { encoding: 'utf8' });
     if (build.status !== 0) note('App Clip logic', false, 'does not compile\n' + build.stderr);

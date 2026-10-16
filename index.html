@@ -4352,11 +4352,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     MH = { gi: gi, r: r, list: list, reel: hasReel(r, list), i: 0 };
     $('mhTitle').textContent = vs(r) + ' ' + r.us + '–' + r.them;
     $('mhPop').hidden = false; mhLoad(0, true); mhDraw();
-    if (!MH.reel && role === 'owner' && RCp() && sb && teamId && !MK.busy) mhMake(r); // (no one video yet: this phone makes it, for everyone)
+    if (!MH.reel && role === 'owner' && RCp() && sb && teamId && !MK.busy) { MKPAUSED[r.id] = 0; mhMake(r); } // (no one video yet: this phone makes it, for everyone)
   }
   // ---- a game's clips joined into one video, once, on a gaffer's phone, and kept for everyone (games cut before the cut
   // uploaded its reel, or whose reel didn't make it). The same reel the cut makes: shrunk, with and without commentary.
-  var MK = { gid: null, busy: false, prog: '', msg: '', bad: false, part: '' }, MKTRIED = {}; // (MKTRIED: games this phone has started on this time)
+  var MK = { gid: null, busy: false, prog: '', msg: '', bad: false, part: '' }, MKTRIED = {}, MKPAUSED = {}; // (MKTRIED: games this phone has started on this time; MKPAUSED: how often each was stopped by Gaffer being put away)
+  function joinsBusy() { return !!(DL.busy || RB.busy || BE.busy || EX.busy || (GW.mk && GW.mk.busy)); } // (another reel being joined on this phone: the one video waits, so it doesn't hold that one up)
   async function mhMake(r, quiet) {
     var rc = RCp(); if (!rc || MK.busy || !r || role !== 'owner' || !sb || !teamId) return;
     var list = clips.filter(function (c) { return c.game_id === r.id; }).sort(function (a, b) { return a.seq - b.seq; }); if (!list.length) return;
@@ -4365,10 +4366,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var parts = [{ file: 'reel' + tag + '.mp4', v: false }].concat(list.some(function (c) { return c.vpath; }) ? [{ file: 'reel' + tag + 'v.mp4', v: true }] : []);
     MK = { gid: r.id, busy: true, prog: 'starting…', msg: '', bad: false, part: '', away: document.hidden, again: null }; mhDraw(); mkShow();
     try {
-      var made = [], marks = null;
+      var made = [], marks = null; // (each join keeps its own file: joining the copy with commentary used to delete the one without it, so it never got uploaded)
       for (var i = 0; i < parts.length; i++) {
         MK.part = parts.length > 1 ? ' (' + (i + 1) + ' of 2)' : '';
-        var res = await rc.joinReel({ items: list.map(function (c) { return { url: clipSrc(c, parts[i].v) }; }), file: folderOf(r) + '-' + parts[i].file, outro: endCard(r), shrink: true });
+        var res = await rc.joinReel({ items: list.map(function (c) { return { url: clipSrc(c, parts[i].v) }; }), file: folderOf(r) + '-' + parts[i].file, outro: endCard(r), shrink: true, job: 'mk' });
         if (!res || !res.path) throw new Error('the clips couldn’t be joined.');
         made.push({ file: parts[i].file, path: res.path, v: parts[i].v }); if (!parts[i].v) marks = res.marks || null;
       }
@@ -4384,10 +4385,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       row.store = stored[0] ? 'r2' : null; if (row.vpath && stored[1] !== stored[0]) delete row.vpath; // (the old storage took one: both copies must be in one place)
       await mkFinish(pend, r);
     } catch (e) {
-      var away = MK.away || document.hidden;
-      if (!away) markTried('mk:' + r.id); // (not made by itself again for a day: each go downloads every clip)
-      MK = { gid: r.id, busy: false, prog: '', part: '', bad: !away, again: away ? r.id : null,
-        msg: away ? 'Paused while Gaffer was put away. It carries on by itself when you come back.' : 'Couldn’t make it one video: ' + ((e && e.message) || 'something went wrong') + ' The clips still play one after another.' };
+      var away = MK.away || document.hidden, paused = away && (MKPAUSED[r.id] = (MKPAUSED[r.id] || 0) + 1) < 3; // (started again by itself twice at most: each go downloads every clip)
+      if (!paused) markTried('mk:' + r.id); // (not made by itself again for a day)
+      MK = { gid: r.id, busy: false, prog: '', part: '', bad: !paused, again: paused ? r.id : null,
+        msg: paused ? 'Paused while Gaffer was put away. It carries on by itself when you come back.'
+          : away ? 'Couldn’t make it one video: it kept stopping while Gaffer was put away. Open Watch the whole match highlights and keep Gaffer on screen until it’s done. The clips still play one after another.'
+          : 'Couldn’t make it one video: ' + ((e && e.message) || 'something went wrong') + ' The clips still play one after another.' };
     }
     mhDraw(); mkShow(); if (S.view === 'highlights' && !quiet) renderHighlights();
   }
@@ -4549,7 +4552,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   document.addEventListener('visibilitychange', function () { // back in Gaffer: carry on with a video that was paused, and hand over any that finished uploading
     if (document.hidden) { if (MK.busy) MK.away = true; return; }
     setTimeout(function () {
-      if (MK.again && !MK.busy) { var r = S.results.filter(function (x) { return x.id === MK.again; })[0]; if (r) mhMake(r, true); }
+      if (MK.again && !MK.busy && !joinsBusy()) { var r = S.results.filter(function (x) { return x.id === MK.again; })[0]; if (r) mhMake(r, true); }
       mkResume();
     }, 800);
   });
@@ -4770,7 +4773,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       });
     }
     vidKeep($('hlList'), html); mkShow();
-    if (hlBy === 'game' && role === 'owner' && !MK.busy && RCp() && sb && teamId) { // a cut game without one video: this phone makes it, quietly, while you get on
+    if (hlBy === 'game' && role === 'owner' && !MK.busy && !joinsBusy() && RCp() && sb && teamId) { // a cut game without one video: this phone makes it, quietly, while you get on
       var want = S.results.slice().reverse().filter(function (r) { return !MKTRIED[r.id] && !triedLately('mk:' + r.id, 24 * 3600e3) && !(r.reel && r.reel.path) && clips.some(function (c) { return c.game_id === r.id; }); })[0];
       if (want) { MKTRIED[want.id] = true; setTimeout(function () { mhMake(want, true); }, 600); }
     }
@@ -5234,11 +5237,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!d) return;
     var pct = Math.round((d.p || 0) * 100);
     if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
-    if (DL.busy) { DL.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var dm = $('dlMsg'); if (dm) dm.textContent = DL.prog; }
-    if (MK.busy) { MK.prog = d.stage === 'fetch' ? 'fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'joining, ' + pct + '%.'; mkTick(); }
-    if (BE.busy) { BE.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : d.stage === 'card' ? 'Adding the end card, ' + pct + '%' : 'Cutting it to the beat, ' + pct + '%'; var bm = $('beProg'); if (bm) bm.textContent = BE.prog; }
-    if (RB.busy) { RB.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var rm = $('rbProg'); if (rm) rm.textContent = RB.prog; }
-    if (!CUT) return;
+    var mkJob = d.job === 'mk'; // (the plugin says whose join it is; the game's one video can be waiting behind someone's reel, or the other way round)
+    if (DL.busy && !mkJob) { DL.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var dm = $('dlMsg'); if (dm) dm.textContent = DL.prog; }
+    if (MK.busy && (mkJob || !('job' in d))) { MK.prog = d.stage === 'fetch' ? 'fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'joining, ' + pct + '%.'; mkTick(); }
+    if (BE.busy && !mkJob) { BE.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : d.stage === 'card' ? 'Adding the end card, ' + pct + '%' : 'Cutting it to the beat, ' + pct + '%'; var bm = $('beProg'); if (bm) bm.textContent = BE.prog; }
+    if (RB.busy && !mkJob) { RB.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var rm = $('rbProg'); if (rm) rm.textContent = RB.prog; }
+    if (!CUT || mkJob) return;
     CUT.prog = d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';
     var el = $('cutProg'); if (el) el.textContent = CUT.prog;
   }
