@@ -29,11 +29,8 @@ eq(ids.length, new Set(ids).size, 'no object id is used twice');
 
 // one app group, one key
 const group = 'group.com.randomedp.aipoweredtactics';
-// The app group isn't in the entitlements yet: CI's signing (the App Store Connect key) can't create one, and build 246
-// failed with "doesn't match the entitlements file's value for the com.apple.security.application-groups entitlement".
-// It goes back once the group is registered on Apple's developer site; until then the App Clip's handover stays on the
-// App Clip's side and the full app still takes the website link and App Clip links that open it (SceneDelegate).
-for (const f of ['ios/App/Clip/Clip.entitlements', 'ios/App/App/App.entitlements']) check(!read(f).includes('application-groups'), `${f} asks for no app group (CI can't register one)`);
+// (Build 246 failed on this: CI's signing can't create an app group, so it has to be registered on Apple's developer site first. Ethan did, 16 October 2026.)
+for (const f of ['ios/App/Clip/Clip.entitlements', 'ios/App/App/App.entitlements']) check(read(f).includes(`<string>${group}</string>`), `${f} has the shared app group`);
 check(read('ios/App/Clip/Clip.entitlements').includes('$(AppIdentifierPrefix)com.randomedp.aipoweredtactics</string>'), 'the App Clip names Gaffer as its app');
 check(read('ios/App/App/App.entitlements').includes('$(AppIdentifierPrefix)com.randomedp.aipoweredtactics.Clip</string>'), 'and Gaffer names its App Clip');
 check(read('ios/App/Clip/Info.plist').includes('<key>NSAppClip</key>'), 'the App Clip says it is one');
