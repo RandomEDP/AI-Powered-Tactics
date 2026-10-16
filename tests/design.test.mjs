@@ -167,7 +167,7 @@ eq([await A.text('#gamesCount'), await p.evaluate(() => !document.getElementById
 
 // ---------- the tab bar floats, frosted, and chat's box sits at the bottom
 check(await p.evaluate(() => { const r = document.querySelector('#tabs .tabrow').getBoundingClientRect(); return r.left > 0 && innerWidth - r.right > 0 && innerHeight - r.bottom > 0; }), 'the tab bar floats clear of the edges');
-await A.click('#tabs [data-tab="chat"]'); await A.run(500);
+await A.click('#tabs [data-tab="home"]'); await A.click('#mChat'); await A.run(500);
 const cf = await p.evaluate(() => { const f = document.getElementById('chatForm').getBoundingClientRect(), t = document.querySelector('#tabs .tabrow').getBoundingClientRect(); return { hidden: document.getElementById('chatForm').hidden, f: Math.round(f.bottom), t: Math.round(t.top) }; });
 check(!cf.hidden && cf.f <= cf.t + 1 && cf.t - cf.f < 24, `the chat box sits just above the tab bar, whatever is in the chat (${JSON.stringify(cf)})`);
 

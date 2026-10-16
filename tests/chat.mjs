@@ -22,7 +22,7 @@ const ctx2 = await mk(); const D = await ctx2.newPage(); D.on('pageerror', (e) =
 await D.addInitScript((db) => { if (!localStorage.getItem('__mockdb')) localStorage.setItem('__mockdb', db); }, await A.evaluate(() => localStorage.getItem('__mockdb')));
 await D.goto(BASE); await wait(300); await D.fill('#joinCode', code); await D.click('#joinBtn'); await wait(400);
 // chat
-await A.click('#tabs [data-tab="chat"]'); await wait(400); console.log('chat:', await view(A), '|', (await A.textContent('#chatBody')).slice(0, 40));
+await A.click('#tabs [data-tab="home"]'); await A.click('#mChat'); await wait(400); console.log('chat:', await view(A), '|', (await A.textContent('#chatBody')).slice(0, 40));
 await A.fill('#chatText', 'Tuesday, 7:30. Who is driving?'); await A.press('#chatText', 'Enter'); await wait(500);
 console.log('sent:', (await A.$$eval('.cmsg', (m) => m.map((x) => x.textContent))).join(' / '), '| notify:', JSON.stringify((await A.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).calls || [])).filter((c) => c.body.kind === 'chat').map((c) => Object.keys(c.body))));
 // record a play
@@ -46,11 +46,11 @@ await D.click('#pendCard [data-go="account"]'); await D.fill('#aEmail', 'ali@exa
 await carry(A, D); await D.reload(); await wait(900);
 console.log('Ali’s number after claiming: in the database', await D.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).players.find((p) => p.name === 'Ali').shirt_number), '| on his card', await D.inputValue('#myNum'));
 await D.fill('#myNum', '7'); await D.press('#myNum', 'Tab'); await wait(500); console.log('changed on his card:', await D.evaluate(() => JSON.parse(localStorage.getItem('__mockdb')).players.find((p) => p.name === 'Ali').shirt_number));
-console.log('Ali unread badge:', await D.textContent('#chatBadge').catch(() => ''), 'visible', await D.isVisible('#chatBadge'));
-await D.click('#tabs [data-tab="chat"]'); await wait(500); console.log('Ali sees:', (await D.$$eval('.cmsg > small', (m) => m.map((x) => x.textContent.split(' · ')[0]))).join(), '| badge gone:', !(await D.isVisible('#chatBadge')));
+console.log('Ali unread badge:', await D.textContent('#mChatBadge').catch(() => ''), 'visible', await D.isVisible('#mChatBadge'));
+await D.click('#mChat'); await wait(500); console.log('Ali sees:', (await D.$$eval('.cmsg > small', (m) => m.map((x) => x.textContent.split(' · ')[0]))).join(), '| badge gone:', !(await D.isVisible('#mChatBadge')));
 await D.click('[data-chplay]'); await wait(500); console.log('Ali plays it:', (await D.$eval('.cplay svg [data-pc="u3"]', (g) => g.getAttribute('transform'))));
 await D.fill('#chatText', 'I can drive'); await D.press('#chatText', 'Enter'); await wait(700);
-await carry(D, A); await A.click('#tabs [data-tab="home"]'); await A.click('#tabs [data-tab="chat"]'); await wait(500);
+await carry(D, A); await A.click('#tabs [data-tab="home"]'); await A.click('#mChat'); await wait(500);
 console.log('gaffer sees it:', (await A.$$eval('.cmsg .bubble', (m) => m.map((x) => x.textContent))).join(' / '));
 await D.click('.cmsg:not(.mine) .bubble'); await wait(100); console.log('actions on someone else’s:', (await D.$$eval('.cmsg .cacts:last-child button', (x) => x.map((y) => y.textContent))).join());
 await D.click('[data-chrep]'); await wait(300); console.log('report:', await D.textContent('#chatBody .msg'));

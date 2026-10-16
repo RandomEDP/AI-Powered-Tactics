@@ -50,8 +50,8 @@ check((await nameLink(A, '#v-insights')).every((x) => x === 'Jake>Chappers') && 
 await home(A); await A.run(300); await A.click('#mHighlights'); await A.run(300); await A.click('#hlToggle [data-by="player"]'); await A.run(300);
 eq(await nameLink(A, '#hlList .hcard h3'), ['Jake>Chappers'], 'highlights, by player');
 await shot(A, 'names-highlights');
-await J.click('#tabs [data-tab="chat"]'); await J.run(600); await J.page.fill('#chatText', 'Who\'s driving?'); await J.page.press('#chatText', 'Enter'); await J.run(800);
-await home(A); await A.run(300); await A.click('#tabs [data-tab="chat"]'); await A.run(1200);
+await J.click('#tabs [data-tab="home"]'); await J.click('#mChat'); await J.run(600); await J.page.fill('#chatText', 'Who\'s driving?'); await J.page.press('#chatText', 'Enter'); await J.run(800);
+await home(A); await A.run(300); await A.click('#mChat'); await A.run(1200);
 eq(await nameLink(A, '#chatBody'), ['Jake>Chappers'], 'and the chat');
 await A.click('#chatBody .plink'); await A.run(1000);
 eq(await A.text('#prTitle'), '@Chappers', 'where tapping a name opens their profile, not the message menu');

@@ -201,7 +201,7 @@
       const houseOf = (g, pid) => g.house ? { a: g.house.a, b: g.house.b, side: pid != null && g.house.side ? g.house.side[pid] || null : null } : null;
       const clipsOf = (u) => { const out = []; d.players.filter((p) => p.user_id === u).forEach((p) => { const t = d.teams.find((x) => x.id === p.team_id) || {};
         d.clips.filter((c) => c.team_id === p.team_id && (c.pids || []).includes(p.pid) && c.at != null && !(d.clip_hides || []).some((h) => h.game_id === c.game_id && h.at === c.at && h.pid === p.pid)).forEach((c) => { const g = d.games.find((x) => x.id === c.game_id) || {};
-          out.push({ game_id: c.game_id, at: c.at, seq: c.seq, path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur, team: t.short, team_name: t.name, color: t.color, opp: g.opp, us: g.us, them: g.them, house: houseOf(g, p.pid), when: when(g) }); }); });
+          out.push({ game_id: c.game_id, at: c.at, seq: c.seq, path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur, team: t.short, team_name: t.name, color: t.color, opp: g.opp, us: g.us, them: g.them, house: houseOf(g, p.pid), personal: !!t.personal, friendly: !!g.friendly, when: when(g) }); }); });
         return out.sort((a, b) => b.at - a.at); };
       const seeable = (p) => p.user_id === uid() || !p.private || fol(uid(), p.user_id) === 'accepted';
       const counts = (u) => ({ followers: d.follows.filter((f) => f.followee === u && f.status === 'accepted').length, following: d.follows.filter((f) => f.follower === u && f.status === 'accepted').length });
