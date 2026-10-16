@@ -214,6 +214,12 @@ body.ro:not(.sc) .scr { display: none !important; }
 .card .joinrow input, .card .field input { background: var(--bg); }
 .wlist { background: var(--surface); border-radius: var(--r-card); overflow: hidden; margin-top: 16px; }
 .wlist .wrow { display: flex; flex-wrap: wrap; align-items: center; width: 100%; min-height: 52px; padding: 12px 40px 12px 18px; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 650; text-align: left; position: relative; }
+.frgo { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; margin: 0 0 14px; padding: 12px 16px; border: 0; border-radius: 16px; background: var(--on-soft); color: var(--ink); font: inherit; font-weight: 650; text-align: left; }
+.frgo .ic { width: 28px; height: 28px; flex: none; }
+.frgo small, .frrow small { display: block; font-weight: 400; font-size: var(--t-foot); color: var(--muted); }
+.frnote { margin: 4px 0 12px; }
+html.droid #fdFriendly, html.droid #wFriendly { display: none !important; }
+html.frteam #mBoard, html.frteam #mInsights, html.frteam #mShop, html.frteam #mOptions, html.frteam #passCard, html.frteam #fxCard, html.frteam #linkCard, html.frteam #askCard, html.frteam #soonPill, html.frteam #homeForm, html.frteam #meCard, html.frteam #pendCard { display: none !important; }
 .wlist .wrow small { flex-basis: 100%; font-weight: 400; font-size: var(--t-foot); color: var(--muted); }
 .wlist .wrow::after { content: ""; position: absolute; right: 18px; top: 50%; width: 8px; height: 8px; margin-top: -5px; border: solid var(--muted); border-width: 2px 2px 0 0; transform: rotate(45deg); }
 .wlist > *, .wlist > .wrow { margin-top: -1px; border-top: 1px solid var(--line); } /* (the top one's line is tucked under the rounded edge, whichever rows show) */
@@ -431,6 +437,8 @@ tr.past td { opacity: .45; }
 .seg button.is[data-set="bench"] { background: var(--bib); color: var(--bib-ink); }
 .seg button.is[data-set="out"] { background: var(--muted); color: var(--bg); }
 .seg button.is[data-hside="a"] { background: var(--on); color: var(--on-ink); } .seg button.is[data-hside="b"] { background: var(--bib); color: var(--bib-ink); } .seg button.is[data-hside="out"] { background: var(--muted); color: var(--bg); }
+.seg button.is[data-frside="a"] { background: var(--on); color: var(--on-ink); } .seg button.is[data-frside="b"] { background: var(--bib); color: var(--bib-ink); }
+#frBody section { margin-top: 22px; } #frBody .frlinks, .frlinks { margin-top: 10px; }
 .step { display: flex; align-items: center; gap: 6px; }
 .step button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--fill); font-size: var(--t-title); font-weight: 600; line-height: 1; }
 .step b { min-width: 64px; text-align: center; font-size: var(--t-large); font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
@@ -981,6 +989,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <!-- (the team code leads; everything else is one quiet list underneath, like an iPhone settings group) -->
   <div class="wlist">
     <div id="wStart"><button class="wrow" id="createBtn" type="button">Start a team<small>Running one? Set up the squad, then share the code.</small></button></div>
+    <button class="wrow" id="wFriendly" type="button" data-friendly="welcome">Play a friendly<small>A game outside any team, with anyone. It counts for each player.</small></button>
     <button class="wrow" id="acctBtn" type="button">Sign in</button>
     <button class="wrow" id="acctNew" type="button">Create account</button>
     <button class="wrow" id="pplBtn" type="button">Open your feed<span class="pplBadge" hidden></span></button>
@@ -1060,6 +1069,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <button type="button" id="fdReq" aria-label="Follow requests"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.4-7.5-10A4.2 4.2 0 0 1 12 7.3 4.2 4.2 0 0 1 19.5 10c0 5.6-7.5 10-7.5 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><b class="pplBadge" hidden></b></button>
     <button type="button" id="fdFind" aria-label="Find people and teams"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15 15 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
   </span></div>
+  <button class="frgo" id="fdFriendly" type="button" data-friendly="feed"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m12 7.6 3.6 2.6-1.4 4.2H9.8L8.4 10.2z" fill="currentColor"/></svg><span>Play a friendly<small>Anyone from your teams, anyone on Gaffer, and guests</small></span></button>
   <div id="fdBody"></div>
 </div>
 
@@ -1315,7 +1325,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
 <div class="view" id="v-setup" hidden>
   <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1>New game</h1></div>
-  <div class="toggle" id="gKind" role="group" aria-label="Who’s playing"><button type="button" data-kind="opp" aria-pressed="true">Another team</button><button type="button" data-kind="house" aria-pressed="false">Ourselves</button><button type="button" data-kind="solo" aria-pressed="false">Just me</button></div>
+  <div class="toggle" id="gKind" role="group" aria-label="Who’s playing"><button type="button" data-kind="opp" aria-pressed="true">Another team</button><button type="button" data-kind="house" aria-pressed="false">Ourselves</button></div>
+  <p class="note frnote" id="frFromSetup">Playing outside the team? <button class="link" type="button" data-friendly="setup">Start a friendly game</button>. It counts for each player, never for a team.</p>
   <div id="oppSetup">
   <label class="field" for="oppPick" id="oppPickWrap" hidden>Played them before?<select id="oppPick"></select></label>
   <label class="field" for="opp" id="oppWrap">Who are you playing?<input id="opp" type="text" placeholder="Opponent's name" autocomplete="off" maxlength="40"></label>
@@ -1338,7 +1349,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   </section>
   </div>
   <div id="houseBox" hidden></div>
-  <div id="soloBox" hidden></div>
+</div>
+
+<div class="view" id="v-friendly" hidden>
+  <div class="bar"><button class="back" type="button" id="frBack">Home</button><h1>Friendly game</h1></div>
+  <div id="frBody"></div>
 </div>
 
 <div class="view" id="v-mins" hidden>
@@ -1635,9 +1650,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (A.active) { try { var b = Object.assign({}, S); delete b.view; localStorage.setItem(TKEY + A.active, JSON.stringify(b)); } catch (e) {} }
   }
   var teamMeta = function (code) { return A.teams.filter(function (x) { return x.code === code; })[0] || null; };
-  function rememberTeam(code, name, org) {
+  function rememberTeam(code, name, org, fr) { // (fr: someone's friendlies, kept apart from teams)
     var t = teamMeta(code);
-    if (t) { t.name = name || t.name; if (org != null) t.org = !!org; } else A.teams.push({ code: code, name: name || code, org: !!org });
+    if (t) { t.name = name || t.name; if (org != null) t.org = !!org; } else A.teams.push(t = { code: code, name: name || code, org: !!org });
+    if (fr) t.fr = true;
     saveApp();
   }
   function forgetTeam(code) {
@@ -1681,7 +1697,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var preels = []; // players' reels kept on their cards: [{pid, path, store, marks: [{t, label}], made_at}]
   var roster = {}, myPid = null; // per player: claimed, gaffer, last name (as this viewer is allowed to see them); and which one is you
   var myAsk = null, asks = [], askMsg = ''; // this person's own request to join the open team; and, for gaffers, the requests waiting for an answer
-  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'gotw', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live', 'shop'];
+  var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'friendly', 'gotw', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live', 'shop'];
   function setRole(r) {
     if (DROID) r = 'viewer'; // (the Android app only ever follows the team)
     role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
@@ -1962,7 +1978,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   async function addGoal(ev, at) { // `at`: when it really went in, for a goal pressed on the watch that has only just reached this phone
     var m = S.match; if (!m) return;
     if (!at && Date.now() < lockUntil) return;
-    if (role === 'owner') { ev.at = at || Date.now(); putEvent(m, ev); save(); lockScore({ us: !!ev.us, mine: true, at: ev.at }); if (!hush && !m.solo) { ping('goal', { us: !!ev.us }); goalPush(m, ev); } return; }
+    if (role === 'owner') { ev.at = at || Date.now(); putEvent(m, ev); save(); lockScore({ us: !!ev.us, mine: true, at: ev.at }); if (!hush && !quietGame(m)) { ping('goal', { us: !!ev.us }); goalPush(m, ev); } return; }
     if (!sb || !A.active) return;
     var say = function (t) { goalMsg = t; clearTimeout(goalT); goalT = setTimeout(function () { goalMsg = ''; renderScore(); }, 8000); renderScore(); };
     ev.ts = at || Date.now(); say('Sending the goal…');
@@ -1993,7 +2009,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     try { var res = await sb.functions.invoke('team-notify', { body: Object.assign({ code: A.active, kind: kind, title: title, body: body }, extra || {}) }); return res && res.data ? res.data : null; } catch (e) { return null; }
   }
   async function announceGame(m) { // the gaffer's phone tells everyone once the game is in the database
-    if (hush || m.solo) return; // kicked off on the watch a while ago and only now heard about: "game started" would be old news (and a game of just me is nobody else's business)
+    if (hush || quietGame(m)) return; // kicked off on the watch a while ago and only now heard about: "game started" would be old news (and a game of just me is nobody else's business)
     ping('kickoff', { opp: m.opp });
     if (!sb || !A.active || !me) return;
     try { clearTimeout(wt); await syncAll(); ping('kickoff', { opp: m.opp }); } catch (e) {}
@@ -2078,7 +2094,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   function afterAuth() {
     myTeams = null; renderAccount(); TP = { code: null, map: {}, at: 0 };
-    if (me) { setTimeout(profileCheck, 0); setTimeout(termsCheck, 0); } else { MYP = undefined; profAsked = null; pplBadges(); $('termsPop').hidden = true; }
+    if (me) { setTimeout(profileCheck, 0); setTimeout(termsCheck, 0); setTimeout(frClaimPending, 0); } else { MYP = undefined; profAsked = null; pplBadges(); $('termsPop').hidden = true; }
     if (me && A.pending) { finishPending(); return; }
     if (A.active) openTeam(A.active, S.view);
     else { role = me ? 'owner' : 'viewer'; document.body.className = me ? '' : 'ro'; renderWelcome(); }
@@ -2350,7 +2366,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
 
   // ---- navigation
-  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'gotw', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live', 'shop'];
+  var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'friendly', 'gotw', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live', 'shop'];
   function go(view, keep) {
     if (view !== 'account' && AM === 'new') AM = 'in'; // (choosing a new password is only ever where the reset link lands)
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
@@ -2366,14 +2382,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if ((view === 'soon' || view === 'shop') && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome'; // (the shop stays behind Experimental until Stripe takes real payments)
     if (view === 'shop' && S.view !== 'shop') shopFrom = S.view;
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
-    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'feed', 'gotw', 'people', 'profile', 'teamview', 'shop'].indexOf(view) < 0) view = 'welcome';
+    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'feed', 'friendly', 'gotw', 'people', 'profile', 'teamview', 'shop'].indexOf(view) < 0) view = 'welcome';
     if (view === 'create' && S.view !== 'create') resetCreate();
     if (view === 'game' && !S.match) view = 'home';
     if (view === 'mins' && !D) view = 'home';
     if (view === 'setup' && !(keep && D)) newDraft();
     S.view = view; saveLocal();
     if (view === 'join') applyTheme(J.d.team.color);
-    else if (view === 'intro' || view === 'welcome' || view === 'account' || view === 'feed' || view === 'gotw' || view === 'people' || view === 'profile') applyTheme(DEFAULT_COLOR); else if (view === 'teamview') applyTheme(TV && TV.d && TV.d.team.color || DEFAULT_COLOR); else if (view !== 'create') applyTheme();
+    else if (view === 'intro' || view === 'welcome' || view === 'account' || view === 'feed' || view === 'friendly' || view === 'gotw' || view === 'people' || view === 'profile') applyTheme(DEFAULT_COLOR); else if (view === 'teamview') applyTheme(TV && TV.d && TV.d.team.color || DEFAULT_COLOR); else if (view !== 'create') applyTheme();
     var fresh = $('v-' + view).hidden;
     VIEWS.forEach(function (v) { $('v-' + v).hidden = v !== view; });
     if (view === 'intro' && fresh) { $('introTrack').scrollLeft = 0; introPaint(); }
@@ -2428,6 +2444,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     return false;
   };
   function render() {
+    document.documentElement.classList.toggle('frteam', !!A.active && frTeam()); // (your friendlies: the team page without what only a real team has)
     renderTabs();
     if (S.view === 'intro') return;
     if (S.view === 'welcome') renderWelcome();
@@ -2437,6 +2454,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (S.view === 'cut') renderCut();
     else if (S.view === 'account') renderAccount();
     else if (S.view === 'feed') renderFeed();
+    else if (S.view === 'friendly') renderFriendly();
     else if (S.view === 'gotw') renderGotw();
     else if (S.view === 'people') renderPeople();
     else if (S.view === 'profile') renderProfile();
@@ -2513,8 +2531,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var myTeams = null, myTeamsBusy = false;
   function joinSay(t, bad) { var el = $('joinMsg'); if (el) { el.textContent = t || ''; el.className = 'msg' + (bad ? ' bad' : ''); } }
   function renderWelcome() {
-    var list = A.teams.slice();
-    (myTeams || []).forEach(function (t) { if (!list.some(function (x) { return x.code === t.code; })) list.push(t); });
+    var list = A.teams.filter(function (t) { return !t.fr; }); // (friendlies are on the friendly screen)
+    (myTeams || []).forEach(function (t) { if (!t.fr && !list.some(function (x) { return x.code === t.code; })) list.push(t); });
     // Signed in, the account's teams come first. While they're still on their way, say so rather than offering to
     // join or start a team (Ethan, signing back in: it asked him to make a team when he already had one).
     var busy = !!(sb && me && (myTeams === null || myTeamsBusy)) && !list.length;
@@ -2527,15 +2545,16 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         '<small class="code">' + esc(t.code) + (t.org && me ? ', gaffer' : '') + '</small></button>';
     }).join('');
     $('acctLine').textContent = me ? 'Signed in as ' + (me.email || 'you') + '.' : 'Already joined a team or run one? Sign in to get your teams back.';
-    $('acctBtn').textContent = me ? 'Account' : 'Sign in'; $('acctNew').hidden = !!me;
+    $('acctBtn').textContent = me ? 'Account' : 'Sign in'; $('acctNew').hidden = !!me; $('wFriendly').hidden = DROID || !sb;
     setSync(sb ? (me ? 'ok' : 'watch') : 'local');
     if (sb && me && myTeams === null) { // every team this account plays for or runs, wherever it was joined
       myTeams = []; myTeamsBusy = true;
       var who = me.id;
       Promise.resolve(sb.rpc('my_teams')).then(function (res) {
         if (!me || me.id !== who) return; // (signed out, or in as someone else, while it was on its way)
-        myTeams = (res.data || []).map(function (t) { return { code: t.code, name: t.name, org: !!t.org }; });
-        myTeams.forEach(function (t) { rememberTeam(t.code, t.name, t.org); });
+        myTeams = (res.data || []).map(function (t) { return { code: t.code, name: t.name, org: !!t.org, fr: !!t.personal }; });
+        myTeams.forEach(function (t) { rememberTeam(t.code, t.name, t.org, t.fr); if (t.fr && t.org) A.friendly = t.code; });
+        saveApp();
       }, function () {}).then(function () { myTeamsBusy = false; if (S.view === 'welcome') renderWelcome(); });
     }
   }
@@ -3744,7 +3763,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var r = recordLine(), m = S.match, own = role === 'owner';
     $('heroName').textContent = teamName(); renderCrest();
     $('soonPill').hidden = !(A.exp && A.exp.track); $('mShop').hidden = !(A.exp && A.exp.track) || DROID;
-    $('homeRecord').textContent = r ? r.short : 'Season starts here';
+    $('homeRecord').textContent = frTeam() ? (S.results.length ? S.results.length + (S.results.length === 1 ? ' friendly' : ' friendlies') + ' played' : 'No friendlies yet') : r ? r.short : 'Season starts here';
+    if (!$('mNew').classList.contains('armed')) $('mNew').textContent = frTeam() ? 'New friendly' : 'New game';
     // the form guide (last five league results, oldest first) and a live fact on each tile
     var lg = S.results.filter(function (x) { return !x.tour && !x.house && !x.friendly; }).slice().sort(function (a, b) { return (a.at || a.koAt || 0) - (b.at || b.koAt || 0); }).slice(-5);
     $('homeForm').innerHTML = lg.map(function (x) { var w = x.us > x.them ? 'W' : x.us < x.them ? 'L' : 'D'; return '<i class="' + w + '" title="' + esc((x.opp ? 'v ' + x.opp + ' ' : '') + x.us + '–' + x.them) + '">' + w + '</i>'; }).join('');
@@ -4010,12 +4030,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- the bar along the bottom: Home, Games, Settings
   function renderTabs() {
     if (AUTO.io) setTimeout(feedPick, 0); // (leaving the feed stops its video)
-    var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'gotw', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = role === 'owner';
+    var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'friendly', 'gotw', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = role === 'owner';
     if (DROID) show = !!A.active && DROID_VIEWS.indexOf(S.view) >= 0 && ['welcome', 'join'].indexOf(S.view) < 0; // (Team, Highlights, Games, Chat and Account)
     $('tabMe').textContent = DROID ? 'Account' : 'Profile';
     $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
-    var cur = S.view === 'profile' ? (PF.tab ? 'profile' : '') : S.view === 'options' ? (optFrom === 'profile' ? 'profile' : 'home') : S.view === 'people' || S.view === 'teamview' ? 'feed' : S.view === 'gotw' ? (GW.back === 'highlights' ? 'highlights' : 'feed') : S.view === 'account' ? 'profile' : S.view;
-    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === cur) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); if (v === 'games' || v === 'chat') b.hidden = !A.active; if (v === 'highlights') b.hidden = !DROID || !A.active; if (v === 'feed') b.hidden = DROID; });
+    var cur = S.view === 'profile' ? (PF.tab ? 'profile' : '') : S.view === 'options' ? (optFrom === 'profile' ? 'profile' : 'home') : S.view === 'people' || S.view === 'teamview' || S.view === 'friendly' ? 'feed' : S.view === 'gotw' ? (GW.back === 'highlights' ? 'highlights' : 'feed') : S.view === 'account' ? 'profile' : S.view;
+    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === cur) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); if (v === 'games' || v === 'chat') b.hidden = !A.active || frTeam(); if (v === 'highlights') b.hidden = !DROID || !A.active; if (v === 'feed') b.hidden = DROID; });
     $('optViewer').hidden = own;
     var todo = myPid == null ? 0 : fixtures.filter(function (f) { return !(f.votes || []).some(function (v) { return v.pid === myPid; }); }).length;
     $('tabBadge').hidden = !todo; $('tabBadge').textContent = todo;
@@ -4181,7 +4201,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     setTimeout(function () { if (!askBusy) { askMsg = ''; renderAsks(); } }, 6000);
   });
   $('mResume').addEventListener('click', function () { go('game'); });
-  armed($('mNew'), 'Scrap the game in progress?', function () { if (role !== 'owner') return; if (S.match) { if (liveOn()) liveEnd(); linkDrop(S.match); S.match = null; save(); } go('setup'); }, function () { return !!S.match; });
+  armed($('mNew'), 'Scrap the game in progress?', function () { if (role !== 'owner') return; if (S.match) { if (liveOn()) liveEnd(); linkDrop(S.match); S.match = null; save(); } if (frTeam()) friendlyOpen('home'); else go('setup'); }, function () { return !!S.match; });
   $('mStats').addEventListener('click', function () { go('stats'); });
   $('mHighlights').addEventListener('click', function () { go('highlights'); });
   $('mInsights').addEventListener('click', function () { go('insights'); });
@@ -4575,7 +4595,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var DL = { i: -1, busy: false, prog: '', msg: '', path: null, bad: false };
   var RB = { pid: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false };
   function rbAd() { return RB.pid != null && RB.pid === myPid && freeTier() && canKeepReel(RB.pid); } // your own reel on the free tier: an ad plays while it's made
-  var guestGame = null, guestSeen = false, GL = { i: -1, msg: '' };
+  var guestGame = null, guestSeen = false, GL = { i: -1, msg: '' }, GLC = ''; // (GLC: what happened to a friendly's personal link)
   function guestLink(r) { return String(CFG.siteUrl || location.origin + location.pathname).replace(/[?#].*$/, '') + '?team=' + encodeURIComponent(A.active || '') + '&game=' + encodeURIComponent(r.id || ''); }
   async function shareGuests(i) { // a message with the game's link, for the guests who played in it
     var r = S.results[i]; if (!r || !r.house) return;
@@ -4595,9 +4615,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function guestCard() { // for someone who opened a game's link: what they're looking at, and what they can do next
     if (!guestGame) return '';
     var r = S.results.filter(function (x) { return x.id === guestGame; })[0], store = String(CFG.appStore || '');
-    return '<div class="hcard guestcard" id="guestCard"><h3>Thanks for playing</h3><p class="note">' + (r ? 'These are the highlights from <b>' + esc(vs(r)) + '</b> with ' + esc(teamName()) + '. They show up here once they’ve been cut.' : 'Loading the game…') + '</p>' +
+    var fr = frGame(r) || !!A.frClaim, mine = fr ? '<p class="note" id="frClaimMsg">' + esc(GLC || (A.frClaim ? (me ? 'Putting the game on your profile…' : 'Make an account or sign in, and this game goes on your profile with your goals and highlights.') : '')) + '</p>' : '';
+    return '<div class="hcard guestcard" id="guestCard"><h3>Thanks for playing</h3><p class="note">' + (r ? 'These are the highlights from <b>' + esc(vs(r)) + '</b>' + (fr ? ', your friendly' : ' with ' + esc(teamName())) + '. They show up here once they’ve been cut.' : 'Loading the game…') + '</p>' + mine +
       (NATIVE ? '' : store ? '<div class="actions"><a class="plain primary btnlink" href="' + esc(store) + '" target="_blank" rel="noopener">Get Gaffer on the App Store</a></div>' : '<p class="note">Get Gaffer for iPhone: search for “' + esc(APP_NAME.replace(':', '')) + '” on the App Store.</p>') +
-      '<p class="note">Want your own stats and clips? Make an account, then join a team with its code, or start your own.</p><div class="actions"><button class="plain" type="button" data-guest="account">Make an account</button><button class="plain" type="button" data-guest="welcome">Join or start a team</button><button class="link" type="button" data-guest="close">Close</button></div></div>';
+      (fr ? '' : '<p class="note">Want your own stats and clips? Make an account, then join a team with its code, or start your own.</p>') + '<div class="actions">' + (me ? '' : '<button class="plain' + (fr ? ' primary' : '') + '" type="button" data-guest="account">Make an account</button>') + (fr ? '' : '<button class="plain" type="button" data-guest="welcome">Join or start a team</button>') + '<button class="link" type="button" data-guest="close">Close</button></div></div>';
   }
   function renderHighlights() {
     if (guestGame) { var gr = S.results.filter(function (x) { return x.id === guestGame; })[0]; if (gr && hlFocus !== gr) { hlFocus = gr; hlBy = 'game'; } }
@@ -4609,7 +4630,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       games.forEach(function (g) {
         var r = g.r, ms = momentsOf(r), timed = r.koAt && ms.length, vids = clips.filter(function (c) { return c.game_id === r.id; });
         var cutBtn = !own || !timed ? '' : NATIVE ? '<button class="plain primary" type="button" data-cut="' + g.i + '">' + (vids.length ? 'Cut again from a video' : 'Cut from a video on this phone') + '</button>' : '';
-        html += '<div class="hcard' + (hlFocus === r ? ' focus' : '') + '" id="hlg-' + g.i + '"><h3>' + scoreBug({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them }) + (r.house ? '<span class="badge">Among ourselves</span>' : r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
+        html += '<div class="hcard' + (hlFocus === r ? ' focus' : '') + '" id="hlg-' + g.i + '"><h3>' + scoreBug({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them }) + (frGame(r) ? '<span class="badge">Friendly</span>' : r.house ? '<span class="badge">Among ourselves</span>' : r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
         var delBtn = own && vids.length ? '<button class="plain danger" type="button" data-hldel="' + g.i + '"' + (HLDEL.busy ? ' disabled' : '') + '>' + (HLDEL.i === g.i && Date.now() < HLDEL.until ? 'Tap again to delete them' : 'Delete these highlights') + '</button>' : '';
         var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
         if (vids.length && RCp()) dlBtn = '<button class="plain tint" type="button" data-beat="' + g.i + '">Make a beat edit</button>' + dlBtn;
@@ -4622,7 +4643,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
             : own ? (NATIVE ? 'No video for this game yet.' : 'No video for this game yet. Open the iPhone app to cut it from a video on your phone.') : 'No video for this game yet. Ask your gaffer to generate it.',
             cutBtn);
-        html += guests + linkClipsHtml(r) + '</div>';
+        html += guests + frLinksHtml(r, g.i) + linkClipsHtml(r) + '</div>';
       });
     } else {
       var byId = {}; S.results.forEach(function (r) { byId[r.id] = r; });
@@ -5100,7 +5121,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (e.target.getAttribute('data-hide') !== null) { var hb = e.target.closest('.hcard').querySelector('[data-clip][aria-pressed="true"]'); if (hb) hideClips([{ g: hb.getAttribute('data-g'), at: +hb.getAttribute('data-at') }], true); }
     else if (e.target.getAttribute('data-unhide') !== null) hideClips(clips.filter(function (c) { return (c.off || []).indexOf(myPid) >= 0; }).map(function (c) { return { g: c.game_id, at: c.at }; }), false);
     else if (e.target.getAttribute('data-guests') !== null) shareGuests(+e.target.getAttribute('data-guests'));
-    else if (e.target.getAttribute('data-guest') !== null) { var gw = e.target.getAttribute('data-guest'); guestGame = null; if (gw === 'close') renderHighlights(); else go(gw); }
+    else if (e.target.closest('[data-frsend]')) { var fs = e.target.closest('[data-frsend]').getAttribute('data-frsend').split(':'); frSend(+fs[0], +fs[1]); }
+    else if (e.target.getAttribute('data-guest') !== null) { var gw = e.target.getAttribute('data-guest'); guestGame = null; GLC = ''; if (gw === 'account' && A.frClaim) A.after = 'highlights'; if (gw === 'close') renderHighlights(); else if (gw === 'account') acctOpen('up'); else go(gw); }
     else if (e.target.getAttribute('data-hldel') !== null) { // twice, then the game's clips go from Highlights and from storage
       var di = +e.target.getAttribute('data-hldel'), dr = S.results[di]; if (!dr || HLDEL.busy) return;
       if (HLDEL.i === di && Date.now() < HLDEL.until) { HLDEL.until = 0; hlDelete(dr, di); }
@@ -5761,11 +5783,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   function renderSetup() {
     if (!D) newDraft();
-    var kind = D.tour || D.fx ? 'opp' : D.kind === 'house' || D.kind === 'solo' ? D.kind : 'opp', house = kind === 'house';
+    var kind = D.tour || D.fx ? 'opp' : D.kind === 'house' ? D.kind : 'opp', house = kind === 'house';
     Array.prototype.forEach.call($('gKind').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-kind') === kind); });
-    $('gKind').hidden = !!(D.tour || D.fx); $('oppSetup').hidden = kind !== 'opp'; $('houseBox').hidden = !house; $('soloBox').hidden = kind !== 'solo';
-    if (kind === 'solo') { $('houseBox').innerHTML = ''; renderSolo(); return; }
-    $('soloBox').innerHTML = '';
+    $('gKind').hidden = $('frFromSetup').hidden = !!(D.tour || D.fx) || DROID; $('oppSetup').hidden = kind !== 'opp'; $('houseBox').hidden = !house;
     if (house) { if (!$('hList')) renderHouse(); else renderHouseList(); return; }
     $('houseBox').innerHTML = '';
     FM.g = D.fmt; fmtShow('g');
@@ -5879,33 +5899,222 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('gKind').addEventListener('click', function (e) {
     var b = e.target.closest('[data-kind]'); if (!b || !D) return;
     D.kind = b.getAttribute('data-kind'); if (D.kind === 'house' && !D.house) D.house = houseDraft();
-    if (D.kind === 'solo' && !D.solo) { var f = fmtDefault('game', defSide()); D.solo = { opp: '', half: f.half, two: f.periods !== 1 }; }
     renderSetup();
   });
-  // ---- just me: a game with no line-up and no subs. Goals for and against, the clock and highlights, on the phone and the
-  // watch. Kept out of the team's record, and nobody is sent a notification about it.
-  function renderSolo() {
-    var o = D.solo;
-    $('soloBox').innerHTML = '<section><h2>Just you</h2><p class="note">No line-up and no subs. Log goals for and against, and keep the time, here or on your Apple Watch. It’s kept out of the team’s record, and nobody gets a notification about it.</p>' +
-      '<label class="field" for="sOpp">Who are you playing? <small>(optional)</small><input id="sOpp" type="text" maxlength="40" autocomplete="off" placeholder="Them" value="' + esc(o.opp) + '"></label>' +
-      '<div class="two"><label class="field" for="sHalf"><span id="sHalfLbl">' + (o.two ? 'Minutes each half' : 'Game length (min)') + '</span><input id="sHalf" type="number" min="1" max="60" inputmode="numeric" value="' + o.half + '"></label>' +
-      '<label class="check" for="sTwo"><input id="sTwo" type="checkbox"' + (o.two ? ' checked' : '') + '><span>Two halves</span></label></div>' +
-      '<div class="actions"><button class="plain primary" id="sKick" type="button">Go to kick-off</button></div></section>';
+  // ---- friendly games (Ethan: "Just me" reworked into a game outside the team). Anyone can play: people from your teams,
+  // anyone on Gaffer, and guests who aren't on it yet. It's played in your own hidden friendlies team (friendly_people makes
+  // it the first time and adds everyone as its players), so the clock, the watch, highlights and reels all work as in any
+  // game. It counts in each player's own stats on their profile, never in a team's. After the game each player can be sent
+  // a personal link (friendly_invite): it shows the game's highlights, and signing in with it puts that player, goals and
+  // all, on their account (friendly_claim).
+  function frTeam(code) { var t = teamMeta(code || A.active); return !!(t && t.fr); }
+  function frGame(r) { return !!(r && r.house && r.house.fr); }
+  function quietGame(m) { return !!(m && (m.solo || frGame(m))); } // (nobody is sent a notification about these)
+  var FR = { d: null, back: 'feed', msg: '', bad: false, busy: false, tcode: '', tppl: null, q: '', found: [], ft: null, lmsg: '', lbad: false };
+  var FR_BACK = { feed: 'Home', home: 'Team', welcome: 'Teams', setup: 'New game', profile: 'Profile', highlights: 'Highlights', games: 'Games' };
+  function frDraft() {
+    if (FR.d) return FR.d;
+    try { FR.d = JSON.parse(localStorage.getItem('apt-friendly')); } catch (e) { FR.d = null; }
+    if (!FR.d || !Array.isArray(FR.d.people)) FR.d = { a: HOUSE_A, b: HOUSE_B, half: 15, two: true, people: [] };
+    if (!FR.d.people.some(function (p) { return p.self; })) FR.d.people.unshift({ k: 'me', self: true, side: 'a' });
+    return FR.d;
   }
-  function soloKick() {
-    var o = D.solo, half = Math.max(1, Math.min(60, Math.round(+$('sHalf').value) || o.half || 15)), periods = $('sTwo').checked ? 2 : 1;
-    var opp = ($('sOpp').value || '').trim().replace(/\s+/g, ' ').slice(0, 40) || 'Them';
-    S.match = { opp: opp, friendly: true, solo: true, order: [], keeper: null, segs: mkSegs([], [], null, half, half, periods),
-                squad: [], gone: [], half: half, sub: half, pitch: 0, periods: periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
-    D = null; lastBlock = -1; pick = null; save(); go('game');
+  function frKeep() { try { localStorage.setItem('apt-friendly', JSON.stringify(FR.d)); } catch (e) {} }
+  function friendlyOpen(from) { if (from && from !== 'friendly') FR.back = from; FR.msg = ''; FR.bad = false; go('friendly'); }
+  var frName = function (p) { return p.self ? ((MYP && (MYP.name || MYP.username)) || 'You') + ' (you)' : p.name || p.u || p.n || ''; };
+  function frSideOf(d) { var a = 0, b = 0; d.people.forEach(function (p) { if (p.side === 'b') b++; else a++; }); return a <= b ? 'a' : 'b'; } // (a new player goes on the smaller side)
+  function frHas(d, p) { return d.people.some(function (x) { return x.k === p.k; }); }
+  function frAdd(p) { var d = frDraft(); if (frHas(d, p)) return; p.side = frSideOf(d); d.people.push(p); frKeep(); renderFrList(); renderFrChips(); }
+  function frPast() { // players of your friendlies team, for "Played with before"
+    var c = A.friendly ? loadCache(A.friendly) : null, mine = c && A.friendly === A.active ? myPid : null;
+    try { if (c && mine == null) mine = (JSON.parse(localStorage.getItem(TKEY + A.friendly + ':roster')) || {}).myPid; } catch (e) {}
+    return c ? (c.players || []).filter(function (p) { return p.id !== mine; }) : [];
   }
-  $('soloBox').addEventListener('click', function (e) { if (D && D.solo && e.target.id === 'sKick') soloKick(); });
-  $('soloBox').addEventListener('input', function (e) {
-    if (!D || !D.solo) return;
-    if (e.target.id === 'sOpp') D.solo.opp = e.target.value;
-    else if (e.target.id === 'sHalf') { var v = Math.round(+e.target.value); if (v >= 1) D.solo.half = Math.min(60, v); }
+  function renderFriendly() {
+    var d = frDraft(), signed = !!(sb && me), html;
+    $('frBack').textContent = FR_BACK[FR.back] || 'Back';
+    if (!signed) {
+      $('frBody').innerHTML = '<p class="note">A game outside your team, with anyone you like. It counts towards each player’s own stats, never towards a team’s record.</p>' +
+        '<div class="card"><h2>Sign in to play a friendly</h2><p class="note">Friendlies go on your profile, and everyone you play with can be sent a link to their highlights, so you need an account.</p><div class="actions"><button class="plain primary" type="button" data-fr="signin">Sign in</button></div></div>' + frMore();
+      return;
+    }
+    var teams = A.teams.filter(function (t) { return !t.fr; });
+    html = '<p class="note">A game outside your team, with anyone you like. It counts towards each player’s own stats on their profile, never towards a team’s record, and nobody is sent a notification about it.</p>' +
+      '<section><h2>Two sides</h2><div class="two"><label class="field" for="frA">One side<input id="frA" type="text" maxlength="20" autocomplete="off" value="' + esc(d.a) + '"></label>' +
+      '<label class="field" for="frB">The other<input id="frB" type="text" maxlength="20" autocomplete="off" value="' + esc(d.b) + '"></label></div>' +
+      '<div id="frList"></div><p class="msg" id="frCount"></p></section>' +
+      '<section><h2>Add players</h2>' +
+      (teams.length ? '<label class="field" for="frTeam">From one of your teams<select id="frTeam"><option value="">Pick a team</option>' + teams.map(function (t) { return '<option value="' + esc(t.code) + '"' + (FR.tcode === t.code ? ' selected' : '') + '>' + esc(t.name || t.code) + '</option>'; }).join('') + '</select></label><div class="chips" id="frSquad"></div>' : '') +
+      '<label class="field" for="frFind">Someone else on Gaffer<input id="frFind" type="search" maxlength="30" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Their name or username" value="' + esc(FR.q) + '"></label><div class="chips" id="frFound"></div>' +
+      '<label class="field" for="frGuest">A guest who isn’t on Gaffer yet<input id="frGuest" type="text" maxlength="30" autocomplete="off" autocapitalize="words" placeholder="First name is fine"></label>' +
+      '<div class="actions"><button class="plain" id="frAddG" type="button">Add the guest</button></div>' +
+      '<div id="frPastBox"></div><p class="note">After the game you can send everyone a link to their highlights. Guests get Gaffer from it, and once they make an account the game goes on their profile.</p></section>' +
+      '<section><h2>How long</h2><div class="two"><label class="field" for="frHalf"><span id="frHalfLbl">' + (d.two ? 'Minutes each half' : 'Game length (min)') + '</span><input id="frHalf" type="number" min="1" max="60" inputmode="numeric" value="' + d.half + '"></label>' +
+      '<label class="check" for="frTwo"><input id="frTwo" type="checkbox"' + (d.two ? ' checked' : '') + '><span>Two halves</span></label></div></section>' +
+      '<p class="msg" id="frMsg" role="status"></p><div class="actions"><button class="plain primary" id="frKick" type="button">Go to kick-off</button></div>' + frMore();
+    $('frBody').innerHTML = html;
+    renderFrList(); renderFrChips(); renderFrMsg();
+    if (FR.tcode && !FR.tppl) frSquadLoad(FR.tcode);
+  }
+  function frMore() { // your friendlies, the ones you've played in, and a link someone sent you
+    var mine = A.friendly && teamMeta(A.friendly), others = A.teams.filter(function (t) { return t.fr && t.code !== A.friendly; }), on = frOn();
+    return '<section><h2>Friendlies so far</h2>' + (mine || others.length ? '<div class="menu">' + (on ? '<button type="button" class="primary" data-frteam="' + esc(A.friendly) + '" data-frview="game">Your friendly is on<small>' + esc(vs(on) + ', ' + tally(on).us + '–' + tally(on).them) + '</small></button>' : '') +
+      (mine ? '<button type="button" class="frrow" data-frteam="' + esc(A.friendly) + '">Your friendlies<small>Results and highlights</small></button>' : '') +
+      others.map(function (t) { return '<button type="button" class="frrow" data-frteam="' + esc(t.code) + '">' + esc(t.name || t.code) + '<small>Friendlies you played in</small></button>'; }).join('') + '</div>' : '<p class="note">None yet.</p>') +
+      '<label class="field" for="frLink">Got a link to a friendly you played in?<input id="frLink" type="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste it here"></label>' +
+      '<div class="actions"><button class="plain" type="button" data-fr="link">Put it on my profile</button></div><p class="msg' + (FR.lbad ? ' bad' : '') + '" id="frLMsg" role="status">' + esc(FR.lmsg) + '</p></section>';
+  }
+  function frOn() { return !A.friendly ? null : A.active === A.friendly ? S.match : (loadCache(A.friendly) || {}).match || null; } // (a friendly that hasn't finished)
+  function renderFrList() {
+    var d = frDraft(), box = $('frList'); if (!box) return;
+    var a = (d.a || '').trim() || HOUSE_A, b = (d.b || '').trim() || HOUSE_B, cut = function (x) { return x.length > 10 ? x.slice(0, 9) + '…' : x; };
+    box.innerHTML = d.people.map(function (p, i) {
+      return '<div class="lrow hrow"><span class="who">' + esc(frName(p)) + '<small>' + esc(p.self ? 'On Gaffer' : p.u ? '@' + p.u + (p.from ? ', ' + p.from : '') : p.pid ? 'Played with you before' : 'Guest' + (p.from ? ', ' + p.from : '')) +
+        (p.self ? '' : ' · <button class="link" type="button" data-frrm="' + i + '">Remove</button>') + '</small></span>' +
+        '<span class="seg">' + [['a', cut(a)], ['b', cut(b)]].map(function (o) { return '<button type="button" data-frside="' + o[0] + '" data-i="' + i + '" class="' + ((p.side || 'a') === o[0] ? 'is' : '') + '" aria-pressed="' + ((p.side || 'a') === o[0]) + '">' + esc(o[1]) + '</button>'; }).join('') + '</span></div>';
+    }).join('');
+    var na = d.people.filter(function (p) { return p.side !== 'b'; }).length, nb = d.people.length - na;
+    $('frCount').textContent = a + ' ' + na + ' v ' + nb + ' ' + b + (nb ? '.' : '. Nobody on ' + b + ' is fine: their goals are just counted.');
+  }
+  function renderFrChips() {
+    var d = frDraft(), chip = function (p, attr) { return frHas(d, p) ? '' : '<button class="pick" type="button" ' + attr + '>+ ' + esc(p.name || p.u || p.n) + (p.u ? ' <small>@' + esc(p.u) + '</small>' : '') + '</button>'; };
+    if ($('frSquad')) $('frSquad').innerHTML = !FR.tcode ? '' : !FR.tppl ? '<p class="note">Getting the squad…</p>' : FR.tppl.map(function (p, i) { return chip(p, 'data-frsq="' + i + '"'); }).join('') || '<p class="note">Everyone from that team is in.</p>';
+    if ($('frFound')) $('frFound').innerHTML = FR.found.map(function (p, i) { return chip(p, 'data-frfd="' + i + '"'); }).join('') || (FR.q.trim().length >= 2 && !FR.ft ? '<p class="note">Nobody found.</p>' : '');
+    var past = frPast().map(function (p) { return { k: 'p:' + p.id, pid: p.id, name: p.name }; }), pb = $('frPastBox');
+    if (pb) pb.innerHTML = past.length ? '<h3>Played with before</h3><div class="chips">' + past.map(function (p) { return chip(p, 'data-frpast="' + p.pid + '"'); }).join('') + '</div>' : '';
+  }
+  function renderFrMsg() { var el = $('frMsg'); if (!el) return; el.textContent = FR.msg; el.className = 'msg' + (FR.bad ? ' bad' : ''); $('frKick').disabled = FR.busy; }
+  async function frSquadLoad(code) { // a team's squad, and which of them are on Gaffer (so they get the game on their own profile)
+    var c = loadCache(code), names = c ? (c.players || []) : [], who = {}; FR.tppl = null; renderFrChips();
+    try { (((await q(sb.rpc('team_people', { p_code: code }))).data) || []).forEach(function (x) { who[x.pid] = x.username; }); } catch (e) {}
+    if (!names.length) { try { var g = (await q(sb.rpc('get_team', { p_code: code }))).data; names = ((g && g.players) || []).map(function (p) { return { id: p.pid, name: p.name }; }); } catch (e) {} }
+    if (FR.tcode !== code) return;
+    var tname = (teamMeta(code) || {}).name || '';
+    FR.tppl = names.filter(function (p) { return !(MYP && who[p.id] && who[p.id].toLowerCase() === String(MYP.username || '').toLowerCase()); }).map(function (p) {
+      return who[p.id] ? { k: 'u:' + who[p.id].toLowerCase(), u: who[p.id], name: p.name, from: tname } : { k: 'n:' + String(p.name).toLowerCase(), n: p.name, name: p.name, from: tname };
+    });
+    renderFrChips();
+  }
+  function frFind() {
+    clearTimeout(FR.ft); var t = FR.q.trim().replace(/^@/, '');
+    if (t.length < 2 || !sb || !me) { FR.found = []; FR.ft = null; renderFrChips(); return; }
+    FR.ft = setTimeout(async function () {
+      var r = []; try { r = (await q(sb.rpc('find_people', { p_query: t }))).data || []; } catch (e) {}
+      if (FR.q.trim().replace(/^@/, '') !== t) return;
+      FR.ft = null; FR.found = r.filter(function (p) { return !p.me; }).map(function (p) { return { k: 'u:' + p.username.toLowerCase(), u: p.username, name: p.name || p.username }; }); renderFrChips();
+    }, 250);
+  }
+  function frGuest() {
+    var el = $('frGuest'), name = el.value.trim().replace(/\s+/g, ' ').slice(0, 30);
+    if (!name || rude(name, true)) { el.value = ''; el.placeholder = name ? 'That name isn’t allowed' : el.placeholder; el.focus(); return; }
+    frAdd({ k: 'n:' + name.toLowerCase(), n: name, name: name }); el.value = ''; el.focus();
+  }
+  async function frKick() {
+    var d = frDraft(); if (FR.busy || !sb || !me) return;
+    if (frOn()) { FR.msg = 'Your last friendly hasn’t finished. Go to it (Your friendly is on, below) and finish it first.'; FR.bad = true; renderFrMsg(); return; }
+    var a = (d.a || '').trim().replace(/\s+/g, ' ') || HOUSE_A, b = (d.b || '').trim().replace(/\s+/g, ' ') || HOUSE_B; if (a.toLowerCase() === b.toLowerCase()) b += ' 2';
+    if (rude(a, true) || rude(b, true)) { FR.msg = 'Pick other names for the sides.'; FR.bad = true; renderFrMsg(); return; }
+    var half = Math.max(1, Math.min(60, Math.round(d.half) || 15)), periods = d.two ? 2 : 1, code = A.friendly, map = {}, ask = [];
+    d.people.forEach(function (p) { if (p.pid && code) map[p.k] = p.pid; else ask.push(p.self ? { k: p.k, self: true } : p.u ? { k: p.k, u: p.u, n: p.name || p.u } : { k: p.k, n: p.n || p.name }); });
+    FR.busy = true; FR.msg = 'Setting up the friendly…'; FR.bad = false; renderFrMsg();
+    var got = null, missing = [];
+    try {
+      if (ask.length || !code) got = (await q(sb.rpc('friendly_people', { p_people: ask }))).data;
+    } catch (e) {
+      FR.busy = false; FR.msg = 'Couldn’t set the friendly up. It needs signal the first time someone new plays; try again when you have it.'; FR.bad = true; renderFrMsg(); return;
+    }
+    FR.busy = false;
+    if (got) {
+      code = got.code; A.friendly = code; rememberTeam(code, got.name, true, true);
+      (got.players || []).forEach(function (x) { if (x.pid) map[x.k] = { pid: x.pid, name: x.name }; else { var p = d.people.filter(function (y) { return y.k === x.k; })[0]; if (p) missing.push(frName(p)); } });
+    }
+    if (!code) return;
+    var side = {}, ids = [], names = {};
+    d.people.forEach(function (p) { var v = map[p.k], id = v && typeof v === 'object' ? v.pid : v; if (!id || side[id]) return; side[id] = p.side === 'b' ? 'b' : 'a'; ids.push(id); if (v && v.name) names[id] = v.name; });
+    if (!ids.length) { FR.msg = 'Add at least one player.'; FR.bad = true; renderFrMsg(); return; }
+    if (A.active !== code) openTeam(code, 'home'); else go('home');
+    Object.keys(names).forEach(function (id) { id = +id; if (!P(id)) S.players.push({ id: id, name: names[id] }); });
+    S.players.forEach(function (p) { if (p.id >= S.nextId) S.nextId = p.id + 1; });
+    var order = ids.filter(function (id) { return side[id] === 'a'; }).concat(ids.filter(function (id) { return side[id] === 'b'; }));
+    S.match = { opp: b, friendly: true, house: { a: a, b: b, side: side, guests: [], fr: true }, order: order, keeper: null, segs: mkSegs([], order, null, half, half, periods),
+                squad: order.slice(), gone: [], half: half, sub: half, pitch: order.length, periods: periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
+    d.people.forEach(function (p) { var v = map[p.k], id = v && typeof v === 'object' ? v.pid : v; if (id && !p.self) { p.pid = id; p.k = 'p:' + id; } }); // (the same people next time, with no signal needed)
+    d.people = d.people.filter(function (p, i, all) { return all.findIndex(function (x) { return x.k === p.k; }) === i; }); frKeep();
+    FR.msg = missing.length ? listAnd(missing) + (missing.length === 1 ? ' isn’t' : ' aren’t') + ' on Gaffer any more, so ' + (missing.length === 1 ? 'isn’t' : 'aren’t') + ' in the game.' : ''; FR.bad = !!missing.length;
+    lastBlock = -1; pick = null; save(); go('game');
+  }
+  async function frClaim(tok) { // a personal link from a friendly: that player is now yours
+    if (!sb || !me || !tok) return null;
+    var r = null; try { r = (await q(sb.rpc('friendly_claim', { p_token: tok }))).data; } catch (e) { return null; }
+    if (A.frClaim === tok) { A.frClaim = null; saveApp(); }
+    if (r && r.code) rememberTeam(r.code, r.name, null, true);
+    return r;
+  }
+  function frClaimSay(r) {
+    return !r ? 'Couldn’t use that link. Check your signal and try again.' : r.status === 'ok' ? 'Done: ' + (r.player || 'that player') + ' in ' + (r.name || 'the friendly') + ' is you now, and the games are on your profile.'
+      : r.status === 'taken' ? 'Someone else has already used that link.' : r.status === 'already' ? 'You’re already in ' + (r.name || 'those friendlies') + ' under another name.' : 'That link doesn’t work. Ask for a new one.';
+  }
+  async function frClaimPending() { if (!A.frClaim || !me) return; var r = await frClaim(A.frClaim); if (r) { GLC = frClaimSay(r); if (S.view === 'highlights') renderHighlights(); if (r.status === 'ok' && r.code === A.active) pull(); } }
+  $('v-friendly').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var d = frDraft(), i = b.getAttribute('data-i'), f = b.getAttribute('data-fr');
+    if (b.id === 'frBack') { go(FR.back === 'friendly' ? 'feed' : FR.back || 'feed'); return; }
+    if (f === 'signin') { A.after = 'friendly'; acctOpen('in'); return; }
+    if (f === 'link') {
+      var raw = ($('frLink').value || '').trim(), m = raw.match(/[?&]me=([0-9a-f-]{36})/i) || raw.match(/^([0-9a-f-]{36})$/i);
+      if (!m) { FR.lmsg = 'That isn’t a friendly link. It ends with “me=” and a long code.'; FR.lbad = true; renderFriendly(); return; }
+      if (!me) { A.frClaim = m[1]; saveApp(); A.after = 'friendly'; acctOpen('in'); return; }
+      FR.lmsg = 'Checking the link…'; FR.lbad = false; renderFriendly();
+      frClaim(m[1]).then(function (r) { FR.lmsg = frClaimSay(r); FR.lbad = !r || r.status !== 'ok'; if (S.view === 'friendly') renderFriendly(); });
+      return;
+    }
+    if (b.hasAttribute('data-frteam')) { var tc = b.getAttribute('data-frteam'); openTeam(tc, b.getAttribute('data-frview') || 'highlights'); return; }
+    if (b.hasAttribute('data-frside')) { d.people[+i].side = b.getAttribute('data-frside'); frKeep(); renderFrList(); return; }
+    if (b.hasAttribute('data-frrm')) { d.people.splice(+b.getAttribute('data-frrm'), 1); frKeep(); renderFrList(); renderFrChips(); return; }
+    if (b.hasAttribute('data-frsq')) { var sq = FR.tppl && FR.tppl[+b.getAttribute('data-frsq')]; if (sq) frAdd(Object.assign({}, sq)); return; }
+    if (b.hasAttribute('data-frfd')) { var fd = FR.found[+b.getAttribute('data-frfd')]; if (fd) frAdd(Object.assign({}, fd)); return; }
+    if (b.hasAttribute('data-frpast')) { var pid = +b.getAttribute('data-frpast'), pp = frPast().filter(function (x) { return x.id === pid; })[0]; if (pp) frAdd({ k: 'p:' + pid, pid: pid, name: pp.name }); return; }
+    if (b.id === 'frAddG') frGuest();
+    else if (b.id === 'frKick') frKick();
   });
-  $('soloBox').addEventListener('change', function (e) { if (D && D.solo && e.target.id === 'sTwo') { D.solo.two = e.target.checked; $('sHalfLbl').textContent = D.solo.two ? 'Minutes each half' : 'Game length (min)'; } });
+  $('v-friendly').addEventListener('input', function (e) {
+    var d = frDraft(), t = e.target;
+    if (t.id === 'frA') { d.a = t.value; frKeep(); renderFrList(); }
+    else if (t.id === 'frB') { d.b = t.value; frKeep(); renderFrList(); }
+    else if (t.id === 'frHalf') { var v = Math.round(+t.value); if (v >= 1) { d.half = Math.min(60, v); frKeep(); } }
+    else if (t.id === 'frFind') { FR.q = t.value; frFind(); }
+  });
+  $('v-friendly').addEventListener('change', function (e) {
+    var d = frDraft(), t = e.target;
+    if (t.id === 'frTwo') { d.two = t.checked; frKeep(); $('frHalfLbl').textContent = d.two ? 'Minutes each half' : 'Game length (min)'; }
+    else if (t.id === 'frTeam') { FR.tcode = t.value; FR.tppl = null; if (t.value) frSquadLoad(t.value); else renderFrChips(); }
+  });
+  $('v-friendly').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.id === 'frGuest') frGuest(); });
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-friendly]'); if (b && !b.closest('#v-friendly')) friendlyOpen(b.getAttribute('data-friendly')); });
+  // After a friendly: a personal link for each player, sent from the game's highlights
+  var FRL = { i: -1, msg: '', busy: false };
+  function frLinksHtml(r, i) {
+    if (!frGame(r) || role !== 'owner' || guestGame) return '';
+    var ids = Object.keys((r.house && r.house.side) || {}).map(Number).filter(function (id) { return id !== myPid && P(id); });
+    if (!ids.length) return '';
+    return '<details class="frlinks"' + (FRL.i === i ? ' open' : '') + '><summary>Send everyone their link</summary><p class="note">Each player gets their own link to these highlights. Anyone not on Gaffer yet gets the app from it, and once they make an account the game goes on their profile.</p>' +
+      '<div class="menu">' + ids.map(function (id) { var cl = (roster[id] || {}).claimed; return '<button type="button" class="frrow" data-frsend="' + i + ':' + id + '"' + (FRL.busy ? ' disabled' : '') + '>' + esc(nm(id)) + '<small>' + (cl ? 'On Gaffer' : 'Not on Gaffer yet') + '</small></button>'; }).join('') + '</div>' +
+      (FRL.i === i && FRL.msg ? '<p class="msg" role="status" id="frlMsg">' + esc(FRL.msg) + '</p>' : '') + '</details>';
+  }
+  async function frSend(i, pid) {
+    var r = S.results[i]; if (!r || !sb || FRL.busy) return;
+    if (!r.id) { r.id = uuid(); save(); }
+    var done = function (msg) { FRL = { i: i, msg: msg, busy: false }; if (S.view === 'highlights') renderHighlights(); };
+    FRL = { i: i, msg: 'Making ' + nm(pid) + '’s link…', busy: true }; renderHighlights();
+    var tok = null; try { tok = (await q(sb.rpc('friendly_invite', { p_code: A.active, p_pid: pid }))).data; } catch (e) {}
+    if (!tok) { done('Couldn’t make the link. Check your signal and try again.'); return; }
+    var url = guestLink(r) + '&me=' + encodeURIComponent(tok), cl = (roster[pid] || {}).claimed;
+    var text = nm(pid) + ', here are your highlights from our friendly, ' + vs(r) + ' (' + r.us + '–' + r.them + '), in Gaffer. ' + (cl ? 'It’s on your profile.' : 'Get the app from the link and make an account, and the game goes on your profile.');
+    var rc = RCp();
+    if (rc) { try { await rc.shareText({ text: text, url: url }); done('Sent to ' + nm(pid) + '.'); return; } catch (e) {} }
+    if (navigator.share) { try { await navigator.share({ text: text, url: url }); done('Sent to ' + nm(pid) + '.'); return; } catch (e) { if (e && e.name === 'AbortError') { done(''); return; } } }
+    try { await navigator.clipboard.writeText(text + ' ' + url); done('Link copied. Paste it into a message to ' + nm(pid) + '.'); } catch (e) { done('Send ' + nm(pid) + ' this link: ' + url); }
+  }
   $('houseBox').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b || !D || !D.house) return;
     var h = D.house, id = +b.getAttribute('data-id'), v = b.getAttribute('data-hside');
@@ -6120,7 +6329,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function renderGame() {
     var m = S.match; if (!m) return;
     var cb = curSeg(m), n = m.segs.length, html = '', i;
-    $('gameTitle').textContent = vs(m) + (m.solo ? ' (just me)' : m.friendly && !m.house ? ' (friendly)' : '');
+    $('gameTitle').textContent = vs(m) + (m.solo ? ' (just me)' : (m.friendly && !m.house) || frGame(m) ? ' (friendly)' : '');
     for (i = 0; i < n; i++) {
       if (i > 0 && m.segs[i].h !== m.segs[i - 1].h) html += '<span class="gap"></span>';
       html += '<span style="flex:' + (m.segs[i].to - m.segs[i].from) + '" class="' + ((m.phase === 'ft' || i < cb) ? 'done' : (i === cb && m.phase !== 'pre' && m.phase !== 'ht') ? 'now' : '') + '"></span>';
@@ -6131,7 +6340,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     $('pitchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'a'; }) : onPitch(m, cb), 'on');
     $('benchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'b'; }) : m.segs[cb].bench, 'off');
     $('swapCard').hidden = $('rotaSec').hidden = !!hs || !!m.solo; $('nowSec').hidden = !!m.solo; // (just me: no line-up at all)
-    $('finNote').textContent = m.solo ? 'Finish game saves the result. It’s kept out of the team’s record.' : 'Finish game saves the result, goals, assists and minutes to your stats.';
+    $('finNote').textContent = m.solo ? 'Finish game saves the result. It’s kept out of the team’s record.' : frGame(m) ? 'Finish game saves the result, goals and assists to each player’s own stats. It never counts for a team.' : 'Finish game saves the result, goals, assists and minutes to your stats.';
     $('goneTag').hidden = $('goneNow').hidden = !m.gone.length;
     $('goneNow').innerHTML = m.gone.map(function (id) { return '<span class="chip gone">' + esc(nm(id)) + '</span>'; }).join('');
     $('nowTitle').textContent = hs ? 'The sides' : m.phase === 'pre' ? 'Starting line-up' : m.phase === 'ht' ? 'Second half line-up' : 'Right now';
@@ -6431,7 +6640,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('kickWatch').addEventListener('click', function () { $('kickPop').hidden = true; if (S.match) go('game'); else { wantGame = A.active; pull(); } });
   $('kickLater').addEventListener('click', function () { $('kickPop').hidden = true; });
   // A goal is timed from the tap on Goal (what the highlights are cut around), not from when the scorer has been picked
-  $('goalUs').addEventListener('click', function () { var m = S.match; if (m && m.solo) { pick = null; addGoal(stamped(m, { us: true })); return; } pick = { step: 'scorer', side: 'a', at: Date.now() }; renderScore(); }); // (just me: nobody to ask)
+  $('goalUs').addEventListener('click', function () { var m = S.match; if (m && (m.solo || (m.house && !pickOrder(m, false, 'a').length))) { pick = null; addGoal(stamped(m, { us: true })); return; } pick = { step: 'scorer', side: 'a', at: Date.now() }; renderScore(); }); // (just me, or nobody on that side: nobody to ask)
   $('hlBtn').addEventListener('click', function () { // marked this second (the clip is cut around it), then: whose was it?
     var m = S.match; if (!m || role !== 'owner') return;
     var e = stamped(m, { hl: true, at: Date.now() }); while (hlFind(m, e.at)) e.at++;
@@ -6446,7 +6655,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var gk = m.segs[curSeg(m)].gk; if (gk == null) return;
     pick = null; m.events.push(stamped(m, { hl: true, k: 'save', p: gk, at: Date.now() })); save(); renderScore();
   });
-  $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; if (m.house) { pick = { step: 'scorer', side: 'b', at: Date.now() }; renderScore(); return; } pick = null; addGoal(stamped(m, { us: false })); });
+  $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; if (m.house && pickOrder(m, false, 'b').length) { pick = { step: 'scorer', side: 'b', at: Date.now() }; renderScore(); return; } pick = null; addGoal(stamped(m, { us: false })); });
   $('undo').addEventListener('click', function () {
     var m = S.match; if (!m) return; pick = null;
     var e = m.events.pop();
@@ -7075,7 +7284,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (liveOn()) liveEnd(); // the game's over, so is its stream
     S.match = null; pick = null; outPick = null; ed = null; lockUntil = 0; lockNote = ''; save(); // (the 8-second lock after a goal belongs to the game just finished)
     var fin = S.results[S.results.length - 1];
-    if (fin && fin.house && fin.house.guests && fin.house.guests.length) hlShow(fin); else go('stats'); // (guests: their link is sent from the game's highlights)
+    if (fin && fin.house && ((fin.house.guests && fin.house.guests.length) || fin.house.fr)) hlShow(fin); else go('stats'); // (a friendly: everyone's link is sent from there too) // (guests: their link is sent from the game's highlights)
   });
 
   // ---- stats
@@ -8603,7 +8812,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   try { // someone opening a game's link (sent to the guests who played in it): follow the team and show that game's highlights
     var qs = new URLSearchParams(location.search), gc = (qs.get('team') || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), gg = (qs.get('game') || '').slice(0, 64);
     if (gc.length === 6) {
-      guestGame = gg || null; A.introSeen = true; rememberTeam(gc, null, null);
+      var gme = (qs.get('me') || '').toLowerCase(); if (/^[0-9a-f-]{36}$/.test(gme)) A.frClaim = gme; // (a friendly's personal link: that player becomes yours once you're signed in)
+      guestGame = gg || null; A.introSeen = true; rememberTeam(gc, null, null, !!A.frClaim);
       if (A.active !== gc) { A.active = gc; S = Object.assign(blankTeam(), loadCache(gc) || {}); }
       S.view = 'highlights'; hlBy = 'game'; saveApp();
       if (history.replaceState) history.replaceState(null, '', location.pathname); // (so a reload doesn't do it again)

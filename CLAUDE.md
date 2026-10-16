@@ -115,7 +115,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0038` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts). New ones are numbered on from 0040 |
+| `supabase/migrations/` | `0001` … `0040` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP). New ones are numbered on from 0041 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -646,16 +646,26 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   page is live), make an account, join or start a team. The link uses the 6-character follow code, never the organiser code.
 - Test: `house.test.mjs`. Guests' names are covered on the privacy page.
 
-### A game of just me (Ethan asked, for playing on his own)
-- New game → "Just me" (`#gKind` `data-kind="solo"`, `D.solo`, `renderSolo`, `soloKick`): an optional opponent (else
-  "Them"), the length and one or two halves, then straight to kick-off. `m.solo = true`, `order: []`, no keeper, one
-  segment per half, `friendly: true` (never in the record, no `game_players`).
-- The game screen hides the line-up, subs card, rota and Save (`#nowSec`, `#swapCard`, `#rotaSec`, `#svBtn`); Goal for us
-  logs straight away (no scorer picker); a highlight never asks whose. No kick-off or goal notifications or pings
-  (`announceGame`, `addGoal`), so the team isn't told about it.
-- The watch gets `players: []` and `changes: []`: no subs buzzes, Highlight logs at once, and Goal for us asks only
-  "Goal for …? Log the goal" (`MatchState.asksScorer`, `confirmUs` in `ContentView.swift`) instead of who scored.
-- Tests: `solo.test.mjs` (phone, watch presses, no notifications, kept out of the record), `tests/watch/main.swift` (25).
+### Friendly games, outside any team (`0040_friendly_games.sql`; Ethan asked for 1.1, replacing "Just me")
+- Started from **Play a friendly** on Home (`#fdFriendly`), the welcome screen (`#wFriendly`) or the link under New game's
+  kinds (`#frFromSetup`); never on Android. Screen `v-friendly` (`renderFriendly`, `FR`, draft kept per phone in
+  `apt-friendly`): two named sides, then players from one of your teams (`#frTeam`: its squad, `team_people` says who's on
+  Gaffer), anyone on Gaffer (`find_people`), guests by name, and "Played with before". You're always in. Side B may be
+  empty (the opponents are just a name: their goals log straight away).
+- Each account has one hidden **friendlies team** (`teams.personal`, never listed, made by `friendly_people` the first
+  time; `A.friendly`, and `fr: true` on its `A.teams` entry). `friendly_people` adds everyone as its players: someone on
+  Gaffer is linked to their account at once (same player every time), a guest is a name (reused by name until claimed).
+  The game is a game among the squad there (`m.house.fr = true`, `quietGame`: no kick-off or goal notifications), so the
+  watch, highlights, cutting and reels all work as usual. It counts in each player's own profile stats (`game_players`),
+  never in a real team's record. Friendlies teams are left out of Your teams, profiles' team lists and following
+  (`private.on_teammate` skips them); their Team page (`html.frteam`) hides the tactics board, settings, chat and games.
+- **Personal links** after the game (`frLinksHtml`, `frSend`: "Send everyone their link" on the game's highlights):
+  `friendly_invite(code, pid)` gives a token; the link is the guest link plus `&me=<token>`. Opening it keeps the token
+  (`A.frClaim`) and shows the highlights; once signed in, `friendly_claim(token)` links that player to the account (statuses
+  ok, taken, already, missing). In the app a link can also be pasted on the friendly screen.
+- The old "Just me" setup is gone; `m.solo` is still understood for a game already going, and the watch's solo handling
+  stays (`tests/watch/main.swift` 25).
+- Tests: `friendly.test.mjs` (four phones: setup, the game, what counts where, links, a guest claiming), `friendlydb.test.mjs`.
 
 ### The team pass: the Gaffer tier per team, from a team pot (`0032_team_pass.sql`, `team-pass`; Ethan asked, October 2026)
 - Anyone on the team chips into the team's pot in the iPhone app: 99p, £1.99, £2.99, or the whole £4.99 (Ethan: "chip in

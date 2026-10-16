@@ -78,6 +78,44 @@
       if (l.to_team !== t.id) return ok('not_yours'); if (l.status !== 'proposed') return ok('closed');
       l.status = a.p_action === 'accept' ? 'accepted' : 'declined'; store(d); return ok('ok');
     }
+    // ---------- friendly games (0039), as the real functions behave: your own hidden friendlies team, its players, personal links
+    if (name === 'friendly_people' || name === 'friendly_invite' || name === 'friendly_claim') {
+      if (!uid()) return fail('Sign in first', '42501');
+      d.friendly_invites = d.friendly_invites || [];
+      const blockedU = (x, y) => (d.blocks || []).some((b) => (b.blocker === x && b.blocked === y) || (b.blocker === y && b.blocked === x));
+      if (name === 'friendly_people') {
+        const list = Array.isArray(a.p_people) ? a.p_people : []; if (list.length > 40) return fail('Up to 40 people in a friendly', '22023');
+        const mine = (d.profiles || []).find((p) => p.user_id === uid()) || {};
+        let t = d.teams.find((x) => x.personal && x.created_by === uid());
+        if (!t) { t = { id: crypto.randomUUID(), code: code(6), organiser_code: code(10), name: ((String(mine.name || '').trim().split(' ')[0]) || mine.username || 'My') + '\'s friendlies', short: 'Friendlies', color: '#1f6b4a', crest: null, settings: {}, followers_can_score: true, listed: false, personal: true, created_by: uid() };
+          d.teams.push(t); d.team_members.push({ team_id: t.id, user_id: uid() }); }
+        const next = () => d.players.filter((p) => p.team_id === t.id).reduce((n, p) => Math.max(n, p.pid), 0) + 1;
+        const out = list.map((x) => {
+          let who = null, nm = null, p = null;
+          if (x.self === true) { who = uid(); nm = String(mine.name || '').trim() || mine.username || 'Me'; }
+          else if (x.u != null) { const pr = (d.profiles || []).find((f) => f.username.toLowerCase() === String(x.u).trim().toLowerCase()); if (pr && !blockedU(uid(), pr.user_id)) { who = pr.user_id; nm = String(pr.name || '').trim() || String(x.n || '').trim() || pr.username; } }
+          else nm = String(x.n || '').trim().replace(/\s+/g, ' ').slice(0, 40) || null;
+          if (who) { p = (d.players.find((y) => y.team_id === t.id && y.user_id === who) || {}).pid ?? null; if (p == null) { p = next(); d.players.push({ team_id: t.id, pid: p, name: nm.slice(0, 40), user_id: who }); } }
+          else if (nm) { p = (d.players.filter((y) => y.team_id === t.id && !y.user_id && y.name.toLowerCase() === nm.toLowerCase()).sort((y, z) => y.pid - z.pid)[0] || {}).pid ?? null; if (p == null) { p = next(); d.players.push({ team_id: t.id, pid: p, name: nm }); } }
+          const row = p == null ? null : d.players.find((y) => y.team_id === t.id && y.pid === p);
+          return { k: x.k ?? null, pid: p, name: row ? row.name : null, linked: !!(row && row.user_id) };
+        });
+        store(d); return ok({ code: t.code, name: t.name, players: out });
+      }
+      if (name === 'friendly_invite') {
+        const t = d.teams.find((x) => x.personal && x.code === String(a.p_code || '').trim().toUpperCase()); if (!t || !isOrg(d, t.id)) return fail('Only for your own friendlies', '42501');
+        if (!d.players.some((p) => p.team_id === t.id && p.pid === a.p_pid)) return ok(null);
+        let i = d.friendly_invites.find((x) => x.team_id === t.id && x.pid === a.p_pid && !x.claimed_by);
+        if (!i) { i = { token: crypto.randomUUID(), team_id: t.id, pid: a.p_pid, claimed_by: null }; d.friendly_invites.push(i); store(d); }
+        return ok(i.token);
+      }
+      const i = d.friendly_invites.find((x) => x.token === a.p_token); if (!i) return ok({ status: 'missing' });
+      const t = d.teams.find((x) => x.id === i.team_id), p = d.players.find((y) => y.team_id === i.team_id && y.pid === i.pid); if (!p) return ok({ status: 'missing' });
+      let st = 'ok';
+      if (p.user_id === uid()) st = 'ok'; else if (p.user_id) st = 'taken'; else if (d.players.some((y) => y.team_id === t.id && y.user_id === uid())) st = 'already'; else p.user_id = uid();
+      if (st === 'ok' && !i.claimed_by) i.claimed_by = uid();
+      store(d); return ok({ status: st, code: t.code, name: t.name, player: p.name });
+    }
     if (name === 'create_team') {
       if (!uid()) return fail('permission denied for function create_team', '42501');
       const t = { id: crypto.randomUUID(), code: code(6), organiser_code: code(10), name: a.p_name, short: a.p_short, color: a.p_color, crest: a.p_crest, settings: a.p_settings, followers_can_score: true };
@@ -190,7 +228,7 @@
         const won = (r) => !r.g.house ? r.g.us > r.g.them : (r.g.house.side || {})[r.gp.pid] === 'b' ? r.g.them > r.g.us : r.g.us > r.g.them;
         const cl = clipsOf(p.user_id), pins = p.pins || [];
         return ok(Object.assign(out, {
-          teams: pls.map((pl) => d.teams.find((x) => x.id === pl.team_id)).filter(Boolean).map((t) => ({ id: t.listed !== false ? t.id : null, name: t.name, short: t.short, color: t.color, crest: t.crest || null })),
+          teams: pls.map((pl) => d.teams.find((x) => x.id === pl.team_id)).filter((t) => t && !t.personal).map((t) => ({ id: t.listed !== false ? t.id : null, name: t.name, short: t.short, color: t.color, crest: t.crest || null })),
           stats: { games: rows.length, goals: rows.reduce((n, r) => n + (r.gp.goals || 0), 0), assists: rows.reduce((n, r) => n + (r.gp.assists || 0), 0), wins: rows.filter(won).length },
           results: rows.sort((x, y) => when(y.g) - when(x.g)).slice(0, 10).map((r) => ({ team: r.t.short, team_name: r.t.name, opp: r.g.opp, us: r.g.us, them: r.g.them, friendly: !!r.g.friendly, house: houseOf(r.g, r.gp.pid), goals: r.gp.goals || 0, assists: r.gp.assists || 0, when: when(r.g) })),
           clips: pins.map((v) => cl.find((c) => c.game_id === v.g && c.at === v.at)).filter(Boolean) }));
@@ -389,7 +427,7 @@
       if (!st || !st.started_at || Date.now() - st.started_at > 4 * 3600000) return ok(null);
       return ok({ hls: st.hls, gid: st.gid, started: st.started_at, on_air: st.on_air_at || null });
     }
-    if (name === 'my_teams') return ok(!uid() ? [] : d.teams.filter((t) => isOrg(d, t.id) || d.players.some((p) => p.team_id === t.id && p.user_id === uid())).map((t) => ({ code: t.code, name: t.name, org: isOrg(d, t.id) })));
+    if (name === 'my_teams') return ok(!uid() ? [] : d.teams.filter((t) => isOrg(d, t.id) || d.players.some((p) => p.team_id === t.id && p.user_id === uid())).map((t) => ({ code: t.code, name: t.name, org: isOrg(d, t.id), personal: !!t.personal })));
     if (name === 'set_my_number') { const t = d.teams.find((x) => x.code === a.p_code); const p = t && d.players.find((x) => x.team_id === t.id && x.user_id === uid()); if (!p) return ok(false); p.shirt_number = a.p_number; store(d); return ok(true); }
     if (name === 'set_my_position') { const t = d.teams.find((x) => x.code === a.p_code); const p = t && d.players.find((x) => x.team_id === t.id && x.user_id === uid()); if (!p) return ok(false); p.position = a.p_position; store(d); return ok(true); }
     if (name === 'vote_fixture') {
