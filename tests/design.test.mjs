@@ -16,6 +16,10 @@ const px = css.split('\n').filter((l) => /font-size: ?[0-9.]+px/.test(l) && !/\.
 eq(px, [], 'no text size is fixed in pixels (only the little clip preview, which is a drawing of a video frame)');
 const inline = html.slice(html.indexOf('</style>')).match(/font-size: ?[0-9.]+px/g) || [];
 eq(inline, [], 'nor in the screens the script draws');
+// ---------- Settings is a cog, a wheel with teeth (Ethan: the old one with lines round a circle looked like a sun)
+const cogs = html.match(/<button[^>]*id="(mOptions|prGear)"[^>]*>(<svg[^]*?<\/svg>)/g) || [];
+eq(cogs.length, 2, 'both Settings buttons are found (the gear in the team\'s header and on your own profile)');
+check(cogs.every((b) => /class="cog"/.test(b) && /<path d="M[^"]*Z"/.test(b) && !/M12 2\.8v2\.4/.test(b)), 'both draw the cog (one closed outline with teeth round a hole), not the old sun');
 
 const A = await w.phone({ db: true, native: true, label: 'ethan' });
 // ---------- the welcome screen: the team code leads, the rest is one quiet list under it

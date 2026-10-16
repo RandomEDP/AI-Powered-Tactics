@@ -609,7 +609,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   ever shown outside their team, and never the team's code or squad.
 - Anyone signed in watches them and votes (`gotw_vote`, one a week, changeable; never for a team they play for or run).
   Counts stay hidden until the week is over. Screen: `v-gotw` (`renderGotw`, `GW`, `gwLoad`), reached from the strip at
-  the top of Home and of Highlights (`gwStrip`, both platforms; Android's players vote too) and from the notification.
+  the top of Home and of Highlights (`gwStrip`, both platforms; Android's players vote too), the Team page's own tile
+  (`#mGotw`; never behind Experimental, Ethan before 1.1) and from the notification.
 - `gotw_board` settles ended weeks first (`private.gotw_settle`: most votes, a tie to the earliest nominated, at least one
   vote) and returns this week's entries, your vote and the latest winner. The first phone to see a winner not yet
   announced calls `team-notify` kind `gotw` (once a week, checked on the server: the winning team's people, the other
