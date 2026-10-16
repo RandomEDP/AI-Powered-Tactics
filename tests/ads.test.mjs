@@ -106,11 +106,11 @@ const w = await world();
 const setup = () => { // Google's AdMob, as the web app sees it
   window.__ad = []; const L = {};
   window.Capacitor.Plugins.AdMob = {
-    initialize: async () => { window.__ad.push('initialize'); }, requestConsentInfo: async () => { window.__ad.push('consent'); return { status: 'NOT_REQUIRED', canRequestAds: true, privacyOptionsRequirementStatus: 'NOT_REQUIRED' }; },
+    initialize: async () => { window.__ad.push('initialize'); }, requestConsentInfo: async () => { window.__ad.push('consent'); if ((window.__hang || {}).consent) await new Promise(() => {}); return { status: 'NOT_REQUIRED', canRequestAds: true, privacyOptionsRequirementStatus: 'NOT_REQUIRED' }; },
     trackingAuthorizationStatus: async () => ({ status: window.__att || 'notDetermined' }), requestTrackingAuthorization: async () => { window.__ad.push('att'); window.__att = 'denied'; },
-    prepareRewardVideoAd: async (o) => { window.__ad.push(['prepare', o]); return { adUnitId: o.adId }; },
+    prepareRewardVideoAd: async (o) => { window.__ad.push(['prepare', o]); if ((window.__hang || {}).load) await new Promise(() => {}); return { adUnitId: o.adId }; },
     addListener: (n, f) => { (L[n] = L[n] || []).push(f); return Promise.resolve({ remove: () => { L[n] = (L[n] || []).filter((x) => x !== f); } }); },
-    showRewardVideoAd: () => { window.__ad.push('show'); const early = window.__adEarly; return new Promise((res) => setTimeout(() => {
+    showRewardVideoAd: () => { window.__ad.push('show'); const early = window.__adEarly; if (!(window.__hang || {}).show) setTimeout(() => (L.onRewardedVideoAdShowed || []).forEach((f) => f()), 300); else return new Promise(() => {}); return new Promise((res) => setTimeout(() => {
       if (!early) { (L.onRewardedVideoAdReward || []).forEach((f) => f({ type: 'Reward', amount: 1 })); res({ type: 'Reward', amount: 1 }); }
       (L.onRewardedVideoAdDismissed || []).forEach((f) => f()); }, 30000)); }, // (a 30-second ad)
     showPrivacyOptionsForm: async () => { window.__ad.push('choices'); },
@@ -225,6 +225,23 @@ eq([await shows() - s0, /closed before the end/.test(await J.text('#rbMsg')), aw
 await J.click('#rbClose'); await J.run(800);
 eq(await J.page.$$eval(mine + ' [data-ad="reel"]', (b) => b.length), 1, 'it\'s on his card behind the ad, to watch there');
 await J.page.evaluate(() => { window.__adEarly = false; });
+
+// Google never answering (Ethan's phone sat on "Getting the ad…"): each step gives up and says so, and the reel still lands
+await J.page.reload(); await J.run(2000); await openMine(); s0 = await shows();
+await J.page.evaluate(() => { window.__hang = { consent: true, load: true }; Object.assign(window.gafferAdMs, { consent: 1500, load: 3000 }); });
+await J.click(mine + ' [data-ad="reel"]'); await J.run(800);
+check(/Checking your ad choices/.test(await J.text(mine)), 'it says which step it\'s on (checking your ad choices)');
+await J.run(2000);
+check(/Loading the ad/.test(await J.text(mine)), 'no answer about ad choices: it carries on and loads the ad');
+await J.run(4000);
+eq([await shows() - s0, /didn’t send an ad in time/.test(await J.text(mine)), await J.page.$eval(mine + ' [data-ad="reel"]', (b) => b.disabled)], [0, true, false], 'no ad from Google in time: it stops, says so, and the button can be tapped again');
+await J.click('#hlList [data-preel="2"]'); await J.run(300); await J.click('#rbMake'); await J.run(6000);
+eq([/didn’t send an ad in time/.test(await J.text('#rbMsg')), /on your card/.test(await J.text('#rbMsg')), await J.visible('#rbShare')], [true, true, false], 'making his reel with no ad coming: the reel goes on his card, locked, and it says why');
+await J.click('#rbClose'); await J.run(800);
+await J.page.evaluate(() => { window.__hang = { show: true }; Object.assign(window.gafferAdMs, { load: 30000, open: 3000 }); });
+await J.click(mine + ' [data-ad="reel"]'); await J.run(5000);
+check(/didn’t open/.test(await J.text(mine)), 'an ad that loads but never opens: it stops and says so');
+await J.page.evaluate(() => { window.__hang = null; }); await J.page.reload(); await J.run(2000);  await openMine();
 
 // Gaffer closed after the ad was watched but before the reel was made: that ad counts for the next go
 await J.page.evaluate(() => { window.__hold = new Promise(() => {}); }); s0 = await shows();

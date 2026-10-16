@@ -802,6 +802,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   name, and shares it only once the ad was watched. Closed early: it's on your card, locked. The name, ticket and whether
   the ad was watched are kept on the phone (`apt-ad-ahead`) until the reel is on the card, so if Gaffer is closed after
   the ad, the next go uses the same name and needs no second ad.
+- **Every step of Google's has a time limit** (`adStep`, `AD_MS`; Ethan's phone sat on "Getting the ad…" for good): starting, the consent check (no answer: carry on), loading (30 s: "Google didn't send an ad in time") and the ad opening (20 s after show with no `onRewardedVideoAdShowed`). Each step says what it's doing ("Checking your ad choices…", "Loading the ad…"), so a screenshot shows where it stopped. A brand-new AdMob app gets few or no real ads until it's live on the App Store and linked in AdMob; a test device gets test ads.
 - First ad of a session: `initialize`, Google's consent form where the law needs it (UK/EU; Settings → Ads → Ad choices
   reopens it), then Apple's tracking question (`NSUserTrackingUsageDescription`). Either answer still unlocks.
 - **Real ads are on (15 October 2026):** Gaffer's app id `ca-app-pub-2627873247729818~2068368869` is in `Info.plist`

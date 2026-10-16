@@ -7551,20 +7551,32 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function adDraw() { if (S.view === 'highlights') renderHighlights(); if (S.view === 'options') renderOptions(); }
   var AD_ERR = { sign_in: 'Sign in first.', no_team: 'This team couldn’t be found. Check your signal and try again.', no_reel: 'That reel has been replaced. Pull down to refresh and try again.',
     not_allowed: 'Only you can unlock your own reel. Join the squad as yourself first.' };
-  async function adSetup(am) { // once a session: start Google's ads, ask about personalised ads where the law needs it (UK and EU), then Apple's tracking question
+  var AD_LATE = {}; // (not an answer: a step that took too long)
+  function adStep(p, ms) { // one of Google's steps, given up on after ms (an answer that never comes left it on "Getting the ad…" for good)
+    return new Promise(function (ok, no) { var t = setTimeout(function () { ok(AD_LATE); }, ms); Promise.resolve(p).then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); no(e); }); });
+  }
+  var AD_MS = { init: 10000, consent: 15000, form: 120000, track: 5000, ask: 60000, load: 30000, open: 20000 }; window.gafferAdMs = AD_MS; // (tests shorten these)
+  async function adSetup(am, say) { // once a session: start Google's ads, ask about personalised ads where the law needs it (UK and EU), then Apple's tracking question
     if (AD.setup) return;
-    await am.initialize({});
-    try { var ci = await am.requestConsentInfo(); if (ci && ci.status === 'REQUIRED' && ci.isConsentFormAvailable) ci = await am.showConsentForm();
-      if (ci && ci.canRequestAds === false) throw new Error('Ads can’t be shown until you’ve made a choice about them. Tap it again to see the choices.'); }
-    catch (e) { if (e && /choice/.test(e.message || '')) throw e; } // (no answer from Google about the form: carry on, it asks again next time)
-    try { var ts = await am.trackingAuthorizationStatus(); if (ts && ts.status === 'notDetermined') await am.requestTrackingAuthorization(); } catch (e) {} // (either answer still unlocks it; it only changes which ads Google picks)
+    say = say || function () {};
+    say('Starting Google’s ads…');
+    if ((await adStep(am.initialize({}), AD_MS.init)) === AD_LATE) throw new Error('Google’s ads didn’t start. Check your signal and try again.');
+    say('Checking your ad choices…');
+    try { var ci = await adStep(am.requestConsentInfo(), AD_MS.consent); // (no answer from Google about the form: carry on, it asks again next time)
+      if (ci !== AD_LATE && ci && ci.status === 'REQUIRED' && ci.isConsentFormAvailable) { ci = await adStep(am.showConsentForm(), AD_MS.form); if (ci === AD_LATE) ci = null; }
+      if (ci && ci !== AD_LATE && ci.canRequestAds === false) throw new Error('Ads can’t be shown until you’ve made a choice about them. Tap it again to see the choices.'); }
+    catch (e) { if (e && /choice/.test(e.message || '')) throw e; }
+    try { var ts = await adStep(am.trackingAuthorizationStatus(), AD_MS.track); if (ts && ts !== AD_LATE && ts.status === 'notDetermined') await adStep(am.requestTrackingAuthorization(), AD_MS.ask); } catch (e) {} // (either answer still unlocks it; it only changes which ads Google picks)
     AD.setup = true;
   }
   function adShow(am) { // shows the loaded ad; true once it's been watched to the end (closing it early unlocks nothing)
     return new Promise(function (resolve, reject) {
       var got = false, hs = [], end = function (fn, v) { hs.forEach(function (h) { Promise.resolve(h).then(function (x) { if (x && x.remove) x.remove(); }); }); fn(v); };
-      hs.push(am.addListener('onRewardedVideoAdReward', function () { got = true; }));
-      hs.push(am.addListener('onRewardedVideoAdDismissed', function () { setTimeout(function () { end(resolve, got); }, 300); })); // (the reward can land just after it closes)
+      var open = false, seen = function () { open = true; }; // (iOS can fail to put the ad up without saying so; give up if it hasn't opened)
+      setTimeout(function () { if (!open) end(reject, new Error('The ad didn’t open. Close any other pop-up and try again.')); }, AD_MS.open);
+      hs.push(am.addListener('onRewardedVideoAdShowed', seen));
+      hs.push(am.addListener('onRewardedVideoAdReward', function () { got = true; seen(); }));
+      hs.push(am.addListener('onRewardedVideoAdDismissed', function () { seen(); setTimeout(function () { end(resolve, got); }, 300); })); // (the reward can land just after it closes)
       hs.push(am.addListener('onRewardedVideoAdFailedToShow', function (e) { end(reject, new Error('The ad wouldn’t play' + (e && e.message ? ': ' + e.message : '') + '. Try again in a moment.')); }));
       am.showRewardVideoAd().then(function () { got = true; }, function (e) { end(reject, new Error('The ad wouldn’t play' + (e && e.message ? ': ' + e.message : '') + '. Try again in a moment.')); });
     });
@@ -7589,9 +7601,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (tk.error === 'not_needed') return 'unlocked';
     if (tk.error || !tk.ticket) throw new Error(AD_ERR[tk.error] || 'Couldn’t get an ad. Check your signal and try again.');
     if (o.ticket) o.ticket(tk.ticket);
-    await adSetup(am);
-    try { await am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }); }
-    catch (e) { throw new Error('No ad is available right now. Try again in a minute.'); }
+    await adSetup(am, say);
+    say('Loading the ad…');
+    var ld;
+    try { ld = await adStep(am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }), AD_MS.load); }
+    catch (e) { throw new Error('Google had no ad to show right now' + (e && e.message ? ' (' + e.message + ')' : '') + '. Try again in a minute.'); }
+    if (ld === AD_LATE) throw new Error('Google didn’t send an ad in time. Try again in a minute.');
     say('The ad is playing…');
     if (!(await adShow(am))) return 'closed';
     if (o.watched) o.watched();
