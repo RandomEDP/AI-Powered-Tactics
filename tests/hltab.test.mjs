@@ -44,6 +44,7 @@ await A.page.reload(); await A.run(1500);
 // ---------- My teams: the open team's highlights, and the other teams to switch to
 await A.click('#tabs [data-tab="highlights"]'); await A.run(600);
 eq([await A.view(), await scope(A), await A.visible('#hlToggle'), await A.page.$eval('#tabs [data-tab="highlights"]', (b) => b.getAttribute('aria-current'))], ['highlights', 'My teams', true, 'page'], 'the Highlights tab opens on My teams, with By game and By player');
+check(!(await A.visible('#hlBack')), 'the tab is its own place: no back button');
 eq(await A.page.$$eval('#hlTeams button', (b) => b.map((x) => x.textContent + (x.getAttribute('aria-pressed') === 'true' ? '*' : ''))), ['Sons of Pitches FC*', 'Dog Squad'], 'the teams on the phone to switch between (the friendlies team isn’t one of them)');
 check(/Cat FC/.test(await A.text('#hlList')) && !/Hamsters/.test(await A.text('#hlList')), 'showing Sons of Pitches FC’s games');
 await shot(A, 'hltab-teams');
@@ -65,7 +66,7 @@ await shot(A, 'hltab-me');
 await A.click('#tabs [data-tab="home"]'); await A.click('#tabs [data-tab="highlights"]'); await A.run(300);
 eq([await scope(A), await A.page.isChecked('#hlFr')], ['Just me', true], 'back on the tab: still Just me, friendlies still in');
 await A.click('#tabs [data-tab="home"]'); await A.click('#mHighlights'); await A.run(300);
-eq(await scope(A), 'My teams', 'the Team page’s Highlights tile opens the team’s highlights');
+eq([await scope(A), await A.visible('#hlBack')], ['My teams', true], 'the Team page’s Highlights tile opens the team’s highlights, with a way back');
 await A.page.reload(); await A.run(1200); await A.click('#tabs [data-tab="home"]'); await A.click('#tabs [data-tab="highlights"]'); await A.run(300);
 eq(await scope(A), 'Just me', 'the tab’s own choice is kept on the phone');
 

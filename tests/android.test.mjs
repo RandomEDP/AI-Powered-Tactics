@@ -44,7 +44,7 @@ check((w.db().clips || []).length >= 1, 'the gaffer has cut the game\'s highligh
 await home(A); await A.run(300);
 await A.click('#tabs [data-tab="games"]'); await A.click('#gamesNew'); await A.page.fill('#pOpp', 'Rovers'); await A.page.fill('#pDate', '2026-10-14'); await A.page.fill('#pTime', '19:30'); await A.click('#pSave'); await A.run(800);
 check((w.db().fixtures || []).length === 1, 'and put up a poll for Wednesday\'s game');
-await A.click('#tabs [data-tab="chat"]'); await A.run(400);
+await A.click('#tabs [data-tab="home"]'); await A.click('#mChat'); await A.run(400);
 await A.page.fill('#chatText', 'Who is driving Wednesday?'); await A.page.press('#chatText', 'Enter'); await A.run(600);
 
 // ---------- Jake, on an Android phone
@@ -93,7 +93,7 @@ eq([await J.view(), await J.visible('#chatForm'), /Who is driving Wednesday\?/.t
 check(!(await J.page.$('#chatBody .plink')), 'names in the chat aren\'t links to profiles (there are none on Android)');
 await J.page.fill('#chatText', 'I can drive'); await J.page.press('#chatText', 'Enter'); await J.run(800);
 check((w.db().messages || []).some((m) => m.body === 'I can drive'), 'Jake\'s reply goes to the team');
-await w.run(2000); await A.click('#tabs [data-tab="home"]'); await A.click('#tabs [data-tab="chat"]'); await A.run(1500);
+await w.run(2000); await A.click('#tabs [data-tab="home"]'); await A.click('#mChat'); await A.run(1500);
 check(/I can drive/.test(await A.text('#chatBody')), 'and the gaffer sees it on the iPhone');
 await J.click('#chatBody .cmsg:not(.mine) [data-chmsg]'); await J.run(300);
 eq([await J.visible('#chatBody [data-chrep]'), await J.visible('#chatBody [data-chmute]')], [true, true], 'someone else\'s message can be reported or blocked (Google\'s rules for people talking to each other)');
