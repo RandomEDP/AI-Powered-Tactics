@@ -18,6 +18,10 @@ const inline = html.slice(html.indexOf('</style>')).match(/font-size: ?[0-9.]+px
 eq(inline, [], 'nor in the screens the script draws');
 
 const A = await w.phone({ db: true, native: true, label: 'ethan' });
+// ---------- the welcome screen: the team code leads, the rest is one quiet list under it
+const wl = await A.page.evaluate(() => ['createBtn', 'acctBtn', 'acctNew', 'pplBtn'].map((id) => { const b = document.getElementById(id); return [!!b.closest('.wlist'), Math.round(b.getBoundingClientRect().height)]; }));
+check(wl.every(([inList, h]) => inList && h >= 44), `Start a team, Sign in, Create account and Open your feed are rows of one list, each at least 44 points tall (${JSON.stringify(wl)})`);
+check(await A.page.evaluate(() => document.querySelectorAll('#v-welcome .plain.primary').length === 1 && !!document.querySelector('#wJoin .plain.primary')), 'Find team is the one main button on the welcome screen');
 await A.click('#createBtn'); await A.signUp('ethan@example.com');
 await A.page.fill('#tName', 'Sons of Pitches FC'); await A.page.fill('#tShort', 'SOP FC'); await A.click('#tColors button[data-c="#4c2bb0"]');
 await A.page.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await A.click('#tCreate'); await A.run(600);
@@ -35,11 +39,27 @@ const contrast = await p.evaluate(() => {
 });
 check(contrast.bib >= 4.5 && contrast.bibSoft >= 4.5, `the bib orange reads as ordinary text on the page and on its own chips (${contrast.bib}:1, ${contrast.bibSoft}:1)`);
 check(contrast.red >= 4.5 && contrast.muted >= 4.5, `red for anything risky, and grey notes on grey buttons, are easy to read too (${contrast.red}:1, ${contrast.muted}:1)`);
+// (the UI/UX review: in dark mode the orange and red are lighter, so white writing on them was 2.3:1 and 3.1:1)
+const onFill = async () => p.evaluate(() => {
+  const st = getComputedStyle(document.documentElement), v = (k) => st.getPropertyValue(k).trim();
+  const hex = (c) => c.length === 4 ? '#' + [...c.slice(1)].map((x) => x + x).join('') : c;
+  const L = (h) => { h = hex(h); const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((x) => x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const r = (a, b) => { const x = L(a), y = L(b); return Math.round((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05) * 100) / 100; };
+  return { bench: r(v('--bib-ink'), v('--bib')), del: r(v('--danger-ink'), v('--agg')) };
+});
+for (const scheme of ['light', 'dark']) {
+  await p.emulateMedia({ colorScheme: scheme });
+  const c = await onFill();
+  check(c.bench >= 4.5 && c.del >= 4.5, `${scheme} mode: writing on a picked Bench button and on a red "Tap to confirm" is easy to read (${c.bench}:1, ${c.del}:1)`);
+}
+await p.emulateMedia({ colorScheme: 'light' });
 
 // ---------- the Team page: the settings gear in the header, a fact on each tile
 check(await p.evaluate(() => !!document.querySelector('.hero #mOptions')) && /Team settings/.test(await A.text('#mOptions')), 'Team settings is the gear in the team\'s header (and says so to VoiceOver)');
 eq([await A.text('#mStatsSub'), await A.text('#mHlSub'), await A.text('#mInsSub')], ['Fills up as you play', 'Cut from your videos', 'Ratings and chemistry'], 'before any games, each tile says what it\'s for');
 eq(await A.text('#homeForm'), '', 'and there\'s no form guide yet');
+const tileTops = await p.evaluate(() => ['mStats', 'mHighlights', 'mInsights', 'mBoard'].map((id) => { const b = document.getElementById(id), t = [...b.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim()); const g = document.createRange(); g.selectNodeContents(t); return Math.round(g.getBoundingClientRect().top - b.getBoundingClientRect().top); }));
+check(Math.abs(tileTops[0] - tileTops[1]) <= 1 && Math.abs(tileTops[2] - tileTops[3]) <= 1, `the tiles' titles sit at the same height across each row, whatever their fact says (${tileTops})`);
 
 // ---------- match mode
 await A.newGame('Dog Squad'); await A.click('#go'); await A.run(3000);
@@ -52,6 +72,8 @@ check(d.bottom === d.vh && d.us && d.hl, 'and still there after scrolling down t
 await p.evaluate(() => window.scrollTo(0, 0));
 check(await p.evaluate(() => !!document.querySelector('#clock #usN') && !!document.querySelector('#clock #themN')), 'the score is in the clock panel, the headline of the screen');
 await shot(A, 'match-mode');
+const svLines = await p.evaluate(() => { const b = document.getElementById('svBtn'), t = [...b.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim()); const g = document.createRange(); g.selectNodeContents(t); return new Set([...g.getClientRects()].map((x) => Math.round(x.top))).size; });
+eq(svLines, 1, '"Keeper save" fits on one line in the dock, next to Highlight and Undo');
 await A.click('#goalUs'); await A.run(300); await p.waitForTimeout(500);
 const sheet = await p.evaluate(() => { const b = [...document.querySelectorAll('#picker .chips .pick:not(.wide)')].map((x) => x.getBoundingClientRect()); const s = document.querySelector('#picker .picker').getBoundingClientRect(); return { cols: new Set(b.map((x) => Math.round(x.left))).size, widths: new Set(b.map((x) => Math.round(x.width))).size, tall: Math.min(...b.map((x) => x.height)), bottom: Math.round(s.bottom), vh: innerHeight, cancel: !!document.querySelector('#picker .phead [data-cancel]') }; });
 check(sheet.cols === 2 && sheet.widths === 1 && sheet.tall >= 44, `Who scored? is two even columns of names, each at least 44 points tall (${JSON.stringify(sheet)})`);
@@ -63,6 +85,14 @@ eq([await A.text('#usN'), await p.evaluate(() => document.getElementById('dock')
 check(/^Goal: Jake/.test(await A.text('#events li:first-child span:nth-child(2)')), 'the list of what\'s happened says Goal: before our scorer, as it does for theirs');
 await A.run(9000);
 eq(await p.evaluate(() => document.getElementById('dock').classList.contains('locked')), false, 'and unlocks after');
+// ---------- Player injured or leaving, and the subs pop-ups, are sheets like Who scored?
+await A.click('#outBtn'); await p.waitForTimeout(500);
+const outSheet = await p.evaluate(() => { const b = [...document.querySelectorAll('#outPicker .chips .pick')].map((x) => x.getBoundingClientRect()); const s = document.querySelector('#outPicker .picker').getBoundingClientRect(); return { cols: new Set(b.map((x) => Math.round(x.left))).size, tall: Math.min(...b.map((x) => x.height)), bottom: Math.round(s.bottom), vh: innerHeight, cancel: !!document.querySelector('#outPicker .phead [data-cancel]'), grabber: getComputedStyle(document.querySelector('#outPicker .picker'), '::before').width }; });
+check(outSheet.cols === 2 && outSheet.tall >= 44 && Math.abs(outSheet.bottom - outSheet.vh) <= 1 && outSheet.cancel && outSheet.grabber === '38px', `Who is out? is a sheet from the bottom with a grabber, Cancel at the top and two even columns (${JSON.stringify(outSheet)})`);
+await p.evaluate(() => { const o = document.getElementById('outPicker'); o.dispatchEvent(new MouseEvent('click', { bubbles: true })); }); await A.run(200);
+eq(await p.evaluate(() => document.getElementById('outPicker').innerHTML), '', 'a tap outside it closes it, as with the other sheets');
+const segH = await p.evaluate(() => { const d = document.createElement('div'); d.className = 'seg'; d.innerHTML = '<button type="button">Bench</button>'; document.body.appendChild(d); const h = d.firstChild.getBoundingClientRect().height; d.remove(); return Math.round(h); });
+check(segH >= 44, `the line-up's Start, Bench and Out buttons are 44 points tall, like every other button (${segH})`);
 const ws = await A.watch();
 eq(ws.color, '#4c2bb0', 'the watch is sent the team\'s colour, so its Goal button wears the kit');
 await A.click('#finish'); await A.click('#finish'); await A.run(1500);
@@ -103,7 +133,18 @@ await p.evaluate(() => window.scrollTo(0, 0)); await A.run(300);
 check(await p.evaluate(() => { const e = document.getElementById('expTrack'), g = document.getElementById('optGaffer'); return !!(g.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING); }), 'Experimental comes after the team\'s own settings');
 check(await p.evaluate(() => getComputedStyle(document.getElementById('oCrest')).position === 'absolute') && await A.visible('label[for="oCrest"]'), 'the crest has a "Choose a picture" button, not the browser\'s own file box');
 check(await p.evaluate(() => ['wipe', 'leave', 'oDelete'].every((id) => document.getElementById(id).classList.contains('danger'))), 'Reset all stats, Remove team and Delete my account are red');
+const fmt = await p.evaluate(() => ['setHalf', 'setSub', 'setPitch'].map((id) => Math.round(document.getElementById(id).getBoundingClientRect().top)));
+check(new Set(fmt).size === 1, `Match format's three boxes line up, even with "Sub every (min)" on two lines (${fmt})`);
 await shot(A, 'settings', true);
+// Removing a player takes their stats too, so it's two taps (the first turns × into a red Remove)
+const squadN = async () => p.evaluate(() => document.querySelectorAll('#squad [data-rm]').length);
+const n0 = await squadN();
+await A.click('#squad [data-rm]'); await A.run(200);
+eq([await squadN(), await A.text('#squad [data-rm].armed')], [n0, 'Remove'], 'one tap on × only asks: it turns into a red Remove');
+await A.run(4500);
+eq([await squadN(), await p.evaluate(() => document.querySelectorAll('#squad [data-rm].armed').length)], [n0, 0], 'left alone, it goes back to × with nobody removed');
+await A.click('#squad [data-rm]'); await A.click('#squad [data-rm]'); await A.run(300);
+eq(await squadN(), n0 - 1, 'and a second tap removes the player');
 await A.click('#optBack'); await A.run(300);
 
 // ---------- Games as a list

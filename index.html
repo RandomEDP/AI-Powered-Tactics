@@ -28,27 +28,27 @@
   --pitch: var(--team); --pitch-ink: var(--team-ink); --pitch-dim: color-mix(in srgb, var(--team-ink) 74%, var(--team)); --pitch-deep: color-mix(in srgb, var(--team) 60%, #000);
   --pitch-veil: color-mix(in srgb, var(--team-ink) 14%, transparent);
   --on: var(--team); --on-soft: color-mix(in srgb, var(--team) 13%, #fff); --on-ink: var(--team-ink);
-  --bib: #b03f08; --bib-soft: #fde5d6; --gold: #ffc83d;
+  --bib: #b03f08; --bib-soft: #fde5d6; --bib-ink: #fff; --gold: #ffc83d;
   --scrim: rgba(12, 16, 14, .55); --agg: #c62828; --mid: #e0a100; --fair: #1e8e4e;
   --font: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
   --display: var(--font); --body: var(--font);
   --r-panel: 28px; --r-card: 20px; --r-ctl: 14px;
   /* One type scale, in rem, so every size follows the iPhone's own text size (textSize() sets the root, 17px as standard) */
   --t-large: 1.75rem; --t-title: 1.375rem; --t-head: 1.125rem; --t-body: 1rem; --t-sub: .9rem; --t-foot: .8125rem; --t-cap: .75rem;
-  --glass: color-mix(in srgb, var(--surface) 76%, transparent); --danger: var(--agg);
+  --glass: color-mix(in srgb, var(--surface) 76%, transparent); --danger: var(--agg); --danger-ink: #fff;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   color-scheme: dark;
   --bg: #0b0d0c; --surface: #171a19; --ink: #f0f3f0; --muted: #98a19c; --line: #272c2a; --fill: #222725;
   --pitch: color-mix(in srgb, var(--team) 84%, #000);
   --on: color-mix(in srgb, var(--team) 52%, #fff); --on-soft: color-mix(in srgb, var(--team) 30%, #171a19); --on-ink: #0b0d0c;
-  --bib: #ff8a4a; --bib-soft: #3b2214; --scrim: rgba(0, 0, 0, .7); --agg: #ff5a52; --mid: #f2c14e; --fair: #3fcf7f; } }
+  --bib: #ff8a4a; --bib-soft: #3b2214; --bib-ink: #0b0d0c; --danger-ink: #0b0d0c; --scrim: rgba(0, 0, 0, .7); --agg: #ff5a52; --mid: #f2c14e; --fair: #3fcf7f; } }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0b0d0c; --surface: #171a19; --ink: #f0f3f0; --muted: #98a19c; --line: #272c2a; --fill: #222725;
   --pitch: color-mix(in srgb, var(--team) 84%, #000);
   --on: color-mix(in srgb, var(--team) 52%, #fff); --on-soft: color-mix(in srgb, var(--team) 30%, #171a19); --on-ink: #0b0d0c;
-  --bib: #ff8a4a; --bib-soft: #3b2214; --scrim: rgba(0, 0, 0, .7); --agg: #ff5a52; --mid: #f2c14e; --fair: #3fcf7f; }
+  --bib: #ff8a4a; --bib-soft: #3b2214; --bib-ink: #0b0d0c; --danger-ink: #0b0d0c; --scrim: rgba(0, 0, 0, .7); --agg: #ff5a52; --mid: #f2c14e; --fair: #3fcf7f; }
 
 /* ---- base */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -116,7 +116,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .plain.quiet { background: none; color: var(--on); padding-inline: 8px; align-self: flex-start; }
 .danger, .plain.danger, .link.danger, .del.danger { color: var(--danger); }
 .plain.danger:not(.armed) { background: color-mix(in srgb, var(--danger) 10%, var(--fill)); }
-.plain.armed { background: var(--danger); color: #fff; }
+.plain.armed { background: var(--danger); color: var(--danger-ink); }
 /* iPhone-style navigation: a chevron and the previous screen's name in the kit colour, then a large title on its own line.
    When the large title scrolls away, #topbar shows it small at the top, with the same back button. */
 .back { min-height: 44px; padding: 0 10px 0 0; border: 0; border-radius: 10px; background: none; color: var(--on); font-weight: 600; font-size: var(--t-body); white-space: nowrap;
@@ -136,7 +136,8 @@ body.ro:not(.sc) .scr { display: none !important; }
 .view.swiping { transition: none !important; }
 .del { min-height: 44px; padding-inline: 12px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 650; font-size: var(--t-sub); }
 .del.tint { background: var(--on-soft); color: var(--on); }
-.del.armed { background: var(--danger); color: #fff; }
+.del.armed { background: var(--danger); color: var(--danger-ink); }
+.x.armed { width: auto; padding-inline: 10px; background: var(--danger); color: var(--danger-ink); font-size: var(--t-sub); font-weight: 700; }
 .x { width: 36px; height: 44px; border: 0; background: none; color: var(--muted); font-size: var(--t-title); border-radius: 10px; }
 
 .field { display: flex; flex-direction: column; gap: 6px; font-size: var(--t-sub); font-weight: 600; color: var(--muted); }
@@ -162,7 +163,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 #v-options section .field input, #v-options section .setup input, #v-options .orow input, #v-options .orow select { background: var(--bg); }
 #v-options section > h2 { font-size: var(--t-foot); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .three, .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.setup label { display: flex; flex-direction: column; gap: 6px; font-size: var(--t-sub); font-weight: 600; color: var(--muted); min-width: 0; }
+.setup label { display: flex; flex-direction: column; justify-content: space-between; gap: 6px; font-size: var(--t-sub); font-weight: 600; color: var(--muted); min-width: 0; }
 .joinrow { display: flex; gap: 8px; }
 .joinrow input { flex: 1; font-size: var(--t-title); font-weight: 800; font-stretch: 75%; letter-spacing: .18em; text-transform: uppercase; padding-block: 9px; }
 .joinrow input::placeholder { color: var(--muted); opacity: .45; }
@@ -192,11 +193,12 @@ body.ro:not(.sc) .scr { display: none !important; }
 .menu button { flex: 1 1 calc(50% - 5px); min-height: 84px; border: 0; border-radius: var(--r-card); background: var(--surface); font-size: var(--t-head); font-weight: 700; letter-spacing: -.01em;
   text-align: left; padding: 16px 18px; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; }
 .menu button.primary { flex-basis: 100%; min-height: 76px; justify-content: center; background: var(--on); color: var(--on-ink); font-size: var(--t-title); }
-.menu button.armed { background: var(--danger); color: #fff; }
+.menu button.armed { background: var(--danger); color: var(--danger-ink); }
 .menu small { font-size: var(--t-sub); font-weight: 500; letter-spacing: 0; opacity: .8; }
 .menu button .ic { width: 26px; height: 26px; color: var(--on); margin-bottom: auto; flex: none; }
 .menu button small:empty { display: none; }
-#homeMenu button:not(.primary) { min-height: 104px; gap: 4px; padding-top: 14px; }
+#homeMenu button:not(.primary) { min-height: 104px; gap: 4px; padding-top: 14px; justify-content: flex-start; }
+#homeMenu button:not(.primary) .ic { margin-bottom: 14px; }
 #homeMenu button:not(.primary) small { color: var(--muted); opacity: 1; font-size: var(--t-foot); line-height: 1.25; }
 #myTeams button { flex-basis: 100%; min-height: 68px; justify-content: center; }
 .menu button small.code { font-stretch: 75%; font-weight: 700; letter-spacing: .12em; background: none; padding: 0; border-radius: 0; max-height: none; overflow: visible; }
@@ -210,6 +212,11 @@ body.ro:not(.sc) .scr { display: none !important; }
 .lead { font-size: clamp(32px, 10vw, 42px); }
 .card { background: var(--surface); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
 .card .joinrow input, .card .field input { background: var(--bg); }
+.wlist { background: var(--surface); border-radius: var(--r-card); overflow: hidden; margin-top: 16px; }
+.wlist .wrow { display: flex; flex-wrap: wrap; align-items: center; width: 100%; min-height: 52px; padding: 12px 40px 12px 18px; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 650; text-align: left; position: relative; }
+.wlist .wrow small { flex-basis: 100%; font-weight: 400; font-size: var(--t-foot); color: var(--muted); }
+.wlist .wrow::after { content: ""; position: absolute; right: 18px; top: 50%; width: 8px; height: 8px; margin-top: -5px; border: solid var(--muted); border-width: 2px 2px 0 0; transform: rotate(45deg); }
+.wlist > *, .wlist > .wrow { margin-top: -1px; border-top: 1px solid var(--line); } /* (the top one's line is tucked under the rounded edge, whichever rows show) */
 
 /* ---- intro */
 .intro { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; flex-direction: column;
@@ -283,7 +290,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .controls { display: flex; gap: 8px; }
 .go { flex: 1; min-height: 58px; border: 0; border-radius: 18px; background: var(--pitch-ink); color: var(--pitch-deep); font-size: var(--t-head); font-weight: 800; letter-spacing: -.01em; }
 .ghost { min-height: 58px; padding-inline: 16px; border: 0; border-radius: 18px; background: var(--pitch-veil); color: var(--pitch-ink); font-size: var(--t-body); font-weight: 650; }
-.ghost.armed { background: var(--danger); color: #fff; }
+.ghost.armed { background: var(--danger); color: var(--danger-ink); }
 .clock.flash { animation: flash .5s 4; }
 @keyframes flash { 50% { background: var(--bib); } }
 @media (prefers-reduced-motion: reduce) { .clock.flash { animation: none; } }
@@ -318,7 +325,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .dk { position: relative; overflow: hidden; border: 0; border-radius: 16px; min-height: 48px; padding: 6px 10px; display: flex; align-items: center; justify-content: center; gap: 6px;
   font-weight: 750; font-size: var(--t-body); line-height: 1.1; text-align: center; background: var(--fill); color: var(--ink); }
 .dk svg { width: 20px; height: 20px; flex: none; }
-.dkrow .dk { flex: 1; font-size: var(--t-sub); } .dkrow .dk-undo { flex: 0 0 auto; padding-inline: 14px; color: var(--muted); }
+.dkrow .dk { flex: 1 1 auto; min-width: 0; padding-inline: 8px; font-size: var(--t-sub); } .dkrow .dk-undo { flex: 0 0 auto; padding-inline: 12px; color: var(--muted); }
 .dk-us, .dk-them { min-height: 58px; font-size: var(--t-body); overflow-wrap: anywhere; }
 .dk-us { background: var(--on); color: var(--on-ink); }
 .dk-hl, .dk-sv { background: var(--on-soft); color: var(--on); }
@@ -372,12 +379,23 @@ body.ro:not(.sc) .scr { display: none !important; }
 .pick.on { box-shadow: inset 0 0 0 2px var(--ink); }
 .pick.alt { color: var(--muted); }
 .picker.out .pick.best, .ed .pick.sel { background: var(--on); color: var(--on-ink); }
-.picker.out .pick.warn { background: var(--danger); color: #fff; } .ed .pick.b.sel { background: var(--bib); color: #fff; }
+.picker.out .pick.warn { background: var(--danger); color: var(--danger-ink); } .ed .pick.b.sel { background: var(--bib); color: var(--bib-ink); }
 .ed .pick:disabled { opacity: .55; }
 .ed .nav { display: flex; gap: 8px; justify-content: space-between; }
 .modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; padding: 12px 12px calc(env(safe-area-inset-bottom, 0px) + 12px); background: var(--scrim); }
 .modal .picker { width: 100%; max-width: 496px; max-height: 100%; overflow: auto; border-radius: var(--r-panel); padding: 22px 20px; }
 @media (min-width: 560px) { .modal { align-items: center; } }
+/* the subs, line-up and injured pop-ups are sheets from the bottom, like Who scored? (grabber, Cancel at the top, two even columns) */
+.modal.sheet { align-items: flex-end; padding: 16px 0 0; animation: fade .15s both; }
+.modal.sheet .picker { position: relative; max-width: 552px; border-radius: var(--r-panel) var(--r-panel) 0 0; padding: 26px 16px calc(18px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -10px 40px rgba(0, 0, 0, .25); animation: sheet .28s cubic-bezier(.2, .9, .2, 1) both; touch-action: pan-y; }
+.modal.sheet .picker::before { content: ""; position: absolute; top: 8px; left: 50%; width: 38px; height: 5px; margin-left: -19px; border-radius: 3px; background: var(--line); }
+.modal.sheet .chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.modal.sheet .chips > .note, .modal.sheet .chips .pick.wide { grid-column: 1 / -1; }
+.modal.sheet .pick { min-height: 52px; border-radius: 16px; text-align: left; display: flex; align-items: center; gap: 8px; }
+.modal.sheet .pick.wide { justify-content: center; text-align: center; }
+.modal.sheet .pick small { margin-left: auto; }
+.modal.sheet .nav .pick { flex: 1; justify-content: center; }
+@media (prefers-reduced-motion: reduce) { .modal.sheet, .modal.sheet .picker { animation: none; } }
 
 /* ---- tables and lists */
 .scroll { overflow-x: auto; background: var(--surface); border-radius: var(--r-card); padding: 6px 14px; }
@@ -399,20 +417,20 @@ tr.past td { opacity: .45; }
 .lrow, .mrow, .orow { display: grid; gap: 8px; align-items: center; padding-block: 9px; border-bottom: 1px solid var(--line); }
 .lrow { grid-template-columns: 1fr 44px auto; } .lrow.hrow { grid-template-columns: minmax(0, 1fr) auto; }
 .mrow { grid-template-columns: 1fr auto; }
-.orow { grid-template-columns: 1fr 52px 112px 36px; border-bottom: 0; padding-block: 4px; }
+.orow { grid-template-columns: 1fr 52px 112px auto; border-bottom: 0; padding-block: 4px; }
 .orow input.shirt { text-align: center; padding-inline: 4px; }
 .orow select { font: inherit; font-size: var(--t-sub); font-weight: 500; color: var(--ink); background: var(--surface); border: 0; border-radius: var(--r-ctl); padding: 13px 8px; min-width: 0; width: 100%; }
 .lrow .who, .mrow .who { min-width: 0; overflow-wrap: anywhere; font-weight: 650; }
 .lrow .who small, .mrow .who small { display: block; font-weight: 400; color: var(--muted); font-size: var(--t-foot); }
-.gk { height: 38px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 750; font-size: var(--t-sub); padding: 0; }
+.gk { height: 50px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 750; font-size: var(--t-sub); padding: 0; }
 .gk.is { background: var(--on); color: var(--on-ink); }
 .seg { display: flex; background: var(--fill); border-radius: 11px; padding: 3px; }
-.seg button { min-height: 34px; padding-inline: 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-weight: 650; font-size: var(--t-sub); }
+.seg button { min-height: 44px; padding-inline: 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-weight: 650; font-size: var(--t-sub); }
 .seg button.is { color: #fff; }
 .seg button.is[data-set="start"] { background: var(--on); color: var(--on-ink); }
-.seg button.is[data-set="bench"] { background: var(--bib); }
+.seg button.is[data-set="bench"] { background: var(--bib); color: var(--bib-ink); }
 .seg button.is[data-set="out"] { background: var(--muted); color: var(--bg); }
-.seg button.is[data-hside="a"] { background: var(--on); color: var(--on-ink); } .seg button.is[data-hside="b"] { background: var(--bib); } .seg button.is[data-hside="out"] { background: var(--muted); color: var(--bg); }
+.seg button.is[data-hside="a"] { background: var(--on); color: var(--on-ink); } .seg button.is[data-hside="b"] { background: var(--bib); color: var(--bib-ink); } .seg button.is[data-hside="out"] { background: var(--muted); color: var(--bg); }
 .step { display: flex; align-items: center; gap: 6px; }
 .step button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--fill); font-size: var(--t-title); font-weight: 600; line-height: 1; }
 .step b { min-width: 64px; text-align: center; font-size: var(--t-large); font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
@@ -780,6 +798,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .tgames li { display: flex; justify-content: space-between; gap: 12px; padding-block: 8px; border-bottom: 1px solid var(--line); font-size: var(--t-sub); } .tgames li:last-child { border-bottom: 0; }
 .toggle.scope { overflow-x: auto; scrollbar-width: none; } .toggle.scope::-webkit-scrollbar { display: none; } .toggle.scope button { flex: 1 0 auto; padding-inline: 14px; white-space: nowrap; }
 .toggle button:disabled { opacity: .5; }
+#gKind button { flex: 1 1 auto; padding-inline: 8px; }
 .trow { display: grid; grid-template-columns: 28px 1fr 74px; gap: 10px; align-items: center; padding-block: 8px; border-bottom: 1px solid var(--line); }
 .trow:last-child { border-bottom: 0; } .trow input[type=checkbox] { width: 24px; height: 24px; }
 .trow input[type=text] { font: inherit; text-align: center; border: 0; border-radius: var(--r-ctl); background: var(--bg); color: var(--ink); padding: 10px 6px; width: 100%; }
@@ -955,10 +974,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div class="card" id="wJoin"><h2>Got a team code?</h2><p class="note">Your gaffer has a 6-character code for the team. Enter it to pick your player and see your stats.</p>
     <div class="joinrow"><input id="joinCode" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="K7Q2MX" aria-label="Team code"><button class="plain primary" id="joinBtn" type="button">Find team</button></div>
     <p class="msg" id="joinMsg"></p></div>
-  <div class="card" id="wStart"><h2>Start a team</h2><p class="note">Running a team? Set up your squad and colours, then share the code with your players.</p>
-    <div class="actions"><button class="plain" id="createBtn" type="button">Create a team</button></div></div>
-  <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button><button class="plain" id="acctNew" type="button">Create account</button></div></div>
-  <button class="plain quiet" id="pplBtn" type="button">Open your feed<span class="pplBadge" hidden></span></button>
+  <!-- (the team code leads; everything else is one quiet list underneath, like an iPhone settings group) -->
+  <div class="wlist">
+    <div id="wStart"><button class="wrow" id="createBtn" type="button">Start a team<small>Running one? Set up the squad, then share the code.</small></button></div>
+    <button class="wrow" id="acctBtn" type="button">Sign in</button>
+    <button class="wrow" id="acctNew" type="button">Create account</button>
+    <button class="wrow" id="pplBtn" type="button">Open your feed<span class="pplBadge" hidden></span></button>
+  </div>
+  <p class="note" id="acctLine"></p>
   <p class="note" id="sync2"></p>
   <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a> · <a class="plink" data-site="terms.html" href="terms.html">Terms of use</a></p>
 </div>
@@ -2498,7 +2521,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       return '<button type="button" data-team="' + esc(t.code) + '"' + (t.code === A.active ? ' class="primary"' : '') + '>' + esc(t.name || t.code) +
         '<small class="code">' + esc(t.code) + (t.org && me ? ', gaffer' : '') + '</small></button>';
     }).join('');
-    $('acctLine').textContent = me ? 'Signed in as ' + (me.email || 'you') + '.' : 'New here? Create an account. Already joined a team or run one? Sign in to get your teams back.';
+    $('acctLine').textContent = me ? 'Signed in as ' + (me.email || 'you') + '.' : 'Already joined a team or run one? Sign in to get your teams back.';
     $('acctBtn').textContent = me ? 'Account' : 'Sign in'; $('acctNew').hidden = !!me;
     setSync(sb ? (me ? 'ok' : 'watch') : 'local');
     if (sb && me && myTeams === null) { // every team this account plays for or runs, wherever it was joined
@@ -6101,14 +6124,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!qs || role !== 'owner' || !s || qs.t < edFirst(m) || (qs.kind === 'on' ? s.on : s.bench).indexOf(qs.id) < 0) { qs = null; el.innerHTML = ''; el.className = ''; return; }
     var onNow = function (id) { return !prev || prev.on.indexOf(id) >= 0; };
     var cands = qs.kind === 'on' ? s.bench.slice() : s.on.slice(), html;
-    html = '<div class="picker ed"><strong>' + (qs.kind === 'on' ? 'Who comes on instead of ' : 'Who goes off instead of ') + esc(nm(qs.id)) + '?</strong>' +
+    html = '<div class="picker ed" role="dialog"><div class="phead"><strong>' + (qs.kind === 'on' ? 'Who comes on instead of ' : 'Who goes off instead of ') + esc(nm(qs.id)) + '?</strong><button class="link" type="button" data-cancel="1">Cancel</button></div>' +
       '<p class="note">From ' + segName(s) + '. The app swaps them back later where it can, so minutes still add up.</p><div class="chips">' +
       cands.map(function (id) {
         var label = qs.kind === 'on' ? (onNow(id) ? ' stays on' : ' comes on') : (onNow(id) ? ' goes off' : ' stays on the bench');
-        return '<button class="pick" type="button" data-c="' + id + '">' + esc(nm(id)) + label + '</button>';
-      }).join('') + (cands.length ? '' : '<span class="note">Nobody else is available for this change.</span>') +
-      '<button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div>';
-    el.innerHTML = html; el.className = 'modal';
+        return '<button class="pick" type="button" data-c="' + id + '">' + esc(nm(id)) + ' <small>' + label.trim() + '</small></button>';
+      }).join('') + (cands.length ? '' : '<span class="note">Nobody else is available for this change.</span>') + '</div></div>';
+    el.innerHTML = html; el.className = 'modal sheet';
   }
   $('swapBody').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-q]'); if (!b || role !== 'owner') return;
@@ -6137,15 +6159,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (open.indexOf(ed.t) < 0) { ed.t = open[0]; ed.a = ed.b = null; }
     var s = m.segs[ed.t], at = open.indexOf(ed.t), html;
     var btn = function (id, side) { return '<button class="pick' + (side === 'b' ? ' b' : '') + (ed[side] === id ? ' sel' : '') + '" type="button" data-side="' + side + '" data-id="' + id + '">' + esc(nm(id)) + '</button>'; };
-    html = '<div class="picker ed"><strong>Line-up from ' + segName(s) + '</strong>' +
+    html = '<div class="picker ed" role="dialog"><div class="phead"><strong>Line-up from ' + segName(s) + '</strong><button class="link" type="button" data-done="1">Done</button></div>' +
       '<div class="nav"><button class="pick alt" type="button" data-nav="-1"' + (at <= 0 ? ' disabled' : '') + '>&lsaquo; Earlier</button>' +
       '<button class="pick alt" type="button" data-nav="1"' + (at >= open.length - 1 ? ' disabled' : '') + '>Later &rsaquo;</button></div>' +
       (s.bench.length ? '<p class="note">Tap one player on the pitch and one on the bench to swap them for this stretch.</p>' : '<p class="note">Nobody is on the bench in this stretch.</p>') +
       '<div class="swap-rows"><div class="tag on">Pitch</div><div class="chips">' + (s.gk != null ? '<button class="pick" type="button" disabled>' + esc(nm(s.gk)) + ' (GK)</button>' : '') + s.on.map(function (id) { return btn(id, 'a'); }).join('') + '</div>' +
       '<div class="tag off">Bench</div><div class="chips">' + (s.bench.map(function (id) { return btn(id, 'b'); }).join('') || '<span class="note">Nobody</span>') + '</div></div>' +
-      (ed.msg ? '<p class="msg">' + esc(ed.msg) + '</p>' : '') +
-      '<div class="chips"><button class="pick best" type="button" data-done="1">Done</button></div></div>';
-    el.innerHTML = html; el.className = 'modal';
+      (ed.msg ? '<p class="msg">' + esc(ed.msg) + '</p>' : '') + '</div>';
+    el.innerHTML = html; el.className = 'modal sheet';
   }
   $('edBtn').addEventListener('click', function () {
     var m = S.match; if (!m || role !== 'owner') return;
@@ -6180,25 +6201,25 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function renderOut() {
     var m = S.match; if (!m) return;
     var html = '', btn = function (attr, label, cls) { return '<button class="pick' + (cls ? ' ' + cls : '') + '" type="button" ' + attr + '>' + label + '</button>'; };
-    var cancel = btn('data-cancel="1"', 'Cancel', 'alt');
+    var top = function (title) { return '<div class="picker out" role="dialog"><div class="phead"><strong>' + title + '</strong><button class="link" type="button" data-cancel="1">Cancel</button></div>'; };
     $('outBtn').disabled = m.phase === 'ft' || !(m.order.length || m.keeper != null);
     if (outPick && outPick.step === 'who') {
-      html = '<div class="picker out"><strong>Who is out?</strong><div class="chips">' +
-        (m.keeper != null ? [m.keeper] : []).concat(m.order).map(function (id) { return btn('data-o="' + id + '"', esc(nm(id)) + (id === m.keeper ? ' (GK)' : '')); }).join('') + cancel + '</div></div>';
+      html = top('Who is out?') + '<div class="chips">' +
+        (m.keeper != null ? [m.keeper] : []).concat(m.order).map(function (id) { return btn('data-o="' + id + '"', esc(nm(id)) + (id === m.keeper ? ' <small>keeper</small>' : '')); }).join('') + '</div></div>';
     } else if (outPick && outPick.step === 'gk') {
-      html = '<div class="picker out"><strong>Who goes in goal for ' + esc(nm(outPick.x)) + '?</strong><div class="chips">' +
-        m.order.map(function (id) { return btn('data-g="' + id + '"', esc(nm(id))); }).join('') + cancel + '</div></div>';
+      html = top('Who goes in goal for ' + esc(nm(outPick.x)) + '?') + '<div class="chips">' +
+        m.order.map(function (id) { return btn('data-g="' + id + '"', esc(nm(id))); }).join('') + '</div></div>';
     } else if (outPick && outPick.step === 'sub') {
       var c = subCands(m, outPick.x, outPick.g), best = c[0];
-      html = '<div class="picker out"><strong>' + (outPick.g != null ? esc(nm(outPick.g)) + ' goes in goal. Who comes on?' : 'Who comes on for ' + esc(nm(outPick.x)) + '?') + '</strong>' +
+      html = top(outPick.g != null ? esc(nm(outPick.g)) + ' goes in goal. Who comes on?' : 'Who comes on for ' + esc(nm(outPick.x)) + '?') +
         '<p class="note">' + esc(nm(best)) + ' is suggested, with the fewest minutes today.</p><div class="chips">' +
-        c.map(function (id, n) { return btn('data-r="' + id + '"', esc(nm(id)) + (n === 0 ? ' (suggested)' : ''), n === 0 ? 'best' : ''); }).join('') + cancel + '</div></div>';
+        c.map(function (id, n) { return btn('data-r="' + id + '"', esc(nm(id)) + (n === 0 ? ' <small>suggested</small>' : ''), n === 0 ? 'best' : ''); }).join('') + '</div></div>';
     } else if (outPick) {
-      html = '<div class="picker out"><strong>Take ' + esc(nm(outPick.x)) + ' out for the rest of the game?</strong><p class="note">' +
+      html = top('Take ' + esc(nm(outPick.x)) + ' out for the rest of the game?') + '<p class="note">' +
         (m.segs[curSeg(m)].bench.indexOf(outPick.x) >= 0 ? 'They\u2019re on the bench now, so nobody needs to come on.' : 'Nobody is on the bench, so you\u2019ll play one short.') +
-        ' This can\u2019t be undone.</p><div class="chips">' + btn('data-yes="1"', 'Yes, take ' + esc(nm(outPick.x)) + ' out', 'warn') + cancel + '</div></div>';
+        ' This can\u2019t be undone.</p><div class="chips">' + btn('data-yes="1"', 'Yes, take ' + esc(nm(outPick.x)) + ' out', 'warn wide') + '</div></div>';
     }
-    $('outPicker').className = html ? 'modal' : '';
+    $('outPicker').className = html ? 'modal sheet' : '';
     $('outPicker').innerHTML = html;
   }
   // bench players who could fill the pitch spot X (or the new keeper G) leaves right now, fewest minutes first
@@ -6231,8 +6252,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   $('outBtn').addEventListener('click', function () { outPick = outPick ? null : { step: 'who' }; renderOut(); });
   $('outPicker').addEventListener('click', function (e) {
-    var m = S.match, b = e.target.closest('button'); if (!m || !b || !outPick) return;
-    if (b.getAttribute('data-cancel')) { outPick = null; renderOut(); return; }
+    var m = S.match, b = e.target.closest('button'); if (!m || !outPick) return;
+    if (e.target === $('outPicker') || (b && b.getAttribute('data-cancel'))) { outPick = null; renderOut(); return; } // (a tap outside the sheet closes it, as with the others)
+    if (!b) return;
     var o = b.getAttribute('data-o'), g = b.getAttribute('data-g');
     var r = b.getAttribute('data-r');
     if (o !== null) { if (+o === m.keeper && m.order.length) { outPick = { step: 'gk', x: +o }; renderOut(); } else afterWho(+o, null); }
@@ -6240,6 +6262,16 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (r !== null) takeOut(outPick.x, outPick.g, +r);
     else if (b.getAttribute('data-yes')) takeOut(outPick.x, null, null);
   });
+  // These three are sheets like the goal pickers: pull one down and it closes
+  function sheetPull(el, close) {
+    var y0 = null, box = null;
+    el.addEventListener('touchstart', function (e) { box = e.target.closest('.modal.sheet .picker'); y0 = box && box.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+    el.addEventListener('touchmove', function (e) { if (y0 == null || !box) return; var dy = Math.max(0, e.touches[0].clientY - y0); box.style.transform = dy ? 'translateY(' + dy + 'px)' : ''; }, { passive: true });
+    el.addEventListener('touchend', function (e) { if (y0 == null || !box) return; var dy = e.changedTouches[0].clientY - y0; box.style.transform = ''; y0 = null; if (dy > 90) close(); });
+  }
+  sheetPull($('quickSwap'), function () { qs = null; renderQuick(); });
+  sheetPull($('subEdit'), function () { ed = null; renderEdit(); });
+  sheetPull($('outPicker'), function () { outPick = null; renderOut(); });
   $('noticeOk').addEventListener('click', function () { var m = S.match; if (!m) return; delete m.notice; save(); renderGame(); });
 
   // ---- score
@@ -8423,8 +8455,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   });
   $('squad').addEventListener('input', function (e) { if (!e.target.hasAttribute('data-id')) return; var p = P(+e.target.getAttribute('data-id')); if (p) { p.name = e.target.value; save(); } });
   $('squad').addEventListener('change', function (e) { var id = e.target.getAttribute('data-posfor'); if (id === null || !e.target.value) return; var p = P(+id); if (p) { p.pos = e.target.value; save(); } });
+  // Removing a player takes their stats with them, so it's two taps: the first turns × into a red Remove
+  var rmArmed = null, rmTimer = 0;
+  function rmDisarm() { clearTimeout(rmTimer); var b = rmArmed && document.querySelector('#squad [data-rm="' + rmArmed + '"]'); if (b) { b.classList.remove('armed'); b.innerHTML = '&times;'; } rmArmed = null; }
   $('squad').addEventListener('click', function (e) {
-    var id = e.target.getAttribute('data-rm'); if (id === null || S.match || S.players.length <= 1) return;
+    var btn = e.target.closest('[data-rm]'), id = btn && btn.getAttribute('data-rm'); if (id === null || id === undefined || S.match || S.players.length <= 1) return;
+    if (rmArmed !== id) { rmDisarm(); rmArmed = id; btn.classList.add('armed'); btn.textContent = 'Remove'; rmTimer = setTimeout(rmDisarm, 4000); return; }
+    clearTimeout(rmTimer); rmArmed = null;
     S.players = S.players.filter(function (p) { return p.id !== +id; });
     if (S.lastKeeper === +id) S.lastKeeper = null;
     save(); renderOptions();

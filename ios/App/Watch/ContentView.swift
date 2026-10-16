@@ -482,6 +482,8 @@ struct Glance: View {
                 Text(state.opp).lineLimit(1).minimumScaleFactor(0.6)
             }
             .font(.footnote.weight(.semibold))
+            .accessibilityElement(children: .ignore) // VoiceOver reads "SOP FC 1, Dog Squad 0", not the dash
+            .accessibilityLabel("\(state.team) \(state.us), \(state.opp) \(state.them)")
             if state.phase == "pre", !state.benchNames.isEmpty { // who starts on the bench
                 Text("Bench: " + state.benchNames.joined(separator: ", "))
                     .font(.footnote.weight(.semibold))
@@ -540,8 +542,7 @@ struct ScorerList: View {
     var body: some View {
         List {
             ForEach(state.players) { player in // the phone sends them likeliest scorer first, keeper last
-                Button(player.gk ? player.name + " (keeper)" : player.name) { path = [.scorer, .assist(player.id)] }
-                    .foregroundStyle(player.on ? .primary : .secondary)
+                Button { path = [.scorer, .assist(player.id)] } label: { PlayerRow(player: player) }
             }
             Button("Own goal or not sure") {
                 model.goal(us: true, scorer: nil, assist: nil)
@@ -591,13 +592,29 @@ struct AssistList: View {
                 path = []
             }
             ForEach(state.players.filter { $0.id != scorer }) { player in
-                Button(player.gk ? player.name + " (keeper)" : player.name) {
+                Button {
                     model.goal(us: true, scorer: scorer, assist: player.id)
                     path = []
-                }
-                .foregroundStyle(player.on ? .primary : .secondary)
+                } label: { PlayerRow(player: player) }
             }
         }
         .navigationTitle("Who set it up?")
+    }
+}
+
+/// A player in the scorer and assist lists: the keeper and anyone on the bench are said in words, not only by a dimmer colour.
+struct PlayerRow: View {
+    let player: MatchState.Player
+
+    var body: some View {
+        HStack {
+            Text(player.name).foregroundStyle(player.on ? .primary : .secondary)
+            Spacer(minLength: 4)
+            if player.gk {
+                Text("keeper").font(.footnote).foregroundStyle(.secondary)
+            } else if !player.on {
+                Text("bench").font(.footnote).foregroundStyle(.secondary)
+            }
+        }
     }
 }
