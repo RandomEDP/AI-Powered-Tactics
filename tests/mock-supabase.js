@@ -339,6 +339,7 @@
     }
     if (['ad_ticket', 'ad_claim', 'my_unlocks'].includes(name)) { // rewarded ads (0032): your own reel, unlocked by a ticket Google's signed call grants (or, with trust_app, the app's word)
       d.unlocks = d.unlocks || []; const trust = d.ad_trust !== false;
+      if (typeof window !== 'undefined' && window.__hang && window.__hang.server) return new Promise(() => {}); // (Gaffer's server never answering)
       const t = a.p_code ? d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()) : null;
       if (name === 'ad_ticket') {
         if (!uid()) return ok({ error: 'sign_in' }); if (!t) return ok({ error: 'no_team' });
