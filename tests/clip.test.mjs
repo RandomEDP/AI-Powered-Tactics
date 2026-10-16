@@ -40,6 +40,20 @@ check(plugin.includes(`"${group}"`) && scene.includes(`"${group}"`), 'where the 
 check(plugin.includes('"gaffer.link"') && scene.includes('"gaffer.link"') && swiftVal('linkKey') === 'gaffer.link', 'under the same key');
 check(/jsName = "ClipHandoff"/.test(plugin) && read('index.html').includes("plugin('ClipHandoff')"), 'and the web app asks that plugin');
 
+// the website's file that tells iPhones the App Clip belongs to gaffermanager.app (served by GitHub Pages; .nojekyll lets .well-known through)
+const aasa = JSON.parse(read('.well-known/apple-app-site-association'));
+eq(aasa.appclips && aasa.appclips.apps, ['DP3V39HSP5.com.randomedp.aipoweredtactics.Clip'], 'gaffermanager.app names the App Clip (team id, then its bundle id)');
+check(fs.existsSync(path.join(ROOT, '.nojekyll')) && read('CNAME').trim() === 'gaffermanager.app', 'and the website is served from gaffermanager.app with .well-known let through');
+check(/linkUrl: 'https:\/\/gaffermanager\.app\/'/.test(config), 'links sent to people use gaffermanager.app');
+const domains = (f) => (read(f).match(/<key>com\.apple\.developer\.associated-domains<\/key>\s*<array>([\s\S]*?)<\/array>/) || [, ''])[1].match(/[a-z]+:[^<]+/g) || [];
+eq(domains('ios/App/Clip/Clip.entitlements'), ['appclips:gaffermanager.app'], 'the App Clip says it belongs to gaffermanager.app');
+eq(domains('ios/App/App/App.entitlements'), ['appclips:gaffermanager.app', 'applinks:gaffermanager.app'], 'and so does Gaffer, so the link opens Gaffer instead when it is installed');
+const al = (aasa.applinks && aasa.applinks.details) || [];
+eq(al.map((d) => d.appIDs), [['DP3V39HSP5.com.randomedp.aipoweredtactics']], 'the website hands links to Gaffer itself');
+eq(al[0] && al[0].components.map((c) => c['?']), [{ me: '?*' }], 'but only personal links (with me=), never the terms, privacy or support pages');
+const keeps = (q) => /q\.contains\(where: \{ \$0\.name == "me" \}\)/.test(scene) && /me=/.test(q);
+check(keeps('?team=ABC123&game=1&me=tok'), 'and those are the links Gaffer keeps for the web app');
+
 // the database call it makes is open to someone with no account, and only that one
 const mig = read('supabase/migrations/0041_friendly_preview.sql');
 check(/grant execute on function public\.friendly_preview\(uuid\) to anon, authenticated;/.test(mig), 'friendly_preview is the one call it makes with no account');
