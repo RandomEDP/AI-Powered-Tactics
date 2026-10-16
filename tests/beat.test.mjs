@@ -100,6 +100,27 @@ for (const t of BEATS) for (let n = 1; n <= kinds.length; n++) {
 }
 eq(await A.page.evaluate(() => [{ dur: 14 }, { dur: 20.271 }, { dur: 11 }, {}].map((c) => window.gafferClipRel(c))), [8, 8, 5, 8],
   'Gaffer\'s guess for a clip\'s moment is 8 seconds in: also in a longer clip holding two moments (it was put 6 from the end), less if the video started late');
+// ---------- every moment (Ethan: "why does the beat edit only support 4 clips"): the drop is played again for more
+for (const t of BEATS) for (const n of [1, 3, 5, 8, 12, 16, 27]) {
+  const ms = Array.from({ length: n }, (_, i) => ({ len: 14, at: [8, 6.5, 9.2][i % 3], kind: ['goal', 'goal', 'hl', 'save', 'against'][i % 5] }));
+  const p = await A.page.evaluate(([m, id]) => window.gafferBeatPlan(m, id, true), [ms, t.id]);
+  const bt = 60 / t.bpm, bar = 4 * bt, S = t.end - t.drop, loops = p.loop ? p.loop.times : 0, bad = [];
+  const pool = ms.filter((m) => m.kind !== 'against').length || n, slotBars = Math.max(1, Math.round(3.6 / bar));
+  let at = 0;
+  for (const s of p.segs) { if (Math.abs(s.t - at) > 1e-3) bad.push('a gap at ' + s.t); if (Math.abs(s.t / bt - Math.round(s.t / bt)) > 1e-3) bad.push('off the beat at ' + s.t); at = s.t + s.out; }
+  if (Math.abs(at - p.len) > 1e-3 || Math.abs(p.len - (t.bars + loops * S) * bar) > 1e-3 || Math.abs(p.outroAt - (t.end + loops * S) * bar) > 1e-3) bad.push('the length or end card doesn\'t match the music played again ' + loops + ' times');
+  if (p.len > 90 + 1e-3) bad.push('longer than a minute and a half: ' + p.len.toFixed(1));
+  if (p.loop && (Math.abs(p.loop.from - t.drop * bar) > 1e-3 || Math.abs(p.loop.to - t.end * bar) > 1e-3)) bad.push('the bars played again aren\'t the drop');
+  const room = Math.floor(S * (loops + 1) / slotBars), shown = new Set(p.stars).size;
+  if (shown !== Math.min(pool, room)) bad.push(shown + ' moments shown, not ' + Math.min(pool, room));
+  if (pool > room && (t.bars + (loops + 1) * S) * bar <= 90) bad.push('room for more but not played again');
+  if (!loops && room < pool) bad.push('not played again with ' + pool + ' moments');
+  p.stars.forEach((i, k) => { const H = p.segs.find((s) => s.i === i && Math.abs(s.from - ms[i].at) < 1e-3 && p.fx.some((f) => f.k === 'flash' && Math.abs(f.t - s.t) < 1e-3)); if (!H) bad.push('star ' + k + ' isn\'t on its bar'); });
+  eq(bad.slice(0, 3), [], `${t.name}, every one of ${n} moment${n > 1 ? 's' : ''}: ${shown} shown, the drop played ${loops} more time${loops === 1 ? '' : 's'}, ${Math.round(p.len)} seconds`);
+  plans.push({ name: t.name + ' every one of ' + n, drop: t.drop * bar, plan: p });
+}
+const many = await A.page.evaluate(() => window.gafferBeatPlan(Array.from({ length: 15 }, () => ({ len: 14, at: 8, kind: 'goal' })), 'floodlights', true));
+eq([new Set(many.stars).size, many.loop && many.loop.times, Math.round(many.len)], [15, 3, 81], '15 goals to Floodlights: all 15, the drop played 3 more times, 81 seconds (it was 4 of them)');
 const nine = await A.page.evaluate(() => window.gafferBeatPlan(['goal', 'save', 'against', 'goal', 'hl', 'goal', 'hl', 'goal', 'save'].map((k) => ({ len: 14, at: 8, kind: k })), 'floodlights'));
 eq(nine.stars, [0, 3, 5, 7], 'with more moments than room, the goals go in first, in the order they happened');
 const one = await A.page.evaluate(() => window.gafferBeatPlan([{ len: 14, at: 8, kind: 'goal' }], 'terrace'));
@@ -135,7 +156,8 @@ await A.click('#hlList .hcard:first-child [data-beat]'); await A.run(200);
 eq([await A.visible('#beatPop'), await A.page.$$eval('#beBody [data-betrack]', (b) => b.map((x) => [x.firstChild.textContent, x.getAttribute('aria-pressed')]))],
   [true, [['Floodlights', 'true'], ['Last Minute', 'false'], ['Terrace', 'false']]], 'it offers Gaffer\'s three tracks, the first picked');
 check(/Floodlights.*House, 128 bpm, 36 seconds/.test(await A.text('#beBody')), 'each with its feel, tempo and length');
-eq(await A.text('#beCount'), 'Shows 3 moments of 4 (the best ones, goals first), 36 seconds with the end card.', 'saying how many moments it shows (not the goal against) and how long it is');
+eq(await A.text('#beCount'), 'Shows 3 moments of 4 (not the goals against), 36 seconds with the end card.', 'saying how many moments it shows (not the goal against) and how long it is');
+eq(await A.page.$$eval('#beBody [data-beevery]', (b) => b.length), 0, 'with no more moments than the music has room for, there\'s no All of them or Just the best to choose');
 check(/won’t be muted/.test(await A.text('#beBody')), 'and that the music is Gaffer\'s own, so it won\'t be muted when it\'s posted');
 await A.click('#beBody [data-behear="terrace"]'); await A.run(100);
 eq([(await calls(A, 'play')).pop(), await A.page.$eval('#beBody [data-behear="terrace"]', (b) => b.getAttribute('aria-label'))], ['music/terrace.m4a', 'Stop Terrace'], '▶ plays a track to hear it first');
@@ -161,6 +183,7 @@ await A.click('#beMake'); await A.run(300);
 eq([await A.page.evaluate(() => document.getElementById('beAudio').paused), await A.page.$eval('#beMake', (b) => b.disabled), await A.text('#beProg')], [true, true, 'Cutting it to the beat, 40%'], 'making it stops the preview and shows how far it\'s got');
 await A.page.evaluate(() => window.__beatGo()); await A.run(500);
 const job = (await calls(A, 'beat')).pop(), rows = w.db().clips.slice().sort((a, b) => a.seq - b.seq);
+eq(job.loop, null, 'the music isn\'t played again for three moments');
 eq([job.music, job.items.map((x) => tail(x.url)), job.file], ['terrace', ['01.mp4', '03.mp4', '04.mp4'], '2026-10-10-dog-squad-terrace.mp4'], 'the plugin is asked for the edit to Terrace, fetching only the clips it uses (the clean copies, and not the goal against)');
 check(job.segs.every((s) => s.i >= 0 && s.i < job.items.length) && Math.abs(job.len - 28.8) < 1e-3 && Math.abs(job.outroAt - 24) < 1e-3, 'every stretch points at one of those clips, and the edit is as long as the track with the end card at bar 10');
 const dropSeg = job.segs.find((s) => Math.abs(s.t - 4 * 4 * 0.6) < 1e-3);
@@ -181,6 +204,25 @@ check(/^Jake\./.test(await A.page.$eval('#beBody .note', (n) => n.textContent)) 
 await A.click('#beMake'); await A.run(500);
 const pj = (await calls(A, 'beat')).pop();
 eq([pj.items.length, pj.outro.kicker, pj.outro.title], [2, 'Player edit', 'Jake'], 'made from his two clips (his goal and the one he set up), ending on his card');
+await A.click('#beClose');
+
+// ---------- a game with more moments than the music has room for: every one, the drop played again
+const d0 = w.db(), g0c = d0.clips.filter((c) => c.seq === 3)[0];
+for (let k = 1; k <= 6; k++) d0.clips.push(Object.assign({}, g0c, { id: 'extra-' + k, seq: 3 + k, at: g0c.at + k * 60000, path: g0c.path.replace(/04\.mp4$/, String(4 + k).padStart(2, '0') + '.mp4') }));
+w.setDb(d0); await A.page.reload(); await A.run(1500);
+await A.page.evaluate(() => { const b = document.querySelector('#mHighlights'); if (b) b.click(); }); await A.run(500);
+await A.page.evaluate(() => { const b = document.querySelector('#hlToggle [data-by="game"]'); if (b) b.click(); }); await A.run(300);
+await A.click('#hlList .hcard:first-child [data-beat]'); await A.run(300);
+eq(await A.page.$$eval('#beBody [data-beevery]', (b) => b.map((x) => [x.textContent, x.getAttribute('aria-pressed')])), [['All of them', 'true'], ['Just the best', 'false']], 'with ten clips there\'s a choice, All of them picked to start');
+eq(await A.text('#beCount'), 'Shows 9 moments of 10 (not the goals against), 58 seconds with the end card. The music’s drop plays again to fit them all in.', 'every moment but the goal against, the music made longer for them');
+check(/Terrace.*58 seconds/.test(await A.text('#beBody')), 'each track says how long it comes out');
+await shot(A, 'beat-every');
+await A.click('#beBody [data-beevery="0"]'); await A.run(100);
+eq([await A.text('#beCount'), await A.page.evaluate(() => localStorage.getItem('apt-beat-all'))], ['Shows 3 moments of 10 (the best ones, goals first), 29 seconds with the end card.', 'no'], 'Just the best keeps it to what the track has room for, and is remembered');
+await A.click('#beBody [data-beevery="1"]'); await A.run(100);
+await A.click('#beMake'); await A.run(500);
+const ev = (await calls(A, 'beat')).pop();
+eq([ev.items.length, ev.loop, Math.round(ev.len * 10) / 10], [9, { from: 9.6, to: 24, times: 2 }, 57.6], 'the plugin is asked for all nine clips, with the drop (bars 4 to 10) played twice more');
 await A.click('#beClose');
 
 // ---------- not on the website (no phone to make it on)

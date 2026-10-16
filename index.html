@@ -680,6 +680,9 @@ tr.past td { opacity: .45; }
 .tracks .trk small { color: var(--muted); font-size: var(--t-foot); font-weight: 500; }
 .tracks .trk[aria-pressed="true"] { border-color: var(--on); background: var(--on-soft); }
 .tracks .hear { min-width: 56px; padding-inline: 12px; }
+.bechoose { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+.bechoose button { border: 2px solid transparent; }
+.bechoose button[aria-pressed="true"] { border-color: var(--on); background: var(--on-soft); }
 #beVid { display: block; width: 100%; max-height: 46vh; border-radius: 8px; background: #000; margin: 8px 0; }
 .benudge { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0; }
 .benudge button { min-height: 44px; padding-inline: 4px; }
@@ -4725,13 +4728,24 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   ];
   var BEAT_RANK = { goal: 3, save: 2, hl: 1, against: 0 };
   function beatLen(tr) { return tr.bars * 4 * 60 / tr.bpm; }
+  // Every moment (Ethan: "why does the beat edit only support 4 clips"): a track's drop has room for a moment every couple
+  // of bars, four or so; for more, the drop is played again (the phone repeats those bars of the music) as many times as
+  // the moments need, keeping the edit to about a minute and a half. -> the track as long as that, with loops and src.
+  var BEAT_MAX = 90;
+  function beatFit(tr, n) {
+    var bar = 240 / tr.bpm, S = tr.end - tr.drop, slotBars = Math.max(1, Math.round(3.6 / bar)), loops = 0;
+    while (Math.floor(S * (loops + 1) / slotBars) < n && (tr.bars + (loops + 1) * S) * bar <= BEAT_MAX) loops++;
+    return loops ? Object.assign({}, tr, { end: tr.end + loops * S, bars: tr.bars + loops * S, loops: loops, src: tr }) : tr;
+  }
+  function beatPool(ms) { var n = ms.filter(function (m) { return (m.kind || 'hl') !== 'against'; }).length; return n || ms.length; }
   // ms: the moments in the order they happened, each { len, at, kind }: its clip's length, where the moment is in the clip
   // (seconds) and goal, save, hl or against. -> { segs: [{ i, t, out, from, len, mono, z0, z1 }], fx: [{ t, k, d, a }],
   // len, outroAt }: stretch i of the edit plays clip ms[i] from `from` for `len` seconds, squeezed or stretched into `out`
   // seconds at `t`, black and white or not, zooming from z0 to z1. fx are the flashes ('flash'), punch-ins ('punch'),
   // shakes ('shake') and blurs ('blur') at t for d seconds, a as strong as each is.
-  function beatPlan(ms, tr) {
+  function beatPlan(ms, tr, every) { // every: all the moments (the drop played again for them), else the best that fit the track
     if (!ms || !ms.length || !tr) return null;
+    if (every) tr = beatFit(tr, beatPool(ms));
     var bt = 60 / tr.bpm, bar = 4 * bt, segs = [], fx = [], at = 0;
     var T = function (b) { return Math.round(b * bt * 1e4) / 1e4; }; // seconds at a beat
     var all = ms.map(function (m, i) { var len = Math.max(1, +m.len || 14); return { i: i, len: len, at: Math.max(0, Math.min(len, m.at == null ? len - POST : +m.at)), kind: m.kind || 'hl' }; });
@@ -4785,9 +4799,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     // under the end card (which covers all of it): the last star carries on, slowed if need be
     var last = stars[stars.length - 1], tail = tr.bars * 4 - E;
     at = E; put(last, 0, tail, Math.min(1, (last.len - 0.1) / (tail * bt)), { z0: 1.3 });
-    return { segs: segs, fx: fx, len: T(tr.bars * 4), outroAt: T(E), stars: stars.map(function (m) { return m.i; }) };
+    return { segs: segs, fx: fx, len: T(tr.bars * 4), outroAt: T(E), stars: stars.map(function (m) { return m.i; }),
+      loop: tr.loops ? { from: T(tr.src.drop * 4), to: T(tr.src.end * 4), times: tr.loops } : null }; // (the bars of the music to play again)
   }
-  window.gafferBeatPlan = function (ms, id) { return beatPlan(ms, BEATS.filter(function (t) { return t.id === id; })[0] || BEATS[0]); };
+  window.gafferBeatPlan = function (ms, id, every) { return beatPlan(ms, BEATS.filter(function (t) { return t.id === id; })[0] || BEATS[0], every); };
+  function bePlan(list, tr) { return beatPlan(beatMoments(list, function (c) { return c.kind; }), tr || BEATS.filter(function (t) { return t.id === BE.track; })[0], BE.every); }
   function beatMoments(list, kindOf) { // the clips, oldest first, as beatPlan wants them: where the ball goes in if someone has lined it up
     return list.map(function (c) { var len = +c.dur || PRE + POST, hit = clipHit(c); return { len: len, at: hit != null ? hit : clipRel(c), kind: kindOf(c) }; });
   }
@@ -4832,8 +4848,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     });
   }
   function beOpen(src) {
-    var keep = BE.track; try { keep = keep || localStorage.getItem('apt-beat'); } catch (e) {}
-    BE = { game: src.game, pid: src.pid, track: BEATS.some(function (t) { return t.id === keep; }) ? keep : BEATS[0].id, busy: false, prog: '', msg: '', bad: false, path: null, hear: null, lu: null };
+    var keep = BE.track, every = BE.every; try { keep = keep || localStorage.getItem('apt-beat'); if (every == null) every = localStorage.getItem('apt-beat-all') !== 'no'; } catch (e) {}
+    BE = { game: src.game, pid: src.pid, track: BEATS.some(function (t) { return t.id === keep; }) ? keep : BEATS[0].id, every: every !== false, busy: false, prog: '', msg: '', bad: false, path: null, hear: null, lu: null };
     hitsLoad(); $('beatPop').hidden = false; renderBE();
     hitsPull().then(function () { if (BE.lu == null) renderBE(); });
   }
@@ -4870,18 +4886,21 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   function renderBE() {
     if ($('beatPop').hidden) return;
-    var list = beSource(), tr = BEATS.filter(function (t) { return t.id === BE.track; })[0], plan = beatPlan(beatMoments(list, function (c) { return c.kind; }), tr), stars = beStars(list, plan);
+    var list = beSource(), tr = BEATS.filter(function (t) { return t.id === BE.track; })[0], plan = bePlan(list, tr), stars = beStars(list, plan);
     if (BE.lu != null && list[BE.lu]) { renderLU(list, stars); return; }
     BE.lu = null;
     var left = stars.filter(function (i) { return clipHit(list[i]) == null; }).length;
+    var choose = BEATS.some(function (t) { return !!beatFit(t, beatPool(list)).loops; }); // (more moments than the shortest drop has room for)
     var gr = BE.game != null ? S.results[BE.game] : null, who = gr ? usFull(gr) + ' ' + gr.us + '–' + gr.them + ' ' + gr.opp : nm(BE.pid), used = plan ? plan.stars.filter(function (v, i, a) { return a.indexOf(v) === i; }).length : 0;
     var html = '<h2 id="beTitle">Beat edit</h2><p class="note">' + esc(who) + '. Every cut lands on the beat and the ball goes in on the drop, with slow motion and a flash on each moment. Tall, for Reels, TikTok and Stories.</p>' +
       '<ul class="tracks">' + BEATS.map(function (t) {
-        var secs = Math.round(beatLen(t));
+        var pt = bePlan(list, t), secs = Math.round(pt ? pt.len : beatLen(t));
         return '<li><button class="trk" type="button" data-betrack="' + t.id + '" aria-pressed="' + (t.id === BE.track) + '"' + (BE.busy ? ' disabled' : '') + '>' + esc(t.name) + '<small>' + esc(t.feel) + ', ' + t.bpm + ' bpm, ' + secs + ' seconds</small></button>' +
           '<button class="plain hear" type="button" data-behear="' + t.id + '" aria-label="' + (BE.hear === t.id ? 'Stop ' : 'Play ') + esc(t.name) + '">' + (BE.hear === t.id ? '■' : '▶') + '</button></li>';
-      }).join('') + '</ul>' +
-      '<p class="note" id="beCount">' + (plan ? (used === 1 ? 'Shows 1 moment' : 'Shows ' + used + ' moments') + (used < list.length ? ' of ' + list.length + ' (the best ones, goals first)' : '') + ', ' + Math.round(beatLen(tr)) + ' seconds with the end card.' : 'There are no clips to make it from yet.') + '</p>' +
+      }).join('') + '</ul>' + (choose ?
+      '<div class="bechoose" role="group" aria-label="How many moments"><button class="plain" type="button" data-beevery="1" aria-pressed="' + BE.every + '"' + (BE.busy ? ' disabled' : '') + '>All of them</button>' +
+        '<button class="plain" type="button" data-beevery="0" aria-pressed="' + !BE.every + '"' + (BE.busy ? ' disabled' : '') + '>Just the best</button></div>' : '') +
+      '<p class="note" id="beCount">' + (plan ? (used === 1 ? 'Shows 1 moment' : 'Shows ' + used + ' moments') + (used < list.length ? ' of ' + list.length + (BE.every && used >= beatPool(list) ? ' (not the goals against)' : ' (the best ones, goals first)') : '') + ', ' + Math.round(plan.len) + ' seconds with the end card.' + (BE.every && plan.loop ? ' The music’s drop plays again to fit them all in.' : '') : 'There are no clips to make it from yet.') + '</p>' +
       (stars.length ? '<h3>When the ball goes in</h3><p class="note" id="beLuNote">' + (left ? 'Each of these lands on the beat. Watch each one and tap when the ball goes in, so it lands spot on. ' + (left === stars.length ? 'None are' : left + ' aren’t') + ' lined up yet; until then Gaffer goes by when they were logged, which can be a few seconds out.' : 'All lined up, so every one lands on the beat.') + '</p>' +
         '<ul class="tracks" id="beLuList">' + stars.map(function (i) { var c = list[i], hit = clipHit(c);
           return '<li><button class="trk" type="button" data-belu="' + i + '"' + (BE.busy ? ' disabled' : '') + '>' + esc(String(c.label || 'Highlight').split(/\s{2,}/)[0]) + '<small>' + (hit != null ? '✓ Lined up' : 'Not lined up yet') + '</small></button></li>'; }).join('') + '</ul>' : '') +
@@ -4893,13 +4912,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   async function beMake() {
     var rc = RCp(); if (!rc || BE.busy) return;
-    var list = beSource(), tr = BEATS.filter(function (t) { return t.id === BE.track; })[0], plan = beatPlan(beatMoments(list, function (c) { return c.kind; }), tr); if (!plan) return;
+    var list = beSource(), tr = BEATS.filter(function (t) { return t.id === BE.track; })[0], plan = bePlan(list, tr); if (!plan) return;
     var r = BE.game != null ? S.results[BE.game] : null, who = r ? vs(r) : nm(BE.pid), use = [], at = {};
     plan.segs.forEach(function (s) { if (at[s.i] == null) { at[s.i] = use.length; use.push(list[s.i]); } s.i = at[s.i]; }); // (only the clips it uses are fetched)
     beHear(null);
     BE.busy = true; BE.bad = false; BE.msg = ''; BE.path = null; BE.prog = 'Starting…'; renderBE();
     try {
-      var res = await rc.beatEdit({ items: use.map(function (c) { return { url: clipSrc(c, false) }; }), music: tr.id, segs: plan.segs, fx: plan.fx, len: plan.len, outroAt: plan.outroAt,
+      var res = await rc.beatEdit({ items: use.map(function (c) { return { url: clipSrc(c, false) }; }), music: tr.id, loop: plan.loop, segs: plan.segs, fx: plan.fx, len: plan.len, outroAt: plan.outroAt,
         file: (slugify(r ? folderOf(r) : who) || 'gaffer') + '-' + tr.id + '.mp4',
         outro: r ? endCard(r) : { kicker: 'Player edit', title: who, sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
       BE.path = res && res.path; BE.msg = 'The edit is ready.';
@@ -4914,6 +4933,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (b.id === 'beMake') beMake();
     else if (b.id === 'beShare') { var rc = RCp(); if (rc && BE.path) rc.share({ path: BE.path }).catch(function () {}); }
     else if (b.hasAttribute('data-betrack')) { BE.track = b.getAttribute('data-betrack'); try { localStorage.setItem('apt-beat', BE.track); } catch (err) {} BE.path = null; BE.msg = ''; renderBE(); }
+    else if (b.hasAttribute('data-beevery')) { BE.every = b.getAttribute('data-beevery') === '1'; try { localStorage.setItem('apt-beat-all', BE.every ? 'yes' : 'no'); } catch (err) {} BE.path = null; BE.msg = ''; renderBE(); }
     else if (b.hasAttribute('data-belu')) { beHear(null); BE.lu = +b.getAttribute('data-belu'); renderBE(); }
     else if (b.id === 'beLuBack') { luStop(); BE.lu = null; renderBE(); }
     else if (b.hasAttribute('data-benudge')) { var v = $('beVid'); if (v) { try { v.pause(); v.currentTime = Math.max(0, Math.min((v.duration || 1e3) - 0.05, v.currentTime + +b.getAttribute('data-benudge'))); } catch (err) {} } }
@@ -4921,7 +4941,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (b.id === 'beHit' || b.id === 'beUnhit') {
       var vh = $('beVid'), list = beSource(), ch = list[BE.lu]; if (!ch) return;
       luStop(); luSet(ch, b.id === 'beHit' && vh ? vh.currentTime : null);
-      var tr = BEATS.filter(function (t) { return t.id === BE.track; })[0], st = beStars(list, beatPlan(beatMoments(list, function (c) { return c.kind; }), tr));
+      var st = beStars(list, bePlan(list));
       var next = b.id === 'beHit' ? st.filter(function (i) { return i !== BE.lu && clipHit(list[i]) == null; })[0] : undefined; // (on to the next one not done, else back to the list)
       BE.lu = next != null ? next : null; renderBE();
     }
