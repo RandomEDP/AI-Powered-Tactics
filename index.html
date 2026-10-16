@@ -28,27 +28,27 @@
   --pitch: var(--team); --pitch-ink: var(--team-ink); --pitch-dim: color-mix(in srgb, var(--team-ink) 74%, var(--team)); --pitch-deep: color-mix(in srgb, var(--team) 60%, #000);
   --pitch-veil: color-mix(in srgb, var(--team-ink) 14%, transparent);
   --on: var(--team); --on-soft: color-mix(in srgb, var(--team) 13%, #fff); --on-ink: var(--team-ink);
-  --bib: #b03f08; --bib-soft: #fde5d6; --gold: #ffc83d;
+  --bib: #b03f08; --bib-soft: #fde5d6; --bib-ink: #fff; --gold: #ffc83d;
   --scrim: rgba(12, 16, 14, .55); --agg: #c62828; --mid: #e0a100; --fair: #1e8e4e;
   --font: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
   --display: var(--font); --body: var(--font);
   --r-panel: 28px; --r-card: 20px; --r-ctl: 14px;
   /* One type scale, in rem, so every size follows the iPhone's own text size (textSize() sets the root, 17px as standard) */
   --t-large: 1.75rem; --t-title: 1.375rem; --t-head: 1.125rem; --t-body: 1rem; --t-sub: .9rem; --t-foot: .8125rem; --t-cap: .75rem;
-  --glass: color-mix(in srgb, var(--surface) 76%, transparent); --danger: var(--agg);
+  --glass: color-mix(in srgb, var(--surface) 76%, transparent); --danger: var(--agg); --danger-ink: #fff;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   color-scheme: dark;
   --bg: #0b0d0c; --surface: #171a19; --ink: #f0f3f0; --muted: #98a19c; --line: #272c2a; --fill: #222725;
   --pitch: color-mix(in srgb, var(--team) 84%, #000);
   --on: color-mix(in srgb, var(--team) 52%, #fff); --on-soft: color-mix(in srgb, var(--team) 30%, #171a19); --on-ink: #0b0d0c;
-  --bib: #ff8a4a; --bib-soft: #3b2214; --scrim: rgba(0, 0, 0, .7); --agg: #ff5a52; --mid: #f2c14e; --fair: #3fcf7f; } }
+  --bib: #ff8a4a; --bib-soft: #3b2214; --bib-ink: #0b0d0c; --danger-ink: #0b0d0c; --scrim: rgba(0, 0, 0, .7); --agg: #ff5a52; --mid: #f2c14e; --fair: #3fcf7f; } }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0b0d0c; --surface: #171a19; --ink: #f0f3f0; --muted: #98a19c; --line: #272c2a; --fill: #222725;
   --pitch: color-mix(in srgb, var(--team) 84%, #000);
   --on: color-mix(in srgb, var(--team) 52%, #fff); --on-soft: color-mix(in srgb, var(--team) 30%, #171a19); --on-ink: #0b0d0c;
-  --bib: #ff8a4a; --bib-soft: #3b2214; --scrim: rgba(0, 0, 0, .7); --agg: #ff5a52; --mid: #f2c14e; --fair: #3fcf7f; }
+  --bib: #ff8a4a; --bib-soft: #3b2214; --bib-ink: #0b0d0c; --danger-ink: #0b0d0c; --scrim: rgba(0, 0, 0, .7); --agg: #ff5a52; --mid: #f2c14e; --fair: #3fcf7f; }
 
 /* ---- base */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -116,7 +116,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .plain.quiet { background: none; color: var(--on); padding-inline: 8px; align-self: flex-start; }
 .danger, .plain.danger, .link.danger, .del.danger { color: var(--danger); }
 .plain.danger:not(.armed) { background: color-mix(in srgb, var(--danger) 10%, var(--fill)); }
-.plain.armed { background: var(--danger); color: #fff; }
+.plain.armed { background: var(--danger); color: var(--danger-ink); }
 /* iPhone-style navigation: a chevron and the previous screen's name in the kit colour, then a large title on its own line.
    When the large title scrolls away, #topbar shows it small at the top, with the same back button. */
 .back { min-height: 44px; padding: 0 10px 0 0; border: 0; border-radius: 10px; background: none; color: var(--on); font-weight: 600; font-size: var(--t-body); white-space: nowrap;
@@ -136,7 +136,8 @@ body.ro:not(.sc) .scr { display: none !important; }
 .view.swiping { transition: none !important; }
 .del { min-height: 44px; padding-inline: 12px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 650; font-size: var(--t-sub); }
 .del.tint { background: var(--on-soft); color: var(--on); }
-.del.armed { background: var(--danger); color: #fff; }
+.del.armed { background: var(--danger); color: var(--danger-ink); }
+.x.armed { width: auto; padding-inline: 10px; background: var(--danger); color: var(--danger-ink); font-size: var(--t-sub); font-weight: 700; }
 .x { width: 36px; height: 44px; border: 0; background: none; color: var(--muted); font-size: var(--t-title); border-radius: 10px; }
 
 .field { display: flex; flex-direction: column; gap: 6px; font-size: var(--t-sub); font-weight: 600; color: var(--muted); }
@@ -162,7 +163,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 #v-options section .field input, #v-options section .setup input, #v-options .orow input, #v-options .orow select { background: var(--bg); }
 #v-options section > h2 { font-size: var(--t-foot); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .three, .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.setup label { display: flex; flex-direction: column; gap: 6px; font-size: var(--t-sub); font-weight: 600; color: var(--muted); min-width: 0; }
+.setup label { display: flex; flex-direction: column; justify-content: space-between; gap: 6px; font-size: var(--t-sub); font-weight: 600; color: var(--muted); min-width: 0; }
 .joinrow { display: flex; gap: 8px; }
 .joinrow input { flex: 1; font-size: var(--t-title); font-weight: 800; font-stretch: 75%; letter-spacing: .18em; text-transform: uppercase; padding-block: 9px; }
 .joinrow input::placeholder { color: var(--muted); opacity: .45; }
@@ -192,11 +193,12 @@ body.ro:not(.sc) .scr { display: none !important; }
 .menu button { flex: 1 1 calc(50% - 5px); min-height: 84px; border: 0; border-radius: var(--r-card); background: var(--surface); font-size: var(--t-head); font-weight: 700; letter-spacing: -.01em;
   text-align: left; padding: 16px 18px; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; }
 .menu button.primary { flex-basis: 100%; min-height: 76px; justify-content: center; background: var(--on); color: var(--on-ink); font-size: var(--t-title); }
-.menu button.armed { background: var(--danger); color: #fff; }
+.menu button.armed { background: var(--danger); color: var(--danger-ink); }
 .menu small { font-size: var(--t-sub); font-weight: 500; letter-spacing: 0; opacity: .8; }
 .menu button .ic { width: 26px; height: 26px; color: var(--on); margin-bottom: auto; flex: none; }
 .menu button small:empty { display: none; }
-#homeMenu button:not(.primary) { min-height: 104px; gap: 4px; padding-top: 14px; }
+#homeMenu button:not(.primary) { min-height: 104px; gap: 4px; padding-top: 14px; justify-content: flex-start; }
+#homeMenu button:not(.primary) .ic { margin-bottom: 14px; }
 #homeMenu button:not(.primary) small { color: var(--muted); opacity: 1; font-size: var(--t-foot); line-height: 1.25; }
 #myTeams button { flex-basis: 100%; min-height: 68px; justify-content: center; }
 .menu button small.code { font-stretch: 75%; font-weight: 700; letter-spacing: .12em; background: none; padding: 0; border-radius: 0; max-height: none; overflow: visible; }
@@ -283,7 +285,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .controls { display: flex; gap: 8px; }
 .go { flex: 1; min-height: 58px; border: 0; border-radius: 18px; background: var(--pitch-ink); color: var(--pitch-deep); font-size: var(--t-head); font-weight: 800; letter-spacing: -.01em; }
 .ghost { min-height: 58px; padding-inline: 16px; border: 0; border-radius: 18px; background: var(--pitch-veil); color: var(--pitch-ink); font-size: var(--t-body); font-weight: 650; }
-.ghost.armed { background: var(--danger); color: #fff; }
+.ghost.armed { background: var(--danger); color: var(--danger-ink); }
 .clock.flash { animation: flash .5s 4; }
 @keyframes flash { 50% { background: var(--bib); } }
 @media (prefers-reduced-motion: reduce) { .clock.flash { animation: none; } }
@@ -318,7 +320,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .dk { position: relative; overflow: hidden; border: 0; border-radius: 16px; min-height: 48px; padding: 6px 10px; display: flex; align-items: center; justify-content: center; gap: 6px;
   font-weight: 750; font-size: var(--t-body); line-height: 1.1; text-align: center; background: var(--fill); color: var(--ink); }
 .dk svg { width: 20px; height: 20px; flex: none; }
-.dkrow .dk { flex: 1; font-size: var(--t-sub); } .dkrow .dk-undo { flex: 0 0 auto; padding-inline: 14px; color: var(--muted); }
+.dkrow .dk { flex: 1 1 auto; min-width: 0; padding-inline: 8px; font-size: var(--t-sub); } .dkrow .dk-undo { flex: 0 0 auto; padding-inline: 12px; color: var(--muted); }
 .dk-us, .dk-them { min-height: 58px; font-size: var(--t-body); overflow-wrap: anywhere; }
 .dk-us { background: var(--on); color: var(--on-ink); }
 .dk-hl, .dk-sv { background: var(--on-soft); color: var(--on); }
@@ -372,7 +374,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .pick.on { box-shadow: inset 0 0 0 2px var(--ink); }
 .pick.alt { color: var(--muted); }
 .picker.out .pick.best, .ed .pick.sel { background: var(--on); color: var(--on-ink); }
-.picker.out .pick.warn { background: var(--danger); color: #fff; } .ed .pick.b.sel { background: var(--bib); color: #fff; }
+.picker.out .pick.warn { background: var(--danger); color: var(--danger-ink); } .ed .pick.b.sel { background: var(--bib); color: var(--bib-ink); }
 .ed .pick:disabled { opacity: .55; }
 .ed .nav { display: flex; gap: 8px; justify-content: space-between; }
 .modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; padding: 12px 12px calc(env(safe-area-inset-bottom, 0px) + 12px); background: var(--scrim); }
@@ -399,7 +401,7 @@ tr.past td { opacity: .45; }
 .lrow, .mrow, .orow { display: grid; gap: 8px; align-items: center; padding-block: 9px; border-bottom: 1px solid var(--line); }
 .lrow { grid-template-columns: 1fr 44px auto; } .lrow.hrow { grid-template-columns: minmax(0, 1fr) auto; }
 .mrow { grid-template-columns: 1fr auto; }
-.orow { grid-template-columns: 1fr 52px 112px 36px; border-bottom: 0; padding-block: 4px; }
+.orow { grid-template-columns: 1fr 52px 112px auto; border-bottom: 0; padding-block: 4px; }
 .orow input.shirt { text-align: center; padding-inline: 4px; }
 .orow select { font: inherit; font-size: var(--t-sub); font-weight: 500; color: var(--ink); background: var(--surface); border: 0; border-radius: var(--r-ctl); padding: 13px 8px; min-width: 0; width: 100%; }
 .lrow .who, .mrow .who { min-width: 0; overflow-wrap: anywhere; font-weight: 650; }
@@ -410,9 +412,9 @@ tr.past td { opacity: .45; }
 .seg button { min-height: 34px; padding-inline: 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-weight: 650; font-size: var(--t-sub); }
 .seg button.is { color: #fff; }
 .seg button.is[data-set="start"] { background: var(--on); color: var(--on-ink); }
-.seg button.is[data-set="bench"] { background: var(--bib); }
+.seg button.is[data-set="bench"] { background: var(--bib); color: var(--bib-ink); }
 .seg button.is[data-set="out"] { background: var(--muted); color: var(--bg); }
-.seg button.is[data-hside="a"] { background: var(--on); color: var(--on-ink); } .seg button.is[data-hside="b"] { background: var(--bib); } .seg button.is[data-hside="out"] { background: var(--muted); color: var(--bg); }
+.seg button.is[data-hside="a"] { background: var(--on); color: var(--on-ink); } .seg button.is[data-hside="b"] { background: var(--bib); color: var(--bib-ink); } .seg button.is[data-hside="out"] { background: var(--muted); color: var(--bg); }
 .step { display: flex; align-items: center; gap: 6px; }
 .step button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--fill); font-size: var(--t-title); font-weight: 600; line-height: 1; }
 .step b { min-width: 64px; text-align: center; font-size: var(--t-large); font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
@@ -777,6 +779,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .tgames li { display: flex; justify-content: space-between; gap: 12px; padding-block: 8px; border-bottom: 1px solid var(--line); font-size: var(--t-sub); } .tgames li:last-child { border-bottom: 0; }
 .toggle.scope { overflow-x: auto; scrollbar-width: none; } .toggle.scope::-webkit-scrollbar { display: none; } .toggle.scope button { flex: 1 0 auto; padding-inline: 14px; white-space: nowrap; }
 .toggle button:disabled { opacity: .5; }
+#gKind button { flex: 1 1 auto; padding-inline: 8px; }
 .trow { display: grid; grid-template-columns: 28px 1fr 74px; gap: 10px; align-items: center; padding-block: 8px; border-bottom: 1px solid var(--line); }
 .trow:last-child { border-bottom: 0; } .trow input[type=checkbox] { width: 24px; height: 24px; }
 .trow input[type=text] { font: inherit; text-align: center; border: 0; border-radius: var(--r-ctl); background: var(--bg); color: var(--ink); padding: 10px 6px; width: 100%; }
@@ -8354,8 +8357,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   });
   $('squad').addEventListener('input', function (e) { if (!e.target.hasAttribute('data-id')) return; var p = P(+e.target.getAttribute('data-id')); if (p) { p.name = e.target.value; save(); } });
   $('squad').addEventListener('change', function (e) { var id = e.target.getAttribute('data-posfor'); if (id === null || !e.target.value) return; var p = P(+id); if (p) { p.pos = e.target.value; save(); } });
+  // Removing a player takes their stats with them, so it's two taps: the first turns × into a red Remove
+  var rmArmed = null, rmTimer = 0;
+  function rmDisarm() { clearTimeout(rmTimer); var b = rmArmed && document.querySelector('#squad [data-rm="' + rmArmed + '"]'); if (b) { b.classList.remove('armed'); b.innerHTML = '&times;'; } rmArmed = null; }
   $('squad').addEventListener('click', function (e) {
-    var id = e.target.getAttribute('data-rm'); if (id === null || S.match || S.players.length <= 1) return;
+    var btn = e.target.closest('[data-rm]'), id = btn && btn.getAttribute('data-rm'); if (id === null || id === undefined || S.match || S.players.length <= 1) return;
+    if (rmArmed !== id) { rmDisarm(); rmArmed = id; btn.classList.add('armed'); btn.textContent = 'Remove'; rmTimer = setTimeout(rmDisarm, 4000); return; }
+    clearTimeout(rmTimer); rmArmed = null;
     S.players = S.players.filter(function (p) { return p.id !== +id; });
     if (S.lastKeeper === +id) S.lastKeeper = null;
     save(); renderOptions();
