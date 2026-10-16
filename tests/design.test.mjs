@@ -74,6 +74,11 @@ check(await p.evaluate(() => !!document.querySelector('#clock #usN') && !!docume
 await shot(A, 'match-mode');
 const svLines = await p.evaluate(() => { const b = document.getElementById('svBtn'), t = [...b.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim()); const g = document.createRange(); g.selectNodeContents(t); return new Set([...g.getClientRects()].map((x) => Math.round(x.top))).size; });
 eq(svLines, 1, '"Keeper save" fits on one line in the dock, next to Highlight and Undo');
+// CI's Chromium draws text a little wider than a laptop's: it must still fit with room to spare
+const svWide = await p.evaluate(() => { const d = document.getElementById('dock'); d.style.letterSpacing = '.04em'; const b = document.getElementById('svBtn'), t = [...b.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim()); const g = document.createRange(); g.selectNodeContents(t); const n = new Set([...g.getClientRects()].map((x) => Math.round(x.top))).size; d.style.letterSpacing = ''; return n; });
+eq(svWide, 1, '"Keeper save" still fits on one line with slightly wider text');
+const und = await p.evaluate(() => { const u = document.getElementById('undo'), r = u.getBoundingClientRect(); return { w: r.width >= 44, h: r.height >= 44, name: u.getAttribute('aria-label') }; });
+eq(und, { w: true, h: true, name: 'Undo the last thing logged' }, 'Undo in the dock is a 44-point icon button with its name for VoiceOver');
 await A.click('#goalUs'); await A.run(300); await p.waitForTimeout(500);
 const sheet = await p.evaluate(() => { const b = [...document.querySelectorAll('#picker .chips .pick:not(.wide)')].map((x) => x.getBoundingClientRect()); const s = document.querySelector('#picker .picker').getBoundingClientRect(); return { cols: new Set(b.map((x) => Math.round(x.left))).size, widths: new Set(b.map((x) => Math.round(x.width))).size, tall: Math.min(...b.map((x) => x.height)), bottom: Math.round(s.bottom), vh: innerHeight, cancel: !!document.querySelector('#picker .phead [data-cancel]') }; });
 check(sheet.cols === 2 && sheet.widths === 1 && sheet.tall >= 44, `Who scored? is two even columns of names, each at least 44 points tall (${JSON.stringify(sheet)})`);
