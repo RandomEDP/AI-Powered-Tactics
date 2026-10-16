@@ -24,7 +24,7 @@ const sides = (P) => P.page.$$eval('#hList .lrow', (rows) => rows.map((r) => r.q
 const picks = (P) => P.page.$$eval('#picker [data-p]', (b) => b.map((x) => x.getAttribute('data-p')).filter((x) => x !== 'x').map(Number).sort((a, b) => a - b));
 
 // ---------- the gaffer sets it up
-const A = await w.phone({ db: true, native: true, label: 'gaffer' });
+const A = await w.phone({ db: true, native: true, label: 'gaffer', config: { linkUrl: 'https://gaffer.example/' } });
 await A.ctx.addInitScript(cutter); await A.page.reload(); await A.run(500);
 await A.click('#createBtn'); await A.signUp('ethan@example.com');
 await A.page.fill('#tName', 'Sons of Pitches FC'); await A.page.fill('#tShort', 'SOP FC'); await A.page.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await A.click('#tCreate'); await A.run(600);
@@ -101,11 +101,15 @@ await A.click('#endHalf'); await A.click('#endHalf'); await A.run(1000); await A
 await A.click('#endHalf'); await A.click('#endHalf'); await A.run(1000);
 await A.click('#finish'); await A.click('#finish'); await A.run(2500);
 eq([await A.view(), await A.visible('#hlList .hcard.focus [data-guests]')], ['highlights', true], 'with guests, finishing goes to the game\'s highlights, with a button to send the guests a link');
+const offered = () => A.page.evaluate(() => { window.gafferHighlights(); return !!document.querySelector('#hlList .hcard.focus [data-guests]'); });
+await A.page.evaluate(() => { window.APT_CONFIG.linkUrl = ''; });
+eq(await offered(), false, 'until Gaffer has its own web address (config.js linkUrl) there is no link to send, so the GitHub address never goes to anyone');
+await A.page.evaluate((u) => { window.APT_CONFIG.linkUrl = u; }, 'https://gaffer.example/'); await offered();
 await A.click('#hlList [data-guests]'); await A.run(500);
 const sent = (await A.page.evaluate(() => window.__rc.filter((x) => x[0] === 'shareText'))).pop()[1];
 const db = w.db(), g = db.games[0];
 check(sent.text.startsWith('Thanks for playing, Dave and Tom! Watch the highlights from Bibs v Shirts with Sons of Pitches FC in Gaffer.'), `the message thanks the guests by name (${sent.text})`);
-eq(sent.url, 'https://randomedp.github.io/AI-Powered-Tactics/?team=' + code + '&game=' + g.id, 'and links to this game on the team\'s page (the team code anyone can follow with, never the gaffer code)');
+eq(sent.url, 'https://gaffer.example/?team=' + code + '&game=' + g.id, 'and links to this game on the team\'s page (the team code anyone can follow with, never the gaffer code)');
 
 // ---------- what's kept
 eq([g.friendly, g.house && g.house.a, g.house && g.house.b, g.house && g.house.guests], [true, 'Bibs', 'Shirts', [{ id: 1001, name: 'Dave' }, { id: 1002, name: 'Tom' }]], 'the database keeps the sides and the guests with the game');
@@ -125,7 +129,7 @@ check(card.includes('Goal: Tom, set up by Chaplin for Bibs (1–0)') && card.inc
 
 // ---------- a guest opens the link, on the web
 const G = await w.phone({ db: true, label: 'guest' });
-await G.page.goto(sent.url.replace('https://randomedp.github.io/AI-Powered-Tactics/', w.base)); await G.run(1500);
+await G.page.goto(sent.url.replace('https://gaffer.example/', w.base)); await G.run(1500);
 eq([await G.view(), await G.visible('#guestCard'), await G.page.evaluate(() => location.search)], ['highlights', true, ''], 'the link opens straight on the highlights, with a welcome (and tidies the address)');
 await shot(G, 'house-guest');
 check((await G.text('#guestCard')).includes('These are the highlights from Bibs v Shirts with Sons of Pitches FC.'), 'it says which game they\'re looking at');
