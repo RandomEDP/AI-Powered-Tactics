@@ -22,7 +22,7 @@ import UniformTypeIdentifiers
 ///                                                  is sent -> { path, size, voiced?: { path, size } }
 ///   upload({ path, url, contentType? })            sends a file to an upload link in the background (it carries on with
 ///                                                  the app put away or closed) -> { status, ok }; "upload" events { p }
-///   beatEdit({ items: [{ url }], music, segs, fx, len, outroAt, outro, file })   a beat edit cut to one of Gaffer's own
+///   beatEdit({ items: [{ url }], music, loop, segs, fx, len, outroAt, outro, file })   a beat edit cut to one of Gaffer's own
 ///                                                  tracks, tall for Instagram, exactly as JS planned it (beatPlan in
 ///                                                  index.html) -> { path, size }; "progress" { stage: "fetch" | "beat" | "card", p }
 ///   cleanup()                                      deletes the working files
@@ -578,6 +578,13 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             call.reject("That track isn't in this version of Gaffer. Update the app from TestFlight or the App Store and try again."); return
         }
         let outro = call.options["outro"] as? [String: Any]
+        // the bars of the music to play again so every moment fits (JS beatFit): from and to in seconds, how many times
+        let loopRaw = call.options["loop"] as? [String: Any]
+        let loop = loopRaw.flatMap { raw -> (from: Double, to: Double, times: Int)? in
+            guard let from = (raw["from"] as? NSNumber)?.doubleValue, let to = (raw["to"] as? NSNumber)?.doubleValue,
+                  let times = (raw["times"] as? NSNumber)?.intValue, times > 0, times <= 12, to > from + 0.5, from >= 0 else { return nil }
+            return (from, to, times)
+        }
         let name = (call.getString("file") ?? "beat-edit.mp4").replacingOccurrences(of: "/", with: "-")
         var spare: UIBackgroundTaskIdentifier = .invalid
         let begin = { spare = UIApplication.shared.beginBackgroundTask(withName: "Making a beat edit") { UIApplication.shared.endBackgroundTask(spare) } }
@@ -601,7 +608,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                     clips.append(AVURLAsset(url: local))
                 }
                 let cut = dir.appendingPathComponent("cut.mp4")
-                try self.beatPass(plan, clips: clips, music: AVURLAsset(url: music), to: cut) { p in
+                try self.beatPass(plan, clips: clips, music: AVURLAsset(url: music), loop: loop, to: cut) { p in
                     self.notifyListeners("progress", data: ["stage": "beat", "i": 0, "n": 1, "p": p])
                 }
                 let out = dir.appendingPathComponent(name.hasSuffix(".mp4") ? name : name + ".mp4")
@@ -625,7 +632,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
 
     /// The edit itself: each stretch of each clip put where the plan says and squeezed or stretched to fit (so every cut
     /// is on the beat), the music laid under it, and every frame drawn tall with the plan's zooms, shakes and flashes.
-    private func beatPass(_ plan: BeatPlan, clips: [AVURLAsset], music: AVURLAsset, to out: URL, progress: @escaping (Double) -> Void) throws {
+    private func beatPass(_ plan: BeatPlan, clips: [AVURLAsset], music: AVURLAsset, loop: (from: Double, to: Double, times: Int)? = nil, to out: URL, progress: @escaping (Double) -> Void) throws {
         let composition = AVMutableComposition()
         guard let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
             throw CutError(message: "Couldn't set up the video")
@@ -653,7 +660,18 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         }
         if let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
             guard let tune = music.tracks(withMediaType: .audio).first else { throw CutError(message: "The music couldn't be read. Update the app and try again.") }
-            try audio.insertTimeRange(CMTimeRange(start: .zero, duration: CMTimeMinimum(music.duration, cursor)), of: tune, at: .zero)
+            if let loop = loop, loop.to < CMTimeGetSeconds(music.duration) {
+                // the track up to the end of its drop, the drop again as many times as the plan needs, then the rest
+                let at = { (s: Double) in CMTime(seconds: s, preferredTimescale: 44100) }
+                var place = CMTime.zero
+                var parts = [CMTimeRange(start: .zero, end: at(loop.to))]
+                for _ in 0..<loop.times { parts.append(CMTimeRange(start: at(loop.from), end: at(loop.to))) }
+                parts.append(CMTimeRange(start: at(loop.to), end: music.duration))
+                for part in parts { try audio.insertTimeRange(part, of: tune, at: place); place = CMTimeAdd(place, part.duration) }
+                if CMTimeCompare(place, cursor) > 0 { audio.removeTimeRange(CMTimeRange(start: cursor, end: place)) }
+            } else {
+                try audio.insertTimeRange(CMTimeRange(start: .zero, duration: CMTimeMinimum(music.duration, cursor)), of: tune, at: .zero)
+            }
         }
         let frame = CGRect(x: 0, y: 0, width: 720, height: 1280)
         let videoComposition = AVMutableVideoComposition(asset: composition) { request in

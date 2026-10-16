@@ -402,6 +402,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   uploaded; it goes to the share sheet. The music is synthesised by `scripts/make-music.py` (numpy/scipy, then ffmpeg),
   so it's Gaffer's own and is never muted on Instagram; licensed tracks can be added later as more `BEATS` entries
   (bpm, bars, drop, end) with their `.m4a` in `music/`.
+  **All of them** (Ethan: "why does the beat edit only support 4 clips"): a track's drop only has room for a moment every
+  couple of bars (3 or 4), so with more moments the drop is played again (`beatFit`: as many times as they need, the edit
+  kept to `BEAT_MAX` 90 s; the plan's `loop {from, to, times}`, and `beatPass` repeats those bars of the music). "All of
+  them" (default) or "Just the best" (`BE.every`, `apt-beat-all`, `.bechoose`), shown when there are more moments than room.
   **When the ball goes in** (`0038_goal_moments.sql`; Ethan: "pretty much all of the goals are out of sync", then "an on device
   way of looking at the clips, deciding when the ball goes in"): the logged moment is often seconds out, so the sheet lists
   the moments it lands on the beat (`beStars`, `#beLuList`); tapping one shows its clean clip (`renderLU`, `#beVid`, ±1/0.2 s
