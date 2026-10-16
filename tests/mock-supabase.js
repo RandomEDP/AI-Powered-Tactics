@@ -482,7 +482,7 @@
       if (!u) return { data: {}, error: { message: 'Invalid login credentials' } };
       sessionStorage.setItem('__mockuser', u.id); sessionStorage.setItem('__mockemail', email); authCbs.forEach((cb) => cb('SIGNED_IN', session())); return { data: { session: session() }, error: null };
     },
-    async signUp({ email, password, options }) { const d = load(); d.users.push({ id: crypto.randomUUID(), email, password, meta: (options && options.data) || {}, redirect: (options && options.emailRedirectTo) || null }); store(d); return { data: { session: null, user: {} }, error: null }; },
+    async signUp({ email, password, options }) { if (window.__signUpError) return { data: { user: null, session: null }, error: { message: window.__signUpError, status: 429 } }; const d = load(); d.users.push({ id: crypto.randomUUID(), email, password, meta: (options && options.data) || {}, redirect: (options && options.emailRedirectTo) || null }); store(d); return { data: { session: null, user: {} }, error: null }; },
     async updateUser({ data, password }) { const d = load(); const u = d.users.find((x) => x.id === uid()); if (!u) return { data: {}, error: { message: 'Sign in first' } }; if (password) u.password = password; u.meta = Object.assign({}, u.meta || {}, data || {}); store(d); return { data: { user: session().user }, error: null }; },
     async resetPasswordForEmail(email, opts) { const d = load(); d.resets = (d.resets || []).concat({ email, to: opts && opts.redirectTo }); store(d); return { data: {}, error: null }; },
     async signOut() { sessionStorage.removeItem('__mockuser'); authCbs.forEach((cb) => cb('SIGNED_OUT', null)); return { error: null }; }

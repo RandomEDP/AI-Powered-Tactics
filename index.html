@@ -2502,6 +2502,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     return /invalid login/i.test(m) ? 'That email and password don’t match. If you only just signed up, confirm your email first.'
       : /not confirmed/i.test(m) ? 'Confirm your email first: tap the link we sent you, then sign in.'
       : /already registered/i.test(m) ? 'There’s already an account with that email. Choose “I have an account” instead.'
+      : /rate limit/i.test(m) ? 'Gaffer’s sending too many sign-up emails right now. Try again in an hour; your details are still filled in.'
       : m || 'That didn’t work. Check your signal and try again.';
   }
   async function openJoin(code, say) {
@@ -3466,6 +3467,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       aSay(/invalid login/i.test(m) ? 'That email and password don’t match. If you only just signed up, confirm your email first.'
         : /not confirmed/i.test(m) ? 'Confirm your email first: tap the link we sent you, then sign in.'
         : /already registered/i.test(m) ? 'There’s already an account with that email. Sign in instead.'
+        : /rate limit/i.test(m) ? 'Gaffer’s sending too many sign-up emails right now. Try again in an hour; your details are still filled in.'
         : m || 'That didn’t work. Check your signal and try again.', true);
     }
   }
