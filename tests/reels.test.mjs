@@ -10,7 +10,7 @@ const w = await world();
 const cutter = () => { // the native ReelCutter, as the web app sees it
   window.__rc = []; let cb = null;
   window.Capacitor.Plugins.ReelCutter = {
-    addListener: (n, f) => { cb = f; return { remove() {} }; },
+    addListener: (n, f) => { if (n === 'progress') { cb = f; window.__rcb = f; } return { remove() {} }; },
     pickVideo: async (o) => ({ path: '/phone/game' + o.slot + '.mov', duration: 5400 }),
     cut: async (o) => { window.__rc.push(['cut', o]);
       return { clips: o.clips.map((c) => Object.assign({ file: c.file, path: '/phone/' + c.file }, c.voice ? { voiced: { file: c.file.replace('.mp4', 'v.mp4'), path: '/phone/' + c.file.replace('.mp4', 'v.mp4') } } : {})), reel: { path: '/phone/' + o.reelFile, marks: o.clips.map((c, i) => i ? i * 14.04 : 0) },
@@ -130,7 +130,7 @@ eq(await mhsrc(A), '01v.mp4', 'until it\'s ready, the player plays the clips one
 check(/You don’t need to wait/.test(await A.text('#mhMsg')), 'and says there\'s no need to wait for it');
 await A.page.evaluate(() => { sessionStorage.removeItem('hold'); window.__release(); }); await A.run(3000);
 const mk = (await calls(A, 'join')).filter((o) => o.shrink);
-eq(mk.map((o) => [o.items.map((x) => tail(x.url)), o.shrink, !!o.outro, /reelv?\.mp4$/.test(o.file)]), [[['01.mp4', '02.mp4', '03.mp4'], true, true, true], [['01v.mp4', '02v.mp4', '03v.mp4'], true, true, true]],
+eq(mk.map((o) => [o.items.map((x) => tail(x.url)), o.shrink, !!o.outro, /reelv?\.mp4$/.test(o.file), o.job]), [[['01.mp4', '02.mp4', '03.mp4'], true, true, true, 'mk'], [['01v.mp4', '02v.mp4', '03v.mp4'], true, true, true, 'mk']],
   'the gaffer\'s phone joins the clips into one video (shrunk, with the full-time card), without commentary and with it');
 const g1 = w.db().games[0];
 eq([tail(g1.reel && g1.reel.path), tail(g1.reel && g1.reel.vpath), g1.reel && g1.reel.store, w.db().clips.slice().sort((a, b) => a.seq - b.seq).map((c) => c.reel_at)], ['reel.mp4', 'reelv.mp4', 'r2', [0, 14.04, 28.08]],
@@ -160,7 +160,52 @@ await A.page.evaluate(() => { window.__away(true); sessionStorage.removeItem('ho
 eq([w.db().games[0].reel, await A.text('#hlList .hcard:first-child [data-mkline]')], [null, 'Paused while Gaffer was put away. It carries on by itself when you come back.'], 'put away mid-way, iOS stops the joining: it says so, calmly');
 await A.page.evaluate(() => window.__away(false)); await A.run(3000);
 eq([tail(w.db().games[0].reel && w.db().games[0].reel.path), await A.text('#hlList .hcard:first-child [data-mkline]')], ['reel.mp4', 'It’s one video now, for everyone in the team.'], 'back in Gaffer, it carries on by itself and finishes');
+
+// ---------- put away again and again (Ethan: "every time I open the highlights for a game it does making it one video but
+// seems to never do it"): it starts again by itself twice at most, then says what to do and leaves it for the day
+dbx = w.db(); dbx.games[0].reel = null; w.setDb(dbx);
+await A.page.evaluate(() => { localStorage.removeItem('apt-tried'); sessionStorage.setItem('hold', '1'); });
+await A.page.reload(); await A.run(1500);
+if (await A.view() !== 'highlights') { await home(A); await A.run(300); await A.click('#mHighlights'); }
+await A.run(1000);
+const mkJoins = async () => (await calls(A, 'join')).filter((o) => o.job === 'mk').length;
+const j0 = await mkJoins(), says = [];
+for (let n = 0; n < 3; n++) {
+  await A.page.evaluate(() => { window.__away(true); sessionStorage.removeItem('hold'); const go = window.__release; window.__hold = new Promise((r) => { window.__release = r; }); go(); }); await A.run(500);
+  says.push(await A.text('#hlList .hcard:first-child [data-mkline]'));
+  await A.page.evaluate(() => window.__away(false)); await A.run(1500);
+}
+eq([await mkJoins() - j0, says[0], says[1]], [2, 'Paused while Gaffer was put away. It carries on by itself when you come back.', 'Paused while Gaffer was put away. It carries on by itself when you come back.'],
+  'stopped by Gaffer being put away, it starts again by itself when you come back, twice');
+check(/kept stopping while Gaffer was put away/.test(says[2]) && /keep Gaffer on screen/.test(says[2]), `then it stops and says to keep Gaffer on screen (${says[2]})`);
+check(await A.page.evaluate((g) => !!(JSON.parse(localStorage.getItem('apt-tried')) || {})['mk:' + g], w.db().games[0].id), 'and isn\'t started by itself again that day');
+await A.page.evaluate(() => { window.__release(); window.__hold = null; }); await A.run(300);
+eq([await mkJoins() - j0, w.db().games[0].reel], [2, null], 'coming back again doesn\'t start it');
+// opening the whole match player starts it again, there and then
+await A.click('#hlList .hcard:first-child .mhbtn'); await A.run(3000);
+eq([await mkJoins() - j0, tail(w.db().games[0].reel && w.db().games[0].reel.path)], [4, 'reel.mp4'], 'opening Watch the whole match highlights starts it again and it finishes');
+await A.click('#mhClose'); await A.run(200);
 await A.page.evaluate(() => sessionStorage.removeItem('awayable'));
+
+// ---------- two joins waiting on each other on one phone: each says only its own progress
+dbx = w.db(); dbx.games[0].reel = null; w.setDb(dbx);
+await A.page.evaluate(() => { localStorage.removeItem('apt-tried'); sessionStorage.setItem('hold', '1'); });
+await A.page.reload(); await A.run(1500);
+if (await A.view() !== 'highlights') { await home(A); await A.run(300); await A.click('#mHighlights'); }
+await A.run(1000);
+const line0 = await A.text('#hlList .hcard:first-child [data-mkline]');
+await A.page.evaluate(() => window.__rcb({ stage: 'reel', p: 0.4, job: '' })); await A.run(100);
+eq(await A.text('#hlList .hcard:first-child [data-mkline]'), line0, 'another reel\'s progress doesn\'t show as the one video\'s');
+await A.page.evaluate(() => window.__rcb({ stage: 'fetch', i: 2, n: 3, p: 0, job: 'mk' })); await A.run(100);
+eq(await A.text('#hlList .hcard:first-child [data-mkline]'), 'Making it one video (1 of 2): fetching clip 3 of 3…', 'its own does');
+await A.page.evaluate(() => { sessionStorage.removeItem('hold'); window.__release(); }); await A.run(3000);
+eq(tail(w.db().games[0].reel && w.db().games[0].reel.path), 'reel.mp4', 'and it finishes');
+
+// ---------- the plugin: every join works in a folder of its own (tests/folders/main.swift checks WorkFolders itself)
+{ const fs = await import('fs'); const src = fs.readFileSync(new URL('../plugins/reel-cutter/ios/Sources/ReelCutterPlugin/ReelCutterPlugin.swift', import.meta.url), 'utf8');
+  const join = src.slice(src.indexOf('@objc public func joinReel'), src.indexOf('@objc public func relabel'));
+  check(/WorkFolders\.fresh\("reel"/.test(join) && !/removeItem\(at: dir\)/.test(join), 'joinReel never clears a folder another join\'s video is waiting in (the copy with commentary deleted the one without it)');
+  check(/"job": tag/.test(join), 'and says whose progress it is'); }
 
 // ---------- closed while uploading: next time Gaffer opens, the video that arrived is handed to the team
 dbx = w.db(); dbx.games[0].reel = null; w.setDb(dbx);
