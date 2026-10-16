@@ -235,9 +235,13 @@ await J.run(2000);
 check(/Loading the ad/.test(await J.text(mine)), 'no answer about ad choices: it carries on and loads the ad');
 await J.run(4000);
 eq([await shows() - s0, /didn’t send an ad in time/.test(await J.text(mine)), await J.page.$eval(mine + ' [data-ad="reel"]', (b) => b.disabled)], [0, true, false], 'no ad from Google in time: it stops, says so, and the button can be tapped again');
+check(await J.visible('#noAdPop') && /No ads to show right now/.test(await J.text('#noAdPop')), 'and a pop-up says there are no ads to show right now');
+await J.click('#noAdOk'); await J.run(300); check(!(await J.visible('#noAdPop')), 'OK closes it');
 await J.page.evaluate(() => { let go; window.__hold = new Promise((r) => { go = r; }); window.__go = go; }); // (a slow join: the ad's answer can't wait for it)
 await J.click('#hlList [data-preel="2"]'); await J.run(300); await J.click('#rbMake'); await J.run(6000);
 check(/didn’t send an ad in time/.test(await J.text('#rbAd')) && /still being made/.test(await J.text('#rbAd')), 'no ad while the reel is still being made: it says so straight away, not when the reel is ready');
+check(await J.visible('#noAdPop') && /goes on your card, locked/.test(await J.text('#noAdPop')), 'with the same pop-up, saying the reel still goes on his card');
+await J.click('#noAdOk'); await J.run(300);
 await J.page.evaluate(() => { window.__hold = null; window.__go(); }); await J.run(2000);
 eq([/didn’t send an ad in time/.test(await J.text('#rbMsg')), /on your card/.test(await J.text('#rbMsg')), await J.visible('#rbShare')], [true, true, false], 'making his reel with no ad coming: the reel goes on his card, locked, and it says why');
 await J.click('#rbClose'); await J.run(800);
