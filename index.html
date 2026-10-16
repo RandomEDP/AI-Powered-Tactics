@@ -4624,9 +4624,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!base || NATIVE || !A.frClaim || !/iPhone|iPad|iPod/.test(navigator.userAgent || '')) return '';
     return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'team=' + encodeURIComponent(A.active || '') + '&game=' + encodeURIComponent(guestGame || '') + '&me=' + encodeURIComponent(A.frClaim);
   }
-  function guestLink(r) { return String(CFG.siteUrl || location.origin + location.pathname).replace(/[?#].*$/, '') + '?team=' + encodeURIComponent(A.active || '') + '&game=' + encodeURIComponent(r.id || ''); }
+  window.gafferHighlights = function () { renderHighlights(); }; // (the tests redraw it after changing config.js values)
+  function linkBase() { return String(CFG.linkUrl || '').replace(/[?#].*$/, ''); } // Gaffer's own address for links sent to people (config.js linkUrl); never the GitHub one
+  function guestLink(r) { return linkBase() + '?team=' + encodeURIComponent(A.active || '') + '&game=' + encodeURIComponent(r.id || ''); }
   async function shareGuests(i) { // a message with the game's link, for the guests who played in it
-    var r = S.results[i]; if (!r || !r.house) return;
+    var r = S.results[i]; if (!r || !r.house || !linkBase()) return;
     if (!r.id) { r.id = uuid(); save(); }
     var names = (r.house.guests || []).map(function (g) { return g.name; }), url = guestLink(r);
     var text = 'Thanks for playing' + (names.length ? ', ' + listAnd(names) : '') + '! Watch the highlights from ' + vs(r) + ' with ' + teamName() + ' in Gaffer. They show up once they’re cut.';
@@ -4664,7 +4666,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
         if (vids.length && RCp()) dlBtn = '<button class="plain tint" type="button" data-beat="' + g.i + '">Make a beat edit</button>' + dlBtn;
         if (own && vids.length && fixGoals(r).length) delBtn = '<button class="plain" type="button" data-fixg="' + g.i + '">Fix a goal</button>' + delBtn;
-        var guests = r.house && r.house.guests && r.house.guests.length && A.active && !guestGame ? '<div class="actions"><button class="plain" type="button" data-guests="' + g.i + '">Send the guests a link</button></div>' +
+        var guests = r.house && r.house.guests && r.house.guests.length && A.active && !guestGame && linkBase() ? '<div class="actions"><button class="plain" type="button" data-guests="' + g.i + '">Send the guests a link</button></div>' +
           (GL.i === g.i && GL.msg ? '<p class="msg" role="status" id="glMsg">' + esc(GL.msg) + '</p>' : '') : '';
         if (vids.length) html += mhButton(g.i, vids) + '<p class="msg mkline" data-mkline="' + esc(r.id) + '" hidden></p><details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
           (DL.i === g.i && (DL.msg || DL.prog) ? '<p class="msg' + (DL.bad ? ' bad' : '') + '" role="status" id="dlMsg">' + esc(DL.prog || DL.msg) + '</p>' + (DL.path && !DL.busy ? '<div class="actions"><button class="plain primary" type="button" data-dlshare="1">Share or save it</button></div>' : '') : '');
@@ -6128,7 +6130,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // After a friendly: a personal link for each player, sent from the game's highlights
   var FRL = { i: -1, msg: '', busy: false };
   function frLinksHtml(r, i) {
-    if (!frGame(r) || role !== 'owner' || guestGame) return '';
+    if (!frGame(r) || role !== 'owner' || guestGame || !linkBase()) return ''; // (no link to send until Gaffer has its own address)
     var ids = Object.keys((r.house && r.house.side) || {}).map(Number).filter(function (id) { return id !== myPid && P(id); });
     if (!ids.length) return '';
     return '<details class="frlinks"' + (FRL.i === i ? ' open' : '') + '><summary>Send everyone their link</summary><p class="note">Each player gets their own link to these highlights. Anyone not on Gaffer yet gets the app from it, and once they make an account the game goes on their profile.</p>' +
@@ -6136,7 +6138,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       (FRL.i === i && FRL.msg ? '<p class="msg" role="status" id="frlMsg">' + esc(FRL.msg) + '</p>' : '') + '</details>';
   }
   async function frSend(i, pid) {
-    var r = S.results[i]; if (!r || !sb || FRL.busy) return;
+    var r = S.results[i]; if (!r || !sb || FRL.busy || !linkBase()) return;
     if (!r.id) { r.id = uuid(); save(); }
     var done = function (msg) { FRL = { i: i, msg: msg, busy: false }; if (S.view === 'highlights') renderHighlights(); };
     FRL = { i: i, msg: 'Making ' + nm(pid) + '’s link…', busy: true }; renderHighlights();

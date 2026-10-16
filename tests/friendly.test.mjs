@@ -12,7 +12,7 @@ const rows = (P) => P.page.$$eval('#frList .lrow', (rs) => rs.map((r) => r.query
 const picks = (P) => P.page.$$eval('#picker [data-p]', (b) => b.map((x) => x.textContent.trim()).filter((x) => !/Own goal|No one/.test(x)));
 
 // ---------- the people: Ethan runs SOP FC, Jake plays for it, Dan is on Gaffer with another team
-const A = await w.phone({ db: true, native: true, label: 'ethan' });
+const A = await w.phone({ db: true, native: true, label: 'ethan', config: { linkUrl: 'https://gaffer.example/' } });
 await A.ctx.addInitScript(() => { window.__shared = []; const go = () => { if (window.Capacitor) window.Capacitor.Plugins.ReelCutter = { addListener: () => ({ remove() {} }), shareText: async (o) => { window.__shared.push(o); return { completed: true }; } }; }; go(); });
 await A.page.reload(); await A.run(500);
 await A.click('#createBtn'); await A.signUp('ethan@example.com', 'ethan_fc');
@@ -77,6 +77,10 @@ await A.click('#endHalf'); await A.click('#endHalf'); await A.run(1000);
 await A.click('#finish'); await A.click('#finish'); await A.run(2500);
 eq([await A.view(), await A.visible('#hlList .hcard.focus .frlinks')], ['highlights', true], 'finishing goes to the game\'s highlights, with Send everyone their link');
 check((await A.text('#hlList .hcard.focus h3')).includes('Friendly'), 'marked as a friendly');
+const offered = () => A.page.evaluate(() => { window.gafferHighlights(); return !!document.querySelector('#hlList .hcard.focus .frlinks'); });
+await A.page.evaluate(() => { window.APT_CONFIG.linkUrl = ''; });
+eq(await offered(), false, 'until Gaffer has its own web address (config.js linkUrl) there is no link to send, so the GitHub address never goes to anyone');
+await A.page.evaluate((u) => { window.APT_CONFIG.linkUrl = u; }, 'https://gaffer.example/'); await offered();
 
 // ---------- what counts where
 let db = w.db();
@@ -99,7 +103,7 @@ eq(await A.text('#frlMsg'), 'Sent to Dave.', 'and it says so');
 
 // ---------- Dave opens his link and makes an account
 const G = await w.phone({ db: true, label: 'dave' });
-await G.page.goto(sent.url.replace('https://randomedp.github.io/AI-Powered-Tactics/', w.base)); await G.run(1500);
+await G.page.goto(sent.url.replace('https://gaffer.example/', w.base)); await G.run(1500);
 eq([await G.view(), await G.visible('#guestCard')], ['highlights', true], 'the link opens the game\'s highlights');
 check((await G.text('#guestCard')).includes('Us v Them, your friendly') && (await G.text('#guestCard')).includes('Make an account or sign in, and this game goes on your profile'), 'saying the game goes on his profile once he has an account');
 await shot(G, 'friendly-guest');
@@ -121,12 +125,12 @@ await S1.ctx.addInitScript((clip) => {
   Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 Version/26.0 Mobile/15E148 Safari/604.1' });
   let c; Object.defineProperty(window, 'APT_CONFIG', { configurable: true, get: () => c, set: (v) => { c = Object.assign({}, v, { appClip: clip }); } });
 }, CLIP);
-await S1.page.goto(spiceUrl.replace('https://randomedp.github.io/AI-Powered-Tactics/', w.base)); await S1.run(1500);
+await S1.page.goto(spiceUrl.replace('https://gaffer.example/', w.base)); await S1.run(1500);
 const clipHref = await S1.page.getAttribute('#guestClip', 'href').catch(() => null);
 check(clipHref && clipHref.startsWith(CLIP + '&team=') && clipHref.endsWith('&me=' + spiceMe) && clipHref.includes('&game='), `on an iPhone's browser the guest is offered the App Clip with their own link (${clipHref})`);
 eq(await S1.text('#guestClip'), 'Get Gaffer with your highlights', 'worded for them');
 const S2 = await w.phone({ db: true, label: 'spice-web' });
-await S2.page.goto(spiceUrl.replace('https://randomedp.github.io/AI-Powered-Tactics/', w.base)); await S2.run(1500);
+await S2.page.goto(spiceUrl.replace('https://gaffer.example/', w.base)); await S2.run(1500);
 eq([await S2.visible('#guestCard'), await S2.visible('#guestClip')], [true, false], 'until the App Clip is live (config.js appClip), or on anything but an iPhone, it isn\'t offered');
 
 const S3 = await w.phone({ db: true, native: true, label: 'spice-app' });
