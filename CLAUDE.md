@@ -638,7 +638,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   page is live), make an account, join or start a team. The link uses the 6-character follow code, never the organiser code.
 - Test: `house.test.mjs`. Guests' names are covered on the privacy page.
 
-### Friendly games, outside any team (`0039_friendly_games.sql`; Ethan asked for 1.1, replacing "Just me")
+### Friendly games, outside any team (`0040_friendly_games.sql`; Ethan asked for 1.1, replacing "Just me")
 - Started from **Play a friendly** on Home (`#fdFriendly`), the welcome screen (`#wFriendly`) or the link under New game's
   kinds (`#frFromSetup`); never on Android. Screen `v-friendly` (`renderFriendly`, `FR`, draft kept per phone in
   `apt-friendly`): two named sides, then players from one of your teams (`#frTeam`: its squad, `team_people` says who's on

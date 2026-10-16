@@ -5,7 +5,7 @@ import { suite } from './lib.mjs';
 import { database } from './pg.mjs';
 const { check, eq, done } = suite('database: friendly games');
 const d = await database();
-eq(d.applied.includes('0039_friendly_games.sql'), true, 'the friendly games migration applies on top of the others');
+eq(d.applied.includes('0040_friendly_games.sql'), true, 'the friendly games migration applies on top of the others');
 
 const ethan = await d.user('ethan@example.com'), jake = await d.user('jake@example.com'), dan = await d.user('dan@example.com'), dave = await d.user('dave@example.com'), mo = await d.user('mo@example.com');
 for (const [u, n, full] of [[ethan, 'ethan_fc', 'Ethan Smith'], [jake, 'jake_fc', 'Jake'], [dan, 'dan_dog', 'Dan'], [dave, 'dave_new', 'Dave'], [mo, 'mo_fc', 'Mo']]) await d.rpc(u, 'set_profile', { p_username: n, p_name: full, p_private: false });
