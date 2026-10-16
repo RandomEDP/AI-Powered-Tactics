@@ -17,6 +17,12 @@ eq([await P.view(), await P.text('#aTitle'), await P.visible('#aUser'), await P.
   ['account', 'Create an account', true, true, true, false, false], 'Create account opens its own page: email, password, username and the terms, no Sign in button');
 await shot(P, 'create-account');
 await P.page.fill('#aEmail', 'sam@example.com'); await P.page.fill('#aPass', 'firstpassword'); await P.page.fill('#aUser', 'samwise'); await P.check('#aTerms');
+// Supabase's own mail has a small hourly limit (a friend of Ethan's got "email rate limit exceeded", October 2026)
+await P.page.evaluate(() => { window.__signUpError = 'email rate limit exceeded'; });
+await P.click('#aSignUp'); await P.run(400);
+eq([await P.text('#aMsg'), !!user('sam@example.com'), await P.page.inputValue('#aEmail')], ['Gaffer’s sending too many sign-up emails right now. Try again in an hour; your details are still filled in.', false, 'sam@example.com'],
+  'too many sign-up emails: it says so in plain words and keeps what they typed');
+await P.page.evaluate(() => { delete window.__signUpError; });
 await P.click('#aSignUp'); await P.run(400);
 eq([!!user('sam@example.com'), await P.text('#aTitle'), await P.page.inputValue('#aEmail'), await P.visible('#aUser')], [true, 'Sign in', 'sam@example.com', false],
   'made: it moves on to the sign-in page with the email kept, ready for once the email is confirmed');

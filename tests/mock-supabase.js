@@ -482,7 +482,7 @@
       if (!u) return { data: {}, error: { message: 'Invalid login credentials' } };
       sessionStorage.setItem('__mockuser', u.id); sessionStorage.setItem('__mockemail', email); authCbs.forEach((cb) => cb('SIGNED_IN', session())); return { data: { session: session() }, error: null };
     },
-    async signUp({ email, password, options }) { const d = load(); d.users.push({ id: crypto.randomUUID(), email, password, meta: (options && options.data) || {}, redirect: (options && options.emailRedirectTo) || null }); store(d); return { data: { session: null, user: {} }, error: null }; },
+    async signUp({ email, password, options }) { if (window.__signUpError) return { data: { user: null, session: null }, error: { message: window.__signUpError, status: 429 } }; const d = load(); d.users.push({ id: crypto.randomUUID(), email, password, meta: (options && options.data) || {}, redirect: (options && options.emailRedirectTo) || null }); store(d); return { data: { session: null, user: {} }, error: null }; },
     async updateUser({ data, password }) { const d = load(); const u = d.users.find((x) => x.id === uid()); if (!u) return { data: {}, error: { message: 'Sign in first' } }; if (password) u.password = password; u.meta = Object.assign({}, u.meta || {}, data || {}); store(d); return { data: { user: session().user }, error: null }; },
     async resetPasswordForEmail(email, opts) { const d = load(); d.resets = (d.resets || []).concat({ email, to: opts && opts.redirectTo }); store(d); return { data: {}, error: null }; },
     async signOut() { sessionStorage.removeItem('__mockuser'); authCbs.forEach((cb) => cb('SIGNED_OUT', null)); return { error: null }; }
@@ -512,6 +512,7 @@
       if (!own || !['upload', 'remove'].includes(b.action) || !(b.paths || []).length || !(b.paths || []).every((k) => String(k).startsWith(own))) return no(403, 'Only a gaffer can change the team\'s highlights.');
     }
     if (d.r2Off) return no(503, 'Clip storage isn\'t set up on Gaffer\'s server yet.', 'not_configured');
+    if (d.r2Refuse) return no(503, 'Cloudflare R2 refused a test file (403 SignatureDoesNotMatch).', b.action === 'upload' ? 'not_configured' : 'r2_refused'); // (as the real one)
     const keys = b.paths || [];
     if (b.action !== 'adopt' && (!keys.length || !keys.every((k) => String(k).startsWith(t.id + '/')))) return no(400, 'Those files aren\'t in this team\'s folder.');
     if (b.action === 'upload') return { data: { urls: keys.map((k) => location.origin + '/__r2/' + k) }, error: null };

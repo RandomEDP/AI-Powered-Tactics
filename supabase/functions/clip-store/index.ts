@@ -5,10 +5,12 @@
 //   upload { paths: [key] }            -> { urls: [link] }  links to PUT each file to, for an hour
 //   remove { paths: [key] }            -> { removed }       deletes them (a game's highlights deleted, to cut again)
 //   adopt  { game_id, seq }            -> { moved }         moves one clip (both copies) from Supabase storage to R2
+//   check                              -> { ok }            is R2 taking files? (else 503 with R2's own reason)
 // Every key must be in the team's own folder ("<team id>/..."). A player who has joined the squad as themselves may also
 // upload and remove their own reel, in their own folder ("<team id>/players/<their pid>/..."), and nothing else.
 // Secrets (Edge Functions > Secrets):
-//   CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+//   CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET (and R2_HOST only if the bucket's S3 address
+//   isn't <account>.r2.cloudflarestorage.com or the EU one)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -39,6 +41,40 @@ export async function presign(o: { method: string; host: string; path: string; a
   return `https://${o.host}${canonicalPath}?${canonicalQuery}&X-Amz-Signature=${hex(await hmac(key, toSign))}`;
 }
 
+// R2's own reason for saying no, from its XML answer ("403 SignatureDoesNotMatch")
+const r2Said = (status: number, body: string) => `${status} ${(body.match(/<Code>([^<]+)<\/Code>/) || [])[1] || body.slice(0, 120)}`;
+const env = (k: string) => (Deno.env.get(k) || "").trim(); // (a secret pasted with a space or a new line on the end still works)
+
+/// Is R2 there and taking files? A tiny file is put in the team's folder first, so a refusal is found out before any video
+/// is fetched from the old storage (each failed move used to download both copies of a clip, which Supabase counts), and
+/// so the phone is told to use the old storage straight away. A bucket made in the EU jurisdiction lives at
+/// <account>.eu.r2.cloudflarestorage.com, so that's tried when the usual address says there's no such bucket.
+/// The answer is kept for this instance for 10 minutes.
+let ready: { at: number; ok: boolean; host?: string; error?: string; reason?: string } | null = null;
+export function resetR2() { ready = null; }
+async function r2Ready(teamId: string) {
+  const account = env("CLOUDFLARE_ACCOUNT_ID"), access = env("R2_ACCESS_KEY_ID"), secret = env("R2_SECRET_ACCESS_KEY"), bucket = env("R2_BUCKET");
+  const linkAt = (host: string) => (method: string, key: string, expires = 3600) => presign({ method, host, path: `/${bucket}/${key}`, access, secret, region: "auto", at: new Date(), expires });
+  if (!account || !access || !secret || !bucket) return { ok: false, error: "Clip storage isn't set up on Gaffer's server yet.", reason: "not_configured" } as const;
+  if (!ready || Date.now() - ready.at > 600000) {
+    let said = "";
+    ready = null;
+    for (const host of [env("R2_HOST") || `${account}.r2.cloudflarestorage.com`, `${account}.eu.r2.cloudflarestorage.com`]) {
+      try {
+        const res = await fetch(await linkAt(host)("PUT", `${teamId}/.probe`, 300), { method: "PUT", body: "ok", headers: { "Content-Type": "text/plain" } });
+        if (res.ok) { ready = { at: Date.now(), ok: true, host }; break; }
+        said = r2Said(res.status, await res.text());
+      } catch (e) { said = String((e as Error)?.message || e); }
+      if (!/NoSuchBucket/.test(said)) break;
+    }
+    if (!ready) {
+      console.error("R2 refused a test file:", said);
+      ready = { at: Date.now(), ok: false, error: `Cloudflare R2 refused a test file (${said}). The clips stay in the old storage until it's fixed.`, reason: "r2_refused" };
+    }
+  }
+  return ready.ok ? { ok: true, host: ready.host!, link: linkAt(ready.host!) } as const : { ok: false, error: ready.error!, reason: ready.reason! } as const;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -58,12 +94,14 @@ Deno.serve(async (req: Request) => {
         return json({ error: "Only a gaffer can change the team's highlights." }, 403);
     }
 
-    const account = Deno.env.get("CLOUDFLARE_ACCOUNT_ID"), access = Deno.env.get("R2_ACCESS_KEY_ID"), secret = Deno.env.get("R2_SECRET_ACCESS_KEY"), bucket = Deno.env.get("R2_BUCKET");
-    if (!account || !access || !secret || !bucket) return json({ error: "Clip storage isn't set up on Gaffer's server yet.", reason: "not_configured" }, 503);
-    const host = `${account}.r2.cloudflarestorage.com`;
-    const link = (method: string, key: string, expires = 3600) => presign({ method, host, path: `/${bucket}/${key}`, access, secret, region: "auto", at: new Date(), expires });
+    const r2 = await r2Ready(team.id);
+    // (an upload R2 refuses is answered as "not set up", so every build of the app puts the files in the old storage
+    // straight away instead of trying R2 first)
+    if (!r2.ok) return json({ error: r2.error, reason: input.action === "upload" ? "not_configured" : r2.reason, r2: r2.reason }, 503);
+    const link = r2.link;
     const ours = (k: unknown) => typeof k === "string" && k.startsWith(team.id + "/") && !k.includes("..") && k.length < 300;
     const keys: string[] = Array.isArray(input.paths) ? input.paths.slice(0, 100) : [];
+    if (input.action === "check") return json({ ok: true, host: r2.host });
     if (input.action !== "adopt" && (!keys.length || !keys.every(ours))) return json({ error: "Those files aren't in this team's folder." }, 400);
 
     if (input.action === "upload") return json({ urls: await Promise.all(keys.map((k) => link("PUT", k))) });
@@ -84,7 +122,7 @@ Deno.serve(async (req: Request) => {
         if (!from.ok) return json({ error: `Couldn't read ${k} from the old storage (${from.status}).` }, 502);
         const body = await from.arrayBuffer();
         const to = await fetch(await link("PUT", k), { method: "PUT", body, headers: { "Content-Type": "video/mp4" } });
-        if (!to.ok) return json({ error: `R2 wouldn't take ${k} (${to.status}): ${(await to.text()).slice(0, 200)}` }, 502);
+        if (!to.ok) { const said = r2Said(to.status, await to.text()); console.error("R2 refused", k, said); return json({ error: `R2 wouldn't take ${k} (${said}).`, reason: "r2_refused" }, 502); }
       }
       await db.from("clips").update({ store: "r2" }).eq("team_id", team.id).eq("game_id", clip.game_id).eq("seq", clip.seq);
       await db.storage.from("clips").remove(files); // (only once the copies are safely in R2 and the row points there)

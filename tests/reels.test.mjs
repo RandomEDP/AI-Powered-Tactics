@@ -94,6 +94,14 @@ await shot(A, 'reel-in-highlights');
 await A.click('#hlList [data-say]');
 eq(await A.page.$eval('#hlList .hcard:first-child .reelp video', (v) => v.getAttribute('src').replace(/^.*\//, '')), 'reel.mp4', 'Commentary off plays the reel without it');
 await A.click('#hlList [data-say]');
+// drawn again (Highlights is, after every pull), the videos are the same elements, so nothing downloads again: a new
+// <video> for each draw fetched its whole clip again, most of the 8 GB that put Ethan over Supabase's free plan
+await A.page.evaluate(() => { document.querySelectorAll('#hlList video').forEach((v) => { v.__kept = 1; }); document.querySelector('#hlToggle [data-by="game"]').click(); });
+const sameVids = await A.page.$$eval('#hlList video', (v) => v.map((x) => !!x.__kept));
+check(sameVids.length > 0 && sameVids.every(Boolean), `Highlights drawn again keeps its videos, so they don't download again (${sameVids})`);
+await A.click('#hlList [data-say]');
+eq(await A.page.$$eval('#hlList .reelp video', (v) => v.map((x) => [!!x.__kept, x.getAttribute('src').replace(/^.*\//, '')])), [[false, 'reel.mp4']], 'a different video (commentary off) is a new one');
+await A.click('#hlList [data-say]');
 // a game whose reel didn't upload (cut before reels were kept): its clips one by one inline
 const savedReel = w.db().games[0].reel; let dbx = w.db(); dbx.games[0].reel = null; dbx.clips.forEach((c) => { c.reel_at = null; }); w.setDb(dbx);
 await A.ctx.addInitScript(() => { if (sessionStorage.getItem('hold')) window.__hold = new Promise((r) => { window.__release = r; }); });
