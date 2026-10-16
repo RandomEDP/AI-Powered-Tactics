@@ -4829,6 +4829,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var adSay = function (m) { if (!RB.busy || RB.prog.indexOf('ready for when') >= 0) return; RB.ad = m === 'The ad is playing…' ? 'The ad is playing. Your reel is being made at the same time.' : m; var el = $('rbAd'); if (el) el.textContent = RB.ad; else renderRB(); };
       adP = adRun('reel', ahead.key, { say: adSay, ticket: function (t) { ahead.ticket = t; ahead.watched = false; aheadPut(ahead); }, watched: function () { ahead.watched = true; aheadPut(ahead); } })
         .then(function (r) { return { r: r }; }, function (e) { return { err: (e && e.message) || 'Something went wrong with the ad.' }; });
+      adP.then(function (a) { // no ad (or closed early) while the reel is still being made: say so now, not once the reel is ready (Ethan saw "Loading the ad…" for good)
+        if (!RB.busy || RB.prog.indexOf('ready for when') >= 0 || a.r === 'unlocked' || a.r === 'waiting') return;
+        AD.busy = false; RB.ad = (a.r === 'closed' ? 'The ad was closed before the end.' : a.err) + ' Your reel is still being made; it’ll go on your card, locked, and you can watch an ad there to see it.';
+        var el = $('rbAd'); if (el) el.textContent = RB.ad; else renderRB();
+      });
     }
     var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
     if (RB.voice && canVoice() && !(await aiAsk())) RB.note = 'No commentary: ' + AI_NO + ' The reel was made without it.';
