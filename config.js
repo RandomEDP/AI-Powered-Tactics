@@ -11,6 +11,10 @@ window.APT_CONFIG = {
   // Gaffer's App Store page, once it's live (https://apps.apple.com/app/id...). Empty until then: the guests' page says
   // to search the App Store instead.
   appStore: '',
+  // Gaffer's App Clip link, once the App Clip is live on the App Store: App Store Connect shows it (App Clip, Default App
+  // Clip Link: https://appclip.apple.com/id?p=com.randomedp.aipoweredtactics.Clip). Empty until then. With it, an iPhone
+  // opening a friendly's personal link on the website is offered the App Clip.
+  appClip: '',
   // The shop takes real payments only once Stripe's live key is set (and SHOP_LIVE on the shop function). Until then the
   // shop says it's in test mode.
   shopLive: false,

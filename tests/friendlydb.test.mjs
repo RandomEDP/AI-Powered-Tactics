@@ -70,4 +70,22 @@ eq((await d.rpc(jake, 'friendly_claim', { p_token: tz })).status, 'already', 'so
 eq(await follows(), before, 'still nobody follows anyone because of it');
 eq((await d.rpc(dave, 'my_teams')).map((x) => [x.name, x.org, x.personal]), [['Ethan\'s friendlies', false, true]], 'Dave\'s teams list it as friendlies he played in');
 
+// ---------- the App Clip: one player's highlights by their link, with no account (0041)
+eq(d.applied.includes('0041_friendly_preview.sql'), true, 'the App Clip\'s migration applies');
+await d.as(ethan, `insert into public.clips (team_id, game_id, seq, path, label, at, dur, pids, store) values
+  ('${t.id}', '${gid}', 0, '${t.id}/g/00.mp4', 'GOAL Jake', 1759999000000, 14, '{2}', 'r2'),
+  ('${t.id}', '${gid}', 1, '${t.id}/g/01.mp4', 'GOAL Dave Guest', 1759999100000, 14, '{4,3}', 'r2'),
+  ('${t.id}', '${gid}', 2, '${t.id}/g/02.mp4', 'Highlight Dave Guest', 1759999200000, 14, '{4}', null)`);
+const tz2 = await d.rpc(ethan, 'friendly_invite', { p_code: got.code, p_pid: 3 });
+const pv = await d.rpc(null, 'friendly_preview', { p_token: tz2 });
+eq([pv.status, pv.player, pv.team, pv.claimed], ['ok', 'Dan', 'Ethan\'s friendlies', true], 'anyone with the link can open it in the App Clip, with no account');
+eq(pv.games.map((g) => [g.for, g.mine, g.against, g.theirs, g.goals]), [['Shirts', 2, 'Bibs', 3, 1]], 'the game, scored from his side (Dan was on Shirts and lost 3–2)');
+eq(pv.clips.map((c) => [c.path.split('/').pop(), c.store]), [['01.mp4', 'r2']], 'only the clips he\'s in');
+const pd = await d.rpc(null, 'friendly_preview', { p_token: tok });
+eq([pd.player, pd.clips.map((c) => c.label)], ['Dave Guest', ['GOAL Dave Guest', 'Highlight Dave Guest']], 'Dave\'s link shows his two');
+await d.admin(`insert into public.clip_hides (team_id, game_id, at, pid) values ('${t.id}', '${gid}', 1759999200000, 4)`);
+eq((await d.rpc(null, 'friendly_preview', { p_token: tok })).clips.length, 1, 'a clip he took out from under his name stays out');
+check(!JSON.stringify(pv).includes(got.code) && !JSON.stringify(pv).includes(t.organiser_code) && !/jake|ethan smith/i.test(JSON.stringify(pv.games)), 'it never gives away the team\'s codes or anyone else');
+eq((await d.rpc(null, 'friendly_preview', { p_token: '33333333-3333-4333-8333-333333333333' })).status, 'missing', 'a made-up link shows nothing');
+
 await done();

@@ -112,10 +112,11 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `scripts/build-web.mjs` | Copies the web files into `www/` for Capacitor (`www/` isn't committed) |
 | `scripts/asc-certs.mjs` | CI helper: lists and revokes the dev certificate each signed build creates (Apple caps them) |
 | `ios/App/App/` | iPhone app shell: `AppDelegate.swift`, `Info.plist`, entitlements, `whistle.wav` (notification sound, registered in `project.pbxproj` Resources), `PhoneHighlight*.swift` ("Mark a highlight" in the iPhone's Shortcuts app) |
+| `ios/App/Clip/` | Gaffer's App Clip (SwiftUI, iOS 16, bundle id `com.randomedp.aipoweredtactics.Clip`, embedded in the app under `AppClips`). `ClipLogic.swift` is plain Foundation (reading the link, the one call, the words; `tests/clip/main.swift`); `ClipApp.swift` is the screen. See "Friendly games" |
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0040` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP). New ones are numbered on from 0041 |
+| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`). New ones are numbered on from 0042 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -136,6 +137,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 | `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
 | `AppReviewPlugin` | Reviews on the App Store: `ask()` (Apple's own stars, `AppStore.requestReview`) and `write({id})` (opens Gaffer's page on Write a Review; with no id it looks the app up by bundle id in Apple's public lookup and keeps it) |
+| `ClipHandoffPlugin` | `take()` → `{url?}`: a friendly's personal link left by the App Clip (or by an App Clip link that opened the installed app, `SceneDelegate`) in the app group `group.com.randomedp.aipoweredtactics`, key `gaffer.link`; given once |
 | `MatchVisionPlugin` | Experimental player tracking (YOLOX-S onnx plus Vision, reading shirt numbers) |
 | `LiveCamPlugin` | "Film with this iPhone": `start({url,title})`, `show()`, `stop()`, `state()`, event `state`. Streams the iPhone's camera over RTMPS to the camera link (HaishinKit 2.2.5, 720p ~2.5 Mbps, adaptive) and records 1080p HEVC to Photos at the same time (`CamRecorder`, its own AVAssetWriter, stamped with the start time). Native full-screen `CamScreen`, laid out for a phone on its side (the app stays portrait; the screen turns its contents by the accelerometer) |
 
@@ -665,7 +667,22 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   ok, taken, already, missing). In the app a link can also be pasted on the friendly screen.
 - The old "Just me" setup is gone; `m.solo` is still understood for a game already going, and the watch's solo handling
   stays (`tests/watch/main.swift` 25).
-- Tests: `friendly.test.mjs` (four phones: setup, the game, what counts where, links, a guest claiming), `friendlydb.test.mjs`.
+- **The App Clip** (`ios/App/Clip`, `0041_friendly_preview.sql`; Ethan: guests see "just their highlights" in an App Clip and
+  download the full app for more): opened from a personal link on an iPhone, no sign-in. It calls `friendly_preview(token)`
+  (anon allowed; the token is the link) for that one player's games, scored from their side, and the clips they're in
+  (`clip_hides` respected; never the team's codes or anyone else), plays them (`VideoPlayer`), and "Get Gaffer" shows the
+  full app's App Store card (`appStoreOverlay`). It keeps the link in the shared app group; the full app takes it on start
+  and each time it comes back (`clipTake`, `ClipHandoff`), opens that game's highlights (`guestOpen`, also used for the
+  website's link) and claims the player once signed in (`frClaimPending`). An App Clip link that opens the installed app is
+  kept the same way by `SceneDelegate`.
+  **Links:** what's sent is still the website link. Once the App Clip is live, `config.js` `appClip` (the Default App Clip
+  Link from App Store Connect) makes the website offer it on an iPhone (`clipLink`, `#guestClip`). For one link that opens
+  the App Clip on iPhones and the website elsewhere, the website has to be on a domain with an
+  `apple-app-site-association` file naming the App Clip, and the App Clip needs `appclips:<domain>` in its entitlements
+  (Ethan's new domain; not done yet). App Store Connect needs the App Clip card (a 3000×2000 picture, subtitle, "View").
+  Signing: the App Clip and the app group are registered by automatic signing on the first TestFlight build with them.
+- Tests: `friendly.test.mjs` (four phones: setup, the game, what counts where, links, a guest claiming, the App Clip's
+  handover), `friendlydb.test.mjs` (with `friendly_preview`), `clip.test.mjs` (the project files), `tests/clip/main.swift`.
 
 ### The team pass: the Gaffer tier per team, from a team pot (`0032_team_pass.sql`, `team-pass`; Ethan asked, October 2026)
 - Anyone on the team chips into the team's pot in the iPhone app: 99p, £1.99, £2.99, or the whole £4.99 (Ethan: "chip in

@@ -111,6 +111,39 @@ check(dave && dave.user_id && dave.user_id === db.profiles.find((p) => p.usernam
 const vp = await rpc(A, 'get_profile', { p_username: 'dave_new' });
 eq([vp.stats.games, vp.stats.goals], [1, 1], 'and the game and his goal are on his new profile');
 
+// ---------- the App Clip: an iPhone on the website is offered it; getting Gaffer from it hands the link over
+await A.page.evaluate(() => { const d = document.querySelector('#hlList .hcard.focus .frlinks'); if (d) d.open = true; });
+await A.click(`#hlList .hcard.focus [data-frsend$=":${P.Spice}"]`); await A.run(800);
+const spiceUrl = (await A.page.evaluate(() => window.__shared)).pop().url, spiceMe = spiceUrl.split('&me=')[1];
+const CLIP = 'https://appclip.apple.com/id?p=com.randomedp.aipoweredtactics.Clip';
+const S1 = await w.phone({ db: true, label: 'spice-safari' });
+await S1.ctx.addInitScript((clip) => {
+  Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 Version/26.0 Mobile/15E148 Safari/604.1' });
+  let c; Object.defineProperty(window, 'APT_CONFIG', { configurable: true, get: () => c, set: (v) => { c = Object.assign({}, v, { appClip: clip }); } });
+}, CLIP);
+await S1.page.goto(spiceUrl.replace('https://randomedp.github.io/AI-Powered-Tactics/', w.base)); await S1.run(1500);
+const clipHref = await S1.page.getAttribute('#guestClip', 'href').catch(() => null);
+check(clipHref && clipHref.startsWith(CLIP + '&team=') && clipHref.endsWith('&me=' + spiceMe) && clipHref.includes('&game='), `on an iPhone's browser the guest is offered the App Clip with their own link (${clipHref})`);
+eq(await S1.text('#guestClip'), 'Get Gaffer with your highlights', 'worded for them');
+const S2 = await w.phone({ db: true, label: 'spice-web' });
+await S2.page.goto(spiceUrl.replace('https://randomedp.github.io/AI-Powered-Tactics/', w.base)); await S2.run(1500);
+eq([await S2.visible('#guestCard'), await S2.visible('#guestClip')], [true, false], 'until the App Clip is live (config.js appClip), or on anything but an iPhone, it isn\'t offered');
+
+const S3 = await w.phone({ db: true, native: true, label: 'spice-app' });
+await S3.ctx.addInitScript((url) => {
+  const put = () => { if (!window.Capacitor) return; let kept = url; window.__taken = 0; window.Capacitor.Plugins.ClipHandoff = { take: async () => { window.__taken++; const u = kept; kept = null; return u ? { url: u } : {}; } }; };
+  put();
+}, 'https://gaffer.invalid/?' + spiceUrl.split('?')[1]);
+await S3.page.reload(); await S3.run(1500);
+eq([await S3.view(), await S3.visible('#guestCard')], ['highlights', true], 'Gaffer opened for the first time after the App Clip goes straight to the game\'s highlights');
+check((await S3.text('#guestCard')).includes('your friendly'), 'as their friendly');
+await S3.click('#guestCard [data-guest="account"]'); await S3.run(300); await S3.signUp('spice@example.com', 'spice_fc'); await S3.run(1500);
+db = w.db();
+const spice = db.players.find((p) => p.team_id === team(fcode).id && p.pid === P.Spice);
+check(spice && spice.user_id && spice.user_id === db.profiles.find((p) => p.username === 'spice_fc').user_id, 'and once Spice has made an account, the player is theirs');
+await S3.page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))); await S3.run(300);
+check(await S3.page.evaluate(() => window.__taken >= 2), 'Gaffer looks for a handed-over link each time it comes back (an App Clip link opening the installed app)');
+
 // ---------- your friendlies, kept apart from your teams
 await A.click('#v-highlights .back'); await A.click('#tabs [data-tab="feed"]'); await A.click('#fdFriendly'); await A.run(300);
 check((await A.text('#frBody')).includes('Your friendlies'), 'the friendly screen has your friendlies');
