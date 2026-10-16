@@ -212,6 +212,11 @@ body.ro:not(.sc) .scr { display: none !important; }
 .lead { font-size: clamp(32px, 10vw, 42px); }
 .card { background: var(--surface); border-radius: var(--r-card); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
 .card .joinrow input, .card .field input { background: var(--bg); }
+.wlist { background: var(--surface); border-radius: var(--r-card); overflow: hidden; margin-top: 16px; }
+.wlist .wrow { display: flex; flex-wrap: wrap; align-items: center; width: 100%; min-height: 52px; padding: 12px 40px 12px 18px; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 650; text-align: left; position: relative; }
+.wlist .wrow small { flex-basis: 100%; font-weight: 400; font-size: var(--t-foot); color: var(--muted); }
+.wlist .wrow::after { content: ""; position: absolute; right: 18px; top: 50%; width: 8px; height: 8px; margin-top: -5px; border: solid var(--muted); border-width: 2px 2px 0 0; transform: rotate(45deg); }
+.wlist > *, .wlist > .wrow { margin-top: -1px; border-top: 1px solid var(--line); } /* (the top one's line is tucked under the rounded edge, whichever rows show) */
 
 /* ---- intro */
 .intro { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; flex-direction: column;
@@ -380,6 +385,17 @@ body.ro:not(.sc) .scr { display: none !important; }
 .modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; padding: 12px 12px calc(env(safe-area-inset-bottom, 0px) + 12px); background: var(--scrim); }
 .modal .picker { width: 100%; max-width: 496px; max-height: 100%; overflow: auto; border-radius: var(--r-panel); padding: 22px 20px; }
 @media (min-width: 560px) { .modal { align-items: center; } }
+/* the subs, line-up and injured pop-ups are sheets from the bottom, like Who scored? (grabber, Cancel at the top, two even columns) */
+.modal.sheet { align-items: flex-end; padding: 16px 0 0; animation: fade .15s both; }
+.modal.sheet .picker { position: relative; max-width: 552px; border-radius: var(--r-panel) var(--r-panel) 0 0; padding: 26px 16px calc(18px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -10px 40px rgba(0, 0, 0, .25); animation: sheet .28s cubic-bezier(.2, .9, .2, 1) both; touch-action: pan-y; }
+.modal.sheet .picker::before { content: ""; position: absolute; top: 8px; left: 50%; width: 38px; height: 5px; margin-left: -19px; border-radius: 3px; background: var(--line); }
+.modal.sheet .chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.modal.sheet .chips > .note, .modal.sheet .chips .pick.wide { grid-column: 1 / -1; }
+.modal.sheet .pick { min-height: 52px; border-radius: 16px; text-align: left; display: flex; align-items: center; gap: 8px; }
+.modal.sheet .pick.wide { justify-content: center; text-align: center; }
+.modal.sheet .pick small { margin-left: auto; }
+.modal.sheet .nav .pick { flex: 1; justify-content: center; }
+@media (prefers-reduced-motion: reduce) { .modal.sheet, .modal.sheet .picker { animation: none; } }
 
 /* ---- tables and lists */
 .scroll { overflow-x: auto; background: var(--surface); border-radius: var(--r-card); padding: 6px 14px; }
@@ -406,10 +422,10 @@ tr.past td { opacity: .45; }
 .orow select { font: inherit; font-size: var(--t-sub); font-weight: 500; color: var(--ink); background: var(--surface); border: 0; border-radius: var(--r-ctl); padding: 13px 8px; min-width: 0; width: 100%; }
 .lrow .who, .mrow .who { min-width: 0; overflow-wrap: anywhere; font-weight: 650; }
 .lrow .who small, .mrow .who small { display: block; font-weight: 400; color: var(--muted); font-size: var(--t-foot); }
-.gk { height: 38px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 750; font-size: var(--t-sub); padding: 0; }
+.gk { height: 50px; border: 0; border-radius: 10px; background: var(--fill); color: var(--muted); font-weight: 750; font-size: var(--t-sub); padding: 0; }
 .gk.is { background: var(--on); color: var(--on-ink); }
 .seg { display: flex; background: var(--fill); border-radius: 11px; padding: 3px; }
-.seg button { min-height: 34px; padding-inline: 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-weight: 650; font-size: var(--t-sub); }
+.seg button { min-height: 44px; padding-inline: 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-weight: 650; font-size: var(--t-sub); }
 .seg button.is { color: #fff; }
 .seg button.is[data-set="start"] { background: var(--on); color: var(--on-ink); }
 .seg button.is[data-set="bench"] { background: var(--bib); color: var(--bib-ink); }
@@ -955,10 +971,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div class="card" id="wJoin"><h2>Got a team code?</h2><p class="note">Your gaffer has a 6-character code for the team. Enter it to pick your player and see your stats.</p>
     <div class="joinrow"><input id="joinCode" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="K7Q2MX" aria-label="Team code"><button class="plain primary" id="joinBtn" type="button">Find team</button></div>
     <p class="msg" id="joinMsg"></p></div>
-  <div class="card" id="wStart"><h2>Start a team</h2><p class="note">Running a team? Set up your squad and colours, then share the code with your players.</p>
-    <div class="actions"><button class="plain" id="createBtn" type="button">Create a team</button></div></div>
-  <div class="card"><h2>Account</h2><p class="note" id="acctLine"></p><div class="actions"><button class="plain" id="acctBtn" type="button">Sign in</button><button class="plain" id="acctNew" type="button">Create account</button></div></div>
-  <button class="plain quiet" id="pplBtn" type="button">Open your feed<span class="pplBadge" hidden></span></button>
+  <!-- (the team code leads; everything else is one quiet list underneath, like an iPhone settings group) -->
+  <div class="wlist">
+    <div id="wStart"><button class="wrow" id="createBtn" type="button">Start a team<small>Running one? Set up the squad, then share the code.</small></button></div>
+    <button class="wrow" id="acctBtn" type="button">Sign in</button>
+    <button class="wrow" id="acctNew" type="button">Create account</button>
+    <button class="wrow" id="pplBtn" type="button">Open your feed<span class="pplBadge" hidden></span></button>
+  </div>
+  <p class="note" id="acctLine"></p>
   <p class="note" id="sync2"></p>
   <p class="note"><a class="plink" data-privacy href="privacy.html">Privacy policy</a> · <a class="plink" data-site="terms.html" href="terms.html">Terms of use</a></p>
 </div>
@@ -2465,7 +2485,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       return '<button type="button" data-team="' + esc(t.code) + '"' + (t.code === A.active ? ' class="primary"' : '') + '>' + esc(t.name || t.code) +
         '<small class="code">' + esc(t.code) + (t.org && me ? ', gaffer' : '') + '</small></button>';
     }).join('');
-    $('acctLine').textContent = me ? 'Signed in as ' + (me.email || 'you') + '.' : 'New here? Create an account. Already joined a team or run one? Sign in to get your teams back.';
+    $('acctLine').textContent = me ? 'Signed in as ' + (me.email || 'you') + '.' : 'Already joined a team or run one? Sign in to get your teams back.';
     $('acctBtn').textContent = me ? 'Account' : 'Sign in'; $('acctNew').hidden = !!me;
     setSync(sb ? (me ? 'ok' : 'watch') : 'local');
     if (sb && me && myTeams === null) { // every team this account plays for or runs, wherever it was joined
@@ -6051,14 +6071,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!qs || role !== 'owner' || !s || qs.t < edFirst(m) || (qs.kind === 'on' ? s.on : s.bench).indexOf(qs.id) < 0) { qs = null; el.innerHTML = ''; el.className = ''; return; }
     var onNow = function (id) { return !prev || prev.on.indexOf(id) >= 0; };
     var cands = qs.kind === 'on' ? s.bench.slice() : s.on.slice(), html;
-    html = '<div class="picker ed"><strong>' + (qs.kind === 'on' ? 'Who comes on instead of ' : 'Who goes off instead of ') + esc(nm(qs.id)) + '?</strong>' +
+    html = '<div class="picker ed" role="dialog"><div class="phead"><strong>' + (qs.kind === 'on' ? 'Who comes on instead of ' : 'Who goes off instead of ') + esc(nm(qs.id)) + '?</strong><button class="link" type="button" data-cancel="1">Cancel</button></div>' +
       '<p class="note">From ' + segName(s) + '. The app swaps them back later where it can, so minutes still add up.</p><div class="chips">' +
       cands.map(function (id) {
         var label = qs.kind === 'on' ? (onNow(id) ? ' stays on' : ' comes on') : (onNow(id) ? ' goes off' : ' stays on the bench');
-        return '<button class="pick" type="button" data-c="' + id + '">' + esc(nm(id)) + label + '</button>';
-      }).join('') + (cands.length ? '' : '<span class="note">Nobody else is available for this change.</span>') +
-      '<button class="pick alt" type="button" data-cancel="1">Cancel</button></div></div>';
-    el.innerHTML = html; el.className = 'modal';
+        return '<button class="pick" type="button" data-c="' + id + '">' + esc(nm(id)) + ' <small>' + label.trim() + '</small></button>';
+      }).join('') + (cands.length ? '' : '<span class="note">Nobody else is available for this change.</span>') + '</div></div>';
+    el.innerHTML = html; el.className = 'modal sheet';
   }
   $('swapBody').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-q]'); if (!b || role !== 'owner') return;
@@ -6087,15 +6106,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (open.indexOf(ed.t) < 0) { ed.t = open[0]; ed.a = ed.b = null; }
     var s = m.segs[ed.t], at = open.indexOf(ed.t), html;
     var btn = function (id, side) { return '<button class="pick' + (side === 'b' ? ' b' : '') + (ed[side] === id ? ' sel' : '') + '" type="button" data-side="' + side + '" data-id="' + id + '">' + esc(nm(id)) + '</button>'; };
-    html = '<div class="picker ed"><strong>Line-up from ' + segName(s) + '</strong>' +
+    html = '<div class="picker ed" role="dialog"><div class="phead"><strong>Line-up from ' + segName(s) + '</strong><button class="link" type="button" data-done="1">Done</button></div>' +
       '<div class="nav"><button class="pick alt" type="button" data-nav="-1"' + (at <= 0 ? ' disabled' : '') + '>&lsaquo; Earlier</button>' +
       '<button class="pick alt" type="button" data-nav="1"' + (at >= open.length - 1 ? ' disabled' : '') + '>Later &rsaquo;</button></div>' +
       (s.bench.length ? '<p class="note">Tap one player on the pitch and one on the bench to swap them for this stretch.</p>' : '<p class="note">Nobody is on the bench in this stretch.</p>') +
       '<div class="swap-rows"><div class="tag on">Pitch</div><div class="chips">' + (s.gk != null ? '<button class="pick" type="button" disabled>' + esc(nm(s.gk)) + ' (GK)</button>' : '') + s.on.map(function (id) { return btn(id, 'a'); }).join('') + '</div>' +
       '<div class="tag off">Bench</div><div class="chips">' + (s.bench.map(function (id) { return btn(id, 'b'); }).join('') || '<span class="note">Nobody</span>') + '</div></div>' +
-      (ed.msg ? '<p class="msg">' + esc(ed.msg) + '</p>' : '') +
-      '<div class="chips"><button class="pick best" type="button" data-done="1">Done</button></div></div>';
-    el.innerHTML = html; el.className = 'modal';
+      (ed.msg ? '<p class="msg">' + esc(ed.msg) + '</p>' : '') + '</div>';
+    el.innerHTML = html; el.className = 'modal sheet';
   }
   $('edBtn').addEventListener('click', function () {
     var m = S.match; if (!m || role !== 'owner') return;
@@ -6130,25 +6148,25 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function renderOut() {
     var m = S.match; if (!m) return;
     var html = '', btn = function (attr, label, cls) { return '<button class="pick' + (cls ? ' ' + cls : '') + '" type="button" ' + attr + '>' + label + '</button>'; };
-    var cancel = btn('data-cancel="1"', 'Cancel', 'alt');
+    var top = function (title) { return '<div class="picker out" role="dialog"><div class="phead"><strong>' + title + '</strong><button class="link" type="button" data-cancel="1">Cancel</button></div>'; };
     $('outBtn').disabled = m.phase === 'ft' || !(m.order.length || m.keeper != null);
     if (outPick && outPick.step === 'who') {
-      html = '<div class="picker out"><strong>Who is out?</strong><div class="chips">' +
-        (m.keeper != null ? [m.keeper] : []).concat(m.order).map(function (id) { return btn('data-o="' + id + '"', esc(nm(id)) + (id === m.keeper ? ' (GK)' : '')); }).join('') + cancel + '</div></div>';
+      html = top('Who is out?') + '<div class="chips">' +
+        (m.keeper != null ? [m.keeper] : []).concat(m.order).map(function (id) { return btn('data-o="' + id + '"', esc(nm(id)) + (id === m.keeper ? ' <small>keeper</small>' : '')); }).join('') + '</div></div>';
     } else if (outPick && outPick.step === 'gk') {
-      html = '<div class="picker out"><strong>Who goes in goal for ' + esc(nm(outPick.x)) + '?</strong><div class="chips">' +
-        m.order.map(function (id) { return btn('data-g="' + id + '"', esc(nm(id))); }).join('') + cancel + '</div></div>';
+      html = top('Who goes in goal for ' + esc(nm(outPick.x)) + '?') + '<div class="chips">' +
+        m.order.map(function (id) { return btn('data-g="' + id + '"', esc(nm(id))); }).join('') + '</div></div>';
     } else if (outPick && outPick.step === 'sub') {
       var c = subCands(m, outPick.x, outPick.g), best = c[0];
-      html = '<div class="picker out"><strong>' + (outPick.g != null ? esc(nm(outPick.g)) + ' goes in goal. Who comes on?' : 'Who comes on for ' + esc(nm(outPick.x)) + '?') + '</strong>' +
+      html = top(outPick.g != null ? esc(nm(outPick.g)) + ' goes in goal. Who comes on?' : 'Who comes on for ' + esc(nm(outPick.x)) + '?') +
         '<p class="note">' + esc(nm(best)) + ' is suggested, with the fewest minutes today.</p><div class="chips">' +
-        c.map(function (id, n) { return btn('data-r="' + id + '"', esc(nm(id)) + (n === 0 ? ' (suggested)' : ''), n === 0 ? 'best' : ''); }).join('') + cancel + '</div></div>';
+        c.map(function (id, n) { return btn('data-r="' + id + '"', esc(nm(id)) + (n === 0 ? ' <small>suggested</small>' : ''), n === 0 ? 'best' : ''); }).join('') + '</div></div>';
     } else if (outPick) {
-      html = '<div class="picker out"><strong>Take ' + esc(nm(outPick.x)) + ' out for the rest of the game?</strong><p class="note">' +
+      html = top('Take ' + esc(nm(outPick.x)) + ' out for the rest of the game?') + '<p class="note">' +
         (m.segs[curSeg(m)].bench.indexOf(outPick.x) >= 0 ? 'They\u2019re on the bench now, so nobody needs to come on.' : 'Nobody is on the bench, so you\u2019ll play one short.') +
-        ' This can\u2019t be undone.</p><div class="chips">' + btn('data-yes="1"', 'Yes, take ' + esc(nm(outPick.x)) + ' out', 'warn') + cancel + '</div></div>';
+        ' This can\u2019t be undone.</p><div class="chips">' + btn('data-yes="1"', 'Yes, take ' + esc(nm(outPick.x)) + ' out', 'warn wide') + '</div></div>';
     }
-    $('outPicker').className = html ? 'modal' : '';
+    $('outPicker').className = html ? 'modal sheet' : '';
     $('outPicker').innerHTML = html;
   }
   // bench players who could fill the pitch spot X (or the new keeper G) leaves right now, fewest minutes first
@@ -6181,8 +6199,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   $('outBtn').addEventListener('click', function () { outPick = outPick ? null : { step: 'who' }; renderOut(); });
   $('outPicker').addEventListener('click', function (e) {
-    var m = S.match, b = e.target.closest('button'); if (!m || !b || !outPick) return;
-    if (b.getAttribute('data-cancel')) { outPick = null; renderOut(); return; }
+    var m = S.match, b = e.target.closest('button'); if (!m || !outPick) return;
+    if (e.target === $('outPicker') || (b && b.getAttribute('data-cancel'))) { outPick = null; renderOut(); return; } // (a tap outside the sheet closes it, as with the others)
+    if (!b) return;
     var o = b.getAttribute('data-o'), g = b.getAttribute('data-g');
     var r = b.getAttribute('data-r');
     if (o !== null) { if (+o === m.keeper && m.order.length) { outPick = { step: 'gk', x: +o }; renderOut(); } else afterWho(+o, null); }
@@ -6190,6 +6209,16 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (r !== null) takeOut(outPick.x, outPick.g, +r);
     else if (b.getAttribute('data-yes')) takeOut(outPick.x, null, null);
   });
+  // These three are sheets like the goal pickers: pull one down and it closes
+  function sheetPull(el, close) {
+    var y0 = null, box = null;
+    el.addEventListener('touchstart', function (e) { box = e.target.closest('.modal.sheet .picker'); y0 = box && box.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+    el.addEventListener('touchmove', function (e) { if (y0 == null || !box) return; var dy = Math.max(0, e.touches[0].clientY - y0); box.style.transform = dy ? 'translateY(' + dy + 'px)' : ''; }, { passive: true });
+    el.addEventListener('touchend', function (e) { if (y0 == null || !box) return; var dy = e.changedTouches[0].clientY - y0; box.style.transform = ''; y0 = null; if (dy > 90) close(); });
+  }
+  sheetPull($('quickSwap'), function () { qs = null; renderQuick(); });
+  sheetPull($('subEdit'), function () { ed = null; renderEdit(); });
+  sheetPull($('outPicker'), function () { outPick = null; renderOut(); });
   $('noticeOk').addEventListener('click', function () { var m = S.match; if (!m) return; delete m.notice; save(); renderGame(); });
 
   // ---- score

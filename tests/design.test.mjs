@@ -18,6 +18,10 @@ const inline = html.slice(html.indexOf('</style>')).match(/font-size: ?[0-9.]+px
 eq(inline, [], 'nor in the screens the script draws');
 
 const A = await w.phone({ db: true, native: true, label: 'ethan' });
+// ---------- the welcome screen: the team code leads, the rest is one quiet list under it
+const wl = await A.page.evaluate(() => ['createBtn', 'acctBtn', 'acctNew', 'pplBtn'].map((id) => { const b = document.getElementById(id); return [!!b.closest('.wlist'), Math.round(b.getBoundingClientRect().height)]; }));
+check(wl.every(([inList, h]) => inList && h >= 44), `Start a team, Sign in, Create account and Open your feed are rows of one list, each at least 44 points tall (${JSON.stringify(wl)})`);
+check(await A.page.evaluate(() => document.querySelectorAll('#v-welcome .plain.primary').length === 1 && !!document.querySelector('#wJoin .plain.primary')), 'Find team is the one main button on the welcome screen');
 await A.click('#createBtn'); await A.signUp('ethan@example.com');
 await A.page.fill('#tName', 'Sons of Pitches FC'); await A.page.fill('#tShort', 'SOP FC'); await A.click('#tColors button[data-c="#4c2bb0"]');
 await A.page.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await A.click('#tCreate'); await A.run(600);
@@ -81,6 +85,14 @@ eq([await A.text('#usN'), await p.evaluate(() => document.getElementById('dock')
 check(/^Goal: Jake/.test(await A.text('#events li:first-child span:nth-child(2)')), 'the list of what\'s happened says Goal: before our scorer, as it does for theirs');
 await A.run(9000);
 eq(await p.evaluate(() => document.getElementById('dock').classList.contains('locked')), false, 'and unlocks after');
+// ---------- Player injured or leaving, and the subs pop-ups, are sheets like Who scored?
+await A.click('#outBtn'); await p.waitForTimeout(500);
+const outSheet = await p.evaluate(() => { const b = [...document.querySelectorAll('#outPicker .chips .pick')].map((x) => x.getBoundingClientRect()); const s = document.querySelector('#outPicker .picker').getBoundingClientRect(); return { cols: new Set(b.map((x) => Math.round(x.left))).size, tall: Math.min(...b.map((x) => x.height)), bottom: Math.round(s.bottom), vh: innerHeight, cancel: !!document.querySelector('#outPicker .phead [data-cancel]'), grabber: getComputedStyle(document.querySelector('#outPicker .picker'), '::before').width }; });
+check(outSheet.cols === 2 && outSheet.tall >= 44 && Math.abs(outSheet.bottom - outSheet.vh) <= 1 && outSheet.cancel && outSheet.grabber === '38px', `Who is out? is a sheet from the bottom with a grabber, Cancel at the top and two even columns (${JSON.stringify(outSheet)})`);
+await p.evaluate(() => { const o = document.getElementById('outPicker'); o.dispatchEvent(new MouseEvent('click', { bubbles: true })); }); await A.run(200);
+eq(await p.evaluate(() => document.getElementById('outPicker').innerHTML), '', 'a tap outside it closes it, as with the other sheets');
+const segH = await p.evaluate(() => { const d = document.createElement('div'); d.className = 'seg'; d.innerHTML = '<button type="button">Bench</button>'; document.body.appendChild(d); const h = d.firstChild.getBoundingClientRect().height; d.remove(); return Math.round(h); });
+check(segH >= 44, `the line-up's Start, Bench and Out buttons are 44 points tall, like every other button (${segH})`);
 const ws = await A.watch();
 eq(ws.color, '#4c2bb0', 'the watch is sent the team\'s colour, so its Goal button wears the kit');
 await A.click('#finish'); await A.click('#finish'); await A.run(1500);

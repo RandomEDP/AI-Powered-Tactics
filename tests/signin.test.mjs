@@ -8,7 +8,7 @@ const out = process.argv[2], shot = async (P, name) => { if (out) await P.page.s
 const user = (email) => (w.db().users || []).find((u) => u.email === email);
 
 const P = await w.phone({ db: true, label: 'new' });
-eq([await P.text('#acctBtn'), await P.text('#acctNew')], ['Sign in', 'Create account'], 'the welcome screen has Sign in and Create account, side by side');
+eq([await P.text('#acctBtn'), await P.text('#acctNew')], ['Sign in', 'Create account'], 'the welcome screen has Sign in and Create account, in the list under the team code');
 await shot(P, 'welcome');
 
 // ---------- Create account: its own page, with only what making an account needs
