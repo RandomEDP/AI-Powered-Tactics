@@ -199,6 +199,12 @@ body.ro:not(.sc) .scr { display: none !important; }
 .menu button small:empty { display: none; }
 #homeMenu button:not(.primary) { min-height: 104px; gap: 4px; padding-top: 14px; justify-content: flex-start; }
 #homeMenu button:not(.primary) .ic { margin-bottom: 14px; }
+#homeMenu button { position: relative; }
+.mbadge { position: absolute; top: 12px; right: 14px; min-width: 22px; height: 22px; border-radius: 11px; background: #ffc83d; color: #2a2100; font-size: var(--t-cap); font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 6px; } .mbadge[hidden] { display: none; }
+.hlteams { margin: 12px 0 0; }
+.hlteams button.chip { border: 0; background: var(--fill); min-height: 44px; padding: 8px 16px; color: var(--muted); }
+.hlteams button.chip[aria-pressed="true"] { background: var(--on-soft); color: var(--ink); }
+#hlFrWrap { margin-top: 12px; }
 #homeMenu button:not(.primary) small { color: var(--muted); opacity: 1; font-size: var(--t-foot); line-height: 1.25; }
 #myTeams button { flex-basis: 100%; min-height: 68px; justify-content: center; }
 .menu button small.code { font-stretch: 75%; font-weight: 700; letter-spacing: .12em; background: none; padding: 0; border-radius: 0; max-height: none; overflow: visible; }
@@ -219,7 +225,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .frgo small, .frrow small { display: block; font-weight: 400; font-size: var(--t-foot); color: var(--muted); }
 .frnote { margin: 4px 0 12px; }
 html.droid #fdFriendly, html.droid #wFriendly { display: none !important; }
-html.frteam #mBoard, html.frteam #mInsights, html.frteam #mShop, html.frteam #mOptions, html.frteam #passCard, html.frteam #fxCard, html.frteam #linkCard, html.frteam #askCard, html.frteam #soonPill, html.frteam #homeForm, html.frteam #meCard, html.frteam #pendCard { display: none !important; }
+html.frteam #mChat, html.frteam #mBoard, html.frteam #mInsights, html.frteam #mShop, html.frteam #mOptions, html.frteam #passCard, html.frteam #fxCard, html.frteam #linkCard, html.frteam #askCard, html.frteam #soonPill, html.frteam #homeForm, html.frteam #meCard, html.frteam #pendCard { display: none !important; }
 .wlist .wrow small { flex-basis: 100%; font-weight: 400; font-size: var(--t-foot); color: var(--muted); }
 .wlist .wrow::after { content: ""; position: absolute; right: 18px; top: 50%; width: 8px; height: 8px; margin-top: -5px; border: solid var(--muted); border-width: 2px 2px 0 0; transform: rotate(45deg); }
 .wlist > *, .wlist > .wrow { margin-top: -1px; border-top: 1px solid var(--line); } /* (the top one's line is tucked under the rounded edge, whichever rows show) */
@@ -772,7 +778,7 @@ tr.past td { opacity: .45; }
 #tabs .tabrow { max-width: 552px; margin-inline: auto; display: grid; grid-template-columns: repeat(5, 1fr); }
 /* the Android app is for players: chat, polls and highlights, with nothing a gaffer does */
 html:not(.droid) #tabs .droidtab, html.droid #tabs [data-tab="feed"],
-html.droid :is(#wStart, #pplBtn, #introOpen, #aOrgSec, #mOptions, #mNew, #mResume, #mStats, #mInsights, #mBoard, #soonPill, #askCard, #linkCard, #liveCard, #squadSec, #homeNote, #gamesNew, #rivalsOpen, #kickPop, #unamePop) { display: none !important; }
+html.droid :is(#mChat, #chatBack, #hlScope, #hlTeams, #hlFrWrap, #wStart, #pplBtn, #introOpen, #aOrgSec, #mOptions, #mNew, #mResume, #mStats, #mInsights, #mBoard, #soonPill, #askCard, #linkCard, #liveCard, #squadSec, #homeNote, #gamesNew, #rivalsOpen, #kickPop, #unamePop) { display: none !important; }
 #boardBody { display: flex; flex-direction: column; gap: 14px; }
 .tbsvg { width: 100%; display: block; border-radius: var(--r-card); touch-action: none; user-select: none; -webkit-user-select: none; }
 .campitch { width: 100%; max-width: 300px; align-self: center; display: block; border-radius: var(--r-card); touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair; }
@@ -1201,7 +1207,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 </div>
 
 <div class="view" id="v-chat" hidden>
-  <div class="bar"><h1>Squad chat</h1></div>
+  <div class="bar"><button class="back" type="button" id="chatBack" data-go="home">Team</button><h1>Squad chat</h1></div>
   <div id="chatBody"></div>
   <form class="chatform" id="chatForm" hidden><input id="chatText" type="text" maxlength="1000" placeholder="Message the squad" autocomplete="off" enterkeyhint="send" aria-label="Message"><button type="submit" aria-label="Send"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="vh">Send</span></button></form>
 </div>
@@ -1217,7 +1223,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div class="tabrow">
     <button type="button" data-tab="feed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Home</span><b class="pplBadge" hidden></b></button>
     <button type="button" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.9 7.5-9.5V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Team</span></button>
-    <button type="button" data-tab="highlights" class="droidtab" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>Highlights</span></button>
+    <button type="button" data-tab="highlights"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg><span>Highlights</span></button>
     <button type="button" data-tab="games"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Games</span><b id="tabBadge" hidden></b></button>
     <button type="button" data-tab="chat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Chat</span><b id="chatBadge" hidden></b></button>
     <button type="button" data-tab="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 20.5c1.4-3.6 4.4-5.5 8-5.5s6.6 1.9 8 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span id="tabMe">Profile</span></button>
@@ -1278,6 +1284,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div class="menu" id="homeMenu">
     <button class="primary" id="mResume" type="button" hidden><span id="mResumeLbl">Resume game</span><small id="mResumeSub"></small></button>
     <button id="mNew" type="button">New game</button>
+    <button id="mChat" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4.5 3.5V17H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Chat<small id="mChatSub"></small><b class="mbadge" id="mChatBadge" hidden></b></button>
     <button id="mStats" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V5M16 20v-7M21 20H3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Stats<small id="mStatsSub"></small></button>
     <button id="mHighlights" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg>Highlights<small id="mHlSub"></small></button>
     <button id="mInsights" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.4l2.5 5.3 5.8.8-4.2 4 1 5.8L12 16.5l-5.1 2.8 1-5.8-4.2-4 5.8-.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>Insights<small id="mInsSub"></small></button>
@@ -1322,7 +1329,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 </div>
 
 <div class="view" id="v-highlights" hidden>
-  <div class="bar"><button class="back" type="button" data-go="home">Home</button><h1>Highlights</h1></div>
+  <div class="bar"><button class="back" type="button" id="hlBack" data-go="home">Home</button><h1>Highlights</h1></div>
+  <div class="toggle" id="hlScope" role="group" aria-label="Whose highlights"><button type="button" data-scope="team" aria-pressed="true">My teams</button><button type="button" data-scope="me" aria-pressed="false">Just me</button></div>
+  <div class="chips hlteams" id="hlTeams" role="group" aria-label="Which team" hidden></div>
+  <label class="check tgl" for="hlFr" id="hlFrWrap" hidden><input id="hlFr" type="checkbox" role="switch"><span>Include friendlies <small>Games you played outside a team</small></span></label>
   <div class="toggle" id="hlToggle"><button type="button" data-by="game" aria-pressed="true">By game</button><button type="button" data-by="player" aria-pressed="false">By player</button></div>
   <div id="hlGw"></div>
   <div class="view" id="hlList"></div>
@@ -1631,7 +1641,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var DROID = !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'android');
   var DROID_VIEWS = ['welcome', 'join', 'account', 'home', 'games', 'chat', 'highlights', 'gotw'];
   if (DROID) { // (Highlights is a tab there, and Notifications are on the Account tab, as there's no Settings)
-    document.documentElement.classList.add('droid'); $('v-highlights').querySelector('.bar .back').hidden = true;
+    document.documentElement.classList.add('droid');
     $('aIn').insertBefore($('ntfSec'), $('aSignOut').parentNode); $('pushNext').textContent = 'Your phone will ask next. You can change this any time on the Account tab.';
   }
   var NATIVE_SITE = /^https?:/.test(location.protocol) && !DROID ? null : (CFG.siteUrl || null); // the apps send confirmation links to the website (Android's app is served from https://localhost)
@@ -2372,6 +2382,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- navigation
   var VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'friendly', 'gotw', 'people', 'profile', 'teamview', 'create', 'code', 'home', 'games', 'rivals', 'chat', 'board', 'track', 'poll', 'cut', 'soon', 'insights', 'setup', 'mins', 'game', 'stats', 'options', 'live', 'shop'];
+  // The Highlights tab (Ethan): "My teams" is a team's highlights, as before, with the teams on this phone to switch between;
+  // "Just me" is every clip you're in, from every team (my_clips), with friendlies left out unless you tick them in.
+  var HLS = { scope: null, here: null, fr: false, tab: false, list: null, at: 0, busy: false, msg: '' };
+  try { HLS.scope = localStorage.getItem('apt-hl-scope'); HLS.fr = localStorage.getItem('apt-hl-fr') === '1'; } catch (e) {}
   function go(view, keep) {
     if (view !== 'account' && AM === 'new') AM = 'in'; // (choosing a new password is only ever where the reset link lands)
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
@@ -2379,6 +2393,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (DROID && DROID_VIEWS.indexOf(view) < 0) view = A.active ? 'home' : 'welcome';
     if (view === 'cut' && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
     if (view === 'highlights' && !hlKeep) hlFocus = null; hlKeep = false; // (only "Highlights" on a result picks out its game)
+    if (view === 'highlights' && S.view !== 'highlights') HLS.here = !HLS.tab && A.active ? 'team' : null; HLS.tab = false; // (from a team's page, a result or a notification: that team's; the tab keeps your last choice)
     if (view === 'cut' && !CUT) view = 'highlights';
     if (pick && view !== 'game') { pick = null; $('picker').innerHTML = ''; }
     if (view !== 'game') $('subPop').hidden = true;
@@ -2387,7 +2402,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if ((view === 'soon' || view === 'shop') && !(A.exp && A.exp.track)) view = A.active ? 'home' : 'welcome'; // (the shop stays behind Experimental until Stripe takes real payments)
     if (view === 'shop' && S.view !== 'shop') shopFrom = S.view;
     if (view === 'join' && !J) view = A.active ? 'home' : 'welcome';
-    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'feed', 'friendly', 'gotw', 'people', 'profile', 'teamview', 'shop'].indexOf(view) < 0) view = 'welcome';
+    if (!A.active && ['intro', 'welcome', 'join', 'create', 'account', 'feed', 'highlights', 'friendly', 'gotw', 'people', 'profile', 'teamview', 'shop'].indexOf(view) < 0) view = 'welcome';
     if (view === 'create' && S.view !== 'create') resetCreate();
     if (view === 'game' && !S.match) view = 'home';
     if (view === 'mins' && !D) view = 'home';
@@ -3648,7 +3663,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     try { if (Watch) Watch.push({ state: '{"live":false}' }).catch(function () {}); } catch (e) {}
     pushSaved = null;
     try { await sb.auth.signOut(); } catch (e) {}
-    me = null; closeTeam();
+    me = null; closeTeam(); HLS.list = null; HLS.at = 0; // (Just me is someone else's after signing in again)
     A.teams.slice().forEach(function (t) { forgetTeam(t.code); });
     A.active = null; A.pending = null; myTeams = null; myPid = null; roster = {}; fixtures = []; clips = []; preels = []; crest = null; J = null;
     TP = { code: null, map: {}, at: 0 }; MYP = undefined; profAsked = null; PPL = { q: '', found: null, teams: null, follows: null, feed: null, blocks: null, msg: '', seenAt: 0, busy: false }; PF = { u: null, d: null, msg: '', pins: null, mine: null, report: false, back: 'people' }; FD = { posts: null, games: null, busy: false, msg: '', open: null, arm: null, seenAt: 0 }; GW.d = null; GW.tried = 0; GW.msg = ''; GW.mk = { busy: false, prog: '', msg: '', bad: false, path: null }; $('unamePop').hidden = true; $('postPop').hidden = true; pplBadges();
@@ -4035,18 +4050,21 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- the bar along the bottom: Home, Games, Settings
   function renderTabs() {
     if (AUTO.io) setTimeout(feedPick, 0); // (leaving the feed stops its video)
-    var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'friendly', 'gotw', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = role === 'owner';
+    var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'highlights', 'friendly', 'gotw', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = role === 'owner';
     if (DROID) show = !!A.active && DROID_VIEWS.indexOf(S.view) >= 0 && ['welcome', 'join'].indexOf(S.view) < 0; // (Team, Highlights, Games, Chat and Account)
     $('tabMe').textContent = DROID ? 'Account' : 'Profile';
     $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
-    var cur = S.view === 'profile' ? (PF.tab ? 'profile' : '') : S.view === 'options' ? (optFrom === 'profile' ? 'profile' : 'home') : S.view === 'people' || S.view === 'teamview' || S.view === 'friendly' ? 'feed' : S.view === 'gotw' ? (GW.back === 'highlights' ? 'highlights' : 'feed') : S.view === 'account' ? 'profile' : S.view;
-    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === cur) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); if (v === 'games' || v === 'chat') b.hidden = !A.active || frTeam(); if (v === 'highlights') b.hidden = !DROID || !A.active; if (v === 'feed') b.hidden = DROID; });
+    var cur = S.view === 'profile' ? (PF.tab ? 'profile' : '') : S.view === 'options' ? (optFrom === 'profile' ? 'profile' : 'home') : S.view === 'people' || S.view === 'teamview' || S.view === 'friendly' ? 'feed' : S.view === 'gotw' ? (GW.back === 'highlights' ? 'highlights' : 'feed') : S.view === 'account' ? 'profile' : S.view === 'chat' && !DROID ? 'home' : S.view;
+    // (the iPhone's bar: Home, Team, Highlights, Games, Profile; Chat is on the Team page. Android's: Team, Highlights, Games, Chat, Account)
+    Array.prototype.forEach.call($('tabs').querySelectorAll('button'), function (b) { var v = b.getAttribute('data-tab'); if (v === cur) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); if (v === 'games') b.hidden = !A.active || frTeam(); if (v === 'chat') b.hidden = !DROID || !A.active; if (v === 'highlights') b.hidden = DROID && !A.active; if (v === 'feed') b.hidden = DROID; });
     $('optViewer').hidden = own;
     var todo = myPid == null ? 0 : fixtures.filter(function (f) { return !(f.votes || []).some(function (v) { return v.pid === myPid; }); }).length;
     $('tabBadge').hidden = !todo; $('tabBadge').textContent = todo;
     var rn = own ? RV.list.filter(function (c) { return c.my_turn; }).length : 0; $('rivalsBadge').hidden = !rn; $('rivalsBadge').textContent = rn; $('rivalsOpen').hidden = !sb;
     $('tabBadge').hidden = !(todo + rn); $('tabBadge').textContent = todo + rn;
     $('chatBadge').hidden = !CH.unread || S.view === 'chat'; $('chatBadge').textContent = CH.unread > 9 ? '9+' : CH.unread;
+    $('mChatBadge').hidden = $('chatBadge').hidden; $('mChatBadge').textContent = $('chatBadge').textContent; // (the Chat tile on the Team page)
+    $('mChatSub').textContent = CH.unread ? CH.unread + (CH.unread === 1 ? ' new message' : ' new messages') : 'Talk to the squad';
     chatQuiet();
   }
   // While a team's chat is on screen its messages arrive in front of you, so the phone shouldn't also ping and show a banner
@@ -4067,11 +4085,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var tab = b.getAttribute('data-tab');
     if (tab === 'profile') { if (DROID) go('account'); else openMe(); }
     else if (tab === 'home') go(A.active ? 'home' : 'welcome');
+    else if (tab === 'highlights') { if (S.view === 'highlights') { try { window.scrollTo(0, 0); } catch (err) {} } else { HLS.tab = true; go('highlights'); } }
     else go(tab);
   });
   var optFrom = 'home'; // where Settings was opened from: the team page, or your profile
   $('mOptions').addEventListener('click', function () { optFrom = 'home'; go('options'); });
   $('mBoard').addEventListener('click', function () { go('board'); });
+  $('mChat').addEventListener('click', function () { go('chat'); });
   $('optBack').addEventListener('click', function () { if (optFrom === 'profile') openMe(); else go('home'); });
   function startFromPoll(f) { // carry the poll straight into the new game screen
     if (S.match) { fxSay('Finish or scrap the game in progress first.'); return; }
@@ -4214,6 +4234,39 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 
   // ---- highlights: every logged moment, by game and by player. Video appears here once a game's reel has been made.
   var hlBy = 'game', hlFocus = null, hlKeep = false;
+  function hlScopeNow() { if (DROID || guestGame) return 'team'; var s = HLS.here || HLS.scope; return s === 'me' || s === 'team' ? s : A.active && !frTeam() ? 'team' : 'me'; }
+  function hlTeamList() { return A.teams.filter(function (t) { return !t.fr || t.code === A.active; }); } // (your friendlies are under Just me)
+  async function hlMeLoad(force) {
+    if (!sb || !me || HLS.busy || (!force && HLS.list && Date.now() - HLS.at < 60000)) return;
+    HLS.busy = true; HLS.msg = '';
+    try { HLS.list = (await q(sb.rpc('my_clips'))).data || []; HLS.at = Date.now(); }
+    catch (e) { HLS.msg = 'Couldn’t load your highlights. Check your signal and try again.'; HLS.at = Date.now(); }
+    HLS.busy = false; if (S.view === 'highlights') renderHighlights();
+  }
+  function hlMeFriendly(c) { return !!(c.personal || (c.house && c.house.fr)); }
+  function renderMyHl() { // every clip you're in, newest game first, its moments in order
+    if (!sb || !me) return '<div class="hcard"><h3>Your highlights</h3><p class="note">Sign in to see every clip you’re in, from every team you play for.</p><div class="actions"><button class="plain primary" type="button" data-go="account">Sign in</button></div></div>';
+    hlMeLoad();
+    if (!HLS.list) return HLS.msg ? '<p class="msg bad" role="status">' + esc(HLS.msg) + '</p>' : '<p class="note" id="hlMeLoad">Getting your highlights…</p>';
+    var all = HLS.list, fr = all.filter(hlMeFriendly).length, list = all.filter(function (c) { return HLS.fr || !hlMeFriendly(c); }), games = [], by = {};
+    list.forEach(function (c) { var g = by[c.game_id]; if (!g) { g = by[c.game_id] = { c: c, clips: [] }; games.push(g); } g.clips.push(c); });
+    games.sort(function (a, b) { return (b.c.when || 0) - (a.c.when || 0); });
+    var html = HLS.msg ? '<p class="msg bad" role="status">' + esc(HLS.msg) + '</p>' : '';
+    if (!games.length) return html + '<div class="hcard"><h3>No clips of you yet</h3><p class="note">' + (fr && !HLS.fr ? 'You’re in ' + fr + (fr === 1 ? ' clip' : ' clips') + ' from friendlies. Turn on Include friendlies to see ' + (fr === 1 ? 'it' : 'them') + '.' : 'Your goals, assists and highlights show up here once a game you played in has been cut, from every team you’re in.') + '</p></div>';
+    html += '<p class="note" id="hlMeSum">' + list.length + (list.length === 1 ? ' clip' : ' clips') + ' of you from ' + games.length + (games.length === 1 ? ' game' : ' games') + (fr && !HLS.fr ? '. Friendlies are left out.' : '.') + '</p>';
+    games.forEach(function (g) {
+      var c = g.c, f = hlMeFriendly(c), vids = g.clips.slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
+      html += '<div class="hcard mehl"><h3>' + scoreBug({ house: c.house, team: c.team, opp: c.opp, us: c.us, them: c.them }) + (f || c.friendly ? '<span class="badge">Friendly</span>' : c.house ? '<span class="badge">Among ourselves</span>' : '') + '</h3>' +
+        '<p class="note">' + esc([f ? '' : c.team_name, dayText(c.when), vids.length + (vids.length === 1 ? ' clip' : ' clips')].filter(Boolean).join(', ')) + '</p>' + clipPlayer(vids) + '</div>';
+    });
+    return html;
+  }
+  function hlTeamsDraw(sc) { // the teams on this phone, to switch between (My teams)
+    var ts = hlTeamList(), box = $('hlTeams');
+    box.hidden = DROID || sc !== 'team' || !ts.length || (ts.length === 1 && ts[0].code === A.active);
+    if (box.hidden) { box.innerHTML = ''; return; }
+    box.innerHTML = ts.map(function (t) { return '<button class="chip" type="button" data-hlteam="' + esc(t.code) + '" aria-pressed="' + (t.code === A.active) + '">' + esc(t.fr ? 'Friendlies' : t.name || t.code) + '</button>'; }).join('');
+  }
   function hlShow(r) { // a game's highlights, from its result: its clips and reel if they've been made, or where they will be
     hlBy = 'game'; hlFocus = r || null; hlKeep = true; go('highlights');
     var i = S.results.indexOf(r), el = i >= 0 && $('hlg-' + i); if (el) try { el.scrollIntoView({ block: 'start' }); } catch (e) {}
@@ -4660,6 +4713,16 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       (fr ? '' : '<p class="note">Want your own stats and clips? Make an account, then join a team with its code, or start your own.</p>') + '<div class="actions">' + (me ? '' : '<button class="plain' + (fr ? ' primary' : '') + '" type="button" data-guest="account">Make an account</button>') + (fr ? '' : '<button class="plain" type="button" data-guest="welcome">Join or start a team</button>') + '<button class="link" type="button" data-guest="close">Close</button></div></div>';
   }
   function renderHighlights() {
+    var sc = hlScopeNow();
+    Array.prototype.forEach.call($('hlScope').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-scope') === sc); });
+    $('hlBack').hidden = DROID || !A.active || HLS.here !== 'team'; // (opened from the team's page or a result: back to it; the tab is its own place)
+    hlTeamsDraw(sc); $('hlFrWrap').hidden = DROID || sc !== 'me' || !me; $('hlFr').checked = HLS.fr; $('hlToggle').hidden = sc !== 'team' || !A.active;
+    if (sc === 'me' || !A.active) {
+      $('hlGw').innerHTML = gwStrip();
+      vidKeep($('hlList'), sc === 'me' ? renderMyHl() : hlTeamList().length ? '<p class="note">Pick a team to see its highlights.</p>' :
+        '<div class="hcard"><h3>You’re not in a team yet</h3><p class="note">Join your team with its code, or start one, and its highlights show up here.</p><div class="actions"><button class="plain primary" type="button" data-go="welcome">Join or start a team</button></div></div>');
+      return;
+    }
     if (guestGame) { var gr = S.results.filter(function (x) { return x.id === guestGame; })[0]; if (gr && hlFocus !== gr) { hlFocus = gr; hlBy = 'game'; } }
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
     $('hlGw').innerHTML = guestGame ? '' : gwStrip(); // (Goal of the Week, above the list)
@@ -5133,6 +5196,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   });
   $('beAudio').addEventListener('ended', function () { BE.hear = null; renderBE(); });
   $('toPlayerReels').addEventListener('click', function () { hlBy = 'player'; hlFocus = null; go('highlights'); });
+  $('hlScope').addEventListener('click', function (e) { var b = e.target.closest('[data-scope]'); if (!b) return; HLS.scope = b.getAttribute('data-scope'); HLS.here = null; try { localStorage.setItem('apt-hl-scope', HLS.scope); } catch (err) {} if (HLS.scope === 'me') hlMeLoad(true); renderHighlights(); });
+  $('hlTeams').addEventListener('click', function (e) { var b = e.target.closest('[data-hlteam]'); if (!b) return; var code = b.getAttribute('data-hlteam'); if (code !== A.active) { hlBy = 'game'; openTeam(code, 'highlights'); } });
+  $('hlFr').addEventListener('change', function () { HLS.fr = $('hlFr').checked; try { localStorage.setItem('apt-hl-fr', HLS.fr ? '1' : '0'); } catch (err) {} renderHighlights(); });
   $('hlToggle').addEventListener('click', function (e) { var by = e.target.getAttribute('data-by'); if (by) { hlBy = by; renderHighlights(); } });
   $('hlList').addEventListener('toggle', function (e) { var d = e.target; if (d && d.hasAttribute && d.hasAttribute('data-hlopen')) HLOPEN[d.getAttribute('data-hlopen')] = d.open; }, true);
   $('hlGw').addEventListener('click', function (e) { if (e.target.closest('[data-gw]')) gwOpen('highlights'); });
@@ -8867,7 +8933,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var gc = guestOpen(location.href);
     if (gc) {
       if (A.active !== gc) { A.active = gc; S = Object.assign(blankTeam(), loadCache(gc) || {}); }
-      S.view = 'highlights'; saveApp();
+      S.view = 'highlights'; HLS.here = 'team'; saveApp();
       if (history.replaceState) history.replaceState(null, '', location.pathname); // (so a reload doesn't do it again)
     }
   } catch (e) {}

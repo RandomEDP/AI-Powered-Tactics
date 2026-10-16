@@ -157,7 +157,7 @@ eq(await A.page.$$eval('#frPastBox .pick', (b) => b.map((x) => x.textContent.tri
 await A.click('#frBody [data-frteam]'); await A.run(500);
 eq([await A.view(), await A.page.evaluate(() => document.documentElement.classList.contains('frteam'))], ['highlights', true], 'Your friendlies opens their highlights');
 await A.click('#v-highlights .back'); await A.run(300);
-eq([await A.text('#homeRecord'), await A.text('#mNew'), await A.visible('#mBoard'), await A.visible('#mOptions'), await A.visible('#tabs [data-tab="chat"]')], ['1 friendly played', 'New friendly', false, false, false], 'its page is just friendlies: no tactics board, team settings or chat');
+eq([await A.text('#homeRecord'), await A.text('#mNew'), await A.visible('#mBoard'), await A.visible('#mOptions'), await A.visible('#tabs [data-tab="chat"]'), await A.visible('#mChat')], ['1 friendly played', 'New friendly', false, false, false, false], 'its page is just friendlies: no tactics board, team settings or chat');
 await A.click('#mNew'); await A.run(300);
 eq(await A.view(), 'friendly', 'and New friendly goes back to the friendly screen');
 await A.click('#frKick'); await A.run(800);

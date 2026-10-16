@@ -116,7 +116,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`). New ones are numbered on from 0042 |
+| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me). New ones are numbered on from 0043 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -461,7 +461,15 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ### The bottom bar, Home and posts (`0027_posts.sql`; like Instagram, Ethan asked)
 - **The bar** (`#tabs`, `renderTabs`): Home (`feed`), Team (`home`, the team page, or the welcome screen with no team
-  open), Games, Chat, Profile. Games and Chat only show with a team open. Tactics board (`#mBoard`) and Team settings
+  open), Highlights, Games, Profile. Games only shows with a team open. **Chat is a tile on the Team page** (`#mChat`, unread
+  count on `#mChatBadge`; the chat screen's back, `#chatBack`, goes to Team), Ethan for 1.1. Android's bar keeps Chat.
+- **The Highlights tab** (`v-highlights`, Ethan for 1.1; `HLS`, `hlScopeNow`, `renderMyHl`, `0042_my_highlights.sql`): **My teams**
+  (`#hlScope`) is the open team's highlights as before, with the teams on the phone as chips to switch (`#hlTeams`,
+  `openTeam(code, 'highlights')`; the friendlies team only when it's the open one); **Just me** is every clip you're in from
+  every team (`my_clips`, grouped by game, newest first) with **Include friendlies** (`#hlFr`, `apt-hl-fr`) off to start
+  (`clips_of` returns `personal` and `friendly`). The tab remembers the last choice (`apt-hl-scope`); anything else that
+  opens Highlights (the Team tile, a result, a notification) shows that team's (`HLS.here`). Works with no team open.
+  Not on Android (its Highlights stays the team's). Test: `hltab.test.mjs`. Tactics board (`#mBoard`) and Team settings
   (`#mOptions`) are on the Team page now; Settings also opens from the gear on your own profile (`#prGear`), and its back
   button (`#optBack`) goes back to wherever it came from (`optFrom`). Without a team open, the gear opens Account.
 - **Home** (`v-feed`, `fdLoad`, `renderFeed`): the brand and three icons at the top: + (new post, `#fdNew`), the heart

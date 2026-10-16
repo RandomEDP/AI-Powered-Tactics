@@ -346,6 +346,7 @@ check(!('fixtures' in pf) && !JSON.stringify(pf).includes('organiser') && !JSON.
 eq(pf.clips, [], 'no clips until they choose some');
 const mineClips = await d.rpc(jake, 'my_clips');
 eq(mineClips.map((c) => [c.game_id === hg, c.at, c.team, c.opp]), [[true, 1000, 'SOP FC', 'Dog Squad']], 'they can pick from their clips across all their teams');
+eq(mineClips.map((c) => [c.personal, c.friendly]), [[false, false]], 'each says whether it’s from their friendlies, for the Highlights tab’s Just me (0042)');
 eq(await d.rpc(jake, 'set_pins', { p_pins: [{ g: hg, at: 1000 }] }), 'ok', 'and show one');
 eq((await d.rpc(sam, 'get_profile', { p_username: 'Chappers' })).clips.map((c) => [c.at, c.path.endsWith('01.mp4')]), [[1000, true]], 'it shows on their profile');
 eq(await d.rpc(jake, 'set_pins', { p_pins: [{ g: hg, at: 1000 }, { g: hg, at: 1000 }, { g: hg, at: 1000 }, { g: hg, at: 1000 }] }), 'too_many', 'three at most');

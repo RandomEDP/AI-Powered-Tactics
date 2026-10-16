@@ -1,6 +1,6 @@
 bar before a team is open: false
 shirt numbers in db: ["Spice 13","Ethan 9"]
-bar on home: true | Home0 Team Games0 Chat0 Profile
+bar on home: true | Home0 Team Highlights Games0 Profile
 games, empty: v-games | No games lined up. Schedule one and the squad can say who’s in.
 after three polls: v-games | cards: [
   'Next game: v Athletico Pathetico',

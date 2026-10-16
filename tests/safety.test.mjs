@@ -71,12 +71,12 @@ eq([(db.users.find((u) => u.id === jakeId).meta || {}).terms, db.players.find((p
 
 // ---------- chat: the filter, and blocking someone from their message
 if (await J.view() !== 'home') { await J.click('#tabs [data-tab="home"]'); await J.run(300); }
-await J.click('#tabs [data-tab="chat"]'); await J.run(600);
+await J.click('#mChat'); await J.run(600);
 await J.page.fill('#chatText', 'shut up you f4gg0t'); await J.page.press('#chatText', 'Enter'); await J.run(600);
 eq([(w.db().messages || []).length, await J.page.inputValue('#chatText'), /wasn’t sent/.test(await J.text('#chatBody'))], [0, 'shut up you f4gg0t', true], 'a chat message with a slur isn\'t sent, and says why (the words stay to change)');
 await J.page.fill('#chatText', 'Fucking hell, what a goal'); await J.page.press('#chatText', 'Enter'); await J.run(800);
 eq((w.db().messages || []).map((m) => m.body), ['Fucking hell, what a goal'], 'swearing about the football goes through');
-await home(A); await A.run(300); await A.click('#tabs [data-tab="chat"]'); await A.run(1200);
+await home(A); await A.run(300); await A.click('#mChat'); await A.run(1200);
 await A.click('.cmsg:not(.mine) .bubble'); await A.run(200);
 check((await A.page.$$eval('.cmsg .cacts button', (b) => b.map((x) => x.textContent))).includes('Block Jake'), 'tapping someone\'s message offers Block (and Report)');
 await A.click('[data-chrep]'); await A.run(600);

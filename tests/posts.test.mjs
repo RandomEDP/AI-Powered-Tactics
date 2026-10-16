@@ -13,7 +13,7 @@ const A = await w.phone({ db: true, label: 'ethan' });
 await A.click('#createBtn'); await A.signUp('ethan@example.com', 'gaffer_ethan');
 await A.page.fill('#tName', 'Sons of Pitches FC'); await A.page.fill('#tShort', 'SOP FC'); await A.page.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await A.click('#tCreate'); await A.run(600);
 await A.click('#v-code [data-go="home"]');
-eq(await tabs(A), ['Home', 'Team', 'Games', 'Chat', 'Profile'], 'the bar along the bottom: Home, Team, Games, Chat, Profile');
+eq(await tabs(A), ['Home', 'Team', 'Highlights', 'Games', 'Profile'], 'the bar along the bottom: Home, Team, Highlights, Games, Profile');
 check(await A.visible('#mBoard') && /Team settings/.test(await A.text('#mOptions')), 'the tactics board and the team\'s settings are on the Team page');
 await A.newGame('Dog Squad'); await A.click('#go'); await A.run(40000);
 await A.click('#goalUs'); await A.click('#picker button[data-p="2"]'); await A.click('#picker button[data-p="x"]'); await A.run(30000);
@@ -30,7 +30,7 @@ const J = await w.phone({ db: true, label: 'jake' });
 await J.click('#acctBtn'); await J.page.fill('#aEmail', 'jake@example.com'); await J.page.fill('#aPass', 'longpassword'); await J.click('#aSignIn'); await J.run(1500);
 await J.click('#tmAgree'); await J.run(300); // (an account from before the Terms of use agrees to them first)
 await J.click('#pplBtn'); await J.run(1000);
-eq([await J.view(), await tabs(J)], ['feed', ['Home', 'Team', 'Profile']], 'Home is a feed; without a team open the bar has Home, Team and Profile');
+eq([await J.view(), await tabs(J)], ['feed', ['Home', 'Team', 'Highlights', 'Profile']], 'Home is a feed; without a team open the bar has Home, Team, Highlights and Profile');
 check(/Nothing here yet/.test(await J.text('#fdBody')), 'with nothing in it yet, it says how to fill it');
 await J.click('#fdNew'); await J.run(1000);
 eq([await J.visible('#postPop'), await J.page.$$eval('#npList [data-np]', (x) => x.length)], [true, 1], 'the + opens a new post, with his clips to pick from');
