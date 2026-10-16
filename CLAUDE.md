@@ -4,7 +4,7 @@ This file is the handover for any Claude session working in this repo. Read it a
 The README covers the features, the one-time Apple setup and the test table in more detail. This file holds the
 rules, the routine, how things fit together, and what's in flight.
 
-**This repo is public** (GitHub Pages serves it at https://randomedp.github.io/AI-Powered-Tactics/). Nothing private
+**This repo is public** (GitHub Pages serves it at https://gaffermanager.app/, Ethan's domain, set by the `CNAME` file; `.nojekyll` lets `.well-known/` through). Never send anyone the GitHub address. Nothing private
 goes in it, this file included.
 
 ---
