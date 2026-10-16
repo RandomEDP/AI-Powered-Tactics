@@ -2850,7 +2850,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     }
     if (FD.msg) html += '<p class="msg" role="status" id="fdMsg">' + esc(FD.msg) + '</p>';
     if (me) html = gwStrip() + html;
-    $('fdBody').innerHTML = html; autoScan();
+    vidKeep($('fdBody'), html); autoScan();
   }
   $('fdFind').addEventListener('click', function () { PPL.msg = ''; go('people'); });
   $('fdReq').addEventListener('click', function () { PPL.msg = ''; PPL.follows = null; go('people'); });
@@ -2936,7 +2936,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       });
       html += gwPutUp() + gwWinner();
     }
-    $('gwBody').innerHTML = html;
+    vidKeep($('gwBody'), html);
   }
   // A gaffer, with their team open: put one of its goals up (or swap it for another).
   function gwPutUp() {
@@ -3085,6 +3085,21 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- videos in the feed, like Instagram: each shows its first frame; the top one fully on screen plays (muted, on a
   // loop) and the next takes over as you scroll. A tap turns the sound on or off, for every video after it too.
   var AUTO = { sound: false, io: null, held: null, chosen: null };
+  // Draws a list again keeping its videos: a video whose address is still in the new list is the same element, moved
+  // across, so it doesn't download again (and one playing carries on). Highlights is drawn again after every pull, and
+  // each new <video> fetched its whole clip from the old storage again: in October 2026 that was most of the 8 GB that
+  // put Ethan over the Supabase free plan's 5 GB.
+  function vidKeep(box, html) {
+    var old = {};
+    Array.prototype.forEach.call(box.querySelectorAll('video[src]'), function (v) { var k = v.getAttribute('src'); (old[k] = old[k] || []).push(v); });
+    box.innerHTML = html;
+    Array.prototype.forEach.call(box.querySelectorAll('video[src]'), function (v) {
+      var was = old[v.getAttribute('src')], o = was && was.shift(); if (!o) return;
+      Array.prototype.forEach.call(v.attributes, function (a) { if (o.getAttribute(a.name) !== a.value) o.setAttribute(a.name, a.value); });
+      Array.prototype.slice.call(o.attributes).forEach(function (a) { if (!v.hasAttribute(a.name)) o.removeAttribute(a.name); });
+      v.parentNode.replaceChild(o, v);
+    });
+  }
   function autoScan() {
     if (typeof IntersectionObserver === 'undefined') return;
     if (!AUTO.io) AUTO.io = new IntersectionObserver(function (ents) { ents.forEach(function (en) { en.target.__vis = en.isIntersecting ? en.intersectionRatio : 0; }); feedPick(); }, { threshold: [0, 0.3, 0.6, 0.9, 1] });
@@ -3341,7 +3356,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       }
     }
     if (PF.msg && d) html += '<p class="msg" role="status" id="prMsg">' + esc(PF.msg) + '</p>';
-    $('prBody').innerHTML = html;
+    vidKeep($('prBody'), html);
   }
   function pinPicker() {
     if (!PF.mine) return '<p class="note">Loading your clips…</p>';
@@ -4058,17 +4073,23 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       return { error: (said && said.error) || none, reason: said && said.reason };
     } catch (e) { return { error: none }; }
   }
+  // Big downloads that failed, kept on the phone so they aren't tried again every time Gaffer opens: each try fetches
+  // video from the old storage, which counts against Supabase's free 5 GB a month (Ethan went over it in October 2026,
+  // when moving the clips and making the one video failed and were tried again on every open).
+  function triedLately(key, ms) { try { var t = (JSON.parse(localStorage.getItem('apt-tried')) || {})[key]; return !!t && Date.now() - t < ms; } catch (e) { return false; } }
+  function markTried(key, off) { try { var all = JSON.parse(localStorage.getItem('apt-tried')) || {}; if (off) delete all[key]; else all[key] = Date.now(); localStorage.setItem('apt-tried', JSON.stringify(all)); } catch (e) {} }
   // The clips cut before R2 move across from the old storage, one at a time, the next time a gaffer has the app open.
+  // After a failed move it waits 12 hours before trying again.
   var moving = false, moved = {};
   async function clipsMove() {
-    if (moving || role !== 'owner' || !CFG.clipsUrl || !sb || !A.active || CUT) return;
+    if (moving || role !== 'owner' || !CFG.clipsUrl || !sb || !A.active || CUT || triedLately('move:' + A.active, 12 * 3600e3)) return;
     var todo = clips.filter(function (c) { return !c.store && !moved[c.game_id + ':' + c.seq]; }); if (!todo.length) return;
     moving = true; var team = A.active, n = 0;
     try {
       for (var i = 0; i < todo.length && A.active === team; i++) {
         var res = await clipCall('adopt', { game_id: todo[i].game_id, seq: todo[i].seq });
         moved[todo[i].game_id + ':' + todo[i].seq] = true; // (tried once a session, moved or not)
-        if (res && res.error) break; // tried again next time the app opens
+        if (res && res.error) { markTried('move:' + team); break; } // (tried again in 12 hours)
         if (res && res.moved) n++;
       }
     } finally { moving = false; }
@@ -4145,6 +4166,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       await mkFinish(pend, r);
     } catch (e) {
       var away = MK.away || document.hidden;
+      if (!away) markTried('mk:' + r.id); // (not made by itself again for a day: each go downloads every clip)
       MK = { gid: r.id, busy: false, prog: '', part: '', bad: !away, again: away ? r.id : null,
         msg: away ? 'Paused while Gaffer was put away. It carries on by itself when you come back.' : 'Couldn’t make it one video: ' + ((e && e.message) || 'something went wrong') + ' The clips still play one after another.' };
     }
@@ -4486,13 +4508,14 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         html += '</div>';
       });
     }
-    $('hlList').innerHTML = html; mkShow();
+    vidKeep($('hlList'), html); mkShow();
     if (hlBy === 'game' && role === 'owner' && !MK.busy && RCp() && sb && teamId) { // a cut game without one video: this phone makes it, quietly, while you get on
-      var want = S.results.slice().reverse().filter(function (r) { return !MKTRIED[r.id] && !(r.reel && r.reel.path) && clips.some(function (c) { return c.game_id === r.id; }); })[0];
+      var want = S.results.slice().reverse().filter(function (r) { return !MKTRIED[r.id] && !triedLately('mk:' + r.id, 24 * 3600e3) && !(r.reel && r.reel.path) && clips.some(function (c) { return c.game_id === r.id; }); })[0];
       if (want) { MKTRIED[want.id] = true; setTimeout(function () { mhMake(want, true); }, 600); }
     }
     if (guestGame && hlFocus && !guestSeen) { guestSeen = true; var gi = S.results.indexOf(hlFocus), ge = gi >= 0 && $('hlg-' + gi); if (ge) try { ge.scrollIntoView({ block: 'center' }); } catch (e) {} } // (the game they came for, once it's loaded)
     Array.prototype.forEach.call($('hlList').querySelectorAll('.reelp video'), function (v) { // the moment playing in a game's reel is picked out
+      if (v.__tu) return; v.__tu = true; // (a video kept from the last draw already has it)
       v.addEventListener('timeupdate', function () {
         var btns = v.parentNode.querySelectorAll('[data-seek]'), cur = -1;
         Array.prototype.forEach.call(btns, function (b, i) { if (+b.getAttribute('data-seek') <= v.currentTime + 0.3) cur = i; });
@@ -4500,6 +4523,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       });
     });
     Array.prototype.forEach.call($('hlList').querySelectorAll('.vplayer video'), function (v) { // play the next clip when one ends
+      if (v.__end) return; v.__end = true;
       v.addEventListener('ended', function () {
         var btns = v.parentNode.querySelectorAll('[data-clip]'), cur = 0;
         Array.prototype.forEach.call(btns, function (b, i) { if (b.getAttribute('aria-pressed') === 'true') cur = i; });

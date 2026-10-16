@@ -512,6 +512,7 @@
       if (!own || !['upload', 'remove'].includes(b.action) || !(b.paths || []).length || !(b.paths || []).every((k) => String(k).startsWith(own))) return no(403, 'Only a gaffer can change the team\'s highlights.');
     }
     if (d.r2Off) return no(503, 'Clip storage isn\'t set up on Gaffer\'s server yet.', 'not_configured');
+    if (d.r2Refuse) return no(503, 'Cloudflare R2 refused a test file (403 SignatureDoesNotMatch).', b.action === 'upload' ? 'not_configured' : 'r2_refused'); // (as the real one)
     const keys = b.paths || [];
     if (b.action !== 'adopt' && (!keys.length || !keys.every((k) => String(k).startsWith(t.id + '/')))) return no(400, 'Those files aren\'t in this team\'s folder.');
     if (b.action === 'upload') return { data: { urls: keys.map((k) => location.origin + '/__r2/' + k) }, error: null };

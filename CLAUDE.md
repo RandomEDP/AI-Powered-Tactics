@@ -293,8 +293,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   PUTs each file straight to R2; rows get `store: 'r2'`, and `clipUrl` plays them from `CFG.clipsUrl`. If R2 isn't set up
   (`reason: 'not_configured'`) or refuses a file, that clip goes to the old Supabase bucket instead and the done screen
   says so. Clips cut before R2 are moved by the gaffer's app by itself (`clipsMove`, after a pull: `adopt {game_id, seq}`,
-  one at a time, each once a session): the function copies both files to R2, marks the row, and only then deletes the
-  old files. Deleting a game's highlights calls `remove`. Secrets: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
+  one at a time, each once a session, and after a failure not again for 12 hours, `triedLately`/`markTried` in
+  `apt-tried`): the function copies both files to R2, marks the row, and only then deletes the old files. Before any of
+  it the function puts a tiny `<team>/.probe` file in R2 (`r2Ready`, kept 10 minutes); if R2 refuses, `adopt` and `check`
+  answer 503 `r2_refused` with R2's own reason (also in the function logs) without fetching any video, and `upload`
+  answers `not_configured` so every build goes straight to the old storage. An EU-jurisdiction bucket is found at
+  `<account>.eu.r2.cloudflarestorage.com`; `R2_HOST` overrides the address. Secrets are trimmed. Deleting a game's highlights calls `remove`. Secrets: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
   (plus `CLOUDFLARE_ACCOUNT_ID`). The bucket's CORS allows GET/PUT/HEAD from anywhere (uploads come from the app's web
   view). Tests: `r2.test.mjs` (the real function; its signing is checked against Amazon's worked example), and
   `cuttiming`, `reels`, `house` for the app.
@@ -348,7 +352,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   On the web it opens the reel's address. Test: `reels.test.mjs`.
 - **It all carries on in the background** (Ethan: "really annoying to wait and just watch a progress bar"; his first try
   failed with "Load failed" when the 6-minute video went up from the web view). Opening Highlights on a gaffer's iPhone
-  starts making a missing one video by itself (`MKTRIED`, newest game first), with a line on the game's card
+  starts making a missing one video by itself (`MKTRIED`, newest game first; after a failed go, not again by itself for a day, `mk:<game id>` in `apt-tried`), with a line on the game's card
   (`[data-mkline]`, `mkShow`) instead of a screen to watch. Uploads go through iOS's background transfer service
   (`BackgroundUploads.swift`, plugin `upload({path, url})`, "upload" progress events; `upFile` in JS, and the cut's own
   `up`), which carries on with the app put away or closed. A made video is noted on the phone first (`apt-mk-pending`)
@@ -851,7 +855,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v24 (kind `live` from any team member, sent once; kind `report` tells the moderators; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
-    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v2 (players may upload/remove in their own `players/<pid>/` folder), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v3 (players may upload/remove in their own `players/<pid>/` folder; puts a tiny test file in R2 first and says R2's own reason if it refuses), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **The shop** (October 2026): `0033_shop.sql` is applied live, and `shop` v1 (verify_jwt = true) and `shop-webhook` v1
@@ -942,6 +946,12 @@ node tests/run.mjs video --update     # accept a walk-through's new output, then
   screen, while the screen has a transform, even during an animation. `.view`'s entrance is a fade only (no slide) and
   `backwards` for that reason; don't animate a screen's transform. `html` has `scroll-padding` so anything scrolled into
   view clears the small title bar and the tab bar.
+- **Supabase's free plan allows 5 GB a month of downloads ("Cached Egress"), and every clip in the old `clips` bucket
+  counts each time a phone fetches it.** In October 2026 Ethan went to 8 GB: no clip had ever reached R2 (it refused every
+  file), Highlights was drawn again after every pull and each new `<video>` fetched its whole clip again, and every open
+  retried moving the clips and making the game's one video (each try downloading every clip). Lists with videos are drawn
+  with `vidKeep(box, html)`, which keeps a video element whose address is unchanged; big automatic retries go through
+  `triedLately`. Keep both, and keep video off Supabase storage.
 - CSS class names share one file too: a new `.sw` once collided with the colour swatches' `.sw` and squashed every
   setting to nothing. Grep for a class before naming it, as for functions.
 

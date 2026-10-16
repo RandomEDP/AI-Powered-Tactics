@@ -34,16 +34,20 @@ function from(table) {
 }
 globalThis.__createClient = () => ({ from, auth: { getUser: async (t) => ({ data: { user: USERS[t] ? { id: USERS[t] } : null } }) },
   storage: { from: (bucket) => ({ remove: async (paths) => { paths.forEach((p) => { REMOVED.push(bucket + ':' + p); delete OLD[p]; }); return { data: paths, error: null }; } }) } });
-let refusePut = false;
+let refusePut = false, refuseAll = null, euOnly = false, oldReads = 0;
+const r2err = (code) => new Response(`<?xml version="1.0" encoding="UTF-8"?><Error><Code>${code}</Code><Message>no</Message></Error>`, { status: code === 'NoSuchBucket' ? 404 : 403 });
 globalThis.fetch = async (url, init = {}) => {
   url = String(url); const method = init.method || 'GET';
   let m = url.match(/^https:\/\/x\.supabase\.co\/storage\/v1\/object\/public\/clips\/(.+)$/);
-  if (m) { const k = decodeURIComponent(m[1]); return k in OLD ? new Response(OLD[k], { status: 200 }) : new Response('', { status: 404 }); }
-  m = url.match(/^https:\/\/acct-1\.r2\.cloudflarestorage\.com\/gaffer-clips\/([^?]+)\?(.+)$/);
+  if (m) { oldReads++; const k = decodeURIComponent(m[1]); return k in OLD ? new Response(OLD[k], { status: 200 }) : new Response('', { status: 404 }); }
+  m = url.match(/^https:\/\/acct-1(\.eu)?\.r2\.cloudflarestorage\.com\/gaffer-clips\/([^?]+)\?(.+)$/);
   if (!m) throw new Error('unexpected fetch ' + url);
+  if (refuseAll) return r2err(refuseAll);
+  if (euOnly !== !!m[1]) return r2err('NoSuchBucket');
+  m = [m[0], m[2], m[3]];
   const k = decodeURIComponent(m[1]);
   check(/X-Amz-Signature=[0-9a-f]{64}$/.test(m[2]) && m[2].includes('X-Amz-Credential=r2-access%2F'), `R2 is only called through a signed link (${method} ${k})`);
-  if (method === 'PUT') { if (refusePut) return new Response('nope', { status: 403 }); R2[k] = { body: new TextDecoder().decode(init.body), type: init.headers['Content-Type'] }; return new Response('', { status: 200 }); }
+  if (method === 'PUT') { if (refusePut) return new Response('nope', { status: 403 }); R2[k] = { body: typeof init.body === 'string' ? init.body : new TextDecoder().decode(init.body), type: init.headers['Content-Type'] }; return new Response('', { status: 200 }); }
   if (method === 'DELETE') { delete R2[k]; return new Response(null, { status: 204 }); }
   throw new Error('unexpected ' + method);
 };
@@ -56,7 +60,7 @@ const src = fs.readFileSync(path.join(ROOT, 'supabase/functions/clip-store/index
   .replace(/^import \{ createClient \} from "jsr:@supabase\/supabase-js@2";\n/m, 'const createClient = (globalThis as any).__createClient;\n');
 check(!/^import /m.test(src), 'its only imports are the two that have stand-ins here');
 const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'gaffer-fn-')), 'clip-store.ts'); fs.writeFileSync(file, src);
-const { presign } = await import(file);
+const { presign, resetR2 } = await import(file);
 const call = async (token, body) => {
   const res = await handler(new Request('https://x.supabase.co/functions/v1/clip-store', { method: 'POST', headers: token ? { Authorization: 'Bearer ' + token } : {}, body: JSON.stringify(body) }));
   return Object.assign(await res.json(), { status: res.status });
@@ -110,7 +114,28 @@ eq((await call('tok-rival', { code: 'SOPFC1', action: 'adopt', game_id: 'g1', se
 
 // ---------- deleting
 const gone = await call('tok-ethan', { code: 'SOPFC1', action: 'remove', paths: ['t-sop/2026-10-10_dog/01.mp4', 't-sop/2026-10-10_dog/01v.mp4'] });
-eq([gone.removed, Object.keys(R2).sort()], [2, ['t-sop/2026-10-10_dog/02.mp4', mine[0]].sort()], 'deleting a game\'s highlights deletes its files from R2');
+eq([gone.removed, Object.keys(R2).filter((k) => !k.endsWith('/.probe')).sort()], [2, ['t-sop/2026-10-10_dog/02.mp4', mine[0]].sort()], 'deleting a game\'s highlights deletes its files from R2');
 eq((await call('tok-ethan', { code: 'SOPFC1', action: 'remove', paths: ['t-ath/x/01.mp4'] })).status, 400, 'never another team\'s');
+
+// ---------- when R2 says no (Ethan's clips never moved: every move fetched both copies from Supabase, which counts
+// against the free plan's 5 GB of downloads, then R2 refused them)
+refuseAll = 'SignatureDoesNotMatch'; resetR2(); oldReads = 0;
+DB.clips.push({ team_id: 't-sop', game_id: 'g2', seq: 0, path: 't-sop/2026-10-12_dog/01.mp4', vpath: 't-sop/2026-10-12_dog/01v.mp4', store: null });
+Object.assign(OLD, { 't-sop/2026-10-12_dog/01.mp4': 'clip three', 't-sop/2026-10-12_dog/01v.mp4': 'clip three, with commentary' });
+const no = await call('tok-ethan', { code: 'SOPFC1', action: 'adopt', game_id: 'g2', seq: 0 });
+eq([no.status, no.reason, oldReads, DB.clips[2].store], [503, 'r2_refused', 0, null], 'if R2 refuses a test file, a move downloads nothing from the old storage and changes nothing');
+check(/SignatureDoesNotMatch/.test(no.error), `and says R2's own reason (${no.error})`);
+const noUp = await up('tok-ethan', mine);
+eq([noUp.status, noUp.reason, noUp.r2], [503, 'not_configured', 'r2_refused'], 'and the phone gets no upload links, told it\'s not set up, so every build uses the old storage straight away');
+eq((await call('tok-ethan', { code: 'SOPFC1', action: 'check' })).status, 503, 'check says so too');
+
+// ---------- a bucket made in the EU jurisdiction, and secrets pasted with a new line on the end
+refuseAll = null; euOnly = true; resetR2();
+Object.assign(ENV, { R2_ACCESS_KEY_ID: 'r2-access\n', R2_SECRET_ACCESS_KEY: ' r2-secret ', R2_BUCKET: 'gaffer-clips\n' });
+const eu = await up('tok-ethan', mine);
+check(eu.urls && eu.urls.every((u) => u.startsWith('https://acct-1.eu.r2.cloudflarestorage.com/gaffer-clips/') && u.includes('X-Amz-Credential=r2-access%2F')), 'an EU bucket is found at its own address, and spaces or new lines round the secrets don\'t matter');
+const euMove = await call('tok-ethan', { code: 'SOPFC1', action: 'adopt', game_id: 'g2', seq: 0 });
+eq([euMove.moved, DB.clips[2].store, R2['t-sop/2026-10-12_dog/01v.mp4'] && R2['t-sop/2026-10-12_dog/01v.mp4'].body], [2, 'r2', 'clip three, with commentary'], 'and clips move into it');
+eq((await call('tok-ethan', { code: 'SOPFC1', action: 'check' })).ok, true, 'check says R2 is taking files');
 
 await done();
