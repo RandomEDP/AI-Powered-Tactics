@@ -443,21 +443,22 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     /// optionally with new commentary lines laid over them, and hands back where it is so it can be shared or saved.
     ///   joinReel({ items: [{ url, voice?, voiceAt? }], introVoice?, outroVoice?, outro: { title, sub, color, ink }, file })
     ///     -> { path, size }
-    /// Emits "progress" { stage: "fetch", i, n, p } while fetching the clips, then { stage: "reel", p }.
+    /// Emits "progress" { stage: "fetch", i, n, p, job } while fetching the clips, then { stage: "reel", p, job } (`job`: the call's own).
     @objc public func joinReel(_ call: CAPPluginCall) {
         guard let raw = call.options["items"] as? [[String: Any]], !raw.isEmpty else { call.reject("No clips to join"); return }
         let outro = call.options["outro"] as? [String: Any]
         let name = (call.getString("file") ?? "reel.mp4").replacingOccurrences(of: "/", with: "-")
+        let tag = call.getString("job") ?? "" // (said back with its progress, so two joins waiting on each other don't mix their words)
         var spare: UIBackgroundTaskIdentifier = .invalid
         let begin = { spare = UIApplication.shared.beginBackgroundTask(withName: "Joining a reel") { UIApplication.shared.endBackgroundTask(spare) } }
         if Thread.isMainThread { begin() } else { DispatchQueue.main.sync(execute: begin) } // (time to finish if the app is put away)
         let finished = { DispatchQueue.main.async { if spare != .invalid { UIApplication.shared.endBackgroundTask(spare); spare = .invalid } } }
         queue.async {
             defer { finished() }
+            var job: URL?
             do {
-                let dir = try self.ensureWorkDir().appendingPathComponent("reel", isDirectory: true)
-                try? FileManager.default.removeItem(at: dir)
-                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let dir = try WorkFolders.fresh("reel", in: self.ensureWorkDir()) // (its own: another join must never delete this one's video)
+                job = dir
                 var lines = 0
                 func voice(_ value: Any?) -> AVURLAsset? {
                     guard let text = value as? String, let data = Data(base64Encoded: text), data.count > 200 else { return nil }
@@ -476,7 +477,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                         guard let remote = URL(string: where_) else { marks.append(NSNull()); continue }
                         local = dir.appendingPathComponent(String(format: "clip_%03d.mp4", index))
                         try self.fetch(remote, to: local) { p in
-                            self.notifyListeners("progress", data: ["stage": "fetch", "i": index, "n": raw.count, "p": p])
+                            self.notifyListeners("progress", data: ["stage": "fetch", "i": index, "n": raw.count, "p": p, "job": tag])
                         }
                     } else {
                         local = URL(fileURLWithPath: where_)
@@ -492,11 +493,13 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 guard !pieces.isEmpty else { throw CutError(message: "None of the clips could be fetched. Check your signal and try again.") }
                 let out = dir.appendingPathComponent(name.hasSuffix(".mp4") ? name : name + ".mp4")
                 try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: voice(call.options["introVoice"]), signOff: voice(call.options["outroVoice"])) { fraction in
-                    self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction])
+                    self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction, "job": tag])
                 }
                 if call.getBool("shrink") ?? false { self.shrink(out) } // (one that's uploaded for the team to watch, like the cut's reel)
+                WorkFolders.tidy(dir, keeping: [out]) // (the fetched clips aren't needed any more)
                 call.resolve(["path": out.path, "size": self.fileSize(out), "marks": marks])
             } catch {
+                if let job = job { try? FileManager.default.removeItem(at: job) }
                 call.reject(error.localizedDescription)
             }
         }
