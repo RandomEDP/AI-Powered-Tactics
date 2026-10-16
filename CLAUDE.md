@@ -680,7 +680,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   the App Clip on iPhones and the website elsewhere, the website has to be on a domain with an
   `apple-app-site-association` file naming the App Clip, and the App Clip needs `appclips:<domain>` in its entitlements
   (Ethan's new domain; not done yet). App Store Connect needs the App Clip card (a 3000×2000 picture, subtitle, "View").
-  Signing: CI's automatic signing registers the App Clip's bundle id, but it can't create an app group, so build 246 failed on `com.apple.security.application-groups`. Neither entitlements file asks for the group until Ethan registers `group.com.randomedp.aipoweredtactics` on Apple's developer site (Identifiers, App Groups) and ticks App Groups with it on both bundle ids; then put the key back in both files and flip the check in `clip.test.mjs`. Until then the App Clip shows the highlights but can't hand the link to the full app (opening the link again with Gaffer installed still works).
+  Signing: CI's automatic signing registers the App Clip's bundle id, but it can't create an app group (build 246 failed on `com.apple.security.application-groups`). Ethan registered `group.com.randomedp.aipoweredtactics` on Apple's developer site and enabled it on both bundle ids (16 October 2026), so both entitlements files ask for it again. Any new capability needing an identifier made in the portal has to be registered there first.
 - Tests: `friendly.test.mjs` (four phones: setup, the game, what counts where, links, a guest claiming, the App Clip's
   handover), `friendlydb.test.mjs` (with `friendly_preview`), `clip.test.mjs` (the project files), `tests/clip/main.swift`.
 
