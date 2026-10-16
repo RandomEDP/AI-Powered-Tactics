@@ -325,7 +325,7 @@ body.ro:not(.sc) .scr { display: none !important; }
 .dk { position: relative; overflow: hidden; border: 0; border-radius: 16px; min-height: 48px; padding: 6px 10px; display: flex; align-items: center; justify-content: center; gap: 6px;
   font-weight: 750; font-size: var(--t-body); line-height: 1.1; text-align: center; background: var(--fill); color: var(--ink); }
 .dk svg { width: 20px; height: 20px; flex: none; }
-.dkrow .dk { flex: 1 1 auto; min-width: 0; padding-inline: 8px; font-size: var(--t-sub); } .dkrow .dk-undo { flex: 0 0 auto; padding-inline: 12px; color: var(--muted); }
+.dkrow .dk { flex: 1 1 auto; min-width: 0; padding-inline: 8px; font-size: var(--t-sub); } .dkrow .dk-undo { flex: 0 0 auto; min-width: 44px; padding-inline: 10px; color: var(--muted); }
 .dk-us, .dk-them { min-height: 58px; font-size: var(--t-body); overflow-wrap: anywhere; }
 .dk-us { background: var(--on); color: var(--on-ink); }
 .dk-hl, .dk-sv { background: var(--on-soft); color: var(--on); }
@@ -1430,7 +1430,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <div class="dkrow own">
       <button class="dk dk-hl" id="hlBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.6 5.5 6 .8-4.4 4.1 1.1 6L12 16.7l-5.3 2.9 1.1-6-4.4-4.1 6-.8z" fill="currentColor"/></svg>Highlight</button>
       <button class="dk dk-sv" id="svBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V6.5a1.5 1.5 0 0 1 3 0V10m0-4.5v-1a1.5 1.5 0 0 1 3 0V10m0-4a1.5 1.5 0 0 1 3 0v4.5m0-2a1.5 1.5 0 0 1 3 0V14a7 7 0 0 1-7 7h-.6a7 7 0 0 1-5.6-2.8L4.2 15a1.6 1.6 0 0 1 2.5-2L8 14.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Keeper save</button>
-      <button class="dk dk-undo" id="undo" type="button" aria-label="Undo the last thing logged"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4.5 12H14a6 6 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -3)"/></svg>Undo</button>
+      <button class="dk dk-undo" id="undo" type="button" aria-label="Undo the last thing logged"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4.5 12H14a6 6 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 -3)"/></svg><span class="vh">Undo</span></button>
     </div>
   </div>
 </div>
