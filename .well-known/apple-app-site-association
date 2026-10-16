@@ -1,5 +1,15 @@
 {
   "appclips": {
     "apps": ["DP3V39HSP5.com.randomedp.aipoweredtactics.Clip"]
+  },
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["DP3V39HSP5.com.randomedp.aipoweredtactics"],
+        "components": [
+          { "?": { "me": "?*" }, "comment": "A friendly's personal link opens Gaffer when it's installed; every other page stays on the website" }
+        ]
+      }
+    ]
   }
 }
