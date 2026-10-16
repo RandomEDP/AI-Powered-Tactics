@@ -151,7 +151,7 @@
       return fail('no such function ' + name, '42883');
     }
     // ---------- profiles and following (0023), as the real functions behave
-    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team', 'create_post', 'remove_post', 'like_post', 'report_post', 'get_feed', 'user_posts', 'my_reels', 'team_people', 'tag_post', 'untag_post', 'user_tagged'];
+    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team', 'create_post', 'remove_post', 'like_post', 'report_post', 'get_feed', 'user_posts', 'my_reels', 'team_people', 'tag_post', 'untag_post', 'user_tagged', 'post_comments', 'add_comment', 'remove_comment', 'report_comment'];
     if (PEOPLE.includes(name)) {
       const RESERVED = d.reserved_usernames || ['edp', 'ethan', 'ethandp', 'e_d_p_1', 'gaffer', 'admin', 'support', 'official'].map((h) => ({ handle: h, user_id: null }));
       const prof = (u) => d.profiles.find((p) => p.user_id === u), byName = (n) => d.profiles.find((p) => p.username.toLowerCase() === String(n || '').trim().toLowerCase());
@@ -204,7 +204,21 @@
           video: x.kind === 'reel' ? { path: x.path, store: x.store, label: 'Player reel' } : c ? { path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur } : null,
           likes: d.post_likes.filter((l) => l.post_id === x.id && l.liked).length, liked: d.post_likes.some((l) => l.post_id === x.id && l.user_id === uid() && l.liked),
           tags: (d.post_tags || []).filter((g) => g.post_id === x.id && !g.removed && !blocked(uid(), g.user_id)).map((g) => prof(g.user_id)).filter(Boolean).map((tp) => ({ username: tp.username, name: tp.name })).sort((p1, p2) => p1.username < p2.username ? -1 : 1),
-          tagged_me: (d.post_tags || []).some((g) => g.post_id === x.id && g.user_id === uid() && !g.removed) }; };
+          tagged_me: (d.post_tags || []).some((g) => g.post_id === x.id && g.user_id === uid() && !g.removed),
+          comments: (d.post_comments || []).filter((m) => m.post_id === x.id && !m.removed_at && !blocked(uid(), m.user_id)).length }; };
+      // (0039) comments on posts
+      d.post_comments = d.post_comments || []; d.comment_reports = d.comment_reports || [];
+      const seenPost = (id) => { const x = d.posts.find((y) => y.id === id && !y.removed_at), au = x && prof(x.user_id); return x && au && seeable(au) && !blocked(uid(), x.user_id) ? x : null; };
+      const cmJson = (m, owner) => { const pr = prof(m.user_id); return pr ? { id: m.id, body: m.body, at: m.created_at, username: pr.username, name: pr.name, mine: m.user_id === uid(), can_remove: m.user_id === uid() || owner === uid() } : null; };
+      if (name === 'post_comments') { const x = seenPost(a.p_id); if (!x) return ok(null);
+        return ok(d.post_comments.filter((m) => m.post_id === x.id && !m.removed_at && !blocked(uid(), m.user_id)).sort((m1, m2) => m1.created_at - m2.created_at).slice(-200).map((m) => cmJson(m, x.user_id)).filter(Boolean)); }
+      if (name === 'add_comment') { if (!mine) return ok({ error: 'no_profile' }); const x = seenPost(a.p_id); if (!x) return ok({ error: 'missing' });
+        const body = String(a.p_body || '').replace(/\s+/g, ' ').trim().slice(0, 300); if (!body) return ok({ error: 'empty' });
+        const m = { id: crypto.randomUUID(), post_id: x.id, user_id: uid(), body, created_at: Date.now() + d.post_comments.length, removed_at: null }; d.post_comments.push(m); store(d); return ok({ comment: cmJson(m, x.user_id) }); }
+      if (name === 'remove_comment') { const m = d.post_comments.find((y) => y.id === a.p_id && !y.removed_at); const x = m && d.posts.find((y) => y.id === m.post_id);
+        if (!m || !(m.user_id === uid() || (x && x.user_id === uid()))) return ok(false); m.removed_at = Date.now(); m.removed_by = uid(); store(d); return ok(true); }
+      if (name === 'report_comment') { const m = d.post_comments.find((y) => y.id === a.p_id); if (!m) return ok(false); const r = d.comment_reports.find((y) => y.comment_id === m.id && y.user_id === uid());
+        if (r) r.reason = String(a.p_reason || ''); else d.comment_reports.push({ comment_id: m.id, user_id: uid(), reason: String(a.p_reason || '') }); store(d); return ok(true); }
       // (0028) the squad's usernames; tags
       if (name === 'team_people') { const t = d.teams.find((x) => x.code === String(a.p_code || '').trim().toUpperCase());
         return ok(t ? d.players.filter((p) => p.team_id === t.id && p.user_id && prof(p.user_id) && !blocked(uid(), p.user_id)).sort((p1, p2) => p1.pid - p2.pid).map((p) => ({ pid: p.pid, username: prof(p.user_id).username })) : []); }

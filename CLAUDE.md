@@ -115,7 +115,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0038` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits). New ones are numbered on from 0039 |
+| `supabase/migrations/` | `0001` … `0038` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts). New ones are numbered on from 0040 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -486,7 +486,14 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Post cards** (`postCard`): name (opens their profile), the video, like (`like_post`, a `liked` flag rather than
   deleting a row), the caption, and ⋯: Delete for your own (two taps, `remove_post`, which sets `removed_at`) or Report
   with a reason (`report_post`, `post_reports`). Who can see a post follows who can see the profile (`can_see`).
-- No comments or photo avatars yet (letters on the team colour instead).
+- **Comments** (`0039_post_comments.sql`, Ethan for 1.1): the bubble in a post's bar (`data-pcm`, the count from `post_json`
+  `comments`) opens them under the post (`CM`, `cmHtml`, `cmLoad`; `post_comments(p_id)`, oldest first), with a box
+  (`data-cform`, `add_comment`, 300 characters, `rude(…, true)`, 200 a day). ⋯ on a comment (`data-cmore`): Delete for your
+  own or any on your own post (two taps, `remove_comment`, sets `removed_at`), or Report (`report_comment`,
+  `comment_reports`, `reported('comment')`) and Block (`block_user`). Blocked pairs never see each other's comments; you
+  need to see the post to read or write them. Only the comments are redrawn (`cmDraw`), so a playing video carries on.
+  Tests: `comments.test.mjs`, `commentsdb.test.mjs`, `stream.test.mjs` (kind `report`). No notification to the post's author yet.
+- No photo avatars yet (letters on the team colour instead).
 - **Teammates follow each other** (`0028_teammates_and_tags.sql`, Ethan asked): a trigger on `players` (insert, or
   `user_id` changing) and `team_members` (insert) runs `private.follow_teammates`, so whoever joins or claims their player
   follows everyone on the team and they follow them, accepted even for a private profile; the migration did it once for
@@ -861,7 +868,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 ## 7. Supabase (live project `kvefpqigpqprxfelesrb`)
 
-- **Migrations:** `0001`–`0031` are applied live (0031 went in as two parts, `0031a`/`0031b`, through the MCP). `0036_goal_of_the_week.sql` is live (as two parts, `0036a` tables and `0036b` functions, through the MCP). `0032`–`0035` were taken by other work at the same time. Add new ones as `supabase/migrations/0037_<name>.sql` and apply them to
+- **Migrations:** `0001`–`0031` are applied live (and later ones up to `0039_post_comments.sql`) (0031 went in as two parts, `0031a`/`0031b`, through the MCP). `0036_goal_of_the_week.sql` is live (as two parts, `0036a` tables and `0036b` functions, through the MCP). `0032`–`0035` were taken by other work at the same time. Add new ones as `supabase/migrations/0037_<name>.sql` and apply them to
   the live project in the same piece of work. Use the Supabase MCP server's `apply_migration` if it's connected, or the
   dashboard SQL editor, or `supabase db push` with the CLI linked to the project.
   - Every new table gets RLS.
@@ -870,7 +877,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Edge functions:** all are deployed with **verify_jwt = true**, except `ad-reward` (false, see below). Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
-  - Deployed now: `team-notify` v24 (kind `live` from any team member, sent once; kind `report` tells the moderators; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
+  - Deployed now: `team-notify` v28 (kind `live` from any team member, sent once; kind `report` tells the moderators, comments included; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
     `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v3 (players may upload/remove in their own `players/<pid>/` folder; puts a tiny test file in R2 first and says R2's own reason if it refuses), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.

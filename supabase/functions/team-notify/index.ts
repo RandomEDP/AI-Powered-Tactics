@@ -11,7 +11,7 @@
 // Anyone in the team (a gaffer or a player) whose phone sees the team's live stream getting through calls it with
 // { code, kind: "live" }: the server checks with Cloudflare that the picture really is getting through, then tells
 // everyone else, once per stream however many phones ask.
-// Anyone who has just reported something (a post, a profile, a chat message or a live stream) calls it with
+// Anyone who has just reported something (a post, a comment, a profile, a chat message or a live stream) calls it with
 // { kind: "report", what }: Gaffer's moderators are told straight away, so it's looked at within a day. It only goes if
 // the caller really did report something in the last 10 minutes.
 // A gaffer who has just linked today's game with another team on Gaffer, or accepted a link, calls it with
@@ -122,13 +122,13 @@ Deno.serve(async (req: Request) => {
 
     if (kind === "report") { // somebody has just reported something: tell the moderators, if they really did
       const since = Date.now() - 600000, me = who.user.id, recent = (rows: { created_at: string }[] | null) => (rows || []).some((r) => new Date(r.created_at).getTime() > since);
-      const [a, b, c, d, e] = await Promise.all([
+      const [a, b, c, d, e, f] = await Promise.all([
         db.from("post_reports").select("created_at").eq("user_id", me), db.from("profile_reports").select("created_at").eq("reporter", me),
         db.from("message_reports").select("created_at").eq("user_id", me), db.from("stream_reports").select("created_at").eq("user_id", me),
-        db.from("gotw_reports").select("created_at").eq("user_id", me)]);
-      if (![a.data, b.data, c.data, d.data, e.data].some(recent)) return json({ error: "Nothing reported" }, 404);
+        db.from("gotw_reports").select("created_at").eq("user_id", me), db.from("comment_reports").select("created_at").eq("user_id", me)]);
+      if (![a.data, b.data, c.data, d.data, e.data, f.data].some(recent)) return json({ error: "Nothing reported" }, 404);
       if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
-      const what = ({ post: "A post", profile: "A profile", chat: "A chat message", stream: "A live stream", gotw: "A Goal of the Week clip" } as Record<string, string>)[String(input.what)] || "Something";
+      const what = ({ post: "A post", comment: "A comment", profile: "A profile", chat: "A chat message", stream: "A live stream", gotw: "A Goal of the Week clip" } as Record<string, string>)[String(input.what)] || "Something";
       const { data: mods } = await db.from("moderators").select("user_id");
       return json({ sent: await send((mods || []).map((m) => m.user_id as string), "", "report", "Something was reported in Gaffer", `${what} was reported. Have a look and deal with it within 24 hours.`) });
     }
