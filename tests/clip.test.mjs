@@ -40,6 +40,12 @@ check(plugin.includes(`"${group}"`) && scene.includes(`"${group}"`), 'where the 
 check(plugin.includes('"gaffer.link"') && scene.includes('"gaffer.link"') && swiftVal('linkKey') === 'gaffer.link', 'under the same key');
 check(/jsName = "ClipHandoff"/.test(plugin) && read('index.html').includes("plugin('ClipHandoff')"), 'and the web app asks that plugin');
 
+// the website's file that tells iPhones the App Clip belongs to gaffermanager.app (served by GitHub Pages; .nojekyll lets .well-known through)
+const aasa = JSON.parse(read('.well-known/apple-app-site-association'));
+eq(aasa.appclips && aasa.appclips.apps, ['DP3V39HSP5.com.randomedp.aipoweredtactics.Clip'], 'gaffermanager.app names the App Clip (team id, then its bundle id)');
+check(fs.existsSync(path.join(ROOT, '.nojekyll')) && read('CNAME').trim() === 'gaffermanager.app', 'and the website is served from gaffermanager.app with .well-known let through');
+check(/linkUrl: 'https:\/\/gaffermanager\.app\/'/.test(config), 'links sent to people use gaffermanager.app');
+
 // the database call it makes is open to someone with no account, and only that one
 const mig = read('supabase/migrations/0041_friendly_preview.sql');
 check(/grant execute on function public\.friendly_preview\(uuid\) to anon, authenticated;/.test(mig), 'friendly_preview is the one call it makes with no account');
