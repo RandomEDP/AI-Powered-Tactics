@@ -29,6 +29,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private func keepClipLink(_ url: URL?) {
         guard let url = url, let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
               q.contains(where: { $0.name == "me" }) else { return }
-        (UserDefaults(suiteName: "group.com.randomedp.aipoweredtactics") ?? .standard).set(url.absoluteString, forKey: "gaffer.link")
+        (UserDefaults(suiteName: "group.Com.randomedp.aipoweredtactics") ?? .standard).set(url.absoluteString, forKey: "gaffer.link")
     }
 }

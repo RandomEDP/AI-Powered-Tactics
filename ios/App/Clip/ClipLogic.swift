@@ -15,7 +15,8 @@ enum ClipConfig {
     static let key = "sb_publishable_GVY0NOJ3upPsqoGztDN_4g_6g2I67hJ"
     static let clipsUrl = "https://pub-256c81d54c3443eb8e0e013b111d2668.r2.dev"
     /// Shared with the full app, which takes the link from here the first time it opens (ClipHandoffPlugin).
-    static let group = "group.com.randomedp.aipoweredtactics"
+    /// The capital C is how the group was registered with Apple; group names are case-sensitive, so it has to match.
+    static let group = "group.Com.randomedp.aipoweredtactics"
     static let linkKey = "gaffer.link"
 }
 

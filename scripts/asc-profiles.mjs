@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 
 const { ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 } = process.env;
 const IDS = ['com.randomedp.aipoweredtactics', 'com.randomedp.aipoweredtactics.Clip'];
-const GROUP = 'group.com.randomedp.aipoweredtactics';
+const GROUP = 'group.Com.randomedp.aipoweredtactics';
 const b64 = (v) => Buffer.from(typeof v === 'string' ? v : JSON.stringify(v)).toString('base64url');
 function token() {
   const now = Math.floor(Date.now() / 1000);
