@@ -337,7 +337,7 @@
       Object.assign(r, { path: a.p_path ?? null, store: a.p_store === 'r2' ? 'r2' : null, marks: a.p_path == null ? [] : a.p_marks || [], made_by: uid(), made_at: Date.now() });
       store(d); return ok({ ok: true, old: old !== (a.p_path ?? null) && !(d.posts || []).some((x) => x.path === old && !x.removed_at) ? old : null });
     }
-    if (['ad_ticket', 'ad_claim', 'my_unlocks'].includes(name)) { // rewarded ads (0032): your own reel, unlocked by a ticket Google's signed call grants (or, with trust_app, the app's word)
+    if (['ad_ticket', 'ad_claim', 'ad_nofill', 'my_unlocks'].includes(name)) { // rewarded ads (0032): your own reel, unlocked by a ticket Google's signed call grants (or, with trust_app, the app's word)
       d.unlocks = d.unlocks || []; const trust = d.ad_trust !== false;
       if (typeof window !== 'undefined' && window.__hang && window.__hang.server) return new Promise(() => {}); // (Gaffer's server never answering)
       const t = a.p_code ? d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()) : null;
@@ -353,6 +353,12 @@
         const u = d.unlocks.find((x) => x.id === a.p_ticket && x.user_id === uid()); if (!u) return ok('no_ticket');
         if (u.granted_at) return ok('granted'); if (!(a.p_app_says && trust)) return ok('waiting');
         u.granted_at = Date.now(); store(d); return ok('granted');
+      }
+      if (name === 'ad_nofill') { // (0043: Google had no ad, so it unlocks anyway; 10 a day)
+        const u = d.unlocks.find((x) => x.id === a.p_ticket && x.user_id === uid()); if (!u) return ok('no_ticket');
+        if (u.granted_at) return ok('granted'); if (d.ad_nofill === false) return ok('off');
+        if (d.unlocks.filter((x) => x.user_id === uid() && x.no_fill && x.granted_at > Date.now() - 86400000).length >= 10) return ok('too_many');
+        u.granted_at = Date.now(); u.no_fill = true; store(d); return ok('granted');
       }
       if (!t || !uid()) return ok(null);
       return ok({ reels: [...new Set(d.unlocks.filter((u) => u.team_id === t.id && u.user_id === uid() && u.granted_at).map((u) => u.target))] });
