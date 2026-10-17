@@ -1,0 +1,27 @@
+name: Apple signing profiles
+
+# Run by hand. Shows whether Apple's side has the shared app group switched on for the app and the App Clip, and
+# whether their provisioning profiles include it. With "Clear old profiles" ticked it deletes only profiles for these
+# two bundle ids that lack the group, so the next TestFlight build makes fresh ones.
+on:
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: Clear old profiles that lack the app group
+        type: boolean
+        default: false
+
+jobs:
+  profiles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check (or clear) the profiles
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: node scripts/asc-profiles.mjs ${{ inputs.refresh && 'refresh' || 'check' }}
