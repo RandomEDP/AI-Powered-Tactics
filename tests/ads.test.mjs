@@ -60,6 +60,19 @@ eq(tk2, { error: 'not_needed' }, '(already unlocked)');
 await d.admin(`insert into public.ad_unlocks (id, team_id, user_id, kind, target) values ('11111111-1111-1111-1111-111111111111', $1, $2, 'reel', $3)`, [sop.id, jake.id, reel2]);
 eq(await grant('11111111-1111-1111-1111-111111111111', jake.id, 'tx-1'), 'duplicate', 'one ad pays once: its transaction can\'t grant a second ticket');
 eq((await d.admin(`select by_google from public.ad_unlocks where id = $1`, [tk.ticket]))[0].by_google, true, 'a grant from Google is marked as one');
+// Google had no ad to show (0043, Ethan chose it): the reel unlocks anyway, on the app's word, 10 a day at most
+const fresh = (i) => d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: `${sop.id}/players/2/reel-${Date.now() + i}.mp4` }).then((r) => r.ticket);
+let nf = await fresh(1);
+eq(await d.rpc(sam, 'ad_nofill', { p_ticket: nf }), 'no_ticket', 'no ad from Google: only the ticket\'s owner can say so');
+eq(await d.rpc(jake, 'ad_nofill', { p_ticket: nf }), 'granted', 'no ad from Google: the reel unlocks anyway, even with real ads on');
+eq((await d.admin(`select no_fill, by_google from public.ad_unlocks where id = $1`, [nf]))[0], { no_fill: true, by_google: false }, 'and it\'s marked as unlocked with no ad, not as a watched one');
+const nfPriv = await d.admin(`select has_function_privilege('anon', 'public.ad_nofill(uuid)', 'execute') n`);
+eq(nfPriv[0].n, false, 'nobody signed out can call it');
+await d.admin(`update public.ad_settings set no_fill_unlock = false`);
+eq(await d.rpc(jake, 'ad_nofill', { p_ticket: await fresh(2) }), 'off', 'with the switch off, no ad means it stays locked');
+await d.admin(`update public.ad_settings set no_fill_unlock = true`);
+for (let i = 3; i < 12; i++) await d.rpc(jake, 'ad_nofill', { p_ticket: await fresh(i) });
+eq(await d.rpc(jake, 'ad_nofill', { p_ticket: await fresh(12) }), 'too_many', 'at most 10 reels a day unlock with no ad');
 await d.admin(`update public.ad_settings set trust_app = true`);
 await d.admin(`delete from auth.users where id = $1`, [jake.id]);
 eq((await d.admin(`select count(*)::int n from public.ad_unlocks`))[0].n, 0, 'deleting an account deletes its unlocks');
@@ -108,7 +121,7 @@ const setup = () => { // Google's AdMob, as the web app sees it
   window.Capacitor.Plugins.AdMob = {
     initialize: async () => { window.__ad.push('initialize'); }, requestConsentInfo: async () => { window.__ad.push('consent'); if ((window.__hang || {}).consent) await new Promise(() => {}); return { status: 'NOT_REQUIRED', canRequestAds: true, privacyOptionsRequirementStatus: 'NOT_REQUIRED' }; },
     trackingAuthorizationStatus: async () => ({ status: window.__att || 'notDetermined' }), requestTrackingAuthorization: async () => { window.__ad.push('att'); window.__att = 'denied'; },
-    prepareRewardVideoAd: async (o) => { window.__ad.push(['prepare', o]); if ((window.__hang || {}).load) await new Promise(() => {}); return { adUnitId: o.adId }; },
+    prepareRewardVideoAd: async (o) => { window.__ad.push(['prepare', o]); if ((window.__hang || {}).load) await new Promise(() => {}); if (window.__noFill) throw new Error('Request Error: No ad to show.'); return { adUnitId: o.adId }; },
     addListener: (n, f) => { (L[n] = L[n] || []).push(f); return Promise.resolve({ remove: () => { L[n] = (L[n] || []).filter((x) => x !== f); } }); },
     showRewardVideoAd: () => { window.__ad.push('show'); const early = window.__adEarly; if (!(window.__hang || {}).show) setTimeout(() => (L.onRewardedVideoAdShowed || []).forEach((f) => f()), 300); else return new Promise(() => {}); return new Promise((res) => setTimeout(() => {
       if (!early) { (L.onRewardedVideoAdReward || []).forEach((f) => f({ type: 'Reward', amount: 1 })); res({ type: 'Reward', amount: 1 }); }
@@ -226,7 +239,9 @@ await J.click('#rbClose'); await J.run(800);
 eq(await J.page.$$eval(mine + ' [data-ad="reel"]', (b) => b.length), 1, 'it\'s on his card behind the ad, to watch there');
 await J.page.evaluate(() => { window.__adEarly = false; });
 
-// Google never answering (Ethan's phone sat on "Getting the ad…"): each step gives up and says so, and the reel still lands
+// Google never answering (Ethan's phone sat on "Getting the ad…"): each step gives up and says so, and the reel still lands.
+// (With the no-ad unlock switched off here, so the reel stays locked; it's on further down.)
+{ const dx = w.db(); dx.ad_nofill = false; w.setDb(dx); }
 await J.page.reload(); await J.run(2000); await openMine(); s0 = await shows();
 await J.page.evaluate(() => { window.__hang = { consent: true, load: true }; Object.assign(window.gafferAdMs, { consent: 1500, load: 3000 }); });
 await J.click(mine + ' [data-ad="reel"]'); await J.run(800);
@@ -263,6 +278,25 @@ await J.click('#hlList [data-preel="2"]'); await J.run(300); await J.click('#rbM
 eq([await shows() - s0, w.db().player_reels.find((r) => r.pid === 2).path, await rc('share')], [0, was.key, 1], 'made again after reopening Gaffer: no second ad, the same name, and it\'s ready to share');
 await J.click('#rbClose'); await J.run(800);
 eq(await J.page.$$eval(mine + ' .reelp video', (v) => v.length), 1, 'and it plays on his card');
+
+// Google has no ad (Ethan chose to unlock it anyway): making his reel, and the button on his card
+{ const dx = w.db(); delete dx.ad_nofill; w.setDb(dx); }
+await J.page.evaluate(() => { window.__noFill = true; }); s0 = await shows();
+await J.click('#hlList [data-preel="2"]'); await J.run(300); const r0 = await rc('share'); await J.click('#rbMake'); await J.run(4000);
+check(await J.visible('#noAdPop') && /unlocked anyway/.test(await J.text('#noAdPop')), 'no ad from Google while his reel is made: a pop-up says there\'s no ad this time and his reel is unlocked anyway');
+await J.click('#noAdOk'); await J.run(300);
+eq([await shows() - s0, await rc('share') - r0, await J.visible('#rbShare')], [0, 1, true], 'no ad played, and his reel is ready to share straight away');
+await J.click('#rbClose'); await J.run(800);
+eq([await J.page.$$eval(mine + ' .reelp video', (v) => v.length), await J.page.$$eval(mine + ' [data-ad]', (b) => b.length)], [1, 0], 'and it plays on his card, unlocked');
+await J.page.evaluate(() => { window.__noFill = false; window.__adEarly = true; });
+await J.click('#hlList [data-preel="2"]'); await J.run(300); await J.click('#rbMake'); await J.run(33000); await J.click('#rbClose'); await J.run(800);
+await J.page.evaluate(() => { window.__adEarly = false; window.__noFill = true; });
+eq(await J.page.$$eval(mine + ' [data-ad="reel"]', (b) => b.length), 1, '(a reel left locked by an ad closed early)');
+await J.click(mine + ' [data-ad="reel"]'); await J.run(3000);
+check(await J.visible('#noAdPop') && /unlocked anyway/.test(await J.text('#noAdPop')), 'tapping the ad button with no ad from Google: the same pop-up');
+await J.click('#noAdOk'); await J.run(800);
+eq([await J.page.$$eval(mine + ' .reelp video', (v) => v.length), await J.page.$$eval(mine + ' [data-ad]', (b) => b.length)], [1, 0], 'and the reel unlocks and plays on his card');
+await J.page.evaluate(() => { window.__noFill = false; });
 
 // a team that has paid (the team pass, 0032) never sees an ad: the same reel plays straight away
 const db3 = w.db(); db3.team_pass = [{ team_id: tid, paid_until: Date.now() + 20 * 86400000, pot: 0 }]; w.setDb(db3);

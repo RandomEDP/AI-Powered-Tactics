@@ -4902,10 +4902,11 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var adSay = function (m) { if (!RB.busy || RB.prog.indexOf('ready for when') >= 0) return; RB.ad = m === 'The ad is playing…' ? 'The ad is playing. Your reel is being made at the same time.' : m; var el = $('rbAd'); if (el) el.textContent = RB.ad; else renderRB(); };
       adP = adRun('reel', ahead.key, { say: adSay, ticket: function (t) { ahead.ticket = t; ahead.watched = false; aheadPut(ahead); }, watched: function () { ahead.watched = true; aheadPut(ahead); } })
         .then(function (r) { return { r: r }; }, function (e) { return { err: (e && e.message) || 'Something went wrong with the ad.', noAd: !!(e && e.noAd) }; });
-      adP.then(function (a) { if (a.noAd) noAdPop('Google hasn’t got an ad for you at the moment. Your reel is still made and goes on your card, locked: watch an ad there to see it once one’s available.'); });
+      adP.then(function (a) { if (a.r === 'nofill') noAdPop(NOFILL_POP + ' It’s ready to share as soon as it’s made.'); else if (a.noAd) noAdPop('Google hasn’t got an ad for you at the moment. Your reel is still made and goes on your card, locked: watch an ad there to see it once one’s available.'); });
       adP.then(function (a) { // no ad (or closed early) while the reel is still being made: say so now, not once the reel is ready (Ethan saw "Loading the ad…" for good)
         if (!RB.busy || RB.prog.indexOf('ready for when') >= 0 || a.r === 'unlocked' || a.r === 'waiting') return;
-        AD.busy = false; RB.ad = (a.r === 'closed' ? 'The ad was closed before the end.' : a.err) + ' Your reel is still being made; it’ll go on your card, locked, and you can watch an ad there to see it.';
+        AD.busy = false; RB.ad = a.r === 'nofill' ? 'Google had no ad to show, so there’s no ad this time. Your reel is still being made, and it’s unlocked.'
+          : (a.r === 'closed' ? 'The ad was closed before the end.' : a.err) + ' Your reel is still being made; it’ll go on your card, locked, and you can watch an ad there to see it.';
         var el = $('rbAd'); if (el) el.textContent = RB.ad; else renderRB();
       });
     }
@@ -4936,7 +4937,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (adP) { // the ad, which has been playing all along
         var doneMsg = RB.msg; RB.msg = ''; RB.ad = ''; RB.prog = 'Your reel is ready for when the ad ends…'; renderRB();
         var ad = await adP; AD.busy = false; RB.ad = ''; RB.msg = doneMsg;
-        if (ad.r === 'unlocked') { RB.locked = false; rateAfter(rc.share({ path: RB.path })); }
+        if (ad.r === 'unlocked' || ad.r === 'nofill') { RB.locked = false; rateAfter(rc.share({ path: RB.path })); }
         else if (ad.r === 'waiting') RB.msg = 'Thanks for watching. Google hasn’t confirmed the ad yet; your reel unlocks on your card in Highlights as soon as it does.';
         else { RB.msg = (ad.r === 'closed' ? 'The ad was closed before the end, so your reel is locked.' : ad.err) + (kept ? ' It’s on your card in Highlights: watch the ad there to see it.' : ''); RB.bad = ad.r !== 'closed'; }
         if (kept) aheadPut(null); // (it's your reel now; the card's own button covers the rest)
@@ -8036,7 +8037,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     }
     return false;
   }
-  async function adRun(kind, target, o) { // one ad for one unlock: 'unlocked' (or it already was), 'closed' (shut early), 'waiting'
+  async function adRun(kind, target, o) { // one ad for one unlock: 'unlocked' (or it already was), 'nofill' (Google had no ad, so unlocked anyway), 'closed' (shut early), 'waiting'
     // (watched, Google hasn't confirmed yet). o.say(msg) tells the person; o.ticket(t) and o.watched() let a reel being made keep
     // track in case the app is closed. Throws with the message to show.
     o = o || {}; var say = o.say || function () {};
@@ -8051,14 +8052,19 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     say('Loading the ad…');
     var ld;
     try { ld = await adStep(am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }), AD_MS.load); }
-    catch (e) { throw noAd('Google had no ad to show right now' + (e && e.message ? ' (' + e.message + ')' : '') + '. Try again in a minute.'); }
-    if (ld === AD_LATE) throw noAd('Google didn’t send an ad in time. Try again in a minute.');
+    catch (e) { return adNoFill(tk.ticket, 'Google had no ad to show right now' + (e && e.message ? ' (' + e.message + ')' : '') + '. Try again in a minute.'); }
+    if (ld === AD_LATE) return adNoFill(tk.ticket, 'Google didn’t send an ad in time. Try again in a minute.');
     say('The ad is playing…');
     if (!(await adShow(am))) return 'closed';
     if (o.watched) o.watched();
     say('Unlocking…');
     return (await adClaim(tk.ticket)) ? 'unlocked' : 'waiting';
   }
+  async function adNoFill(ticket, why) { // Google had no ad: the reel unlocks anyway (0043; Ethan chose it). 'nofill', or, if the server says no, why there was no ad
+    try { if ((await adRpc('ad_nofill', { p_ticket: ticket })).data === 'granted') return 'nofill'; } catch (e) {}
+    throw noAd(why);
+  }
+  var NOFILL_POP = 'Google hasn’t got an ad for you right now, so there’s no ad this time: your reel’s unlocked anyway.';
   async function adWatch(kind, target) {
     if (AD.busy) return;
     var say = function (msg, bad) { AD.msg = msg; AD.bad = !!bad; adDraw(); };
@@ -8067,6 +8073,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var got = await adRun(kind, target, { say: say });
       AD.busy = false;
       if (got === 'closed') { say('The ad was closed before the end, so your reel is still locked. Watch it to the end to see your reel.', true); return; }
+      if (got === 'nofill') noAdPop(NOFILL_POP);
       AD.msg = got === 'waiting' ? 'Thanks for watching. Google hasn’t confirmed it yet; your reel unlocks as soon as it does, so check back in a minute.' : ''; AD.bad = false;
       await unlLoad(true); adDraw();
     } catch (e) { AD.busy = false; say((e && e.message) || 'Something went wrong with the ad. Try again.', true); if (e && e.noAd) noAdPop('Google hasn’t got an ad for you at the moment, so your reel stays locked for now. Try again in a few minutes.'); }
