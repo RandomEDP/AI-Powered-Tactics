@@ -100,7 +100,12 @@ export async function world() {
     const errs = []; page.on('pageerror', (e) => errs.push(label + ': ' + (e.stack || e)));
     if (clock) await page.clock.install({ time: at });
     await page.goto(base);
-    if (clock) { await page.clock.pauseAt(at + 1000); await page.clock.runFor(500); clocks.push(page.clock); }
+    if (clock) {
+      // (the page's clock runs from `at` while it loads; on a slow machine loading can take over a second, and pausing in
+      // the past fails, so put the clock back a little first)
+      try { await page.clock.pauseAt(at + 1000); } catch (e) { await page.clock.setSystemTime(at + 500); await page.clock.pauseAt(at + 1000); }
+      await page.clock.runFor(500); clocks.push(page.clock);
+    }
     const P = {
       page, ctx, errs, label,
       /// Asleep in a pocket: the app stops running and misses live updates, while time carries on for everyone else. `thaw` wakes it.
