@@ -1,7 +1,7 @@
 // Lays out the App Store and social pictures in Gaffer's style (deep purple, a big headline, the app in a phone) from the
 // screens store/capture.mjs took (the redesigned app, in dark mode) and stills from the real highlights Gaffer cut of
 // SOP FC 15–2 Dog Squad (store/src/footage: the score box and the GOAL bar are the app's own graphics, burnt into the clip).
-//   node store/capture.mjs && node store/compose.mjs
+//   node store/capture.mjs && node store/compose.mjs     (node store/compose.mjs header: only the header and search pictures)
 // Nothing behind the Experimental switch (live streaming, player tracking, the Gaffer tier) goes in these.
 import { createRequire } from 'module';
 import fs from 'fs';
@@ -16,6 +16,7 @@ const data = (file) => 'data:' + (file.endsWith('.woff2') ? 'font/woff2' : file.
 const raw = (name) => data(path.join(HERE, 'raw', name + '.png'));
 const src = (name) => data(path.join(HERE, 'src', name));
 const foot = (name) => data(path.join(HERE, 'src/footage', name + '.jpg'));
+const ONLY_HEADER = process.argv.includes('header');
 const FONT = data(path.join(HERE, '../vendor/fonts/BricolageGrotesque.woff2'));
 
 const CSS = `
@@ -113,7 +114,7 @@ const SIZES = [
   { dir: '1 iPhone (6.3 inch)', prefix: 'iphone', W: 1206, H: 2622, L: { x: 86, ty: 140, tf: 124, tw: 1060, sy: 438, sf: 45, sw: 1030 }, P: { x: 120, y: 681, w: 967 }, ring: [1310, 157, 740], s: 1 },
   { dir: '2 iPhone Duo', prefix: 'iphone-duo', W: 1398, H: 2034, L: { x: 99, ty: 112, tf: 146, tw: 1250, sy: 432, sf: 53, sw: 1200 }, P: { x: 178, y: 699, w: 1046 }, ring: [1420, 150, 760], s: 1.1 },
 ];
-for (const Z of SIZES) {
+for (const Z of ONLY_HEADER ? [] : SIZES) {
   for (const f of fs.readdirSync(path.join(HERE, Z.dir))) if (f.endsWith('.png')) fs.unlinkSync(path.join(HERE, Z.dir, f)); // the set is made whole each time
   const duo = Z.W > 1300;
   for (const S of SLIDES) {
@@ -137,7 +138,7 @@ for (const Z of SIZES) {
 
 // iPhone 6.9", 1320 × 2868: the 6.3" pictures drawn a touch bigger (the same shape). This is the set Apple requires and
 // the one scripts/asc-shots.mjs sends; Apple scales it down for smaller iPhones.
-{
+if (!ONLY_HEADER) {
   const dir = path.join(HERE, '6 iPhone (6.9 inch)');
   fs.mkdirSync(dir, { recursive: true }); for (const f of fs.readdirSync(dir)) if (f.endsWith('.png')) fs.unlinkSync(path.join(dir, f));
   for (const f of fs.readdirSync(path.join(HERE, SIZES[0].dir)).filter((x) => x.endsWith('.png')).sort()) {
@@ -146,28 +147,35 @@ for (const Z of SIZES) {
   }
 }
 
-// ---------- the header (3840 × 1646) and search result (1920 × 1280) pictures
-const headline = 'Your team,<br><em>sorted</em>', strap = 'Fair subs, polls, stats and highlights cut from your GoPro or iPhone footage.';
+// ---------- the header (3840 × 1646) and search result (1920 × 1280) pictures: what's new (Home, Highlights, friendlies,
+// Goal of the Week) round the subs screen, with a real highlight playing in the app on Home
+const headline = 'Your team,<br><em>sorted</em>', strap = 'Fair subs, highlights cut from your GoPro or iPhone footage, and a home for your goals.';
+const NEW_CHIPS = [['#c9b8ff', 'Highlights, cut for you', 'Score, clock and scorer on every clip'], ['#3dd07f', 'Share your goals', 'Post to Home for teammates and followers'],
+  ['#f5b83b', 'Goal of the Week', 'Vote for the best goal on Gaffer'], ['#ff8a5c', 'Play a friendly', 'With anyone on Gaffer, guests too']];
 {
   const W = 3840, H = 1646;
-  let body = ring(330, 2480, 1000) + brand(150, 330, 1) +
-    `<h1 style="left:150px;top:560px;font-size:210px;width:1700px">${headline}</h1><p class="sub" style="left:150px;top:1060px;font-size:60px;width:1500px">${strap}</p>`;
-  body += landscape({ x: 1900, y: 150, w: 1860, img: foot('04-goal'), tilt: 3 });
-  body += phone({ x: 1720, y: 560, w: 600, img: raw('mh'), tilt: -5, z: 2 });
-  body += phone({ x: 3120, y: 780, w: 580, img: raw('game'), tilt: 5, z: 2 });
+  let body = ring(330, 2480, 1000) + ring(3500, -200, 760) + brand(150, 150, 0.9) +
+    `<h1 style="left:150px;top:350px;font-size:190px;width:1500px">${headline}</h1><p class="sub" style="left:150px;top:760px;font-size:56px;width:1560px">${strap}</p>`;
+  body += chips(150, 1010, 1640, 2, 0.95, NEW_CHIPS);
+  body += phone({ x: 1820, y: 360, w: 600, img: raw('hl'), tilt: -8, z: 1 });
+  body += phone({ x: 2200, y: 110, w: 800, img: raw('feed'), z: 3 });
+  body += phone({ x: 3000, y: 250, w: 760, img: raw('game'), tilt: 4, z: 2 });
+  body += tag(2290, 1370, 1.1, 'A real highlight, cut by Gaffer', 5);
   await render(W, H, body, path.join(HERE, '4 Header and Search Results', 'header-3840x1646.png'));
 }
 {
   const W = 1920, H = 1280;
-  let body = ring(170, 1210, 330) + brand(76, 280, 0.5) +
-    `<h1 style="left:76px;top:400px;font-size:112px;width:880px">${headline}</h1><p class="sub" style="left:76px;top:660px;font-size:34px;width:780px">${strap}</p>`;
-  body += landscape({ x: 930, y: 120, w: 960, img: foot('04-goal'), tilt: 3 });
-  body += phone({ x: 870, y: 470, w: 320, img: raw('mh'), tilt: -5, z: 2 });
-  body += phone({ x: 1560, y: 600, w: 310, img: raw('game'), tilt: 5, z: 2 });
+  let body = ring(170, 1210, 330) + brand(70, 90, 0.5) +
+    `<h1 style="left:70px;top:200px;font-size:104px;width:760px">${headline}</h1><p class="sub" style="left:70px;top:440px;font-size:32px;width:740px">${strap}</p>`;
+  body += chips(70, 620, 740, 1, 0.62, NEW_CHIPS);
+  body += phone({ x: 900, y: 90, w: 500, img: raw('feed'), z: 3 });
+  body += phone({ x: 1400, y: 190, w: 470, img: raw('game'), tilt: 4, z: 2 });
+  body += tag(930, 960, 0.75, 'A real highlight, cut by Gaffer', 5);
   await render(W, H, body, path.join(HERE, '4 Header and Search Results', 'search-1920x1280.png'));
 }
 
 // ---------- social: squares (1080 × 1080), stories (1080 × 1920) and a wide one (1920 × 1080)
+if (ONLY_HEADER) { await browser.close(); process.exit(0); }
 const SOC = path.join(HERE, '5 Social');
 const out = (name) => path.join(SOC, name + '.png');
 { // the highlight, square: the clip, then the phone with the whole match
