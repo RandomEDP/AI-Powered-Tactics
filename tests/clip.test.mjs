@@ -28,8 +28,9 @@ const ids = pbx.match(/^\t\t([0-9A-F]{24}) \/\*/gm).map((x) => x.trim().slice(0,
 eq(ids.length, new Set(ids).size, 'no object id is used twice');
 
 // one app group, one key
-const group = 'group.com.randomedp.aipoweredtactics';
-// (Build 246 failed on this: CI's signing can't create an app group, so it has to be registered on Apple's developer site first. Ethan did, 16 October 2026.)
+const group = 'group.Com.randomedp.aipoweredtactics';
+// (Build 246 failed on this: CI's signing can't create an app group, so it has to be registered on Apple's developer site first. Ethan did, 16 October 2026,
+// as group.Com… with a capital C; 274 failed until every file used that exact spelling, as group names are case-sensitive.)
 for (const f of ['ios/App/Clip/Clip.entitlements', 'ios/App/App/App.entitlements']) check(read(f).includes(`<string>${group}</string>`), `${f} has the shared app group`);
 check(read('ios/App/Clip/Clip.entitlements').includes('$(AppIdentifierPrefix)com.randomedp.aipoweredtactics</string>'), 'the App Clip names Gaffer as its app');
 check(read('ios/App/App/App.entitlements').includes('$(AppIdentifierPrefix)com.randomedp.aipoweredtactics.Clip</string>'), 'and Gaffer names its App Clip');

@@ -32,7 +32,7 @@ let mem = UserDefaults(suiteName: "clip-tests-\(ProcessInfo.processInfo.processI
 clip!.keep(in: mem)
 eq(mem.string(forKey: "gaffer.link"), clip!.handoff, "it's kept under the key the full app's ClipHandoffPlugin reads")
 eq(ClipConfig.linkKey, "gaffer.link", "(the same key)")
-eq(ClipConfig.group, "group.com.randomedp.aipoweredtactics", "in the app group the two share")
+eq(ClipConfig.group, "group.Com.randomedp.aipoweredtactics", "in the app group the two share")
 
 // ---------- the one call
 let req = ClipNet.request(token: tok)

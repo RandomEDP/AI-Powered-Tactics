@@ -17,7 +17,7 @@ public class ClipHandoffPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     // (the same as ClipConfig in the App Clip and SceneDelegate in the app)
-    static let group = "group.com.randomedp.aipoweredtactics"
+    static let group = "group.Com.randomedp.aipoweredtactics"
     static let key = "gaffer.link"
 
     @objc public func take(_ call: CAPPluginCall) {
