@@ -58,7 +58,7 @@ eq(await J.view(), 'join', 'the team code finds the team');
 await shot(J, 'join');
 await J.click('#joinList [data-pid="2"]'); await J.page.fill('#jLast', 'Smith'); await J.page.fill('#jNum', '7'); await J.click('#joinList [data-pos="fwd"]');
 await J.page.fill('#jEmail', 'jake@example.com'); await J.page.fill('#jUser', 'jake_s'); await J.page.fill('#jPass', 'longpassword'); await J.check('#jTerms'); await J.click('#joinList [data-do="up"]'); await J.run(800);
-eq((w.db().users.find((u) => u.email === 'jake@example.com') || {}).redirect, 'https://randomedp.github.io/AI-Powered-Tactics/', 'the confirmation email links to the website, not the app\'s own https://localhost (which only exists inside the phone)');
+eq((w.db().users.find((u) => u.email === 'jake@example.com') || {}).redirect, 'https://gaffermanager.app/', 'the confirmation email links to the website, not the app\'s own https://localhost (which only exists inside the phone)');
 await J.click('#pendCard [data-go="account"]'); await J.page.fill('#aEmail', 'jake@example.com'); await J.page.fill('#aPass', 'longpassword'); await J.click('#aSignIn'); await J.run(2000);
 if (await J.view() !== 'home') { await J.click('#tabs [data-tab="home"]'); await J.run(500); }
 const team = w.db().teams[0], jakeId = w.db().users.find((u) => u.email === 'jake@example.com').id;

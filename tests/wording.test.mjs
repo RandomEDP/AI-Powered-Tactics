@@ -30,4 +30,16 @@ for (const file of ['index.html', 'privacy.html', 'support.html', 'terms.html', 
 }
 check(/var APP_NAME = 'Gaffer: Small-Sided Football'/.test(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')), 'the app\'s full name is set in one place');
 check(formats >= 3, `found the game-format mentions (${formats})`);
+// Ethan's rule for links: everything people are sent or shown goes through gaffermanager.app, never the GitHub address
+// or the old github.io one (config.js, the app, the pages, the store text and every edge function).
+const shown = ['config.js', 'index.html', 'sw.js', 'manifest.webmanifest', 'privacy.html', 'support.html', 'terms.html'];
+for (const dir of ['store/text', 'supabase/functions']) for (const f of fs.readdirSync(path.join(ROOT, dir), { recursive: true })) {
+  if (fs.statSync(path.join(ROOT, dir, f)).isFile()) shown.push(path.join(dir, f));
+}
+for (const file of shown) {
+  const text = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  check(!/github\.com|github\.io/i.test(text), `${file} has no GitHub link in it`);
+}
+check(/siteUrl: 'https:\/\/gaffermanager\.app\/'/.test(fs.readFileSync(path.join(ROOT, 'config.js'), 'utf8')), 'confirmation and reset emails go back to gaffermanager.app');
+
 await done();

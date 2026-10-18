@@ -89,7 +89,7 @@ eq((await d.admin(`select reason from public.gotw_reports`)).map((r) => r.reason
 
 // ---------- nobody can go round the functions
 for (const [who, label] of [[null, 'someone not signed in'], [sam, 'a signed-in stranger'], [ethan, 'a gaffer']]) {
-  const seen = []; for (const table of ['gotw_noms', 'gotw_votes', 'gotw_winners', 'gotw_sponsors', 'gotw_reports']) { try { seen.push((await d.as(who, `select count(*)::int as n from public.${table}`))[0].n); } catch (e) { seen.push('denied'); } }
+  const seen = []; for (const table of ['gotw_noms', 'gotw_votes', 'gotw_winners', 'gotw_sponsors', 'gotw_prizes', 'gotw_reports']) { try { seen.push((await d.as(who, `select count(*)::int as n from public.${table}`))[0].n); } catch (e) { seen.push('denied'); } }
   check(seen.every((n) => n === 0 || n === 'denied'), `${label} reading the Goal of the Week tables directly sees nothing (${seen.join(',')})`);
 }
 await d.as(sam, `insert into public.gotw_votes (week, user_id, nom_id) values (current_date, '${sam.id}', '${dogE.id}')`).catch(() => {});
@@ -99,10 +99,13 @@ eq((await d.admin(`select count(*)::int as n from public.gotw_votes where nom_id
 // ---------- the week ends: the most votes wins, once
 const lastWeek = (await d.admin(`select (private.gotw_week() - 7)::text as w`))[0].w;
 await d.admin(`insert into public.gotw_sponsors (week, name) values ('${lastWeek}', 'Boot Co')`);
+await d.admin(`insert into public.gotw_prizes (week, pence) values ('${lastWeek}', 5000)`);
+await d.admin(`insert into public.gotw_prizes (week, pence) values (private.gotw_week(), 2550)`);
+eq((await d.rpc(cara, 'gotw_board')).prize, 2550, 'this week\'s prize is on the board');
 await d.admin(`update public.gotw_noms set week = week - 7`); await d.admin(`update public.gotw_votes set week = week - 7`); // (as if it were next week now)
 b = await d.rpc(cara, 'gotw_board');
 eq([b.entries.length, b.voted ?? null, b.votes], [0, null, 0], 'a new week starts with nothing up');
-eq([b.last.week, b.last.entry.team, b.last.votes, b.last.sponsor, b.last.notified, b.last.reel ?? null], [lastWeek, 'Dog Squad', 2, 'Boot Co', false, null], 'last week\'s winner: Dog Squad\'s goal, with 2 votes, presented by the week\'s sponsor');
+eq([b.last.week, b.last.entry.team, b.last.votes, b.last.sponsor, b.last.prize, b.last.notified, b.last.reel ?? null], [lastWeek, 'Dog Squad', 2, 'Boot Co', 5000, false, null], 'last week\'s winner: Dog Squad\'s goal, with 2 votes, presented by the week\'s sponsor');
 eq(b.last.entry.video.label, "1' Goal: Rex", 'with its clip');
 await d.rpc(sam, 'gotw_board');
 eq((await d.admin(`select count(*)::int as n from public.gotw_winners`))[0].n, 1, 'decided once, however many people look');

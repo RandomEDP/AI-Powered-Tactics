@@ -84,6 +84,7 @@ let es = await entries();
 eq(es.map((e) => e.team).sort(), ['Dog Squad', 'Sons of Pitches FC'], 'Sam sees both teams\' goals');
 check(es.every((e) => /\/(dog|cat)\/01\.mp4#t=0\.1$/.test(e.src)) && es.every((e) => e.vote === 'Vote for this goal'), 'each with its clip and a vote button');
 check(/Voting closes at midnight on Sunday 11 Oct/.test(await S.text('#gwBody .gwhead')), 'it says when voting closes');
+check(!/winner gets|£/.test(await S.text('#gwBody .gwhead')), 'with no prize set for the week, none is shown');
 const sopNom = es.find((e) => /Sons/.test(e.team)).id;
 await S.click(`#gwBody [data-gwvote="${sopNom}"]`); await S.run(1500);
 eq([w.db().gotw_votes.map((v) => [v.user_id, v.nom_id === sopNom]), await S.text(`#gwBody [data-gwvote="${sopNom}"]`)], [[['u-sam', true]], 'Your vote'], 'he votes for SOP\'s goal');
@@ -111,12 +112,13 @@ const prev = (wk) => { const dt = new Date(wk + 'T00:00:00Z'); dt.setUTCDate(dt.
 db = w.db(); const wk = prev(db.gotw_noms[0].week);
 db.gotw_votes.push({ week: db.gotw_noms[0].week, user_id: 'u-other', nom_id: sopNom });
 db.gotw_noms.forEach((n) => { n.week = wk; }); db.gotw_votes.forEach((v) => { v.week = wk; });
-db.gotw_sponsors = [{ week: wk, name: 'Boot Co' }]; w.setDb(db);
+db.gotw_sponsors = [{ week: wk, name: 'Boot Co' }]; db.gotw_prizes = [{ week: wk, pence: 5000 }]; w.setDb(db);
 await S.click('#gwBack'); await S.run(300); await S.click('#fdBody .gwstrip'); await S.run(2000);
 db = w.db();
-eq(db.gotw_winners.map((x) => [x.week, x.team_id === sop.id, x.votes, x.sponsor]), [[wk, true, 2, 'Boot Co']], 'the first look after Sunday decides it: SOP\'s goal, with 2 votes, presented by Boot Co');
+eq(db.gotw_winners.map((x) => [x.week, x.team_id === sop.id, x.votes, x.sponsor, x.prize_pence]), [[wk, true, 2, 'Boot Co', 5000]], 'the first look after Sunday decides it: SOP\'s goal, with 2 votes, presented by Boot Co');
 eq([db.gotw_winners[0].notified_at > 0, db.gotwPushes], [true, 1], 'and the teams and the voters are told, once');
 check(/Winner, week of .* presented by Boot Co/.test(await S.text('#gwBody .gwwin')) && /Won with 2 votes/.test(await S.text('#gwBody .gwwin')), 'Sam sees last week\'s winner, and its sponsor');
+check(/Won with 2 votes and £50\./.test(await S.text('#gwBody .gwwin')), 'with the £50 prize it won');
 eq([await S.page.$$eval('#gwBody .gwentry', (x) => x.length), await S.page.$$eval('#gwBody .gwwin [data-gwmake]', (x) => x.length)], [0, 0], 'nothing is up for the new week yet, and only the winning team can make the reel');
 await J.page.evaluate(() => window.gafferGotw.load()); await J.run(1200);
 eq(w.db().gotwPushes, 1, 'another phone looking doesn\'t tell anyone again');
@@ -128,7 +130,7 @@ await A.click('#gwBody [data-gwmake]'); await A.run(3000);
 const join = (await calls(A, 'join')).filter((o) => /goal-of-the-week/.test(o.file))[0] || { outro: {}, items: [] }; // (Highlights also made the game's one video by itself)
 eq([join.items.map((i) => i.url.replace(/^.*\/(dog\/\d+\.mp4)$/, '$1')), join.outro.kicker, join.outro.sponsor, join.outro.title, join.shrink], [['dog/01.mp4'], 'Goal of the Week', 'Boot Co', 'Sons of Pitches FC', true],
   'the reel is Jake\'s goal, then a Goal of the Week card with the team\'s name, presented by the week\'s sponsor');
-check(/Goal: Jake · Week of .* · Won with 2 votes/.test(join.outro.sub), `the card says whose goal, which week and the votes (${join.outro.sub})`);
+check(/Goal: Jake · Week of .* · Won with 2 votes · Prize £50/.test(join.outro.sub), `the card says whose goal, which week and the votes (${join.outro.sub})`);
 db = w.db();
 const reel = (db.gotw_winners[0] || {}).reel || {};
 check(reel.store === 'r2' && new RegExp('^' + sop.id + '/gotw/' + wk + '-\\d+\\.mp4$').test(reel.path) && (db.files || []).some((f) => f.path === reel.path), `it\'s uploaded to the team\'s folder and kept for everyone (${reel.path})`);
