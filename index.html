@@ -587,6 +587,9 @@ tr.past td { opacity: .45; }
 .sbug > span { padding: 6px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .sb-a { background: var(--on); color: var(--on-ink); } .sb-s { flex: none; background: var(--ink); color: var(--bg); font-variant-numeric: tabular-nums; } .sb-b { background: var(--fill); color: var(--ink); }
 .fdtop { display: flex; align-items: center; justify-content: space-between; padding: 6px 0 10px; }
+.fdtabs { margin-bottom: 12px; } .fdwelcome { margin-bottom: 12px; }
+.fdcaught { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 20px 0 16px; padding-top: 16px; border-top: 1px solid var(--line); text-align: center; }
+.fdcaught b { font-size: var(--t-head); } .fdcaught small { color: var(--muted); font-size: var(--t-sub); }
 .fdtop .brand { font-size: var(--t-title); } .fdicons, .baricons { display: flex; gap: 4px; margin-left: auto; }
 .fdicons button, .baricons button { position: relative; width: 44px; height: 44px; border: 0; background: none; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; }
 .fdicons svg, .baricons svg { width: 26px; height: 26px; } .fdicons .pplBadge { position: absolute; top: 2px; right: 0; margin: 0; }
@@ -1080,6 +1083,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <button type="button" id="fdReq" aria-label="Follow requests"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.4-7.5-10A4.2 4.2 0 0 1 12 7.3 4.2 4.2 0 0 1 19.5 10c0 5.6-7.5 10-7.5 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><b class="pplBadge" hidden></b></button>
     <button type="button" id="fdFind" aria-label="Find people and teams"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15 15 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
   </span></div>
+  <div id="fdTabsBox"></div>
   <button class="frgo" id="fdFriendly" type="button" data-friendly="feed"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m12 7.6 3.6 2.6-1.4 4.2H9.8L8.4 10.2z" fill="currentColor"/></svg><span>Play a friendly<small>Anyone from your teams, anyone on Gaffer, and guests</small></span></button>
   <div id="fdBody"></div>
 </div>
@@ -1133,7 +1137,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <label class="field" for="unUser">Username<input id="unUser" type="text" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="e.g. jake_9"></label>
   <p class="note" id="unCheck">3 to 20 letters, numbers or _.</p>
   <label class="field" for="unName">Your name, as it shows on your profile<input id="unName" type="text" maxlength="40" autocomplete="name"></label>
-  <div class="field"><span>Who can see your teams, results and clips?</span><div class="toggle" id="unPriv"><button type="button" data-priv="0" aria-pressed="true">Anyone</button><button type="button" data-priv="1" aria-pressed="false">Only people I accept</button></div></div>
+  <div class="field"><span>Who can see your posts, teams, results and clips? Anyone means your posts are also in All on Home.</span><div class="toggle" id="unPriv"><button type="button" data-priv="0" aria-pressed="true">Anyone</button><button type="button" data-priv="1" aria-pressed="false">Only people I accept</button></div></div>
   <p class="msg bad" id="unMsg" hidden></p>
   <div class="actions"><button class="plain primary" id="unSave" type="button">Save</button><button class="link" id="unLater" type="button">Not now</button></div>
 </div></div>
@@ -2538,7 +2542,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var calm = false; try { calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
     introTrack.scrollTo({ left: i * introTrack.clientWidth, behavior: calm ? 'auto' : 'smooth' });
   }
-  function introDone() { A.introSeen = true; saveApp(); go(A.active ? 'home' : 'welcome'); }
+  // A phone that's just downloaded Gaffer and isn't in a team opens on Home's All posts (Ethan), and keeps doing so until
+  // it's in one; the tour opened again from the welcome screen goes back there.
+  function introDone() { var first = !A.introSeen; A.introSeen = true; if (first && !A.active && !DROID) A.feedFirst = true; saveApp(); go(A.active ? 'home' : A.feedFirst && first ? 'feed' : 'welcome'); }
   function planShow(again) { if (A.plansSeen && !again) return; $('planPop').hidden = false; try { $('planOk').focus(); } catch (e) {} } // what's free and what will be paid, shown once
   $('planOk').addEventListener('click', function () { $('planPop').hidden = true; A.plansSeen = true; saveApp(); });
   (function () {
@@ -2908,7 +2914,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- Home: the feed, like Instagram (0027). Posts from people you follow, and your own: each is one of someone's own
   // clips or their player reel, with a caption, likes, and a menu to take your own down or report someone else's. Games
   // played by the people you follow (in teams you're not in or following already) come in between, as before.
-  var FD = { posts: null, games: null, busy: false, msg: '', open: null, arm: null, seenAt: 0 };
+  var FD = { posts: null, games: null, busy: false, msg: '', open: null, arm: null, seenAt: 0, tab: null,
+    all: null, allBusy: false, allMore: false, allMsg: '', allAt: 0, allSeen: {} };
   var BUBBLE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-11.6 7.1L4 20l1.4-4.1A8 8 0 1 1 20 11.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
   var HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.4-7.5-10A4.2 4.2 0 0 1 12 7.3 4.2 4.2 0 0 1 19.5 10c0 5.6-7.5 10-7.5 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
   function postSrc(x) { var v = x.video || {}; return clipUrl(v.vpath && sayOn ? { path: v.vpath, store: v.store } : { path: v.path, store: v.store }); }
@@ -2962,7 +2969,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   function cmPostOf(cid) { for (var k in CM.list) if ((CM.list[k] || []).some(function (c) { return c.id === cid; })) return k; return null; }
   document.body.addEventListener('click', async function (e) {
-    var b = e.target.closest('[data-pcm],[data-cmore],[data-cdel],[data-crep],[data-cblock]'); if (!b || !sb || !me) return;
+    var b = e.target.closest('[data-pcm],[data-cmore],[data-cdel],[data-crep],[data-cblock]'); if (!b || !sb) return;
+    if (!me) { A.after = 'feed'; go('account'); return; }
     var id, pid;
     if ((id = b.getAttribute('data-pcm'))) { var was = CM.open; CM.open = was === id ? null : id; CM.menu = CM.arm = null; CM.msg = ''; if (was && was !== id) cmDraw(was); cmDraw(id); if (CM.open) cmLoad(id); return; }
     if ((id = b.getAttribute('data-cmore'))) { CM.menu = CM.menu === id ? null : id; CM.arm = null; CM.msg = ''; cmDraw(cmPostOf(id)); return; }
@@ -3023,10 +3031,60 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     } catch (e) { FD.msg = 'Couldn’t load your feed. Check your signal.'; }
     FD.busy = false; pplBadges(); if (S.view === 'feed') renderFeed();
   }
+  // ---- All (0044; Ethan): posts from everyone whose profile is public, most liked first, and readable before signing
+  // in, so a new phone that isn't in a team has something to watch. Posts this phone hasn't had on screen come first; then
+  // "You're all caught up" and the ones it has seen, each half still most liked first. What's been seen is kept per phone
+  // (apt-feed-all-seen, the last 500), and the split is worked out once a load, so nothing jumps about while scrolling.
+  var FD_SEEN = 'apt-feed-all-seen';
+  function fdTab() {
+    if (FD.tab) return FD.tab;
+    var t = null; try { t = localStorage.getItem('apt-feed-tab'); } catch (e) {}
+    return t === 'all' || t === 'following' ? t : me && A.teams.length ? 'following' : 'all';
+  }
+  function fdSeenList() { try { var l = JSON.parse(localStorage.getItem(FD_SEEN)); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
+  function fdSeen(id) {
+    var l = fdSeenList(); if (l.indexOf(id) >= 0) return;
+    l.push(id); try { localStorage.setItem(FD_SEEN, JSON.stringify(l.slice(-500))); } catch (e) {}
+  }
+  var FDIO = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(function (ents) {
+    ents.forEach(function (en) { // (seen: half the post on screen, or a post filling half the screen)
+      var half = en.intersectionRatio >= 0.5 || (en.rootBounds && en.intersectionRect.height >= en.rootBounds.height / 2);
+      if (en.isIntersecting && half && S.view === 'feed' && fdTab() === 'all') { var id = en.target.getAttribute('data-post'); if (id) fdSeen(id); }
+    });
+  }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+  async function fdAllLoad(more) {
+    if (!sb || FD.allBusy) return;
+    FD.allBusy = true;
+    try {
+      var r = (await q(sb.rpc('public_feed', { p_offset: more && FD.all ? FD.all.length : 0 }))).data || [];
+      if (!more || !FD.all) { FD.all = []; FD.allSeen = {}; fdSeenList().forEach(function (id) { FD.allSeen[id] = true; }); }
+      var have = {}; FD.all.forEach(function (x) { have[x.id] = true; });
+      FD.all = FD.all.concat(r.filter(function (x) { return !have[x.id]; }));
+      FD.allMore = r.length >= 40; FD.allAt = Date.now(); FD.allMsg = '';
+    } catch (e) { FD.allMsg = 'Couldn’t load the posts. Check your signal.'; if (!FD.all) FD.all = []; }
+    FD.allBusy = false; if (S.view === 'feed') renderFeed();
+  }
+  function fdAllHtml() {
+    if (!FD.all) { if (!FD.allBusy) setTimeout(function () { fdAllLoad(false); }, 0); return '<p class="note">Loading…</p>'; }
+    if (!FD.all.length) return FD.allMsg ? '' : '<div class="card"><h2>Nothing here yet</h2><p class="note">Nobody with a public profile has shared a moment yet. Share one of yours with the + at the top.</p></div>';
+    var fresh = FD.all.filter(function (x) { return !FD.allSeen[x.id]; }), old = FD.all.filter(function (x) { return FD.allSeen[x.id]; });
+    var html = fresh.map(postCard).join('');
+    if (old.length) html += '<div class="fdcaught" id="fdCaught" role="separator"><b>' + (fresh.length ? 'You’re all caught up' : 'Nothing new since you last looked') + '</b><small>' + (fresh.length ? 'You’ve seen everything new. Here’s the rest, most liked first.' : 'Here’s everything again, most liked first.') + '</small></div>' + old.map(postCard).join('');
+    if (FD.allMore) html += '<div class="actions"><button class="plain" type="button" data-fd="more"' + (FD.allBusy ? ' disabled' : '') + '>' + (FD.allBusy ? 'Loading…' : 'Show more') + '</button></div>';
+    return html;
+  }
+  function fdTabs() {
+    var t = fdTab();
+    return '<div class="toggle fdtabs" id="fdTabs" role="group" aria-label="Which posts"><button type="button" data-fdtab="following" aria-pressed="' + (t === 'following') + '">Following</button><button type="button" data-fdtab="all" aria-pressed="' + (t === 'all') + '">All</button></div>';
+  }
   function renderFeed() {
-    var html = '';
+    var html = '', tab = fdTab();
     if (!sb) html = '<div class="card"><p class="note">Home needs an internet connection and an account.</p></div>';
-    else if (!me) html = '<div class="card"><h2>Welcome to Gaffer</h2><p class="note">Sign in to share your moments, follow people and see their highlights here.</p><div class="actions"><button class="plain primary" type="button" data-fd="signin">Sign in</button>' + (A.active ? '' : '<button class="plain" type="button" data-fd="teams">Your teams</button>') + '</div></div>';
+    else if (tab === 'all') {
+      if (!me) html = '<div class="card fdwelcome"><h2>Welcome to Gaffer</h2><p class="note">Here are the most liked moments from teams on Gaffer. Sign in to like them, follow people and share your own.</p><div class="actions"><button class="plain primary" type="button" data-fd="signin">Sign in</button>' + (A.active ? '' : '<button class="plain" type="button" data-fd="teams">Got a team code?</button>') + '</div></div>';
+      html += fdAllHtml(); if (FD.allMsg) html += '<p class="msg" role="status" id="fdMsg">' + esc(FD.allMsg) + '</p>';
+    }
+    else if (!me) html = '<div class="card"><h2>Welcome to Gaffer</h2><p class="note">Sign in to follow people and see their moments here. Everyone’s public posts are under All.</p><div class="actions"><button class="plain primary" type="button" data-fd="signin">Sign in</button>' + (A.active ? '' : '<button class="plain" type="button" data-fd="teams">Your teams</button>') + '</div></div>';
     else if (MYP === undefined) { html = '<p class="note">Loading…</p>'; profileCheck(); }
     else if (!MYP) html = '<div class="card"><h2>Pick a username</h2><p class="note">You need one to share your moments and follow people.</p><div class="actions"><button class="plain primary" type="button" data-fd="pick">Pick a username</button></div></div>';
     else if (!FD.posts) { html = '<p class="note">Loading…</p>'; fdLoad(); }
@@ -3036,16 +3094,25 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (!items.length) html = '<div class="card"><h2>Nothing here yet</h2><p class="note">Follow people to see their moments here, and share your own with the + at the top.</p><div class="actions"><button class="plain primary" type="button" data-fd="find">Find people</button><button class="plain" type="button" data-fd="post">Post a highlight</button></div></div>';
       else html = items.map(function (x) { return x.html; }).join('');
     }
-    if (FD.msg) html += '<p class="msg" role="status" id="fdMsg">' + esc(FD.msg) + '</p>';
+    if (FD.msg && tab !== 'all') html += '<p class="msg" role="status" id="fdMsg">' + esc(FD.msg) + '</p>';
+    $('fdTabsBox').innerHTML = sb ? fdTabs() : '';
     if (me) html = gwStrip() + html;
     vidKeep($('fdBody'), html); autoScan();
+    if (FDIO && tab === 'all') Array.prototype.forEach.call($('fdBody').querySelectorAll('[data-post]'), function (el) { FDIO.observe(el); });
   }
   $('fdFind').addEventListener('click', function () { PPL.msg = ''; go('people'); });
+  $('fdTabsBox').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-fdtab]'); if (!b) return; var t = b.getAttribute('data-fdtab');
+    FD.tab = t; try { localStorage.setItem('apt-feed-tab', t); } catch (err) {}
+    if (t === 'all' && FD.all && !FD.allBusy && Date.now() - FD.allAt > 300000) FD.all = null; // (a fresh look after five minutes, with the newly seen ones below the line)
+    renderFeed(); window.scrollTo(0, 0);
+  });
   $('fdReq').addEventListener('click', function () { PPL.msg = ''; PPL.follows = null; go('people'); });
   $('fdNew').addEventListener('click', function () { postOpen(); });
   $('fdBody').addEventListener('click', function (e) {
     if (clipTap(e)) return;
     var b = e.target.closest('button'); if (!b) return; var a = b.getAttribute('data-fd');
+    if (a === 'more') { fdAllLoad(true); renderFeed(); return; }
     if (a === 'signin') { A.after = 'feed'; go('account'); } else if (a === 'teams') go('welcome'); else if (a === 'pick') unameOpen(false);
     else if (a === 'find') go('people'); else if (a === 'post') postOpen();
     else if (b.getAttribute('data-gw')) gwOpen('feed');
@@ -3258,7 +3325,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   });
 
   // Likes, the ⋯ menu, deleting and reporting work the same wherever a post is shown (Home, a profile, a post on its own).
-  function postsEverywhere(id) { return [].concat(FD.posts || [], PF.posts || [], PF.tagged || [], PV.post ? [PV.post] : []).filter(function (x) { return x.id === id; }); }
+  function postsEverywhere(id) { return [].concat(FD.posts || [], FD.all || [], PF.posts || [], PF.tagged || [], PV.post ? [PV.post] : []).filter(function (x) { return x.id === id; }); }
   function postsRedraw() { if (S.view === 'feed') renderFeed(); if (S.view === 'profile') renderProfile(); if (PV.post) renderPV(); }
   var PV = { post: null };
   function renderPV() { $('pvBody').innerHTML = PV.post ? postCard(PV.post) : ''; autoScan(); }
@@ -3339,7 +3406,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('pvClose').addEventListener('click', function () { PV.post = null; $('postView').hidden = true; });
   $('postView').addEventListener('click', function (e) { if (e.target === $('postView')) { PV.post = null; $('postView').hidden = true; } });
   document.body.addEventListener('click', async function (e) {
-    var b = e.target.closest('[data-like],[data-pmore],[data-pdel],[data-preport],[data-openpost],[data-puntag]'); if (!b || !sb || !me) return;
+    var b = e.target.closest('[data-like],[data-pmore],[data-pdel],[data-preport],[data-openpost],[data-puntag]'); if (!b || !sb) return;
+    if (!me) { A.after = 'feed'; go('account'); return; } // (All can be read signed out; liking and reporting need an account)
     var id;
     if ((id = b.getAttribute('data-openpost'))) { PV.post = [].concat(PF.posts || [], PF.tagged || []).filter(function (x) { return x.id === id; })[0] || null; FD.open = null; renderPV(); $('postView').hidden = !PV.post; return; }
     if ((id = b.getAttribute('data-like'))) {
@@ -3360,7 +3428,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (FD.arm !== id) { FD.arm = id; postsRedraw(); setTimeout(function () { if (FD.arm === id) { FD.arm = null; postsRedraw(); } }, 3000); return; }
       try { await q(sb.rpc('remove_post', { p_id: id })); } catch (err) {}
       var drop = function (l) { return (l || []).filter(function (x) { return x.id !== id; }); };
-      FD.posts = FD.posts ? drop(FD.posts) : FD.posts; PF.posts = PF.posts ? drop(PF.posts) : PF.posts; FD.open = FD.arm = null;
+      FD.posts = FD.posts ? drop(FD.posts) : FD.posts; FD.all = FD.all ? drop(FD.all) : FD.all; PF.posts = PF.posts ? drop(PF.posts) : PF.posts; FD.open = FD.arm = null;
       if (PV.post && PV.post.id === id) { PV.post = null; $('postView').hidden = true; }
       postsRedraw(); return;
     }
@@ -3433,7 +3501,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (res.error) throw new Error(res.error === 'too_many' ? 'That’s a lot of posts today. Try again tomorrow.' : res.error === 'no_profile' ? 'Pick a username first.' : 'That isn’t one of yours any more.');
       var tagMsg = '';
       if (NP.tags.length) { try { var tr = await q(sb.rpc('tag_post', { p_id: res.id, p_tags: NP.tags.map(function (t) { return t.username; }) })); if (tr.error) throw tr.error; } catch (err) { tagMsg = ' The tags didn’t go through, so nobody’s tagged.'; } }
-      $('postPop').hidden = true; NP.busy = false; FD.posts = null; FD.msg = 'Shared.' + tagMsg;
+      $('postPop').hidden = true; NP.busy = false; FD.posts = null; FD.all = null; FD.msg = 'Shared.' + tagMsg;
       if (S.view === 'profile' && PF.d && PF.d.me) { PF.loaded = false; renderProfile(); } else go('feed');
     } catch (e) { NP.busy = false; $('npMsg').textContent = (e && e.message) || 'Couldn’t share it. Check your signal.'; $('npMsg').hidden = false; renderNP(); }
   });
@@ -3602,7 +3670,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function acctOpen(mode) { AM = mode || 'in'; aSay(''); go('account'); }
   function renderAccount() {
     var el = $('v-account'); if (!el) return;
-    var out = !me || AM === 'new';
+    var out = !me || AM === 'new', bk = el.querySelector('.bar .back');
+    if (bk) { var home = A.after === 'feed' && !me; bk.setAttribute('data-go', home ? 'feed' : 'welcome'); bk.textContent = home ? 'Home' : 'Teams'; } // (asked to sign in from Home: back goes back there)
     $('aOut').hidden = !out; $('aIn').hidden = out;
     if (me) $('aWho').textContent = me.email || '';
     if (!out) { $('aTitle').textContent = 'Your account'; if (DROID) renderNotes(); return; }
@@ -9027,7 +9096,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   } catch (e) {}
   upgrade(S.match);
   if (S.match) lastBlock = curSeg(S.match);
-  var first = !A.introSeen && !DROID ? 'intro' : !A.active ? 'welcome' : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account', 'gotw'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
+  var first = !A.introSeen && !DROID ? 'intro' : !A.active ? (A.feedFirst && !A.teams.length && !DROID ? 'feed' : 'welcome') : ['intro', 'join', 'poll', 'cut', 'setup', 'mins', 'create', 'code', 'account', 'gotw'].indexOf(S.view) >= 0 || VIEWS.indexOf(S.view) < 0 ? 'home' : S.view;
   go(first);
   setSync();
   connect();
