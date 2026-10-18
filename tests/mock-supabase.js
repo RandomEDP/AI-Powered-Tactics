@@ -622,6 +622,11 @@
   const functions = { invoke: async (name, o) => { if (name === 'live-stream' && window.__offline) return { data: null, error: { message: 'Failed to send a request to the Edge Function' } };
     const d = load(); d.calls = d.calls || []; d.calls.push({ name, body: o.body }); store(d); if (name === 'live-stream') return liveStream(d, o.body);
     if (name === 'clip-store') return clipStore(d, o.body);
+    if (name === 'gopro-link') { // (a GoPro share link read, as the real one answers; what's in each link is set by the test in window.__gopro)
+      const said = (window.__gopro || {})[String(o.body.link || '').trim()];
+      if (!said || said.error) { const error = said ? said.error : 'That isn\'t a GoPro share link.', reason = said ? said.reason : 'not_gopro'; return { data: null, error: { message: error, context: { json: async () => ({ error, reason }) } } }; }
+      return { data: said, error: null };
+    }
     if (name === 'team-pass' && o.body.action === 'voice') { // (0034) a commentary voice bought once: checked with "Apple", kept on the account
       const b = o.body, no = (status, reason, error) => ({ data: null, error: { message: error, context: { json: async () => ({ error, reason }) } } });
       if (!uid()) return no(401, '', 'Sign in first.');

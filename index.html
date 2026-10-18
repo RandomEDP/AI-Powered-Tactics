@@ -786,7 +786,12 @@ html.droid :is(#mChat, #chatBack, #hlScope, #hlTeams, #hlFrWrap, #wStart, #pplBt
 .camlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .camlist li { background: var(--surface); border-radius: var(--r-ctl); padding: 10px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 .camlist li > span:first-of-type { color: var(--muted); font-size: var(--t-sub); flex: 1 1 auto; }
-.camacts { display: flex; gap: 8px; flex-basis: 100%; }
+.camacts { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; }
+.gpbox { background: var(--surface); border-radius: var(--r-card); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.gpbox h2 { font-size: var(--t-body); }
+.gplist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.gplist button.plain { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 12px; }
+.gplist button.plain span { color: var(--muted); font-weight: 500; font-size: var(--t-sub); }
 .tbrow { display: flex; flex-wrap: wrap; gap: 6px; }
 .tbrow button, .tbchip { min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--surface); font-weight: 650; font-size: var(--t-sub); }
 .tbrow button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
@@ -5255,7 +5260,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (BE.busy && !mkJob) { BE.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : d.stage === 'card' ? 'Adding the end card, ' + pct + '%' : 'Cutting it to the beat, ' + pct + '%'; var bm = $('beProg'); if (bm) bm.textContent = BE.prog; }
     if (RB.busy && !mkJob) { RB.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var rm = $('rbProg'); if (rm) rm.textContent = RB.prog; }
     if (!CUT || mkJob) return;
-    CUT.prog = d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';
+    if (d.stage === 'download' && !(CUT.gp && CUT.gp.busy)) return; // (a download carrying on for a link no longer being used)
+    CUT.prog = d.stage === 'download' ? 'Downloading the video, ' + pct + '%. It carries on if you put Gaffer away.' : d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';
     var el = $('cutProg'); if (el) el.textContent = CUT.prog;
   }
   // Cameras: the gaffer marks where each one stood around the pitch, and every moment is cut from the camera with the
@@ -5425,10 +5431,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         '<p class="note">Goals come from the camera nearest the goal they went in. Saves come from the one nearest ' + esc(usOf(r)) + '’s goal, and other highlights from the one nearest ' + esc(r.opp) + '’s goal.</p>';
       if (CUT.cams.length) html += '<ol class="camlist">' + CUT.cams.map(function (k) {
         return '<li><b>Camera ' + camNo(k) + '</b><span>' + esc(camAbout(k.src)) + '</span><span class="camacts"><button class="plain' + (k.src ? '' : ' primary') + '" type="button" data-cutdo="vid" data-cam="' + k.id + '">' + (k.src ? 'Change video' : 'Choose its video') + '</button>' +
+          '<button class="plain" type="button" data-cutdo="gp" data-cam="' + k.id + '">Paste a link</button>' + // (a GoPro share link; an iPhone video comes from Photos)
           '<button class="plain" type="button" data-cutdo="rm" data-cam="' + k.id + '">Remove</button></span></li>';
       }).join('') + '</ol>';
       if (r.h2At) html += '<label class="check" for="camSwap"><input id="camSwap" type="checkbox"' + (CUT.swap ? ' checked' : '') + '><span>Teams swapped ends at half time <small>(the ends drawn are for the first half)</small></span></label>';
-      html += busy + '<div class="actions">' + (CUT.cams.length < CAM_MAX && !CUT.prog ? '<button class="plain" type="button" data-cutdo="add">Add a camera</button>' : '') +
+      if (CUT.gp) html += gpBox();
+      html += busy + '<div class="actions">' + (CUT.cams.length < CAM_MAX && !CUT.prog ? '<button class="plain" type="button" data-cutdo="add">Add a camera</button>' + (CUT.gp ? '' : '<button class="plain" type="button" data-cutdo="gpadd">Add from a GoPro link</button>') : '') + // (iPhone videos: Add a camera, from Photos)
         (live.length ? '<button class="plain primary" type="button" data-cutdo="next">Next</button>' : '') + '</div>' +
         '<p class="note">The cutting happens on this phone, and only the finished clips are uploaded.</p></section>';
     } else if (CUT.stage === 'sync') {
@@ -5447,8 +5455,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
             (x.t == null ? 'Not known yet' : (x.marked ? 'Marked at ' : 'About ') + mmss(x.t) + (x.two ? ' (second video)' : '')) + '</span></button>' +
             (x.marked ? '<button class="link" type="button" data-cutdo="unmark" data-key="' + esc(x.key) + '">Clear</button>' : '') + '</li>';
         }).join('') + '</ol></div>';
+      if (CUT.gp) html += gpBox(); else
       if (k.src2) html += '<div class="actions"><button class="plain" type="button" data-cutdo="drop2" data-cam="' + k.id + '">Remove the second-half video' + (many ? ' for camera ' + camNo(k) : '') + '</button></div>';
-      else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button></div>';
+      else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button><button class="plain" type="button" data-cutdo="gp2" data-cam="' + k.id + '">Paste a link</button></div>';
       html += busy;
       if (hasGaffer()) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel; the clips are kept with and without it, and everyone can switch it on or off)</small></span></label>' +
         voiceBox('cut');
@@ -5505,15 +5514,75 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     try {
       var src = await rc.pickVideo({ slot: k.id * 2 + (second ? 2 : 1) }); // each camera has two slots: its video, and a separate second half
       CUT.prog = '';
-      if (!src || src.cancelled) drop();
-      else if (second) { var same2 = sameVideo(k.src2, src); k.src2 = src; if (!same2) { k.sync2 = cutGuess(src, r.h2At); camForget(r, k, true); } }
-      else if (sameVideo(k.src, src)) k.src = src; // the same video chosen again (to open it afresh): its marks still stand
-      else {
-        k.src = src; camForget(r, k, false); var guess = cutGuess(src, r.koAt);
-        k.auto = guess != null; k.sync = k.auto ? guess : (typeof r.sync === 'number' && CUT.cams.filter(function (x) { return x.src; }).length === 1 ? r.sync : null);
-      }
+      if (!src || src.cancelled) drop(); else camTake(r, k, second, src);
     } catch (err) { CUT.prog = ''; CUT.msg = (err && err.message) || 'Couldn’t read that video.'; drop(); }
     if (CUT) { camStore(); renderCut(); }
+  }
+  function camTake(r, k, second, src) { // a camera's video (or its second half's), picked or downloaded
+    if (second) { var same2 = sameVideo(k.src2, src); k.src2 = src; if (!same2) { k.sync2 = cutGuess(src, r.h2At); camForget(r, k, true); } }
+    else if (sameVideo(k.src, src)) k.src = src; // the same video chosen again (to open it afresh): its marks still stand
+    else {
+      k.src = src; camForget(r, k, false); var guess = cutGuess(src, r.koAt);
+      k.auto = guess != null; k.sync = k.auto ? guess : (typeof r.sync === 'number' && CUT.cams.filter(function (x) { return x.src; }).length === 1 ? r.sync : null);
+    }
+  }
+  // ---- a camera's video from a GoPro share link, as an iPhone's comes from Photos (Ethan, October 2026: his footage all
+  // goes to his GoPro cloud). The edge function reads what's in the share; the phone downloads it from GoPro (iPhone app)
+  // in the background (ReelCutter.fetchVideo), then it's used exactly like one chosen from Photos.
+  // CUT.gp = { cam, two, fresh, link, busy, msg, list }
+  function gpOpen(k, two, fresh) { cutKeep(); CUT.msg = ''; CUT.gp = { cam: k.id, two: !!two, fresh: !!fresh, link: '', busy: false, msg: '', list: null }; renderCut(); var el = $('gpLink'); if (el) try { el.focus(); } catch (e) {} }
+  function gpClose() { // (a camera added just for the link, still without a video, goes again)
+    var g = CUT.gp, k = g && camById(g.cam); CUT.gp = null; CUT.prog = '';
+    if (g && g.fresh && k && !k.src) CUT.cams = CUT.cams.filter(function (x) { return x !== k; });
+  }
+  function gpBox() {
+    var g = CUT.gp, k = camById(g.cam), many = CUT.cams.length > 1, mb = function (n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(n / 1e6)) + ' MB'; };
+    var html = '<section class="gpbox" id="gpBox"><h2>' + (g.two ? 'Second-half video' : 'Video') + (many && k ? ' for camera ' + camNo(k) : '') + ' from a link</h2>' +
+      '<p class="note">In GoPro Quik, open the match video, tap Share, then Copy link, and paste it here. Gaffer downloads the video straight from GoPro. Filmed on an iPhone? Choose it from Photos instead.</p>';
+    if (g.list) {
+      html += '<p class="note">There are ' + g.list.length + ' videos in that link. Which one is ' + (g.two ? 'the second half' : 'the game (or its first half)') + '?</p><ol class="gplist">' + g.list.map(function (v, i) {
+        var d = gpWhen(v.captured), m = v.duration ? Math.round(v.duration / 60) : null;
+        return '<li><button class="plain" type="button" data-cutdo="gpuse" data-i="' + i + '"' + (g.busy ? ' disabled' : '') + '><b>' + esc(v.name) + '</b><span>' +
+          esc([d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) : '', m != null ? (m < 1 ? 'under a minute' : m + ' min') : '', v.size ? mb(v.size) : ''].filter(Boolean).join(', ')) + '</span></button></li>';
+      }).join('') + '</ol>' + (!g.two ? '<p class="note">Halves in two videos? Pick the first half here, then use Add a second-half video for the other.</p>' : '');
+    } else html += '<label class="field" for="gpLink">Share link<input id="gpLink" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="gopro.com/v/…" value="' + esc(g.link) + '"' + (g.busy ? ' disabled' : '') + '></label>' + // (iPhone videos come from Photos)
+      '<div class="actions"><button class="plain primary" type="button" data-cutdo="gpgo"' + (g.busy ? ' disabled' : '') + '>Get the video</button></div>';
+    if (g.msg) html += '<p class="msg bad" role="status" id="gpMsg">' + esc(g.msg) + '</p>';
+    return html + '<div class="actions"><button class="plain quiet" type="button" data-cutdo="gpno">Cancel</button></div></section>';
+  }
+  function gpWhen(captured) { // when the camera started recording: GoPro keeps the camera's own clock (set from the phone, so local time; an iPhone video's comes from Photos) with a Z on the end
+    var m = String(captured || '').match(/^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)/);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : null;
+  }
+  function gpCreated(v, at) { // the start time that puts kick-off inside the video: the camera's clock as local time, else as UTC
+    var local = gpWhen(v.captured), utc = Date.parse(v.captured || ''), dur = v.duration || 0;
+    var fits = function (t) { return t != null && isFinite(t) && at && at >= t && at < t + dur * 1000; };
+    return local && fits(+local) ? +local : fits(utc) ? utc : local ? +local : null;
+  }
+  async function gpGo() { // read the link, then download (or ask which video first)
+    var g = CUT.gp, el = $('gpLink'); if (!g || g.busy) return;
+    g.link = el ? el.value.trim() : g.link; g.msg = '';
+    if (!g.link) { g.msg = 'Paste the share link first.'; renderCut(); return; }
+    g.busy = true; CUT.prog = 'Reading the link…'; renderCut();
+    var none = 'Couldn’t reach Gaffer’s server. Check your signal and try again.', d;
+    try { d = sb && sb.functions ? await fnSays(await sb.functions.invoke('gopro-link', { body: { code: A.active, link: g.link } }), none) : { error: none }; } catch (e) { d = { error: none }; } // (GoPro links only; iPhone videos come from Photos)
+    if (CUT.gp !== g) return;
+    g.busy = false; CUT.prog = '';
+    if (!d || d.error || !d.videos || !d.videos.length) { g.msg = (d && d.error) || none; renderCut(); return; }
+    if (d.videos.length === 1) { gpGet(d.videos[0]); return; }
+    g.list = d.videos; renderCut();
+  }
+  async function gpGet(v) {
+    var g = CUT.gp, r = S.results[CUT.idx], k = g && camById(g.cam), rc = RCp(); if (!g || !r || !k || !rc || g.busy || !v) return;
+    g.busy = true; g.msg = ''; CUT.prog = 'Downloading the video, 0%. It carries on if you put Gaffer away.'; renderCut();
+    try {
+      var src = await rc.fetchVideo({ url: v.url, key: 'gp-' + String(v.id).replace(/[^A-Za-z0-9_-]/g, '') + '-' + String(v.quality || '').replace(/[^A-Za-z0-9]/g, ''), size: v.size || 0 });
+      if (CUT.gp !== g) return;
+      var at = g.two ? r.h2At : r.koAt, made = gpCreated({ captured: v.captured, duration: src.duration }, at);
+      if (made != null) src.created = made;
+      src.link = v.id; CUT.gp = null; CUT.prog = ''; camTake(r, k, g.two, src); camStore();
+    } catch (err) { if (CUT.gp !== g) return; g.busy = false; CUT.prog = ''; g.msg = (err && err.message) || 'The download stopped. Try again.'; }
+    renderCut();
   }
   function camAdd(u, v) {
     if (CUT.cams.length >= CAM_MAX) { CUT.msg = 'Four cameras is the most.'; renderCut(); return; }
@@ -5681,7 +5750,15 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       cutKeep();
       var spots = [[-0.14, 0.5], [1.14, 0.5], [0.5, 1.12], [0.5, -0.12]], spot = spots.filter(function (s) { return !CUT.cams.some(function (k) { return Math.hypot(k.u - s[0], k.v - s[1]) < 0.15; }); })[0] || spots[0];
       camAdd(spot[0], spot[1]);
-    } else if (act === 'vid' && cam) camPick(cam, false, false);
+    } else if (act === 'gpadd') { // a new camera, its video from a GoPro link (an iPhone's comes from Photos, with Add a camera)
+      cutKeep(); if (CUT.cams.length >= CAM_MAX) return;
+      var gs = [[-0.14, 0.5], [1.14, 0.5], [0.5, 1.12], [0.5, -0.12]], gspot = gs.filter(function (s) { return !CUT.cams.some(function (k) { return Math.hypot(k.u - s[0], k.v - s[1]) < 0.15; }); })[0] || gs[0];
+      var gid = 0; while (camById(gid)) gid++; var nk = { id: gid, u: gspot[0], v: gspot[1] }; CUT.cams.push(nk); gpOpen(nk, false, true);
+    } else if ((act === 'gp' || act === 'gp2') && cam) { if (CUT.gp) gpClose(); gpOpen(cam, act === 'gp2', false); }
+    else if (act === 'gpgo') gpGo();
+    else if (act === 'gpuse' && CUT.gp && CUT.gp.list) gpGet(CUT.gp.list[+bt.getAttribute('data-i')]);
+    else if (act === 'gpno') { cutKeep(); gpClose(); renderCut(); }
+    else if (act === 'vid' && cam) camPick(cam, false, false);
     else if (act === 'vid2' && cam) camPick(cam, true, false);
     else if (act === 'rm' && cam) { cutKeep(); CUT.cams = CUT.cams.filter(function (k) { return k !== cam; }); CUT.msg = ''; camStore(); renderCut(); }
     else if (act === 'drop2' && cam) { cutKeep(); camForget(r, cam, true); cam.src2 = null; cam.sync2 = null; renderCut(); }

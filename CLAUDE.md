@@ -117,7 +117,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
 | `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me). New ones are numbered on from 0043 |
-| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
+| `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `gopro-link` (what's in a GoPro share link, for the highlights; an iPhone video comes from Photos), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
 | `.github/workflows/android.yml` | Every push: the `android` tests, then builds the Android app (`.apk` to install, `.aab` for Google Play) as the run's artifacts. Run by hand with "Upload to Google Play" for the internal testing track (needs the Android secrets, section 7) |
@@ -132,7 +132,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 | Class | What it does |
 |---|---|
-| `ReelCutterPlugin` | `beatEdit` (a beat edit, see Highlights; the plan is read by `BeatEdit.swift`), `pickVideo({slot})`, `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
+| `ReelCutterPlugin` | `beatEdit` (a beat edit, see Highlights; the plan is read by `BeatEdit.swift`), `pickVideo({slot})`, `fetchVideo({url, key, size})` (a GoPro link's video, or an iPhone's shared the same way, downloaded in the background, `BackgroundDownloads.swift`), `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
 | `WatchLinkPlugin` | The phone side of the watch link. It keeps a durable inbox of watch presses (UserDefaults `watchlink.inbox`), `push({state, seen})` and `pending()` |
 | `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
@@ -267,6 +267,17 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
      minute from where the others put it is questioned; Clear removes one. Ethan asked for this after his first real
      cut came out late. `cuttiming.test.mjs` covers it.
   4. The phone cuts.
+- **A camera's video from a GoPro share link** (Ethan, October 2026: his footage all goes to GoPro's cloud; an iPhone video
+  still comes from Photos): "Add from a GoPro link" under the cameras, or "Paste a link" on a camera or for its second half
+  (`gpOpen`, `gpBox`, `CUT.gp`). The `gopro-link` edge function (gaffers only) reads the share with GoPro's own public API
+  (`api.gopro.com/collections/<id>/media`, then `/media/<id>/download`; no GoPro sign-in, checked against a real link in
+  October 2026) and returns each video's address, newest first; it picks GoPro's 1080p copy of a 4K/5.3K video (a half of
+  5.3K is over 10 GB) and the original when that's 1080p or less. Several videos: the gaffer picks which. The phone then
+  downloads it straight from GoPro (`fetchVideo`, iOS background transfer, `BackgroundDownloads.swift`; never through
+  Supabase or R2, as the phone needs the file to cut anyway), keyed by video so a second go picks up the same file, and
+  checks there's room first. GoPro's addresses last about an hour. `camTake` then treats it like a video from Photos; its
+  start time is GoPro's `captured_at`, which is the camera's local clock written with a Z (`gpCreated` takes it as local
+  time unless only UTC puts kick-off inside the video). Test: `gopro.test.mjs`.
 - **Which camera each moment comes from:**
   - our goals: nearest the opposition goal;
   - goals against: nearest our goal;
@@ -918,7 +929,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v28 (kind `live` from any team member, sent once; kind `report` tells the moderators, comments included; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
-    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v3 (players may upload/remove in their own `players/<pid>/` folder; puts a tiny test file in R2 first and says R2's own reason if it refuses), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v3 (players may upload/remove in their own `players/<pid>/` folder; puts a tiny test file in R2 first and says R2's own reason if it refuses), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `gopro-link` v1 (what's in a GoPro share link; an iPhone video comes from Photos), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **The shop** (October 2026): `0033_shop.sql` is applied live, and `shop` v1 (verify_jwt = true) and `shop-webhook` v1

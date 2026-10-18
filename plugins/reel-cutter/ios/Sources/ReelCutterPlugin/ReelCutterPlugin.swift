@@ -11,6 +11,9 @@ import UniformTypeIdentifiers
 ///
 /// JS calls, in order:
 ///   pickVideo()  -> { path, duration, created? }   the person picks the recording from Photos
+///   fetchVideo({ url, key, size? })  -> { path, duration, created? }   or downloads it (a GoPro share link's video, the
+///                                                  address from the gopro-link edge function), carrying on in the
+///                                                  background; "progress" events { stage: "download", p }
 ///   cut({ path, clips: [{ start, dur, caption, file, bug?, lower? }], watermark, look?, outro: { kicker, title, sub, color, ink, crest }, reelFile, reelCleanFile? })
 ///                -> { clips: [{ file, path, size }], reel: { path, size, marks }, reelClean?: { path, size, marks } }
 ///   share({ path })                                the share sheet (save to Photos, send to a chat)
@@ -33,6 +36,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     public let jsName = "ReelCutter"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "pickVideo", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "fetchVideo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cut", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "joinReel", returnType: CAPPluginReturnPromise),
@@ -219,6 +223,40 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 }
                 self.keep(file, slot: slot, move: false, created: asset.creationDate, call: call)
             }
+        }
+    }
+
+    /// A match video downloaded instead of picked from Photos (from a GoPro share link: the gopro-link edge function gives
+    /// the address). iOS's background transfer service fetches it, so it keeps going with Gaffer put away; the same `key`
+    /// again joins a download already going, or hands back the file if it's already here.
+    @objc public func fetchVideo(_ call: CAPPluginCall) {
+        guard let link = call.getString("url"), let url = URL(string: link), let key = call.getString("key"),
+              key.range(of: "^[A-Za-z0-9_-]{1,80}$", options: .regularExpression) != nil else {
+            call.reject("That video's address didn't come through. Paste the link again."); return
+        }
+        let downloads = BackgroundDownloads.shared
+        let need = Int64(call.getDouble("size") ?? 0)
+        if need > 0, !FileManager.default.fileExists(atPath: downloads.file(key).path),
+           let free = try? downloads.folder.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage,
+           free < need + 500_000_000 {
+            let gb = { (n: Int64) in String(format: "%.1f GB", Double(n) / 1_000_000_000) }
+            call.reject("That video is \(gb(need)) and this phone only has \(gb(max(0, free))) free. Free up some space (or share just the half you need from GoPro Quik) and try again.")
+            return
+        }
+        downloads.progress = { [weak self] k, p in if k == key { self?.notifyListeners("progress", data: ["stage": "download", "p": p]) } }
+        notifyListeners("progress", data: ["stage": "download", "p": 0])
+        downloads.start(url, key: key) { file, error in
+            guard let file = file else { call.reject(error ?? "The download stopped."); return }
+            let asset = AVURLAsset(url: file)
+            let seconds = CMTimeGetSeconds(asset.duration)
+            guard seconds.isFinite, seconds > 0 else {
+                try? FileManager.default.removeItem(at: file)
+                call.reject("What GoPro sent isn't a video Gaffer can open. Check it plays in GoPro Quik, then try again.")
+                return
+            }
+            var result: [String: Any] = ["path": file.path, "duration": seconds]
+            if let made = asset.creationDate?.dateValue { result["created"] = made.timeIntervalSince1970 * 1000 }
+            call.resolve(result)
         }
     }
 
