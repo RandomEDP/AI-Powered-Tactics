@@ -559,8 +559,8 @@ tr.past td { opacity: .45; }
 #planPop[hidden] { display: none; }
 #unamePop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #unamePop[hidden] { display: none; }
-#termsPop, #aiPop, #fixPop, #noAdPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
-#termsPop[hidden], #aiPop[hidden], #fixPop[hidden], #noAdPop[hidden] { display: none; }
+#termsPop, #aiPop, #fixPop, #noAdPop, #adAskPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#termsPop[hidden], #aiPop[hidden], #fixPop[hidden], #noAdPop[hidden], #adAskPop[hidden] { display: none; }
 #fixPop .planbox { max-height: 86vh; overflow-y: auto; }
 #aiPop { z-index: 50; } #termsPop { z-index: 51; } /* (the AI question can come up over Fix a goal; the terms over everything) */
 .fxgoals { display: grid; gap: 8px; margin: 10px 0; }
@@ -874,6 +874,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .seg button.is[data-vote="no"] { background: var(--muted); color: var(--bg); }
 .vplayer { display: flex; flex-direction: column; gap: 8px; }
 .vplayer video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: var(--r-ctl); }
+.hlsheet .hlsopts { display: flex; flex-direction: column; gap: 8px; } .hlsheet .hlsopts .note { margin: -2px 6px 6px; font-size: var(--t-foot); }
+.hlsheet .pick.wide { width: 100%; justify-content: center; text-align: center; border-radius: 16px; } .hlsheet .pick.danger { color: var(--danger); background: var(--fill); }
+.hlsheet h4 { font-size: var(--t-sub); margin: 6px 0 0; } .hlstat, .hlrm { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.hlstat li { display: flex; gap: 10px; font-size: var(--t-sub); } .hlstat li span:first-child { min-width: 2.6em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hlrm li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: var(--t-sub); flex-wrap: wrap; } .hlrm li span { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
+.hlacts { flex-wrap: wrap; }
 .cliplist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; counter-reset: c; }
 .hcard .cliplist li { display: block; padding: 0; border: 0; }
 .cliplist button { width: 100%; text-align: left; border: 0; border-radius: 10px; background: var(--bg); padding: 10px 12px; font-size: var(--t-sub); font-weight: 600; }
@@ -1147,6 +1153,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <div class="actions"><button class="plain primary" id="tmAgree" type="button">I agree</button><button class="link" id="tmOut" type="button">Sign out</button></div>
 </div></div>
 
+<div id="adAskPop" role="dialog" aria-labelledby="adAskTitle" hidden><div class="planbox">
+  <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true" style="color:var(--on)"><rect x="3" y="5" width="18" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor"/></svg>
+  <h2 id="adAskTitle">Watch an ad while it’s made</h2>
+  <p id="adAskText">While your reel is made, watch a 30-second ad to unlock it. It takes about that long to make anyway.</p>
+  <div class="actions"><button class="plain primary" id="adAskYes" type="button">Watch the ad</button><button class="plain quiet" id="adAskNo" type="button">Not now</button></div>
+</div></div>
 <div id="noAdPop" role="dialog" aria-labelledby="noAdTitle" hidden><div class="planbox">
   <h2 id="noAdTitle">No ads to show right now</h2>
   <p id="noAdText">Google hasn’t got an ad for you at the moment. Try again in a few minutes.</p>
@@ -1607,7 +1619,6 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <h2>Experimental</h2>
     <p class="note">Things still being tried out. They are switched on per person, on this phone only, and may be wrong or change.</p>
     <label class="check tgl" for="expTrack"><input id="expTrack" type="checkbox" role="switch"><span>Show experimental features <small>Player tracking from a recording, a look at what’s being worked on, the plans and the shop</small></span></label>
-    <label class="check tgl" for="expAds" id="expAdsRow" hidden><input id="expAds" type="checkbox" role="switch"><span>Try the free tier <small>See Gaffer as a team on the free plan: your own highlight reel is behind a 30-second ad you choose to watch (Google’s test ads)</small></span></label>
     <div class="actions"><button class="plain" id="expTrackOpen" type="button" hidden>Open player tracking</button><button class="plain" id="soonOpen" type="button" hidden>What’s being worked on</button><button class="plain" id="planOpen" type="button" hidden>Plans</button><button class="plain" id="shopOpen" type="button" hidden>Shop</button></div>
   </section>
 </div>
@@ -4367,7 +4378,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- a game's clips joined into one video, once, on a gaffer's phone, and kept for everyone (games cut before the cut
   // uploaded its reel, or whose reel didn't make it). The same reel the cut makes: shrunk, with and without commentary.
   var MK = { gid: null, busy: false, prog: '', msg: '', bad: false, part: '' }, MKTRIED = {}, MKPAUSED = {}; // (MKTRIED: games this phone has started on this time; MKPAUSED: how often each was stopped by Gaffer being put away)
-  function joinsBusy() { return !!(DL.busy || RB.busy || BE.busy || EX.busy || (GW.mk && GW.mk.busy)); } // (another reel being joined on this phone: the one video waits, so it doesn't hold that one up)
+  function joinsBusy() { return !!(RB.busy || BE.busy || EX.busy || (GW.mk && GW.mk.busy)); } // (another reel being joined on this phone: the one video waits, so it doesn't hold that one up)
   async function mhMake(r, quiet) {
     var rc = RCp(); if (!rc || MK.busy || !r || role !== 'owner' || !sb || !teamId) return;
     var list = clips.filter(function (c) { return c.game_id === r.id; }).sort(function (a, b) { return a.seq - b.seq; }); if (!list.length) return;
@@ -4658,8 +4669,54 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   var HLDEL = { i: -1, until: 0, msg: '', busy: false }; // Delete these highlights: armed by the first tap
   var HIDE = { busy: false, msg: '' }; // Remove from my highlights
-  var DL = { i: -1, busy: false, prog: '', msg: '', path: null, bad: false };
-  var RB = { pid: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false };
+  var HLM = { i: -1, kind: '' }; // the sheet open on a game's card: 'make' (a highlight), 'edit' (footage), 'remove' (goals), 'stats'
+  var HLRM = { i: -1, key: '', until: 0, busy: false, msg: '', bad: false }; // Remove goals: armed by the first tap on one
+  function hlSheet(r, gi, vids, own, cutOk) { // an action sheet over the Highlights, from the bottom (Apple's action sheets: a short title, the choices, Cancel at the bottom)
+    var head = function (t, sub) { return '<div class="phead"><strong id="hlsT">' + t + '</strong><button class="link" type="button" data-hlmx="1">' + (HLM.kind === 'remove' || HLM.kind === 'stats' ? 'Done' : 'Cancel') + '</button></div>' + (sub ? '<p class="note">' + sub + '</p>' : ''); };
+    var btn = function (attr, label, cls) { return '<button class="pick wide' + (cls ? ' ' + cls : '') + '" type="button" ' + attr + '>' + label + '</button>'; };
+    var body = '';
+    if (HLM.kind === 'make') body = head('Make a highlight', esc(vs(r)) + '. Made on this phone, ready to share.') + '<div class="hlsopts">' +
+      btn('data-greel="' + gi + '"', 'Highlight reel') + '<p class="note">Pick the clips you want in, with AI commentary if you like.</p>' +
+      btn('data-beat="' + gi + '"', 'Beat highlight (Experimental)') + '<p class="note">Cut to the beat of one of Gaffer’s own tracks, tall for Reels and TikTok.</p></div>';
+    else if (HLM.kind === 'edit') body = head('Edit footage', esc(vs(r))) + '<div class="hlsopts">' +
+      btn('data-hldel="' + gi + '"' + (HLDEL.busy ? ' disabled' : ''), HLDEL.i === gi && Date.now() < HLDEL.until ? 'Tap again to delete them all' : 'Delete all these highlights', 'danger') +
+      (cutOk ? btn('data-cut="' + gi + '"', 'Cut again from a video') : '') +
+      btn('data-hlm="remove:' + gi + '"', 'Remove goals') +
+      (fixGoals(r).length ? btn('data-fixg="' + gi + '"', 'Change stats') : '') + '</div>';
+    else if (HLM.kind === 'remove') body = head('Remove goals', 'Take a goal or moment out of this game’s highlights. Its stats stay; the game’s one video is made again without it.') +
+      '<ol class="hlrm">' + vids.slice().sort(function (a, b) { return (a.seq || 0) - (b.seq || 0); }).map(function (c) { var key = c.game_id + ':' + c.seq, armed = HLRM.key === key && Date.now() < HLRM.until;
+        return '<li><span>' + esc(String(c.label || 'Highlight').replace(/\s{2,}/g, ' · ')) + '</span><button class="plain danger" type="button" data-hlrm="' + esc(key) + '"' + (HLRM.busy ? ' disabled' : '') + '>' + (armed ? 'Tap again' : 'Remove') + '</button></li>'; }).join('') + '</ol>' +
+      (HLRM.msg && HLRM.i === gi ? '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status">' + esc(HLRM.msg) + '</p>' : '');
+    else if (HLM.kind === 'stats') {
+      var per = r.per || {}, ids = Object.keys(per).map(Number).filter(function (k) { return isFinite(k) && per[k] && (per[k].mins || per[k].g || per[k].a); }).sort(function (a, b) { return ((per[b].g || 0) - (per[a].g || 0)) || ((per[b].a || 0) - (per[a].a || 0)) || ((per[b].mins || 0) - (per[a].mins || 0)); });
+      var ms = momentsOf(r);
+      body = head('Stats', esc(scoreText({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them })) + (dayOf(r) ? ', ' + esc(dayOf(r)) : '')) +
+        (ms.length ? '<h4>Moments</h4><ul class="hlstat">' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '<p class="note">Nothing was logged in this game.</p>') +
+        (ids.length ? '<h4>Players</h4><div class="scroll"><table><thead><tr><th>Player</th><th class="n">Mins</th><th class="n">Goals</th><th class="n">Assists</th></tr></thead><tbody>' + ids.map(function (k) { var x = per[k]; return '<tr><td>' + esc(nm(k)) + '</td><td class="n">' + (x.mins || 0) + '</td><td class="n">' + (x.g || 0) + '</td><td class="n">' + (x.a || 0) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '') +
+        (own && fixGoals(r).length ? '<div class="hlsopts">' + btn('data-fixg="' + gi + '"', 'Change stats') + '</div>' : '');
+    }
+    return '<div class="pickpop hlsheet" data-hlmx="1"><div class="picker" role="dialog" aria-labelledby="hlsT">' + body + '</div></div>';
+  }
+  async function hlRemoveClip(r, gi, key) { // one goal or moment out of the game's highlights: its row and files go, and the game's one video is made again
+    var c = clips.filter(function (x) { return x.game_id + ':' + x.seq === key; })[0];
+    if (!sb || !r.id || role !== 'owner' || !c || HLRM.busy) return;
+    HLRM = { i: gi, key: '', until: 0, busy: true, msg: 'Removing it…', bad: false }; renderHighlights();
+    var paths = [], inR2 = [], add = function (store, p) { if (p) (store === 'r2' ? inR2 : paths).push(p); };
+    add(c.store, c.path); add(c.store, c.vpath);
+    if (r.reel) { add(r.reel.store, r.reel.path); add(r.reel.store, r.reel.vpath); } // (the game's one video had it in: it's joined again from the rest)
+    try {
+      await q(sb.from('clips').delete().eq('game_id', r.id).eq('seq', c.seq));
+      clips = clips.filter(function (x) { return x !== c; });
+      if (r.reel) { try { await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null; } catch (e) {} delete MKTRIED[r.id]; }
+      try { if (paths.length) await q(sb.storage.from('clips').remove(paths)); } catch (e) {}
+      try { if (inR2.length) await clipCall('remove', { paths: inR2 }); } catch (e) {} // (a file left behind is never shown: the rows are what list them)
+      HLRM = { i: gi, key: '', until: 0, busy: false, msg: 'Removed. It’s out of this game’s highlights.', bad: false };
+      if (!clips.some(function (x) { return x.game_id === r.id; })) HLM.i = -1;
+      ping('changed'); await pull();
+    } catch (e) { HLRM = { i: gi, key: '', until: 0, busy: false, msg: 'Couldn’t remove it. Check your signal and try again.', bad: true }; }
+    renderHighlights();
+  }
+  var RB = { pid: null, gi: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false, stop: false, job: '', srv: null };
   function rbAd() { return RB.pid != null && RB.pid === myPid && freeTier() && canKeepReel(RB.pid); } // your own reel on the free tier: an ad plays while it's made
   var guestGame = null, guestSeen = false, GL = { i: -1, msg: '' }, GLC = ''; // (GLC: what happened to a friendly's personal link)
   function guestOpen(href) { // a game's link (a guest's, or a friendly's personal one): follow the team, ready to show that game. Returns the team's code
@@ -4736,20 +4793,21 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (hlBy === 'game') {
       games.forEach(function (g) {
         var r = g.r, ms = momentsOf(r), timed = r.koAt && ms.length, vids = clips.filter(function (c) { return c.game_id === r.id; });
-        var cutBtn = !own || !timed ? '' : NATIVE ? '<button class="plain primary" type="button" data-cut="' + g.i + '">' + (vids.length ? 'Cut again from a video' : 'Cut from a video on this phone') + '</button>' : '';
+        var cutOk = own && timed && NATIVE;
         html += '<div class="hcard' + (hlFocus === r ? ' focus' : '') + '" id="hlg-' + g.i + '"><h3>' + scoreBug({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them }) + (frGame(r) ? '<span class="badge">Friendly</span>' : r.house ? '<span class="badge">Among ourselves</span>' : r.friendly ? '<span class="badge">Friendly</span>' : '') + '</h3><p class="note">' + [dayOf(r), ms.length + (ms.length === 1 ? ' moment' : ' moments')].filter(Boolean).join(', ') + '</p>';
-        var delBtn = own && vids.length ? '<button class="plain danger" type="button" data-hldel="' + g.i + '"' + (HLDEL.busy ? ' disabled' : '') + '>' + (HLDEL.i === g.i && Date.now() < HLDEL.until ? 'Tap again to delete them' : 'Delete these highlights') + '</button>' : '';
-        var dlBtn = vids.length && RCp() ? '<button class="plain" type="button" data-dl="' + g.i + '"' + (DL.busy ? ' disabled' : '') + '>Download the reel</button>' : '';
-        if (vids.length && RCp()) dlBtn = '<button class="plain tint" type="button" data-beat="' + g.i + '">Make a beat edit</button>' + dlBtn;
-        if (own && vids.length && fixGoals(r).length) delBtn = '<button class="plain" type="button" data-fixg="' + g.i + '">Fix a goal</button>' + delBtn;
         var guests = r.house && r.house.guests && r.house.guests.length && A.active && !guestGame && linkBase() ? '<div class="actions"><button class="plain" type="button" data-guests="' + g.i + '">Send the guests a link</button></div>' +
           (GL.i === g.i && GL.msg ? '<p class="msg" role="status" id="glMsg">' + esc(GL.msg) + '</p>' : '') : '';
-        if (vids.length) html += mhButton(g.i, vids) + '<p class="msg mkline" data-mkline="' + esc(r.id) + '" hidden></p><details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' + (cutBtn || delBtn || dlBtn ? '<div class="actions">' + dlBtn + cutBtn + delBtn + '</div>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') +
-          (DL.i === g.i && (DL.msg || DL.prog) ? '<p class="msg' + (DL.bad ? ' bad' : '') + '" role="status" id="dlMsg">' + esc(DL.prog || DL.msg) + '</p>' + (DL.path && !DL.busy ? '<div class="actions"><button class="plain primary" type="button" data-dlshare="1">Share or save it</button></div>' : '') : '');
+        // Ethan's rework (October 2026): with footage, Make a highlight (a reel you pick the clips for, or a beat highlight) and,
+        // for gaffers, Edit footage (cut again, remove goals, change stats). With none, Cut from video and the game's Stats.
+        if (vids.length) html += mhButton(g.i, vids) + '<p class="msg mkline" data-mkline="' + esc(r.id) + '" hidden></p><details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' +
+          (RCp() || own ? '<div class="actions hlacts">' + (RCp() ? '<button class="plain tint" type="button" data-hlm="make:' + g.i + '">Make a highlight</button>' : '') + (own ? '<button class="plain" type="button" data-hlm="edit:' + g.i + '">Edit footage</button>' : '') + '</div>' : '') +
+          (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') + (HLRM.msg && HLRM.i === g.i ? '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status" id="hlRmMsg">' + esc(HLRM.msg) + '</p>' : '');
         else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
-            : own ? (NATIVE ? 'No video for this game yet.' : 'No video for this game yet. Open the iPhone app to cut it from a video on your phone.') : 'No video for this game yet. Ask your gaffer to generate it.',
-            cutBtn);
+            : own ? (NATIVE ? 'No footage for this game yet. Cut it from your GoPro or iPhone footage.' : 'No footage for this game yet. Open the iPhone app to cut it from your GoPro or iPhone footage.') : 'No footage for this game yet. Ask your gaffer to cut it.') +
+          '<div class="actions hlacts">' + (cutOk ? '<button class="plain primary" type="button" data-cut="' + g.i + '">Cut from video</button>' : '') + '<button class="plain" type="button" data-hlm="stats:' + g.i + '">Stats</button></div>' +
+          (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '');
+        if (HLM.i === g.i) html += hlSheet(r, g.i, vids, own, cutOk);
         html += guests + frLinksHtml(r, g.i) + linkClipsHtml(r) + '</div>';
       });
     } else {
@@ -4773,7 +4831,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         if (pr && reelLocked(pr)) html += '<div class="novid"><span>Your highlight reel is ready. Watch a 30-second ad to see it; it stays unlocked until you make a new one.</span></div>' + adBtn('reel', pr.path, 'Watch a 30-second ad');
         else if (pr) html += playerReelPlayer(pr) + (canKeepReel(x.p.id) ? '<div class="actions"><button class="link" type="button" data-preeloff="' + x.p.id + '">Take this reel off ' + (x.p.id === myPid ? 'my' : esc(nm(x.p.id)) + '’s') + ' card</button></div>' : '');
         if (x.vids.length) html += (pr ? '<details class="allclips"><summary>All ' + x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ', one by one</summary>' + clipPlayer(x.vids) + '</details>' : clipPlayer(x.vids)) +
-          (RCp() || hidBtn ? '<div class="actions">' + (RCp() ? '<button class="plain primary" type="button" data-preel="' + x.p.id + '">' + (pr ? 'Make a new reel' : 'Make a reel') + '</button><button class="plain tint" type="button" data-pbeat="' + x.p.id + '">Make a beat edit</button>' : '') + hidBtn + '</div>' : '');
+          (RCp() || hidBtn ? '<div class="actions">' + (RCp() ? '<button class="plain primary" type="button" data-preel="' + x.p.id + '">' + (pr ? 'Make a new reel' : 'Make a reel') + '</button><button class="plain tint" type="button" data-pbeat="' + x.p.id + '">Make a beat highlight (Experimental)</button>' : '') + hidBtn + '</div>' : '');
         else if (x.list.length) html += '<ul>' + x.list.map(function (m) { return '<li class="wide"><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' +
           novid('No clips for ' + esc(nm(x.p.id)) + ' yet. They appear here when a game’s highlights are cut.');
         if (mineNow) { var hid = clips.filter(function (c) { return (c.off || []).indexOf(myPid) >= 0; });
@@ -4832,7 +4890,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       try { await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null; } catch (e) {}
       try { if (paths.length) await q(sb.storage.from('clips').remove(paths)); } catch (e) {} // (a file left behind is never shown: the rows are what list them)
       if (inR2.length) await clipCall('remove', { paths: inR2 });
-      HLDEL = { i: i, until: 0, msg: 'Deleted. Cut them again from a video whenever you like.', busy: false };
+      HLDEL = { i: i, until: 0, msg: 'Deleted. Cut them again from a video whenever you like.', busy: false }; HLM.i = -1;
       ping('changed'); await pull();
     } catch (e) { HLDEL = { i: i, until: 0, msg: 'Couldn’t delete them. Check your signal and try again.', busy: false }; }
     renderHighlights();
@@ -4844,18 +4902,6 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     return teamShort() !== teamName() ? w.split(teamShort()).join(teamName()) : w;
   }
   function canVoice() { return hasGaffer() && !!sb && !!me && (role === 'owner' || myPid != null); } // the voice is for the team's gaffers and players
-  async function gameReel(i) { // the game's clips joined into one reel on this phone, then the share sheet (save to Photos, send on)
-    var r = S.results[i], rc = RCp(); if (!r || !rc || DL.busy) return;
-    var list = clips.filter(function (c) { return c.game_id === r.id; }).sort(function (a, b) { return a.seq - b.seq; }); if (!list.length) return;
-    var voiced = sayOn && list.some(function (c) { return c.vpath; });
-    DL = { i: i, busy: true, prog: 'Starting…', msg: '', path: null, bad: false }; renderHighlights();
-    try {
-      var res = await rc.joinReel({ items: list.map(function (c) { return { url: clipSrc(c, voiced) }; }), file: folderOf(r) + '-highlights.mp4', outro: endCard(r) });
-      DL.path = res && res.path; DL.msg = 'The reel is ready' + (voiced ? ', with commentary' : '') + '.';
-      if (DL.path) rateAfter(rc.share({ path: DL.path }));
-    } catch (e) { DL.msg = (e && e.message) || 'Couldn’t make the reel.'; DL.bad = true; }
-    DL.busy = false; DL.prog = ''; if (S.view === 'highlights') renderHighlights();
-  }
   function clipRole(c, pid) { // what a clip is for one player: their goal, their assist, their save or another highlight of theirs
     var r = S.results.filter(function (x) { return x.id === c.game_id; })[0], from = (c.at || 0) - 1500, to = (c.at || 0) + (c.dur || 21) * 1000, rank = 0, out = '';
     if (!r) return '';
@@ -4866,59 +4912,80 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     });
     return out;
   }
-  function rbList() { // the player's clips, oldest first, each with what it is for them (only goals, if asked)
-    var byId = {}; S.results.forEach(function (r) { byId[r.id] = r; });
+  function gameClipRole(c, r) { // what one of a game's clips is: our goal (either side's, among the squad), theirs, a save or another highlight
+    var from = (c.at || 0) - 1500, to = (c.at || 0) + (c.dur || 21) * 1000, rank = 0, out = '';
+    (r.ev || []).forEach(function (e) {
+      if (typeof e.at !== 'number' || e.at < from || e.at > to) return;
+      var k = !e.hl && (e.us || r.house) ? [4, 'Goal'] : !e.hl ? [3, 'Goal against'] : [2, e.k === 'save' ? 'Save' : 'Highlight'];
+      if (k[0] > rank) { rank = k[0]; out = k[1]; }
+    });
+    return out;
+  }
+  function rbGame() { return RB.gi != null ? S.results[RB.gi] || null : null; } // a game's highlight reel, rather than a player's
+  function rbList() { // the player's clips (or the game's), oldest first, each with what it is for them (only goals, if asked)
+    var byId = {}, gr = rbGame(); S.results.forEach(function (r) { byId[r.id] = r; });
+    if (gr) return clips.filter(function (c) { return c.game_id === gr.id; }).sort(function (a, b) { return (a.seq || 0) - (b.seq || 0); }).map(function (c) {
+      return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: gameClipRole(c, gr), title: String(c.label || 'Highlight').replace(/\s{2,}/g, ' · ') });
+    }).filter(function (c) { return !RB.goals || c.kind === 'Goal'; });
     return clips.filter(function (c) { return (c.pids || []).indexOf(RB.pid) >= 0; }).sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).map(function (c) {
       var r = byId[c.game_id];
       return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: clipRole(c, RB.pid), title: (r ? vs(r) + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label });
     }).filter(function (c) { return !RB.goals || c.kind === 'Goal'; });
   }
-  function rbOpen(pid) { RB = { pid: pid, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false }; $('reelPop').hidden = false; renderRB(); }
+  function rbOpen(pid, gi) { RB = { pid: gi != null ? null : pid, gi: gi != null ? gi : null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false, stop: false, job: '', srv: null }; $('reelPop').hidden = false; renderRB(); }
   function renderRB() {
     if ($('reelPop').hidden) return;
-    var list = rbList(), on = list.filter(function (c) { return RB.pick[c.key] !== false; }), secs = 0, pv = list.filter(function (c) { return c.key === RB.pv; })[0] || list[0], who = nm(RB.pid);
+    var gr = rbGame(), list = rbList(), on = list.filter(function (c) { return RB.pick[c.key] !== false; }), secs = 0, pv = list.filter(function (c) { return c.key === RB.pv; })[0] || list[0], who = gr ? vs(gr) : nm(RB.pid);
     on.forEach(function (c) { secs += c.dur || 0; });
-    var html = '<h2 id="rbTitle">Reel for ' + esc(who) + '</h2><p class="note">Untick any clips to leave out. Preview plays one here.</p>' +
+    var html = '<h2 id="rbTitle">' + (gr ? 'Highlight reel' : 'Reel for ' + esc(who)) + '</h2><p class="note">' + (gr ? esc(who) + (dayOf(gr) ? ', ' + esc(dayOf(gr)) : '') + '. ' : '') + 'Untick any clips to leave out. Preview plays one here.</p>' +
       (pv ? '<video id="rbPrev" playsinline controls preload="metadata" src="' + esc(clipSrc(pv, false)) + '"></video>' : '') +
-      '<label class="check" for="rbGoals"><input id="rbGoals" type="checkbox"' + (RB.goals ? ' checked' : '') + '><span>Goals only <small>(leaves out assists, saves and other highlights)</small></span></label>';
+      '<label class="check" for="rbGoals"><input id="rbGoals" type="checkbox"' + (RB.goals ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>Goals only <small>(leaves out ' + (gr && !gr.house ? 'goals against, ' : '') + (gr ? '' : 'assists, ') + 'saves and other highlights)</small></span></label>';
     html += list.length ? '<ol class="rblist">' + list.map(function (c, i) {
-      return '<li><label class="check" for="rbp-' + i + '"><input id="rbp-' + i + '" type="checkbox" data-rbpick="' + esc(c.key) + '"' + (RB.pick[c.key] !== false ? ' checked' : '') + '><span>' + esc(c.title) + (c.kind ? ' <span class="kind">' + esc(c.kind) + '</span>' : '') + '</span></label>' +
+      return '<li><label class="check" for="rbp-' + i + '"><input id="rbp-' + i + '" type="checkbox" data-rbpick="' + esc(c.key) + '"' + (RB.pick[c.key] !== false ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>' + esc(c.title) + (c.kind ? ' <span class="kind">' + esc(c.kind) + '</span>' : '') + '</span></label>' +
         '<button class="link" type="button" data-rbprev="' + esc(c.key) + '">Preview</button></li>';
-    }).join('') + '</ol>' : '<p class="note">' + (RB.goals ? 'None of ' + esc(who) + '’s clips is a goal of theirs yet.' : 'No clips yet.') + '</p>';
-    if (canVoice()) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
+    }).join('') + '</ol>' : '<p class="note">' + (RB.goals ? (gr ? 'None of this game’s clips is a goal.' : 'None of ' + esc(who) + '’s clips is a goal of theirs yet.') : 'No clips yet.') + '</p>';
+    if (canVoice()) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
       (RB.voice ? voiceBox('rb') : '');
     html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
-      (rbAd() && !RB.path ? '<p class="note" id="rbAdNote">On the free plan a 30-second ad plays while your reel is made, so it’s ready to watch and share when the ad ends.</p>' : '') +
       '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.ad ? '<p class="msg" role="status" id="rbAd">' + esc(RB.ad) + '</p>' : '') + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
-      '<div class="actions">' + (RB.path && !RB.busy && !RB.locked ? '<button class="plain primary" type="button" id="rbShare">Share or save it</button>' : '<button class="plain primary" type="button" id="rbMake"' + (RB.busy || !on.length || (RB.path && RB.locked) ? ' disabled' : '') + '>Make the reel</button>') +
-      '<button class="plain" type="button" id="rbClose">Close</button></div>';
+      '<div class="actions">' + (RB.busy ? (AD.on || RB.unlocking ? '' : '<button class="plain" type="button" id="rbCancel"' + (RB.stop ? ' disabled' : '') + '>' + (RB.stop ? 'Stopping…' : 'Cancel') + '</button>') // (Cancel while it's made, except while the ad is up: Ethan asked)
+        : (RB.path && !RB.locked ? '<button class="plain primary" type="button" id="rbShare">Share or save it</button>' : RB.path && RB.locked ? '<button class="plain primary" type="button" id="rbUnlock">Watch the ad to unlock it</button>' : '<button class="plain primary" type="button" id="rbMake"' + (!on.length ? ' disabled' : '') + '>Make the reel</button>') +
+        '<button class="plain" type="button" id="rbClose">Close</button>') + '</div>';
     $('rbBody').innerHTML = html;
   }
+  var AD_ASK_REEL = ['Watch an ad while your reel is made', 'While your reel is made, watch a 30-second ad to unlock it. It takes about that long to make anyway.'];
+  function rbStopped() { RB.busy = false; RB.prog = ''; RB.ad = ''; RB.path = null; RB.locked = false; RB.msg = 'Stopped. Nothing was made.'; RB.bad = false; renderRB(); }
+  function rbAdSay(m) { RB.ad = !m || RB.prog.indexOf('ready for when') >= 0 ? '' : m === 'The ad is playing…' ? (RB.unlocking ? '' : 'The ad is playing. Your reel is being made at the same time.') : m; renderRB(); } // (also redraws Cancel, which hides while the ad is up)
   async function rbMake() {
     var rc = RCp(); if (!rc || RB.busy) return;
-    var list = rbList().filter(function (c) { return RB.pick[c.key] !== false; }), who = nm(RB.pid), byId = {}; if (!list.length) return;
+    var gr = rbGame(), list = rbList().filter(function (c) { return RB.pick[c.key] !== false; }), who = gr ? vs(gr) : nm(RB.pid), byId = {}; if (!list.length) return;
     var vlock = RB.voice && canVoice() ? voLocked() : [];
     if (vlock.length) { RB.msg = voLockMsg(vlock); RB.bad = true; renderRB(); return; }
+    var server = !gr && rbAd(), local = !server && adWanted(); // your own reel goes on your card, unlocked on the server; anything else is unlocked on this phone
+    if ((server || local) && !(await adAsk(AD_ASK_REEL[0], AD_ASK_REEL[1]))) return;
     S.results.forEach(function (r) { byId[r.id] = r; });
-    RB.busy = true; RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.ad = ''; RB.locked = false; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
-    var ahead = null, adP = null; // your own reel on the free tier: the ad plays while it's made (see aheadStart)
-    if (rbAd() && !S.match) {
-      ahead = await aheadStart(RB.pid); AD.busy = true;
-      var adSay = function (m) { if (!RB.busy || RB.prog.indexOf('ready for when') >= 0) return; RB.ad = m === 'The ad is playing…' ? 'The ad is playing. Your reel is being made at the same time.' : m; var el = $('rbAd'); if (el) el.textContent = RB.ad; else renderRB(); };
-      adP = adRun('reel', ahead.key, { say: adSay, ticket: function (t) { ahead.ticket = t; ahead.watched = false; aheadPut(ahead); }, watched: function () { ahead.watched = true; aheadPut(ahead); } })
+    RB.busy = true; RB.stop = false; RB.job = 'rb-' + Date.now(); RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.ad = ''; RB.locked = false; RB.srv = null; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
+    var ahead = null, adP = null, stop = function () { return RB.stop; }; // the ad plays while it's made (see aheadStart)
+    if (server || local) {
+      if (server) { ahead = await aheadStart(RB.pid); RB.srv = ahead.key; }
+      AD.busy = true;
+      adP = (server ? adRun('reel', ahead.key, { say: rbAdSay, stop: stop, ticket: function (t) { ahead.ticket = t; ahead.watched = false; aheadPut(ahead); }, watched: function () { ahead.watched = true; aheadPut(ahead); } })
+        : adRun('make', null, { local: true, say: rbAdSay, stop: stop }))
         .then(function (r) { return { r: r }; }, function (e) { return { err: (e && e.message) || 'Something went wrong with the ad.', noAd: !!(e && e.noAd) }; });
-      adP.then(function (a) { if (a.r === 'nofill') noAdPop(NOFILL_POP + ' It’s ready to share as soon as it’s made.'); else if (a.noAd) noAdPop('Google hasn’t got an ad for you at the moment. Your reel is still made and goes on your card, locked: watch an ad there to see it once one’s available.'); });
+      adP.then(function (a) { if (RB.stop) return; if (a.r === 'nofill') noAdPop(NOFILL_POP + ' It’s ready to share as soon as it’s made.'); else if (a.noAd) noAdPop('Google hasn’t got an ad for you at the moment. Your reel is still made and goes on your card, locked: watch an ad there to see it once one’s available.'); });
       adP.then(function (a) { // no ad (or closed early) while the reel is still being made: say so now, not once the reel is ready (Ethan saw "Loading the ad…" for good)
-        if (!RB.busy || RB.prog.indexOf('ready for when') >= 0 || a.r === 'unlocked' || a.r === 'waiting') return;
+        if (!RB.busy || RB.stop || RB.prog.indexOf('ready for when') >= 0 || a.r === 'unlocked' || a.r === 'waiting') { renderRB(); return; }
         AD.busy = false; RB.ad = a.r === 'nofill' ? 'Google had no ad to show, so there’s no ad this time. Your reel is still being made, and it’s unlocked.'
-          : (a.r === 'closed' ? 'The ad was closed before the end.' : a.err) + ' Your reel is still being made; it’ll go on your card, locked, and you can watch an ad there to see it.';
-        var el = $('rbAd'); if (el) el.textContent = RB.ad; else renderRB();
+          : (a.r === 'closed' ? 'The ad was closed before the end.' : a.err) + (server ? ' Your reel is still being made; it’ll go on your card, locked, and you can watch an ad there to see it.' : ' Your reel is still being made; watch an ad once it’s ready to unlock it.');
+        renderRB();
       });
     }
     var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
     if (RB.voice && canVoice() && !(await aiAsk())) RB.note = 'No commentary: ' + AI_NO + ' The reel was made without it.';
     else if (RB.voice && canVoice()) {
-      var sw = swears(), lines = [sw ? who + '’s highlights. Brace yourselves, this is absolute filth.' : who + '’s highlights, for ' + teamName() + '.'].concat(list.map(function (c) { return byId[c.game_id] ? commentaryFor(byId[c.game_id], c, sw) : ''; }), [sw ? 'That’s ' + who + '. What a fucking player.' : 'That’s ' + who + '. What a player.']).map(spokenLine);
+      var sw = swears(), lines = gr ? [sw ? usFull(gr) + ' against ' + gr.opp + '. Strap in, this gets fucking mental.' : usFull(gr) + ' against ' + gr.opp + '. Here are the highlights.'].concat(list.map(function (c) { return commentaryFor(gr, c, sw); }), ['Full time. ' + usFull(gr) + ' ' + gr.us + ', ' + gr.opp + ' ' + gr.them + '.'])
+        : [sw ? who + '’s highlights. Brace yourselves, this is absolute filth.' : who + '’s highlights, for ' + teamName() + '.'].concat(list.map(function (c) { return byId[c.game_id] ? commentaryFor(byId[c.game_id], c, sw) : ''; }), [sw ? 'That’s ' + who + '. What a fucking player.' : 'That’s ' + who + '. What a player.']);
+      lines = lines.map(spokenLine);
       try {
         var vp = voUse(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: lines, voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
         if (vd && Array.isArray(vd.audio) && vd.audio.some(Boolean)) {
@@ -4928,34 +4995,57 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       } catch (e) { RB.note = 'The commentary couldn’t be added: the voice service couldn’t be reached. The reel was made without it.'; }
       RB.prog = 'Starting…'; var pg = $('rbProg'); if (pg) pg.textContent = RB.prog;
     }
+    if (RB.stop) { if (adP) { await adP; AD.busy = false; } rbStopped(); return; }
     try {
-      var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, file: (slugify(who) || 'player') + '-highlights.mp4',
-        outro: { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
+      var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, job: RB.job, file: gr ? folderOf(gr) + '-highlights.mp4' : (slugify(who) || 'player') + '-highlights.mp4',
+        outro: gr ? endCard(gr) : { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
+      if (RB.stop) { if (adP) { await adP; AD.busy = false; } rbStopped(); return; } // (it finished just as Cancel was tapped)
       RB.path = res && res.path; RB.msg = 'The reel is ready.'; RB.locked = !!adP;
       if (RB.path && !adP) rateAfter(rc.share({ path: RB.path }));
       var kept = false;
-      if (RB.path && res.marks && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
+      if (RB.path && res.marks && RB.pid != null && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
         RB.prog = 'Putting it on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card…'; renderRB();
         try { await keepPlayerReel(RB.pid, RB.path, res.marks, list.map(function (c) { return c.title; }), ahead && ahead.key); kept = true; RB.msg = 'The reel is ready, and it’s on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card in Highlights.'; }
         catch (e) { RB.note = 'It couldn’t be put on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card: ' + ((e && e.message) || 'something went wrong.') + (adP ? '' : ' It’s still on this phone to share.'); }
       }
       if (adP) { // the ad, which has been playing all along
-        var doneMsg = RB.msg; RB.msg = ''; RB.ad = ''; RB.prog = 'Your reel is ready for when the ad ends…'; renderRB();
+        var doneMsg = RB.msg; RB.msg = ''; RB.prog = 'Your reel is ready for when the ad ends…'; renderRB();
         var ad = await adP; AD.busy = false; RB.ad = ''; RB.msg = doneMsg;
+        if (RB.stop) { rbStopped(); return; }
         if (ad.r === 'unlocked' || ad.r === 'nofill') { RB.locked = false; rateAfter(rc.share({ path: RB.path })); }
         else if (ad.r === 'waiting') RB.msg = 'Thanks for watching. Google hasn’t confirmed the ad yet; your reel unlocks on your card in Highlights as soon as it does.';
-        else { RB.msg = (ad.r === 'closed' ? 'The ad was closed before the end, so your reel is locked.' : ad.err) + (kept ? ' It’s on your card in Highlights: watch the ad there to see it.' : ''); RB.bad = ad.r !== 'closed'; }
+        else if (server) { RB.msg = (ad.r === 'closed' ? 'The ad was closed before the end, so your reel is locked.' : ad.err) + (kept ? ' It’s on your card in Highlights: watch the ad there to see it.' : ''); RB.bad = ad.r !== 'closed'; }
+        else { RB.msg = (ad.r === 'closed' ? 'The ad was closed before the end, so the reel is locked.' : ad.err) + ' Watch the ad to unlock it.'; RB.bad = ad.r !== 'closed'; }
         if (kept) aheadPut(null); // (it's your reel now; the card's own button covers the rest)
-        await unlLoad(true); adDraw();
+        if (server) { await unlLoad(true); adDraw(); }
       }
-    } catch (e) { RB.msg = (e && e.message) || 'Couldn’t make the reel.'; RB.bad = true; if (adP) { await adP; AD.busy = false; RB.ad = ''; } } // (an ad already watched counts for the next go)
+    } catch (e) { if (RB.stop) { if (adP) { await adP; AD.busy = false; } rbStopped(); return; } RB.msg = (e && e.message) || 'Couldn’t make the reel.'; RB.bad = true; if (adP) { await adP; AD.busy = false; RB.ad = ''; } } // (an ad already watched counts for the next go)
     RB.busy = false; RB.prog = ''; renderRB();
+  }
+  function rbCancel() { // stops the reel being made (the phone stops at its next clip, or part-way through joining them)
+    if (!RB.busy || RB.stop || AD.on) return;
+    RB.stop = true; RB.prog = 'Stopping…'; renderRB();
+    var rc = RCp(); if (rc && rc.cancel && RB.job) try { rc.cancel({ job: RB.job }).then(function () {}, function () {}); } catch (e) {}
+  }
+  async function rbUnlock() { // the reel was made but the ad was closed early (or wouldn't play): another go at the ad
+    var rc = RCp(); if (!rc || RB.busy || !RB.path || AD.busy) return;
+    RB.busy = true; RB.unlocking = true; AD.busy = true; RB.msg = ''; RB.bad = false; renderRB();
+    var got = null, err = null;
+    try { got = RB.srv ? await adRun('reel', RB.srv, { say: rbAdSay }) : await adRun('make', null, { local: true, say: rbAdSay }); } catch (e) { err = e; }
+    AD.busy = false; RB.busy = false; RB.unlocking = false; RB.ad = '';
+    if (got === 'unlocked' || got === 'nofill') { RB.locked = false; RB.msg = 'Unlocked.'; if (got === 'nofill') noAdPop(NOFILL_POP); rateAfter(rc.share({ path: RB.path })); if (RB.srv) { await unlLoad(true); adDraw(); } }
+    else if (got === 'waiting') RB.msg = 'Thanks for watching. Google hasn’t confirmed the ad yet; your reel unlocks on your card in Highlights as soon as it does.';
+    else if (got === 'closed') RB.msg = 'The ad was closed before the end, so the reel is still locked.';
+    else { RB.msg = (err && err.message) || 'Something went wrong with the ad. Try again.'; RB.bad = true; }
+    renderRB();
   }
   $('reelPop').addEventListener('click', function (e) {
     if (e.target === $('reelPop')) { if (!RB.busy) $('reelPop').hidden = true; return; }
     var b = e.target.closest('button'); if (!b || b.disabled) return;
     if (b.id === 'rbClose') { if (!RB.busy) $('reelPop').hidden = true; }
     else if (b.id === 'rbMake') rbMake();
+    else if (b.id === 'rbCancel') rbCancel();
+    else if (b.id === 'rbUnlock') rbUnlock();
     else if (b.id === 'rbShare') { var rc = RCp(); if (rc && RB.path) rateAfter(rc.share({ path: RB.path })); }
     else if (b.hasAttribute('data-rbprev')) { RB.pv = b.getAttribute('data-rbprev'); renderRB(); var v = $('rbPrev'); if (v) try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {} }
   });
@@ -5102,7 +5192,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   function beOpen(src) {
     var keep = BE.track, every = BE.every; try { keep = keep || localStorage.getItem('apt-beat'); if (every == null) every = localStorage.getItem('apt-beat-all') !== 'no'; } catch (e) {}
-    BE = { game: src.game, pid: src.pid, track: BEATS.some(function (t) { return t.id === keep; }) ? keep : BEATS[0].id, every: every !== false, busy: false, prog: '', msg: '', bad: false, path: null, hear: null, lu: null };
+    BE = { game: src.game, pid: src.pid, track: BEATS.some(function (t) { return t.id === keep; }) ? keep : BEATS[0].id, every: every !== false, busy: false, prog: '', msg: '', bad: false, path: null, hear: null, lu: null, stop: false, job: '', locked: false, ad: '', unlocking: false };
     hitsLoad(); $('beatPop').hidden = false; renderBE();
     hitsPull().then(function () { if (BE.lu == null) renderBE(); });
   }
@@ -5158,32 +5248,69 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         '<ul class="tracks" id="beLuList">' + stars.map(function (i) { var c = list[i], hit = clipHit(c);
           return '<li><button class="trk" type="button" data-belu="' + i + '"' + (BE.busy ? ' disabled' : '') + '>' + esc(String(c.label || 'Highlight').split(/\s{2,}/)[0]) + '<small>' + (hit != null ? '✓ Lined up' : 'Not lined up yet') + '</small></button></li>'; }).join('') + '</ul>' : '') +
       '<p class="note">The music is Gaffer’s own, so you can post it anywhere and it won’t be muted.</p>' +
-      '<p class="msg busy" id="beProg">' + esc(BE.prog || '') + '</p>' + (BE.msg ? '<p class="msg' + (BE.bad ? ' bad' : '') + '" role="status" id="beMsg">' + esc(BE.msg) + '</p>' : '') +
-      '<div class="actions">' + (BE.path && !BE.busy ? '<button class="plain primary" type="button" id="beShare">Share or save it</button>' : '<button class="plain primary" type="button" id="beMake"' + (BE.busy || !plan ? ' disabled' : '') + '>Make the edit</button>') +
-      '<button class="plain" type="button" id="beClose"' + (BE.busy ? ' disabled' : '') + '>Close</button></div>';
+      '<p class="msg busy" id="beProg">' + esc(BE.prog || '') + '</p>' + (BE.ad ? '<p class="msg" role="status" id="beAd">' + esc(BE.ad) + '</p>' : '') + (BE.msg ? '<p class="msg' + (BE.bad ? ' bad' : '') + '" role="status" id="beMsg">' + esc(BE.msg) + '</p>' : '') +
+      '<div class="actions">' + (BE.busy ? (AD.on || BE.unlocking ? '' : '<button class="plain" type="button" id="beCancel"' + (BE.stop ? ' disabled' : '') + '>' + (BE.stop ? 'Stopping…' : 'Cancel') + '</button>')
+        : (BE.path && !BE.locked ? '<button class="plain primary" type="button" id="beShare">Share or save it</button>' : BE.path ? '<button class="plain primary" type="button" id="beUnlock">Watch the ad to unlock it</button>' : '<button class="plain primary" type="button" id="beMake"' + (!plan ? ' disabled' : '') + '>Make the edit</button>') +
+        '<button class="plain" type="button" id="beClose">Close</button>') + '</div>';
     $('beBody').innerHTML = html;
   }
+  var AD_ASK_BEAT = ['Watch an ad while your edit is made', 'While your beat highlight is made, watch a 30-second ad to unlock it. It takes about that long to make anyway.'];
+  function beAdSay(m) { BE.ad = !m || /ready for when/.test(BE.prog || '') ? '' : m === 'The ad is playing…' ? (BE.unlocking ? '' : 'The ad is playing. Your edit is being made at the same time.') : m; renderBE(); }
+  function beStopped() { BE.busy = false; BE.prog = ''; BE.ad = ''; BE.path = null; BE.locked = false; BE.msg = 'Stopped. Nothing was made.'; BE.bad = false; renderBE(); }
   async function beMake() {
     var rc = RCp(); if (!rc || BE.busy) return;
     var list = beSource(), tr = BEATS.filter(function (t) { return t.id === BE.track; })[0], plan = bePlan(list, tr); if (!plan) return;
     var r = BE.game != null ? S.results[BE.game] : null, who = r ? vs(r) : nm(BE.pid), use = [], at = {};
+    var withAd = adWanted(); // (the free tier: the ad plays while it's made, and unlocks it on this phone)
+    if (withAd && !(await adAsk(AD_ASK_BEAT[0], AD_ASK_BEAT[1]))) return;
     plan.segs.forEach(function (s) { if (at[s.i] == null) { at[s.i] = use.length; use.push(list[s.i]); } s.i = at[s.i]; }); // (only the clips it uses are fetched)
     beHear(null);
-    BE.busy = true; BE.bad = false; BE.msg = ''; BE.path = null; BE.prog = 'Starting…'; renderBE();
+    BE.busy = true; BE.stop = false; BE.job = 'be-' + Date.now(); BE.bad = false; BE.msg = ''; BE.ad = ''; BE.path = null; BE.locked = false; BE.prog = 'Starting…'; renderBE();
+    var adP = null;
+    if (withAd) {
+      AD.busy = true;
+      adP = adRun('make', null, { local: true, say: beAdSay, stop: function () { return BE.stop; } }).then(function (x) { return { r: x }; }, function (e) { return { err: (e && e.message) || 'Something went wrong with the ad.' }; });
+      adP.then(function (a) { if (BE.stop) return; if (a.r === 'nofill') noAdPop(NOFILL_POP.replace('reel', 'edit') + ' It’s ready to share as soon as it’s made.'); else if (a.r !== 'unlocked' && BE.busy) { BE.ad = (a.r === 'closed' ? 'The ad was closed before the end.' : a.err) + ' Your edit is still being made; watch an ad once it’s ready to unlock it.'; renderBE(); } });
+    }
     try {
-      var res = await rc.beatEdit({ items: use.map(function (c) { return { url: clipSrc(c, false) }; }), music: tr.id, loop: plan.loop, segs: plan.segs, fx: plan.fx, len: plan.len, outroAt: plan.outroAt,
+      var res = await rc.beatEdit({ items: use.map(function (c) { return { url: clipSrc(c, false) }; }), music: tr.id, loop: plan.loop, segs: plan.segs, fx: plan.fx, len: plan.len, outroAt: plan.outroAt, job: BE.job,
         file: (slugify(r ? folderOf(r) : who) || 'gaffer') + '-' + tr.id + '.mp4',
         outro: r ? endCard(r) : { kicker: 'Player edit', title: who, sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
+      if (BE.stop) { if (adP) { await adP; AD.busy = false; } beStopped(); return; }
       BE.path = res && res.path; BE.msg = 'The edit is ready.';
-      if (BE.path) rateAfter(rc.share({ path: BE.path }));
-    } catch (e) { BE.msg = (e && e.message) || 'Couldn’t make the edit.'; BE.bad = true; }
-    BE.busy = false; BE.prog = ''; renderBE();
+      if (adP && BE.path) {
+        BE.msg = ''; BE.prog = 'Your edit is ready for when the ad ends…'; BE.ad = ''; renderBE();
+        var ad = await adP; AD.busy = false; BE.msg = 'The edit is ready.';
+        if (BE.stop) { beStopped(); return; }
+        if (ad.r === 'unlocked' || ad.r === 'nofill') rateAfter(rc.share({ path: BE.path }));
+        else { BE.locked = true; BE.msg = (ad.r === 'closed' ? 'The ad was closed before the end, so the edit is locked.' : ad.err) + ' Watch the ad to unlock it.'; BE.bad = ad.r !== 'closed'; }
+      } else if (BE.path) rateAfter(rc.share({ path: BE.path }));
+    } catch (e) { if (BE.stop) { if (adP) { await adP; AD.busy = false; } beStopped(); return; } BE.msg = (e && e.message) || 'Couldn’t make the edit.'; BE.bad = true; if (adP) { await adP; AD.busy = false; } }
+    BE.busy = false; BE.prog = ''; BE.ad = ''; renderBE();
+  }
+  function beCancel() {
+    if (!BE.busy || BE.stop || AD.on) return;
+    BE.stop = true; BE.prog = 'Stopping…'; renderBE();
+    var rc = RCp(); if (rc && rc.cancel && BE.job) try { rc.cancel({ job: BE.job }).then(function () {}, function () {}); } catch (e) {}
+  }
+  async function beUnlock() {
+    var rc = RCp(); if (!rc || BE.busy || !BE.path || AD.busy) return;
+    BE.busy = true; BE.unlocking = true; AD.busy = true; BE.msg = ''; BE.bad = false; renderBE();
+    var got = null, err = null;
+    try { got = await adRun('make', null, { local: true, say: beAdSay }); } catch (e) { err = e; }
+    AD.busy = false; BE.busy = false; BE.unlocking = false; BE.ad = '';
+    if (got === 'unlocked' || got === 'nofill') { BE.locked = false; BE.msg = 'Unlocked.'; if (got === 'nofill') noAdPop(NOFILL_POP.replace('reel', 'edit')); rateAfter(rc.share({ path: BE.path })); }
+    else if (got === 'closed') BE.msg = 'The ad was closed before the end, so the edit is still locked.';
+    else { BE.msg = (err && err.message) || 'Something went wrong with the ad. Try again.'; BE.bad = true; }
+    renderBE();
   }
   $('beatPop').addEventListener('click', function (e) {
     if (e.target === $('beatPop')) { beClose(); return; }
     var b = e.target.closest('button'); if (!b || b.disabled) return;
     if (b.id === 'beClose') beClose();
     else if (b.id === 'beMake') beMake();
+    else if (b.id === 'beCancel') beCancel();
+    else if (b.id === 'beUnlock') beUnlock();
     else if (b.id === 'beShare') { var rc = RCp(); if (rc && BE.path) rateAfter(rc.share({ path: BE.path })); }
     else if (b.hasAttribute('data-betrack')) { BE.track = b.getAttribute('data-betrack'); try { localStorage.setItem('apt-beat', BE.track); } catch (err) {} BE.path = null; BE.msg = ''; renderBE(); }
     else if (b.hasAttribute('data-beevery')) { BE.every = b.getAttribute('data-beevery') === '1'; try { localStorage.setItem('apt-beat-all', BE.every ? 'yes' : 'no'); } catch (err) {} BE.path = null; BE.msg = ''; renderBE(); }
@@ -5210,6 +5337,16 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('hlGw').addEventListener('click', function (e) { if (e.target.closest('[data-gw]')) gwOpen('highlights'); });
   $('hlList').addEventListener('click', function (e) {
     var mb = e.target.closest('[data-mh]'); if (mb) { mhOpen(+mb.getAttribute('data-mh')); return; }
+    var hm = e.target.closest('[data-hlm]'); // a game's sheet: Make a highlight, Edit footage, Remove goals, Stats
+    if (hm) { var hv = hm.getAttribute('data-hlm').split(':'); HLM = { i: +hv[1], kind: hv[0] }; HLRM.msg = ''; if (hv[0] !== 'edit') HLDEL.msg = ''; renderHighlights(); return; }
+    if (e.target.hasAttribute && e.target.hasAttribute('data-hlmx')) { HLM.i = -1; renderHighlights(); return; } // (Cancel, Done, or a tap outside it)
+    var rm = e.target.closest('[data-hlrm]');
+    if (rm) { if (rm.disabled) return; var rk = rm.getAttribute('data-hlrm'), rr = S.results[HLM.i];
+      if (HLRM.key === rk && Date.now() < HLRM.until) hlRemoveClip(rr, HLM.i, rk);
+      else { HLRM = { i: HLM.i, key: rk, until: Date.now() + 3000, busy: false, msg: '', bad: false }; renderHighlights(); setTimeout(function () { if (S.view === 'highlights') renderHighlights(); }, 3100); }
+      return; }
+    var sheet = e.target.closest('.hlsheet');
+    if (sheet && e.target.closest('button') && !e.target.hasAttribute('data-hldel')) { HLM.i = -1; sheet.remove(); } // (a choice in a sheet closes it, then does what it says)
     var sk = e.target.closest('[data-seek]');
     if (sk) { // a moment in the game's reel: skip to it
       var sv = sk.closest('.vplayer').querySelector('video'), st = +sk.getAttribute('data-seek');
@@ -5225,11 +5362,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       v.src = e.target.getAttribute('data-src'); try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {}
     }
     else if (cut !== null) { CUT = cutStart(+cut); go('cut'); }
-    else if (e.target.getAttribute('data-dl') !== null) gameReel(+e.target.getAttribute('data-dl'));
+    else if (e.target.getAttribute('data-greel') !== null) rbOpen(null, +e.target.getAttribute('data-greel'));
     else if (e.target.getAttribute('data-beat') !== null) beOpen({ game: +e.target.getAttribute('data-beat') });
     else if (e.target.getAttribute('data-pbeat') !== null) beOpen({ pid: +e.target.getAttribute('data-pbeat') });
     else if (e.target.getAttribute('data-fixg') !== null) fixOpen(+e.target.getAttribute('data-fixg'));
-    else if (e.target.getAttribute('data-dlshare') !== null) { var rc2 = RCp(); if (rc2 && DL.path) rateAfter(rc2.share({ path: DL.path })); }
     else if (e.target.getAttribute('data-preel') !== null) rbOpen(+e.target.getAttribute('data-preel'));
     else if (e.target.getAttribute('data-preeloff') !== null) { // off the card (the file goes too)
       var offPid = +e.target.getAttribute('data-preeloff');
@@ -5255,7 +5391,6 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var pct = Math.round((d.p || 0) * 100);
     if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
     var mkJob = d.job === 'mk'; // (the plugin says whose join it is; the game's one video can be waiting behind someone's reel, or the other way round)
-    if (DL.busy && !mkJob) { DL.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var dm = $('dlMsg'); if (dm) dm.textContent = DL.prog; }
     if (MK.busy && (mkJob || !('job' in d))) { MK.prog = d.stage === 'fetch' ? 'fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'joining, ' + pct + '%.'; mkTick(); }
     if (BE.busy && !mkJob) { BE.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : d.stage === 'card' ? 'Adding the end card, ' + pct + '%' : 'Cutting it to the beat, ' + pct + '%'; var bm = $('beProg'); if (bm) bm.textContent = BE.prog; }
     if (RB.busy && !mkJob) { RB.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var rm = $('rbProg'); if (rm) rm.textContent = RB.prog; }
@@ -5801,7 +5936,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         renderCut(); return;
       }
       var aiYes = !(CUT.voice && hasGaffer()) || await aiAsk(); // (asked before the cut starts, not halfway through)
+      var cutAd = adWanted(); // (the free tier: an ad plays while the phone cuts, which takes minutes anyway)
+      if (cutAd && !(await adAsk('Watch an ad while your highlights are cut', 'While your highlights are cut, watch a 30-second ad. Cutting takes a few minutes anyway, so it won’t hold you up.'))) { cutKeep(); renderCut(); return; }
       CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; renderCut();
+      if (cutAd && !AD.busy) { AD.busy = true; adRun('make', null, { local: true }).then(function (x) { AD.busy = false; if (x === 'nofill') noAdPop('Google hasn’t got an ad for you right now, so there’s no ad this time. Your highlights are still being cut.'); }, function () { AD.busy = false; }); } // (the cut carries on whatever happens to the ad)
       try {
         var b0 = camBase(r, live[0], false, false); if (b0 != null) r.sync = Math.max(0, Math.round(b0)); save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
         if (dirty || !r.id) throw new Error('Couldn’t save the game to the database. Check your signal and try again.');
@@ -7895,7 +8033,6 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     } catch (err) { TR.msg = (err && err.message) || 'The tracking didn’t finish.'; }
     TR.stage = 'setup'; if (!S.match) stayAwake(false); renderTrack();
   });
-  $('expAds').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.ads = e.target.checked; saveApp(); UNL.d = null; UNL.at = 0; renderOptions(); });
   $('expTrack').addEventListener('change', function (e) { A.exp = A.exp || {}; A.exp.track = e.target.checked; saveApp(); renderOptions(); if (A.exp.track) planShow(); });
   $('soonOpen').addEventListener('click', function () { go('soon'); });
   armed($('optSignOut'), 'Tap again to sign out', function () { signOutAll(); });
@@ -8039,19 +8176,16 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     }
   });
   // ================= end of playing other teams
-  // ================= rewarded ads (the free tier). No banners: on your own card in Highlights (By player), your highlight
-  // reel is behind a 30-second ad you choose to watch. Watching it unlocks that reel for good (a new reel needs a new ad).
-  // Never during a game, and never for a paid team. The unlock is granted on the server: Google's AdMob calls the ad-reward
-  // edge function, signed, when the ad has been watched (0035_rewarded_ads.sql). Google's test ads until Ethan's AdMob
-  // account is set up (config.js ads).
-  function adFree() { // THE check for "no ads here": a team with the team pass never sees one (teamPaid, from the team pot),
-    // and in early access everyone has Gaffer (hasGaffer) unless the Experimental switch tries the free tier out
-    if (teamPaid()) return true;
-    return hasGaffer() && !(A.exp && A.exp.track && A.exp.ads);
-  }
+  // ================= rewarded ads (the free tier). No banners. Ethan (October 2026, out of Experimental): an ad plays while
+  // the phone makes something you'd be waiting for anyway: a reel, a beat highlight, or a game's highlights being cut. It's
+  // offered first (adAsk: "while your reel is made, watch a 30-second ad to unlock it"), and the reel takes about that long.
+  // Your own reel on your card is unlocked on the server: Google's AdMob calls the ad-reward edge function, signed, when the
+  // ad has been watched (0035_rewarded_ads.sql). Anything else stays on this phone, so its lock is on this phone too (adRun's
+  // local). Never during a game, never for a paid team, and never for what Gaffer makes by itself in the background (mhMake).
+  function adFree() { return teamPaid(); } // THE check for "no ads here": a team with the team pass never sees one (teamPaid, from the team pot)
   function adsOK() { return !DROID && !!(CFG.ads && CFG.ads.rewarded) && !!sb && !!me && !!A.active && !!plugin('AdMob'); } // an ad can be shown here: the iPhone app, signed in
   function freeTier() { return !adFree() && adsOK(); } // (the free tier's lock only applies where an ad can lift it)
-  var UNL = { code: null, d: null, busy: false, at: 0 }, AD = { busy: false, kind: null, target: null, msg: '', bad: false, setup: false };
+  var UNL = { code: null, d: null, busy: false, at: 0 }, AD = { busy: false, kind: null, target: null, msg: '', bad: false, setup: false, on: false };
   async function unlLoad(force) { // which of your reels you've unlocked, from the server
     if (!freeTier() || UNL.busy || (!force && UNL.code === A.active && (UNL.d || Date.now() - UNL.at < 30000))) return; // (no answer: asked again after half a minute, not on every redraw)
     var code = A.active, d = null; UNL.busy = true; UNL.at = Date.now();
@@ -8116,27 +8250,49 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   async function adRun(kind, target, o) { // one ad for one unlock: 'unlocked' (or it already was), 'nofill' (Google had no ad, so unlocked anyway), 'closed' (shut early), 'waiting'
     // (watched, Google hasn't confirmed yet). o.say(msg) tells the person; o.ticket(t) and o.watched() let a reel being made keep
-    // track in case the app is closed. Throws with the message to show.
-    o = o || {}; var say = o.say || function () {};
+    // track in case the app is closed. o.local: what it unlocks is only on this phone (a reel to share, a beat highlight), so
+    // there's no ticket and nothing to ask the server. o.stop(): true once what it was for was cancelled (the ad isn't shown).
+    // Throws with the message to show.
+    o = o || {}; var say = o.say || function () {}, stopped = function () { return !!(o.stop && o.stop()); };
     if (S.match) throw new Error('Ads never play during a game. Watch your reel once the game’s finished.'); // (nor with a game set up: the watch and the subs come first)
     var am = adsOK() ? plugin('AdMob') : null; if (!am) throw new Error('Ads can only be watched in Gaffer’s iPhone app, signed in.');
     say('Getting the ad…');
-    var tk = (await adRpc('ad_ticket', { p_code: A.active, p_kind: kind, p_target: target || null })).data || {};
-    if (tk.error === 'not_needed') return 'unlocked';
-    if (tk.error || !tk.ticket) throw new Error(AD_ERR[tk.error] || 'Couldn’t get an ad. Check your signal and try again.');
-    if (o.ticket) o.ticket(tk.ticket);
+    var tk = { ticket: null };
+    if (!o.local) {
+      tk = (await adRpc('ad_ticket', { p_code: A.active, p_kind: kind, p_target: target || null })).data || {};
+      if (tk.error === 'not_needed') return 'unlocked';
+      if (tk.error || !tk.ticket) throw new Error(AD_ERR[tk.error] || 'Couldn’t get an ad. Check your signal and try again.');
+      if (o.ticket) o.ticket(tk.ticket);
+    }
+    var none = function (why) { return o.local ? 'nofill' : adNoFill(tk.ticket, why); }; // (no ad from Google: unlocked anyway, as with your own reel)
     await adSetup(am, say);
+    if (stopped()) return 'closed';
     say('Loading the ad…');
-    var ld;
-    try { ld = await adStep(am.prepareRewardVideoAd({ adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test, ssv: { userId: me.id, customData: tk.ticket } }), AD_MS.load); }
-    catch (e) { return adNoFill(tk.ticket, 'Google had no ad to show right now' + (e && e.message ? ' (' + e.message + ')' : '') + '. Try again in a minute.'); }
-    if (ld === AD_LATE) return adNoFill(tk.ticket, 'Google didn’t send an ad in time. Try again in a minute.');
-    say('The ad is playing…');
-    if (!(await adShow(am))) return 'closed';
+    var ld, ask = { adId: CFG.ads.rewarded, isTesting: !!CFG.ads.test }; if (tk.ticket) ask.ssv = { userId: me.id, customData: tk.ticket };
+    try { ld = await adStep(am.prepareRewardVideoAd(ask), AD_MS.load); }
+    catch (e) { return none('Google had no ad to show right now' + (e && e.message ? ' (' + e.message + ')' : '') + '. Try again in a minute.'); }
+    if (ld === AD_LATE) return none('Google didn’t send an ad in time. Try again in a minute.');
+    if (stopped()) return 'closed';
+    AD.on = true; say('The ad is playing…');
+    var seen; try { seen = await adShow(am); } finally { AD.on = false; }
+    if (!seen) { say(''); return 'closed'; }
     if (o.watched) o.watched();
+    if (o.local) { say(''); return 'unlocked'; }
     say('Unlocking…');
     return (await adClaim(tk.ticket)) ? 'unlocked' : 'waiting';
   }
+  // Before anything is made on the free tier, the ad is offered (Ethan: "a pop up that says, while creating your reel watch a
+  // 30 second ad to unlock it"). Resolves true to go ahead (with the ad), false for Not now (nothing is made). With no ad
+  // here (a paid team, the website, during a game) it's true at once and nothing is shown.
+  var ASK = null;
+  function adWanted() { return freeTier() && !S.match; }
+  function adAsk(title, text) {
+    if (!adWanted()) return Promise.resolve(true);
+    $('adAskTitle').textContent = title; $('adAskText').textContent = text; $('adAskPop').hidden = false;
+    return new Promise(function (ok) { ASK = ok; });
+  }
+  function adAskEnd(yes) { $('adAskPop').hidden = true; var f = ASK; ASK = null; if (f) f(yes); }
+  document.addEventListener('click', function (e) { var t = e.target; if (!t) return; if (t.id === 'adAskYes') adAskEnd(true); else if (t.id === 'adAskNo' || t.id === 'adAskPop') adAskEnd(false); });
   async function adNoFill(ticket, why) { // Google had no ad: the reel unlocks anyway (0043; Ethan chose it). 'nofill', or, if the server says no, why there was no ad
     try { if ((await adRpc('ad_nofill', { p_ticket: ticket })).data === 'granted') return 'nofill'; } catch (e) {}
     throw noAd(why);
@@ -8927,7 +9083,6 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   function renderOptions() {
     renderNotes();
     var ex = A.exp || {}; $('expTrack').checked = !!ex.track; $('expTrackOpen').hidden = $('soonOpen').hidden = $('planOpen').hidden = $('shopOpen').hidden = !ex.track;
-    $('expAds').checked = !!ex.ads; $('expAdsRow').hidden = !ex.track;
     $('optAds').hidden = !freeTier(); $('optAdsMsg').hidden = !(AD.kind === 'choices' && AD.msg); $('optAdsMsg').textContent = AD.kind === 'choices' ? AD.msg : '';
     $('optRate').hidden = !rateCan(); $('optRateMsg').hidden = !RATE.msg; $('optRateMsg').textContent = RATE.msg;
     var aiOn = aiAllowed(); $('optAI').hidden = !(sb && me);
