@@ -19,6 +19,7 @@ const cutter = () => { // the native ReelCutter, as the web app sees it
     relabel: async (o) => { window.__rc.push(['relabel', o]); if (window.__fixHold) await window.__fixHold; return { path: '/phone/fix/' + o.file, size: 900, ...(o.voice ? { voiced: { path: '/phone/fix/' + o.file.replace('.mp4', 'v.mp4'), size: 900 } } : {}) }; },
     joinReel: async (o) => { window.__rc.push(['join', o]); if (window.__hold) await window.__hold; if (document.hidden) throw new Error('The operation was interrupted'); if (cb) { cb({ stage: 'fetch', i: 0, n: o.items.length, p: 0 }); cb({ stage: 'reel', p: 0.5 }); } return { path: '/phone/' + o.file, size: 1000, marks: o.items.map((x, i) => i * 14.04) }; },
     share: async (o) => { window.__rc.push(['share', o.path]); return {}; }, cleanup: async () => ({}),
+    cancel: async (o) => { window.__rc.push(['cancel', o]); return {}; },
   };
   window.Capacitor.convertFileSrc = (path) => location.origin + '/_capacitor_file_' + path;
 };
@@ -236,17 +237,37 @@ eq(await mhsrc(F), '03v.mp4', 'stopping after the last');
 await F.click('#mhClose'); await F.run(200);
 dbx = w.db(); dbx.games[0].reel = keepReel; w.setDb(dbx); await F.page.reload(); await F.run(1500);
 if (await F.view() !== 'highlights') { await home(F); await F.run(300); await F.click('#mHighlights'); await F.run(300); }
-eq([await F.visible('#hlList [data-dl]'), await F.visible('#hlList [data-cut]'), await F.visible('#hlList [data-hldel]')], [true, false, false], 'anyone in the team can download the reel (only gaffers cut or delete)');
-await F.click('#hlList [data-dl]'); await F.run(1000);
+eq([await F.visible('#hlList [data-hlm^="make:"]'), await F.visible('#hlList [data-hlm^="edit:"]'), await F.visible('#hlList [data-cut]'), await F.visible('#hlList [data-hldel]')], [true, false, false, false], 'anyone in the team can Make a highlight (only gaffers have Edit footage, to cut again or delete)');
+await F.click('#hlList [data-hlm^="make:"]'); await F.run(200);
+eq(await F.page.$$eval('#hlList .hlsheet .pick', (b) => b.map((x) => x.textContent)), ['Highlight reel', 'Beat highlight (Experimental)'], 'Make a highlight offers a highlight reel or a beat highlight (marked Experimental)');
+await shot(F, 'make-highlight-sheet');
+await F.click('#hlList .hlsheet [data-hlmx]:not(.pickpop)'); await F.run(200);
+eq(await F.visible('#hlList .hlsheet'), false, 'Cancel puts the sheet away');
+await F.click('#hlList [data-hlm^="make:"]'); await F.run(200); await F.click('#hlList .hlsheet [data-greel]'); await F.run(300);
+eq([await F.visible('#hlList .hlsheet'), await F.visible('#reelPop'), await F.text('#rbTitle'), await F.page.$$eval('#rbBody .rblist li', (l) => l.length), await F.page.isChecked('#rbSaid')], [false, true, 'Highlight reel', 3, true], 'Highlight reel is the usual reel maker, for every clip of the game, with the game’s own commentary to start');
+await F.click('#rbMake'); await F.run(1000);
 let join = (await calls(F, 'join')).pop();
 eq(join && join.items.map((x) => tail(x.url)), ['01v.mp4', '02v.mp4', '03v.mp4'], 'the reel is joined from the clips already made, with commentary (the phone\'s choice)');
 check(/dog-squad.*-highlights\.mp4$/i.test(join.file) && join.outro.title === 'Sons of Pitches FC 2–1 Dog Squad', `named after the game (${join.file}), with the score on the outro card (${join.outro.title})`);
-eq([await F.text('#dlMsg'), (await calls(F, 'share')).pop()], ['The reel is ready, with commentary.', '/phone/' + join.file], 'the share sheet opens to save it to Photos or send it on');
-check(await F.visible('#hlList [data-dlshare]'), 'and Share or save it opens it again');
+eq([await F.text('#rbMsg'), (await calls(F, 'share')).pop()], ['The reel is ready, with commentary.', '/phone/' + join.file], 'the share sheet opens to save it to Photos or send it on');
+check(await F.visible('#rbShare'), 'and Share or save it opens it again');
 await shot(F, 'reel-download');
-await F.page.evaluate(() => localStorage.setItem('apt-say', '0')); await F.page.reload(); await F.run(500); if (await F.view() !== 'highlights') { await home(F); await F.run(300); await F.click('#mHighlights'); await F.run(300); }
-await F.click('#hlList [data-dl]'); await F.run(1000);
-eq((await calls(F, 'join')).pop().items.map((x) => tail(x.url)), ['01.mp4', '02.mp4', '03.mp4'], 'with commentary off on that phone, the reel has none');
+await F.page.uncheck('#rbSaid'); await F.page.check('#rbGoals'); await F.run(200);
+const gl = await F.page.$$eval('#rbBody .rblist li .kind', (k) => k.map((x) => x.textContent));
+check(gl.length >= 1 && gl.every((x) => x === 'Goal'), `Goals only keeps the game's goals (${gl.join(', ')})`);
+await F.page.uncheck('#rbGoals'); await F.run(200);
+await F.click('#rbMake'); await F.run(1000);
+eq((await calls(F, 'join')).pop().items.map((x) => tail(x.url)), ['01.mp4', '02.mp4', '03.mp4'], 'with the commentary unticked, the reel has none');
+// Cancel while it's made (Ethan asked; no ad on this phone)
+await F.page.check('#rbGoals'); await F.page.uncheck('#rbGoals'); await F.run(200);
+await F.page.evaluate(() => { window.__hold = new Promise((ok) => { window.__holdGo = ok; }); }); await F.click('#rbMake'); await F.run(300);
+eq([await F.visible('#rbCancel'), await F.visible('#rbClose')], [true, false], 'while the reel is made there is Cancel');
+await F.click('#rbCancel'); await F.run(300);
+const cn = (await calls(F, 'cancel')).pop(), jcx = (await calls(F, 'join')).pop();
+check(!!cn && cn.job === jcx.job && /^rb-/.test(jcx.job), `Cancel tells the phone to stop that reel (${cn && cn.job})`);
+await F.page.evaluate(() => { const go = window.__holdGo; window.__hold = null; go(); }); await F.run(500);
+eq([await F.text('#rbMsg'), await F.visible('#rbShare'), await F.visible('#rbMake')], ['Stopped. Nothing was made.', false, true], 'and nothing is made, ready to try again');
+await F.click('#rbClose'); await F.run(200);
 
 // ---------- a follower makes Jake's reel: every clip of his, untick some, preview, goals only
 await F.click('#hlToggle [data-by="player"]');
@@ -339,7 +360,7 @@ await A.click('#hlToggle [data-by="' + byNow + '"]'); await A.run(300);
 await A.click('#hlToggle [data-by="game"]'); await A.run(300);
 const gameId = w.db().games[0].id, rowsNow = () => w.db().clips.filter((c) => c.game_id === gameId).sort((x, y) => x.seq - y.seq);
 const was = rowsNow().map((c) => [c.path, c.vpath]), joinsBefore = (await calls(A, 'join')).length;
-await A.click('#hlList .hcard:first-child [data-fixg]'); await A.run(200);
+await A.click('#hlList .hcard:first-child [data-hlm^="edit:"]'); await A.run(200); await A.click('#hlList .hlsheet [data-fixg]'); await A.run(200);
 const goalsListed = await A.page.$$eval('#fxBody [data-fxev]', (b) => b.map((x) => x.textContent));
 check(goalsListed.length === 2 && /Goal: Jake, set up by Chaplin/.test(goalsListed[0]) && /Goal: Chaplin, set up by Jake/.test(goalsListed[1]), `Fix a goal lists the game's goals (${goalsListed.join(' | ')})`);
 await A.click('#fxBody [data-fxev]'); await A.run(200);
@@ -374,7 +395,7 @@ await A.click('#fxBody [data-fx="close"]'); await A.run(300);
 // mid-fix, and coming back re-reads the team before the new clip is in). The phone must end up playing the new clip, not
 // the old one it has just deleted, and the moment's caption must say who really set it up.
 const oldPath = rowsNow()[0].path, oldV = rowsNow()[0].vpath, joinsB = (await calls(A, 'join')).length;
-await A.click('#hlList .hcard:first-child [data-fixg]'); await A.run(200);
+await A.click('#hlList .hcard:first-child [data-hlm^="edit:"]'); await A.run(200); await A.click('#hlList .hlsheet [data-fixg]'); await A.run(200);
 await A.click('#fxBody [data-fxev]'); await A.run(200);
 await A.click('#fxBody [data-fxa="8"]'); await A.run(100);
 await A.page.evaluate(() => { window.__fixHold = new Promise((r) => { window.__fixRelease = r; }); });
@@ -393,7 +414,20 @@ await A.click('#hlList .hcard:first-child [data-mh]'); await A.run(500);
 check(/Harrison \(Ethan\)/.test(await A.text('#mhList')), `the whole-match highlights list it as Harrison, set up by Ethan (${(await A.text('#mhList')).slice(0, 80)})`);
 await A.click('#mhClose'); await A.run(200);
 
-await A.click('#hlList [data-hldel]'); await A.click('#hlList [data-hldel]'); await A.run(1500);
+// ---------- Edit footage (Ethan's rework): cut again, remove goals, change stats, and delete them all
+await A.click('#hlList .hcard:first-child [data-hlm^="edit:"]'); await A.run(200);
+eq(await A.page.$$eval('#hlList .hlsheet .pick', (b) => b.map((x) => x.textContent)), ['Delete all these highlights', 'Cut again from a video', 'Remove goals', 'Change stats'], 'Edit footage has delete (first, in red, as Apple puts it), cut again, remove goals and change stats');
+await shot(A, 'edit-footage-sheet');
+await A.click('#hlList .hlsheet [data-hlm^="remove:"]'); await A.run(200);
+const before = rows().filter((c) => c.game_id === gameId).length, reelWas = (w.db().games[0].reel || {}).path;
+await A.click('#hlList .hlsheet [data-hlrm]'); await A.run(200);
+eq([await A.text('#hlList .hlsheet [data-hlrm]'), rows().filter((c) => c.game_id === gameId).length], ['Tap again', before], 'removing one needs a second tap');
+await A.click('#hlList .hlsheet [data-hlrm]'); await A.run(1500);
+eq([rows().filter((c) => c.game_id === gameId).length, ((w.db().games[0].reel || {}).path || 'none') !== reelWas], [before - 1, true], 'it takes that clip out, and the game\'s one video goes, made again without it');
+check(/Removed/.test(await A.text('#hlList .hlsheet')), 'and says so');
+await A.click('#hlList .hlsheet .phead [data-hlmx]'); await A.run(300);
+await A.click('#hlList .hcard:first-child [data-hlm^="edit:"]'); await A.run(200);
+await A.click('#hlList .hlsheet [data-hldel]'); await A.click('#hlList .hlsheet [data-hldel]'); await A.run(1500);
 eq([rows().length, (w.db().files || []).filter((f) => f.bucket === 'r2' && !/\/players\//.test(f.path)).length], [0, 0], 'deleting a game\'s highlights removes the copies with commentary too (a player\'s own reel stays on his card)');
 
 await w.close();

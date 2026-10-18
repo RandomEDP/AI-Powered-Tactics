@@ -4932,7 +4932,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: clipRole(c, RB.pid), title: (r ? vs(r) + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label });
     }).filter(function (c) { return !RB.goals || c.kind === 'Goal'; });
   }
-  function rbOpen(pid, gi) { RB = { pid: gi != null ? null : pid, gi: gi != null ? gi : null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false, stop: false, job: '', srv: null }; $('reelPop').hidden = false; renderRB(); }
+  function rbOpen(pid, gi) { RB = { pid: gi != null ? null : pid, gi: gi != null ? gi : null, said: sayOn, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false, stop: false, job: '', srv: null }; $('reelPop').hidden = false; renderRB(); }
   function renderRB() {
     if ($('reelPop').hidden) return;
     var gr = rbGame(), list = rbList(), on = list.filter(function (c) { return RB.pick[c.key] !== false; }), secs = 0, pv = list.filter(function (c) { return c.key === RB.pv; })[0] || list[0], who = gr ? vs(gr) : nm(RB.pid);
@@ -4940,11 +4940,13 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var html = '<h2 id="rbTitle">' + (gr ? 'Highlight reel' : 'Reel for ' + esc(who)) + '</h2><p class="note">' + (gr ? esc(who) + (dayOf(gr) ? ', ' + esc(dayOf(gr)) : '') + '. ' : '') + 'Untick any clips to leave out. Preview plays one here.</p>' +
       (pv ? '<video id="rbPrev" playsinline controls preload="metadata" src="' + esc(clipSrc(pv, false)) + '"></video>' : '') +
       '<label class="check" for="rbGoals"><input id="rbGoals" type="checkbox"' + (RB.goals ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>Goals only <small>(leaves out ' + (gr && !gr.house ? 'goals against, ' : '') + (gr ? '' : 'assists, ') + 'saves and other highlights)</small></span></label>';
+    var hasSaid = !!gr && list.some(function (c) { return c.vpath; }); // (a game cut with commentary: its own commentary, rather than a new one)
+    if (hasSaid) html += '<label class="check" for="rbSaid"><input id="rbSaid" type="checkbox"' + (RB.said ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>With the commentary <small>(the one recorded when the game was cut)</small></span></label>';
     html += list.length ? '<ol class="rblist">' + list.map(function (c, i) {
       return '<li><label class="check" for="rbp-' + i + '"><input id="rbp-' + i + '" type="checkbox" data-rbpick="' + esc(c.key) + '"' + (RB.pick[c.key] !== false ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>' + esc(c.title) + (c.kind ? ' <span class="kind">' + esc(c.kind) + '</span>' : '') + '</span></label>' +
         '<button class="link" type="button" data-rbprev="' + esc(c.key) + '">Preview</button></li>';
     }).join('') + '</ol>' : '<p class="note">' + (RB.goals ? (gr ? 'None of this game’s clips is a goal.' : 'None of ' + esc(who) + '’s clips is a goal of theirs yet.') : 'No clips yet.') + '</p>';
-    if (canVoice()) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
+    if (canVoice() && !(hasSaid && RB.said)) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
       (RB.voice ? voiceBox('rb') : '');
     html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
       '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.ad ? '<p class="msg" role="status" id="rbAd">' + esc(RB.ad) + '</p>' : '') + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
@@ -4959,6 +4961,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   async function rbMake() {
     var rc = RCp(); if (!rc || RB.busy) return;
     var gr = rbGame(), list = rbList().filter(function (c) { return RB.pick[c.key] !== false; }), who = gr ? vs(gr) : nm(RB.pid), byId = {}; if (!list.length) return;
+    var said = !!gr && RB.said && list.some(function (c) { return c.vpath; }); // (the game's own commentary, recorded when it was cut)
+    if (said) RB.voice = false;
     var vlock = RB.voice && canVoice() ? voLocked() : [];
     if (vlock.length) { RB.msg = voLockMsg(vlock); RB.bad = true; renderRB(); return; }
     var server = !gr && rbAd(), local = !server && adWanted(); // your own reel goes on your card, unlocked on the server; anything else is unlocked on this phone
@@ -4980,7 +4984,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         renderRB();
       });
     }
-    var items = list.map(function (c) { return { url: clipSrc(c, false) }; }), intro = null, signOff = null;
+    var items = list.map(function (c) { return { url: clipSrc(c, said) }; }), intro = null, signOff = null;
     if (RB.voice && canVoice() && !(await aiAsk())) RB.note = 'No commentary: ' + AI_NO + ' The reel was made without it.';
     else if (RB.voice && canVoice()) {
       var sw = swears(), lines = gr ? [sw ? usFull(gr) + ' against ' + gr.opp + '. Strap in, this gets fucking mental.' : usFull(gr) + ' against ' + gr.opp + '. Here are the highlights.'].concat(list.map(function (c) { return commentaryFor(gr, c, sw); }), ['Full time. ' + usFull(gr) + ' ' + gr.us + ', ' + gr.opp + ' ' + gr.them + '.'])
@@ -5000,7 +5004,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, job: RB.job, file: gr ? folderOf(gr) + '-highlights.mp4' : (slugify(who) || 'player') + '-highlights.mp4',
         outro: gr ? endCard(gr) : { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
       if (RB.stop) { if (adP) { await adP; AD.busy = false; } rbStopped(); return; } // (it finished just as Cancel was tapped)
-      RB.path = res && res.path; RB.msg = 'The reel is ready.'; RB.locked = !!adP;
+      RB.path = res && res.path; RB.msg = 'The reel is ready' + (said ? ', with commentary' : '') + '.'; RB.locked = !!adP;
       if (RB.path && !adP) rateAfter(rc.share({ path: RB.path }));
       var kept = false;
       if (RB.path && res.marks && RB.pid != null && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
@@ -5054,6 +5058,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (t.id === 'rbGoals') RB.goals = t.checked;
     else if (t.hasAttribute('data-rbpick')) RB.pick[t.getAttribute('data-rbpick')] = t.checked;
     else if (t.id === 'rbVoice') RB.voice = t.checked;
+    else if (t.id === 'rbSaid') RB.said = t.checked;
     else if (t.id === 'rbVoiceName') { VO.msg = ''; voiceSet($('rbVoiceName').value); } // (a different voice is a different reel)
     else return;
     RB.path = null; RB.msg = ''; RB.note = ''; renderRB(); // (a change means the reel made before isn't this one)
