@@ -24,7 +24,7 @@ const B = await w.phone({ db: true, label: 'follower' });
 await B.page.fill('#joinCode', code.toLowerCase()); await B.click('#joinBtn'); await B.run(500); await B.click('#jFollow'); await B.run(800);
 eq([await B.text('#heroName'), await B.page.getAttribute('#mNew', 'aria-disabled'), await B.page.evaluate(() => document.body.className.includes('ro'))], ['Sunday Strikers', 'true', true], 'the follower sees the team, with "New game" greyed out');
 await B.tap('#mNew'); await B.tap('#mNew');
-eq([await B.view(), await B.text('#lockMsg'), !!(await B.match())], ['home', 'Only the gaffer can start games.', true], 'tapping it explains, and does not scrap the game on this phone');
+eq([await B.view(), await B.text('#lockMsg'), !!(await B.match())], ['home', 'A game is going. Only a gaffer, or whoever started it, can abandon it.', true], 'tapping it explains, and does not scrap the game on this phone');
 await B.click('#mResume');
 eq([await B.view(), await B.visible('#go'), await B.visible('#endHalf'), await B.visible('#outBtn'), await B.visible('#undo')], ['game', false, false, false, false], 'watching the game: no clock, whistle, injury or undo controls');
 await A.click('#goalUs'); await A.click('#picker button[data-p]'); await A.click('#picker button[data-p="x"]');

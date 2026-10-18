@@ -204,6 +204,19 @@ APNS.length = 0; DB.game_links[0].updated_at = new Date(Date.now() - 600000).toI
 eq([(await lnk('tok-rival', 'ATHLET')).reason, APNS.length], ['old', 0], 'and not again later');
 APNS.length = 0; reset();
 
+// ---------- team-notify: a player running the game they started sends kick-off and goals, as a gaffer's phone would
+APNS.length = 0;
+const kick = (who) => notify(who, { code: 'SOPFC1', kind: 'goal', title: 'Goal!', body: 'SOP FC 1–0 Dog & Bone' });
+eq([(await kick('tok-jake')).status, APNS.length], [403, 0], 'a player can\'t send a goal for a game a gaffer is running');
+DB.live_matches[0].state = { opp: 'Dog & Bone', phase: 'h1', by: 'u-jake' };
+r = await kick('tok-jake');
+eq([r.sent, APNS.map((a) => a.to).includes('phone-jake'), APNS[0] && APNS[0].payload.kind], [3, false, 'goal'], 'once Jake started the game, his phone tells everyone else about the goal');
+APNS.length = 0;
+eq([(await kick('tok-chaplin')).status, APNS.length], [403, 0], 'another player still can\'t');
+eq([(await notify('tok-jake', { code: 'SOPFC1', kind: 'poll', title: 'Poll', body: 'In?' })).status, APNS.length], [403, 0], 'and running the game doesn\'t let him send the gaffers\' other kinds');
+eq([(await notify('tok-rival', { code: 'SOPFC1', kind: 'kickoff', title: 'x', body: 'y' })).status, APNS.length], [403, 0], 'nor anyone outside the team');
+APNS.length = 0; reset();
+
 // ---------- team-notify: a report tells Gaffer's moderators straight away (Apple's 1.2: reports looked at within a day)
 Object.assign(DB, { moderators: [{ user_id: 'u-ethan' }], post_reports: [], profile_reports: [], message_reports: [], stream_reports: [], gotw_reports: [], comment_reports: [] });
 const rep = (who, what) => notify(who, { kind: 'report', what });

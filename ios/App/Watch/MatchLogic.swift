@@ -350,10 +350,13 @@ struct WatchBrain: Codable {
 
     /// A goal. The score moves here at once. (Only while a half is being played: before kick-off the clock has to be started first.)
     /// `at` is when Goal was tapped, before the scorer was picked: the goal is timed from then, for the highlights (if it's
-    /// within the last two minutes; otherwise from now).
+    /// within the last two minutes; otherwise from now). A goal tapped while the half was on still counts if the whistle went
+    /// while the scorer was being picked; the phone takes it as long as it went in before the whistle.
     mutating func pressGoal(us: Bool, scorer: Int?, assist: Int?, now: Date, at: Date? = nil) -> Outcome {
-        guard var game = state, game.live, game.inPlay else { return Outcome() }
-        let when = at.flatMap { $0 <= now && now.timeIntervalSince($0) < 120 ? $0 : nil } ?? now
+        guard var game = state, game.live else { return Outcome() }
+        let tapped = at.flatMap { $0 <= now && now.timeIntervalSince($0) < 120 ? $0 : nil }
+        guard game.inPlay || (tapped != nil && game.phase != "pre") else { return Outcome() }
+        let when = tapped ?? now
         if us { game.us += 1 } else { game.them += 1 }
         held = Held(us: game.us, them: game.them, until: now.addingTimeInterval(WatchBrain.giveUpAfter))
         state = game
