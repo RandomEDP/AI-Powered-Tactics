@@ -650,6 +650,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   dashboard; empty for now. `ReelGraphics.endCard` draws "PRESENTED BY …" under the kicker when it's set.
 - Reports: `gotw_report` → `gotw_reports`, `reported('gotw')`. A moderator takes a goal down by setting `pulled = true`
   and `removed_at = now()` on its `gotw_noms` row.
+- **The prize** (`0044_gotw_prize.sql`): a week's amount goes in `gotw_prizes` (week, pence) in the dashboard, like the sponsor; no row, nothing shown. `gotw_board` returns `prize`, copied onto the winner row when the week is decided (`gotw_winners.prize_pence`), and the strip, the week's header, the winner card and the reel's end card (`gwPrize`) say it.
 - Tests: `gotwdb.test.mjs`, `gotw.test.mjs`, `stream.test.mjs` (kind `gotw`).
 
 ### Games among the squad, with guests (`0020_games_among_the_squad.sql`)
