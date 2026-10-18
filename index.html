@@ -1567,7 +1567,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   </section>
   <section id="optAds" hidden>
     <h2>Ads</h2>
-    <p class="note">Gaffer is free with one kind of ad: a 30-second ad you choose to watch to see your own highlight reel. There are never ads during a game.</p>
+    <p class="note">Gaffer is free with one kind of ad: a 30-second ad you choose to watch while your reels and highlights are made, which unlocks them. There are never ads during a game.</p>
     <div class="actions"><button class="plain" id="optAdsBtn" type="button">Ad choices</button></div>
     <p class="msg" id="optAdsMsg" role="status" hidden></p>
   </section>
@@ -4707,12 +4707,21 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     try {
       await q(sb.from('clips').delete().eq('game_id', r.id).eq('seq', c.seq));
       clips = clips.filter(function (x) { return x !== c; });
-      if (r.reel) { try { await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null; } catch (e) {} delete MKTRIED[r.id]; }
+      var hadReel = !!(r.reel && r.reel.path);
+      if (hadReel) { // (joined again from the clips left, under a new name so no phone keeps the old one)
+        try { await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null; } catch (e) {}
+        try { await q(sb.from('clips').update({ reel_at: null }).eq('game_id', r.id)); } catch (e) {}
+        clips.forEach(function (x) { if (x.game_id === r.id) x.reel_at = null; }); clipsKeep();
+        MKVER[r.id] = Date.now().toString(36); MKTRIED[r.id] = true;
+      }
       try { if (paths.length) await q(sb.storage.from('clips').remove(paths)); } catch (e) {}
       try { if (inR2.length) await clipCall('remove', { paths: inR2 }); } catch (e) {} // (a file left behind is never shown: the rows are what list them)
       HLRM = { i: gi, key: '', until: 0, busy: false, msg: 'Removed. It’s out of this game’s highlights.', bad: false };
-      if (!clips.some(function (x) { return x.game_id === r.id; })) HLM.i = -1;
+      var left = clips.some(function (x) { return x.game_id === r.id; });
+      if (!left) HLM.i = -1;
       ping('changed'); await pull();
+      var now = S.results.filter(function (x) { return x.id === r.id; })[0] || r;
+      if (hadReel && left && RCp()) setTimeout(function () { mhMake(now, true); }, 300);
     } catch (e) { HLRM = { i: gi, key: '', until: 0, busy: false, msg: 'Couldn’t remove it. Check your signal and try again.', bad: true }; }
     renderHighlights();
   }
