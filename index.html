@@ -3031,7 +3031,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     } catch (e) { FD.msg = 'Couldn’t load your feed. Check your signal.'; }
     FD.busy = false; pplBadges(); if (S.view === 'feed') renderFeed();
   }
-  // ---- All (0044; Ethan): posts from everyone whose profile is public, most liked first, and readable before signing
+  // ---- All (0045; Ethan): posts from everyone whose profile is public, most liked first, and readable before signing
   // in, so a new phone that isn't in a team has something to watch. Posts this phone hasn't had on screen come first; then
   // "You're all caught up" and the ones it has seen, each half still most liked first. What's been seen is kept per phone
   // (apt-feed-all-seen, the last 500), and the split is worked out once a load, so nothing jumps about while scrolling.

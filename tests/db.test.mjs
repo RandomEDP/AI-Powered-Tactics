@@ -469,7 +469,7 @@ eq((await d.rpc(ethan, 'create_post', { p_kind: 'reel', p_team: sop.id })).error
 eq((await d.rpc(jake, 'save_player_reel', { p_code: sop.code, p_pid: 3, p_path: `${sop.id}/players/3/reel-4.mp4`, p_store: 'r2', p_marks: marks })).old, null, 'a new reel doesn\'t throw away one that\'s been posted');
 eq((await d.rpc(ethan, 'get_feed'))[0].video.path.endsWith('reel-3.mp4'), true, 'which still plays in the post');
 for (const t of ['posts', 'post_likes', 'post_reports']) eq(await count(sam, 'public.' + t), 0, `nobody reads ${t} directly`);
-// ---------- All, on Home (0044): everyone's public posts, most liked first, readable before signing in
+// ---------- All, on Home (0045): everyone's public posts, most liked first, readable before signing in
 const clip2 = await d.rpc(jake, 'create_post', { p_kind: 'clip', p_game: hg, p_at: 1000, p_caption: 'Again' });
 await d.rpc(sam, 'like_post', { p_id: clip2.id }); await d.rpc(ethan, 'like_post', { p_id: clip2.id });
 eq((await d.rpc(null, 'public_feed')).map((x) => [x.caption, x.likes, x.liked, x.mine]), [['Again', 2, false, null], ['My season', 0, false, null]], 'All can be read signed out, most liked first');
