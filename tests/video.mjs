@@ -83,7 +83,7 @@ console.log('by player:', await A.$$eval('#hlList .hcard', (c) => c.filter((x) =
 await shot(A, 'hl-by-player');
 // cutting again with two cameras: the first one's spot is remembered; one goes behind Dog's goal
 await A.click('#hlToggle [data-by="game"]'); await wait(200);
-await A.evaluate(() => { window.__rc = []; }); await A.click('#hlList [data-cut]'); await wait(200);
+await A.evaluate(() => { window.__rc = []; }); await A.click('#hlList [data-hlm^="edit:"]'); await wait(200); await A.click('#hlSheet [data-cut]'); await wait(200);
 console.log('remembered:', await A.locator('#camSvg [data-cam]').count(), 'camera |', (await A.textContent('.camlist')).replace(/\s+/g, ' '));
 await A.click('#camSvg [data-cam="0"]', { force: true }); await wait(400); // a camera with no video yet: a tap asks for it
 await tap(0.5, 0.07); // behind their goal

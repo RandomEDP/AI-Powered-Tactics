@@ -880,6 +880,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .hlstat li { display: flex; gap: 10px; font-size: var(--t-sub); } .hlstat li span:first-child { min-width: 2.6em; color: var(--muted); font-variant-numeric: tabular-nums; }
 .hlrm li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: var(--t-sub); flex-wrap: wrap; } .hlrm li span { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
 .hlacts { flex-wrap: wrap; }
+.frjump { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.frjump button { width: 100%; min-height: 44px; text-align: left; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 0; text-decoration: none; color: var(--ink); font-weight: 600; font-size: var(--t-body); }
+.frjump button small { color: var(--muted); font-weight: 500; font-size: var(--t-foot); }
 .cliplist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; counter-reset: c; }
 .hcard .cliplist li { display: block; padding: 0; border: 0; }
 .cliplist button { width: 100%; text-align: left; border: 0; border-radius: 10px; background: var(--bg); padding: 10px 12px; font-size: var(--t-sub); font-weight: 600; }
@@ -4257,7 +4260,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // ---- highlights: every logged moment, by game and by player. Video appears here once a game's reel has been made.
   var hlBy = 'game', hlFocus = null, hlKeep = false;
   function hlScopeNow() { if (DROID || guestGame) return 'team'; var s = HLS.here || HLS.scope; return s === 'me' || s === 'team' ? s : A.active && !frTeam() ? 'team' : 'me'; }
-  function hlTeamList() { return A.teams.filter(function (t) { return !t.fr || t.code === A.active; }); } // (your friendlies are under Just me)
+  function hlTeamList() { return A.teams.filter(function (t) { return !t.fr; }).concat(A.teams.filter(function (t) { return t.fr; })); } // your teams, then your friendly games (Ethan: one chip each, the friendlies last)
   async function hlMeLoad(force) {
     if (!sb || !me || HLS.busy || (!force && HLS.list && Date.now() - HLS.at < 60000)) return;
     HLS.busy = true; HLS.msg = '';
@@ -4287,7 +4290,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var ts = hlTeamList(), box = $('hlTeams');
     box.hidden = DROID || sc !== 'team' || !ts.length || (ts.length === 1 && ts[0].code === A.active);
     if (box.hidden) { box.innerHTML = ''; return; }
-    box.innerHTML = ts.map(function (t) { return '<button class="chip" type="button" data-hlteam="' + esc(t.code) + '" aria-pressed="' + (t.code === A.active) + '">' + esc(t.fr ? 'Friendlies' : t.name || t.code) + '</button>'; }).join('');
+    box.innerHTML = ts.map(function (t) { return '<button class="chip" type="button" data-hlteam="' + esc(t.code) + '" aria-pressed="' + (t.code === A.active) + '">' + esc(t.fr ? 'Friendly games' : t.name || t.code) + '</button>'; }).join('');
   }
   function hlShow(r) { // a game's highlights, from its result: its clips and reel if they've been made, or where they will be
     hlBy = 'game'; hlFocus = r || null; hlKeep = true; go('highlights');
@@ -4807,6 +4810,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var own = role === 'owner', html = guestCard(), sheet = '', games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
     if (!games.length) { $('hlList').innerHTML = html + '<div class="hcard"><h3>No games yet</h3><p class="note">Highlights appear here after your first finished game. Every goal, assist and save you log is kept as a moment.</p></div>'; return; }
     if (hlBy === 'game') {
+      if (frTeam() && games.length) html += '<div class="hcard" id="frJump"><h3>Your friendly games</h3><ul class="frjump">' + games.map(function (g) { // (each one, straight to its highlights)
+        var n = clips.filter(function (c) { return c.game_id === g.r.id; }).length;
+        return '<li><button class="link" type="button" data-hljump="' + g.i + '">' + esc(scoreText({ house: g.r.house, team: teamShort(), opp: g.r.opp, us: g.r.us, them: g.r.them })) + '<small>' + esc([dayOf(g.r), n ? n + (n === 1 ? ' clip' : ' clips') : 'No footage yet'].filter(Boolean).join(' · ')) + '</small></button></li>';
+      }).join('') + '</ul></div>';
       games.forEach(function (g) {
         var r = g.r, ms = momentsOf(r), timed = r.koAt && ms.length, vids = clips.filter(function (c) { return c.game_id === r.id; });
         var cutOk = own && timed && NATIVE;
@@ -5352,7 +5359,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('beAudio').addEventListener('ended', function () { BE.hear = null; renderBE(); });
   $('toPlayerReels').addEventListener('click', function () { hlBy = 'player'; hlFocus = null; go('highlights'); });
   $('hlScope').addEventListener('click', function (e) { var b = e.target.closest('[data-scope]'); if (!b) return; HLS.scope = b.getAttribute('data-scope'); HLS.here = null; try { localStorage.setItem('apt-hl-scope', HLS.scope); } catch (err) {} if (HLS.scope === 'me') hlMeLoad(true); renderHighlights(); });
-  $('hlTeams').addEventListener('click', function (e) { var b = e.target.closest('[data-hlteam]'); if (!b) return; var code = b.getAttribute('data-hlteam'); if (code !== A.active) { hlBy = 'game'; openTeam(code, 'highlights'); } });
+  $('hlTeams').addEventListener('click', function (e) { var b = e.target.closest('[data-hlteam]'); if (!b) return; var code = b.getAttribute('data-hlteam'); HLS.scope = 'team'; if (code !== A.active) { hlBy = 'game'; openTeam(code, 'highlights'); } });
   $('hlFr').addEventListener('change', function () { HLS.fr = $('hlFr').checked; try { localStorage.setItem('apt-hl-fr', HLS.fr ? '1' : '0'); } catch (err) {} renderHighlights(); });
   $('hlToggle').addEventListener('click', function (e) { var by = e.target.getAttribute('data-by'); if (by) { hlBy = by; renderHighlights(); } });
   $('hlList').addEventListener('toggle', function (e) { var d = e.target; if (d && d.hasAttribute && d.hasAttribute('data-hlopen')) HLOPEN[d.getAttribute('data-hlopen')] = d.open; }, true);
@@ -5361,6 +5368,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('hlList').addEventListener('click', hlClick);
   function hlClick(e) {
     var mb = e.target.closest('[data-mh]'); if (mb) { mhOpen(+mb.getAttribute('data-mh')); return; }
+    var hj = e.target.closest('[data-hljump]'); // a friendly game in the list: down to its card
+    if (hj) { var je = $('hlg-' + hj.getAttribute('data-hljump')); if (je) try { je.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (err) {} return; }
     var hm = e.target.closest('[data-hlm]'); // a game's sheet: Make a highlight, Edit footage, Remove goals, Stats
     if (hm) { var hv = hm.getAttribute('data-hlm').split(':'); HLM = { i: +hv[1], kind: hv[0] }; HLRM.msg = ''; if (hv[0] !== 'edit') HLDEL.msg = ''; renderHighlights(); return; }
     if (e.target.hasAttribute && e.target.hasAttribute('data-hlmx')) { HLM.i = -1; renderHighlights(); return; } // (Cancel, Done, or a tap outside it)
