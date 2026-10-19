@@ -838,6 +838,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `--t-head`, `--t-body` 1rem, `--t-sub`, `--t-foot`, `--t-cap` .75rem) or a rem value; never px (the clip preview
   `.lk-*` is the one exception: it's a drawing of a video frame). `textSize()` (top of the script, `window.gafferTextSize`)
   sets the root from WebKit's `-apple-system-body` on an iPhone (17px standard), kept between 15 and 26px; 17px elsewhere.
+  From 21px up (Larger Text; Ethan's mum's phone had things overlapping) it also puts `bigtext` on `<html>`, and the CSS
+  makes room under `html.bigtext`: Start/Bench/Out under the name, picker notes under the name, the profile's counts under
+  the picture, the stats tiles two across, the polls' Date and Kick-off one above the other, no icons on Highlight and Keeper
+  save. The tab bar's labels stay the standard size, as in iOS. Pop-ups that are taller than the screen scroll instead of
+  squashing what's in them (`flex-shrink: 0`), and the game screen leaves the dock's measured height under it (`--dock-h`).
+  `bigtext.test.mjs` walks 46 screens at 26px on a 375-point iPhone and fails on writing that overlaps, runs off the screen,
+  is cut off or has a word broken in two; add new screens to it.
 - **Colours mean one thing each:** the kit colour (`--on`) for the main action and what's selected; orange (`--bib`,
   #b03f08, 5.2:1) only for bibs: the bench, coming off, side B in a game among the squad; red (`--danger`, = `--agg`) for
   errors and anything that deletes or can't be undone; goals against are plain ink.
