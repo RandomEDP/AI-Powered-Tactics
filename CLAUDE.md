@@ -390,13 +390,25 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   current (`mark`, `gameNow`), the phone's saved clips are rewritten (`clipsKeep`) and an open whole-match player moves
   onto the new clip (`mhRebind`, also after every pull; a clip that won't load re-reads the team once). Before this the
   phone kept playing the old file it had just deleted. Test: `reels.test.mjs`.
-- **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies) and its reel,
-  to cut again from scratch.
-- **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each
-  player's card (Highlights → By player: untick clips, preview, Goals only; gaffers and claimed players can add an AI
-  voice). Both are joined on that phone by `ReelCutter.joinReel({items:[{url,voice,voiceAt}], …})` from the clips'
-  public links, then the share sheet, so nothing extra is stored. Code: `gameReel`, `rbOpen`/`renderRB`/`rbMake`,
-  `clipRole`. Test: `reels.test.mjs`.
+- **A game's card in By game** (Ethan's rework, October 2026): with footage, under the whole-match button and the
+  moments, **Make a highlight** (anyone on the iPhone app) and **Edit footage** (gaffers). Each opens an action sheet
+  (`hlSheet`, `HLM {i, kind}`, drawn into `#hlSheet` at body level so it sits over the tab bar; `hlSheetShut`, closed by
+  `go()`). Make a highlight: Highlight reel (`data-greel`, the reel maker for the game's clips, `rbOpen(null, gi)`) or
+  Beat highlight (Experimental) (`data-beat`). Edit footage: Delete all these highlights (red, first, two taps), Cut again
+  from a video, Remove goals (`HLM.kind 'remove'`, `hlRemoveClip`: two taps on one clip deletes its row and files, clears
+  the game's one video and joins it again from the rest under a new name, `MKVER`) and Change stats (Fix a goal). With no
+  footage: Cut from video (gaffers, iPhone) and **Stats** (the game's moments and each player's minutes, goals and assists,
+  with Change stats for gaffers). Tests: `reels`, `cuttiming`, `beat`, `hltag`.
+- **Delete these highlights** (Edit footage, two taps) deletes the game's `clips` rows and files (both copies) and its
+  reel, to cut again from scratch.
+- **Reels for everyone** (iPhone app, anyone in the team): Make a highlight → Highlight reel on a game card and "Make a
+  reel" on each player's card (Highlights → By player: untick clips, preview, Goals only; gaffers and claimed players can
+  add an AI voice; a game cut with commentary offers its own, `#rbSaid`). Both are joined on that phone by
+  `ReelCutter.joinReel({items:[{url,voice,voiceAt}], job, …})` from the clips' public links, then the share sheet, so
+  nothing extra is stored. **Cancel** while it's made (not while an ad is up; Ethan asked): `rbCancel`/`beCancel` call
+  the plugin's `cancel({job})` (`rb-<time>`, `be-<time>`), which stops it at its next clip or mid-export (`stopNow`,
+  checked in `run`), and say "Stopped. Nothing was made." Code: `rbOpen`/`renderRB`/`rbMake`, `clipRole`,
+  `gameClipRole`. Test: `reels.test.mjs`.
 - **A player's reel on their card** (`0026_player_reels.sql`, Ethan asked): when the player themselves or a gaffer makes
   a player's reel (`canKeepReel`), it is also uploaded (`keepPlayerReel`: `<team>/players/<pid>/reel-<time>.mp4`, which
   `clip-store` lets that player write) and kept with `save_player_reel` (one per player, a new one replaces it and the
@@ -841,14 +853,18 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
 
 ### Rewarded ads (the free tier; `0035_rewarded_ads.sql`, `ad-reward`; Ethan: "just a 30 second ad to see your own highlight reel")
-- No banners. On the free tier the one ad is on your own card in Highlights → By player: your kept player reel (0026) is
-  behind "Watch a 30-second ad" (Google AdMob rewarded, `@capacitor-community/admob` 8.2.1, iPhone app only). Watching
-  it unlocks that reel for you for good; a new reel needs a new ad. Other people's reels, games' highlights, cuts and
-  commentary are not gated (Ethan tried more unlocks and pulled back to this one, October 2026).
-- **Never during a game** (`adWatch` refuses while `S.match` is set) and **never for a paid team**: `adFree()` is the one
-  check (`teamPaid()` from the team pass, else `hasGaffer()`). Early access: everyone has Gaffer, so ads only show with
-  Experimental on and "Try the free tier" (`#expAds`, `A.exp.ads`). `freeTier()` = not ad-free and an ad can be shown
-  here; on the web and Android the reel isn't locked (no ad to lift it).
+- No banners. **Out of Experimental (Ethan, October 2026):** the ad plays while the phone makes something you'd be
+  waiting for anyway: a reel (a player's or a game's Highlight reel), a beat highlight, or a game's highlights being cut.
+  Pressing Make first shows `#adAskPop` (`adAsk`: "While your reel is made, watch a 30-second ad to unlock it. It takes
+  about that long to make anyway.", Watch the ad / Not now; Not now makes nothing). Your own reel kept on your card is
+  unlocked on the server (below). Anything else is only on the phone, so it's unlocked on the phone (`adRun(…, {local:
+  true})`: no ticket, no `ssv`); closed early, it's made but locked with "Watch the ad to unlock it" (`rbUnlock`,
+  `beUnlock`). The cut carries on whatever happens to its ad. Never for what Gaffer makes by itself (`mhMake`).
+  Your kept player reel (0026) is also behind "Watch a 30-second ad" on your card (Google AdMob rewarded,
+  `@capacitor-community/admob` 8.2.1, iPhone app only); a new reel needs a new ad.
+- **Never during a game** (`adWatch` refuses while `S.match` is set; `adWanted()` is false) and **never for a paid team**:
+  `adFree()` is the one check (`teamPaid()` from the team pass). `freeTier()` = not ad-free and an ad can be shown here;
+  on the web and Android nothing is locked (no ad to lift it). `AD.on` is true while an ad is up (Cancel hides).
 - **Server-side grant:** `ad_ticket('reel', path)` (only the player themselves, only their current reel) makes a ticket;
   the ad is loaded with `ssv {userId, customData: ticket}`; AdMob calls `ad-reward` (deployed `--no-verify-jwt`; Google's
   ECDSA signature checked against its published keys), which calls `ad_grant` (service role only). The app polls
