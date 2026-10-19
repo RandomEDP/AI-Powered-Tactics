@@ -14,7 +14,8 @@ import UniformTypeIdentifiers
 ///   fetchVideo({ url, key, size? })  -> { path, duration, created? }   or downloads it (a GoPro share link's video, the
 ///                                                  address from the gopro-link edge function), carrying on in the
 ///                                                  background; "progress" events { stage: "download", p }
-///   cut({ path, clips: [{ start, dur, caption, file, bug?, lower? }], watermark, look?, outro: { kicker, title, sub, color, ink, crest }, reelFile, reelCleanFile? })
+///   cut({ path, clips: [{ start, dur, caption, file, bug?, lower? }], watermark, look?, outro: { kicker, title, sub, color, ink, crest }, reelFile, reelCleanFile?, quality? })
+///                (quality "4k": the Gaffer tier's sharp clips, 4K from 4K footage, else 1080p; see `sharpness`)
 ///                -> { clips: [{ file, path, size }], reel: { path, size, marks }, reelClean?: { path, size, marks } }
 ///   share({ path })                                the share sheet (save to Photos, send to a chat)
 ///   shareText({ text, url })                       the share sheet for a message with a link
@@ -302,6 +303,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         let reelFile = call.getString("reelFile")
         let reelCleanFile = call.getString("reelCleanFile") // (with commentary: a second reel without it, for "Commentary off")
         let look = ReelGraphics.look(call.options["look"])
+        let sharp = call.getString("quality") == "4k"
 
         var spare: UIBackgroundTaskIdentifier = .invalid
         let begin = { spare = UIApplication.shared.beginBackgroundTask(withName: "Cutting highlights") { UIApplication.shared.endBackgroundTask(spare) } }
@@ -350,19 +352,20 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                     let out = dir.appendingPathComponent(files[index])
                     var clean = segment
                     clean.voice = nil
-                    try self.export(segments: [clean], watermark: watermark, outro: nil, to: out, look: look) { fraction in
+                    let size = ReelCutterPlugin.sharpness(segment.asset, sharp: sharp)
+                    try self.export(segments: [clean], watermark: watermark, outro: nil, to: out, look: look, preset: size.preset) { fraction in
                         self.notifyListeners("progress", data: ["stage": "cut", "i": index, "n": segments.count, "p": segment.voice == nil ? fraction : fraction / 2])
                     }
-                    self.shrink(out)
+                    self.shrink(out, bitRate: size.bitRate)
                     var entry: [String: Any] = ["file": files[index], "path": out.path, "size": self.fileSize(out)]
                     if segment.voice != nil {
                         let name = (files[index] as NSString).deletingPathExtension + "v.mp4"
                         let voicedOut = dir.appendingPathComponent(name)
                         do {
-                            try self.export(segments: [segment], watermark: watermark, outro: nil, to: voicedOut, look: look) { fraction in
+                            try self.export(segments: [segment], watermark: watermark, outro: nil, to: voicedOut, look: look, preset: size.preset) { fraction in
                                 self.notifyListeners("progress", data: ["stage": "cut", "i": index, "n": segments.count, "p": 0.5 + fraction / 2])
                             }
-                            self.shrink(voicedOut)
+                            self.shrink(voicedOut, bitRate: size.bitRate)
                             entry["voiced"] = ["file": name, "path": voicedOut.path, "size": self.fileSize(voicedOut)]
                         } catch {
                             // the clip without commentary is still good
@@ -392,10 +395,11 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                         }
                         let out = dir.appendingPathComponent(name)
                         guard !pieces.isEmpty else { throw CutError(message: "none of the clips could be read back") }
-                        try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: withVoices ? intro : nil, signOff: withVoices ? signOff : nil) { fraction in
+                        let size = ReelCutterPlugin.sharpness(pieces[0].asset, sharp: true) // (as sharp as the clips just made)
+                        try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: withVoices ? intro : nil, signOff: withVoices ? signOff : nil, preset: size.preset) { fraction in
                             self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": from + fraction * share])
                         }
-                        self.shrink(out) // (it's uploaded for the team to watch, like the clips)
+                        self.shrink(out, bitRate: size.bitRate) // (it's uploaded for the team to watch, like the clips)
                         return ["path": out.path, "size": self.fileSize(out), "marks": marks]
                     }
                     let clean = made.contains { $0["voiced"] != nil } ? reelCleanFile : nil
@@ -554,10 +558,11 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 }
                 guard !pieces.isEmpty else { throw CutError(message: "None of the clips could be fetched. Check your signal and try again.") }
                 let out = dir.appendingPathComponent(name.hasSuffix(".mp4") ? name : name + ".mp4")
-                try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: voice(call.options["introVoice"]), signOff: voice(call.options["outroVoice"])) { fraction in
+                let size = ReelCutterPlugin.sharpness(pieces[0].asset, sharp: true) // (4K clips stay 4K in the reel; the usual ones as before)
+                try self.export(segments: pieces, watermark: "", outro: outro, to: out, intro: voice(call.options["introVoice"]), signOff: voice(call.options["outroVoice"]), preset: size.preset) { fraction in
                     self.notifyListeners("progress", data: ["stage": "reel", "i": 0, "n": 1, "p": fraction, "job": tag])
                 }
-                if call.getBool("shrink") ?? false { self.shrink(out) } // (one that's uploaded for the team to watch, like the cut's reel)
+                if call.getBool("shrink") ?? false { self.shrink(out, bitRate: size.bitRate) } // (one that's uploaded for the team to watch, like the cut's reel)
                 WorkFolders.tidy(dir, keeping: [out]) // (the fetched clips aren't needed any more)
                 call.resolve(["path": out.path, "size": self.fileSize(out), "marks": marks])
             } catch {
@@ -602,10 +607,11 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 plain.lower = lower
                 let base = (name as NSString).deletingPathExtension
                 let out = dir.appendingPathComponent(base + ".mp4")
-                try self.export(segments: [plain], watermark: "", outro: nil, to: out, look: look) { fraction in
+                let size = ReelCutterPlugin.sharpness(clip, sharp: true) // (a 4K clip is put right in 4K)
+                try self.export(segments: [plain], watermark: "", outro: nil, to: out, look: look, preset: size.preset) { fraction in
                     self.notifyListeners("progress", data: ["stage": "fix", "i": 0, "n": 1, "p": fraction])
                 }
-                self.shrink(out)
+                self.shrink(out, bitRate: size.bitRate)
                 var result: [String: Any] = ["path": out.path, "size": self.fileSize(out)]
                 if let text = call.getString("voice"), let data = Data(base64Encoded: text), data.count > 200 {
                     let line = dir.appendingPathComponent("line.mp3")
@@ -615,8 +621,8 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                     spoken.voiceAt = voiceAt
                     let voicedOut = dir.appendingPathComponent(base + "v.mp4")
                     do {
-                        try self.export(segments: [spoken], watermark: "", outro: nil, to: voicedOut, look: look) { _ in }
-                        self.shrink(voicedOut)
+                        try self.export(segments: [spoken], watermark: "", outro: nil, to: voicedOut, look: look, preset: size.preset) { _ in }
+                        self.shrink(voicedOut, bitRate: size.bitRate)
                         result["voiced"] = ["path": voicedOut.path, "size": self.fileSize(voicedOut)]
                     } catch {} // (the clip without commentary is still put right)
                 }
@@ -1024,6 +1030,18 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             throw CutError(message: session.error?.localizedDescription ?? "The video couldn't be cut")
         }
         progress(1)
+    }
+
+    /// How big a clip is made. Usually 960×540 at about 2 Mbit/s (small to keep and quick to watch). With `sharp` (the
+    /// Gaffer tier's 4K, Ethan, October 2026; and when joining or putting right clips that were made that way, which are
+    /// bigger than 960 across): 4K at about 16 Mbit/s from footage bigger than 1080p, else 1080p at about 6 Mbit/s.
+    static func sharpness(_ asset: AVAsset, sharp: Bool) -> (preset: String, bitRate: Int) {
+        let usual = (preset: AVAssetExportPreset960x540, bitRate: 2_000_000)
+        guard sharp, let track = asset.tracks(withMediaType: .video).first else { return usual }
+        let box = upright(track), long = max(abs(box.width), abs(box.height))
+        if long > 1920 { return (preset: AVAssetExportPreset3840x2160, bitRate: 16_000_000) }
+        if long > 960 { return (preset: AVAssetExportPreset1920x1080, bitRate: 6_000_000) }
+        return usual
     }
 
     /// Where a track's frames land once turned the right way up (the rect can start off the origin).

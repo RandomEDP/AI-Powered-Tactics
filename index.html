@@ -5761,6 +5761,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
           '<button class="plain" type="button" data-cutdo="gp" data-cam="' + k.id + '">Paste a link</button>' + // (a GoPro share link; an iPhone video comes from Photos)
           '<button class="plain" type="button" data-cutdo="rm" data-cam="' + k.id + '">Remove</button></span></li>';
       }).join('') + '</ol>';
+      if (hasGaffer()) html += '<label class="check tgl" for="cut4k"><input id="cut4k" type="checkbox" role="switch"' + (HD4K ? ' checked' : '') + '><span>Highlights in 4K <small>(Gaffer: sharper clips from 4K GoPro or iPhone footage, 1080p from anything smaller. A GoPro link then downloads the 4K original, several times bigger, and each clip takes longer to cut.)</small></span></label>';
       if (r.h2At) html += '<label class="check" for="camSwap"><input id="camSwap" type="checkbox"' + (CUT.swap ? ' checked' : '') + '><span>Teams swapped ends at half time <small>(the ends drawn are for the first half)</small></span></label>';
       if (CUT.gp) html += gpBox();
       html += busy + '<div class="actions">' + (CUT.cams.length < CAM_MAX && !CUT.prog ? '<button class="plain" type="button" data-cutdo="add">Add a camera</button>' + (CUT.gp ? '' : '<button class="plain" type="button" data-cutdo="gpadd">Add from a GoPro link</button>') : '') + // (iPhone videos: Add a camera, from Photos)
@@ -5858,6 +5859,12 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   // goes to his GoPro cloud). The edge function reads what's in the share; the phone downloads it from GoPro (iPhone app)
   // in the background (ReelCutter.fetchVideo), then it's used exactly like one chosen from Photos.
   // CUT.gp = { cam, two, fresh, link, busy, msg, list }
+  // 4K highlights, for the Gaffer tier (Ethan, October 2026: "allow 4k uploads only for the pro gaffer tier ... from iPhone
+  // footage but also ... from GoPro footage"): an iPhone video from Photos is used as it is, a GoPro link brings the 4K
+  // original instead of the 1080p copy, and the phone cuts the clips in 4K (or 1080p from smaller footage) instead of the
+  // usual 960×540. Kept per phone (apt-4k).
+  var HD4K = (function () { try { return localStorage.getItem('apt-4k') === '1'; } catch (e) { return false; } })();
+  function sharp4k() { return hasGaffer() && HD4K; }
   function gpOpen(k, two, fresh) { cutKeep(); CUT.msg = ''; CUT.gp = { cam: k.id, two: !!two, fresh: !!fresh, link: '', busy: false, msg: '', list: null }; renderCut(); var el = $('gpLink'); if (el) try { el.focus(); } catch (e) {} }
   function gpClose() { // (a camera added just for the link, still without a video, goes again)
     var g = CUT.gp, k = g && camById(g.cam); CUT.gp = null; CUT.prog = '';
@@ -5871,7 +5878,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       html += '<p class="note">There are ' + g.list.length + ' videos in that link. Which one is ' + (g.two ? 'the second half' : 'the game (or its first half)') + '?</p><ol class="gplist">' + g.list.map(function (v, i) {
         var d = gpWhen(v.captured), m = v.duration ? Math.round(v.duration / 60) : null;
         return '<li><button class="plain" type="button" data-cutdo="gpuse" data-i="' + i + '"' + (g.busy ? ' disabled' : '') + '><b>' + esc(v.name) + '</b><span>' +
-          esc([d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) : '', m != null ? (m < 1 ? 'under a minute' : m + ' min') : '', v.size ? mb(v.size) : ''].filter(Boolean).join(', ')) + '</span></button></li>';
+          esc([d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) : '', m != null ? (m < 1 ? 'under a minute' : m + ' min') : '', v.quality || '', v.size ? mb(v.size) : ''].filter(Boolean).join(', ')) + '</span></button></li>';
       }).join('') + '</ol>' + (!g.two ? '<p class="note">Halves in two videos? Pick the first half here, then use Add a second-half video for the other.</p>' : '');
     } else html += '<label class="field" for="gpLink">Share link<input id="gpLink" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="gopro.com/v/…" value="' + esc(g.link) + '"' + (g.busy ? ' disabled' : '') + '></label>' + // (iPhone videos come from Photos)
       '<div class="actions"><button class="plain primary" type="button" data-cutdo="gpgo"' + (g.busy ? ' disabled' : '') + '>Get the video</button></div>';
@@ -5893,7 +5900,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!g.link) { g.msg = 'Paste the share link first.'; renderCut(); return; }
     g.busy = true; CUT.prog = 'Reading the link…'; renderCut();
     var none = 'Couldn’t reach Gaffer’s server. Check your signal and try again.', d;
-    try { d = sb && sb.functions ? await fnSays(await sb.functions.invoke('gopro-link', { body: { code: A.active, link: g.link } }), none) : { error: none }; } catch (e) { d = { error: none }; } // (GoPro links only; iPhone videos come from Photos)
+    try { d = sb && sb.functions ? await fnSays(await sb.functions.invoke('gopro-link', { body: { code: A.active, link: g.link, res: sharp4k() ? '4k' : null } }), none) : { error: none }; } catch (e) { d = { error: none }; } // (GoPro links only; iPhone videos come from Photos)
     if (CUT.gp !== g) return;
     g.busy = false; CUT.prog = '';
     if (!d || d.error || !d.videos || !d.videos.length) { g.msg = (d && d.error) || none; renderCut(); return; }
@@ -5939,6 +5946,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('cutBody').addEventListener('pointercancel', function () { if (camDrag) { camDrag = null; if (CUT) renderCut(); } });
   $('cutBody').addEventListener('change', function (e) {
     if (e.target.id === 'camSwap' && CUT) { CUT.swap = e.target.checked; camStore(); }
+    if (e.target.id === 'cut4k' && CUT) { HD4K = e.target.checked; try { localStorage.setItem('apt-4k', HD4K ? '1' : ''); } catch (err) {} }
     if (e.target.id === 'cutBug' && CUT) { cutKeep(); renderCut(); }
     if (e.target.id === 'cutVoiceName' && CUT) { VO.msg = ''; cutKeep(); renderCut(); } // (shows whether it needs unlocking)
   });
@@ -6156,7 +6164,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         var bugs = CUT.bug !== false; CUT.storeNote = null;
         var res = await rc.cut({ path: list[0].path, watermark: 'Gaffer', reelFile: said ? 'reelv.mp4' : 'reel.mp4', reelCleanFile: said ? 'reel.mp4' : null, introVoice: said ? said[0] : null, outroVoice: said ? said[said.length - 1] : null, look: bugs ? lookFor(r) : null,
           clips: list.map(function (c, i) { var lk = clipLook(r, c); return { path: c.path, start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4', voice: said ? said[i + 1] : null, voiceAt: Math.max(0, c.t - c.start) + 0.7, bug: bugs ? lk.bug : null, lower: lk.lower }; }),
-          outro: endCard(r) });
+          outro: endCard(r), quality: sharp4k() ? '4k' : null });
         var rows = [], keyOf = function (made) { return teamId + '/' + folderOf(r) + '/' + made.file; }, links = {}, r2 = !!CFG.clipsUrl;
         // the whole reel goes up too, to play at the top of the game in Highlights (without commentary, and with it if there is any)
         var reelParts = res.reelClean ? [{ file: 'reel.mp4', path: res.reelClean.path }, { file: 'reelv.mp4', path: res.reel.path, v: true }] : res.reel ? [{ file: 'reel.mp4', path: res.reel.path }] : [];

@@ -283,6 +283,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   checks there's room first. GoPro's addresses last about an hour. `camTake` then treats it like a video from Photos; its
   start time is GoPro's `captured_at`, which is the camera's local clock written with a Z (`gpCreated` takes it as local
   time unless only UTC puts kick-off inside the video). Test: `gopro.test.mjs`.
+- **Highlights in 4K** (Gaffer tier, `hasGaffer()`; Ethan, October 2026): a switch on the cameras screen (`#cut4k`, `HD4K`,
+  `sharp4k()`, `apt-4k` per phone). On, a GoPro link asks `gopro-link` for `res: '4k'` (`pickVersion`: the original up to
+  3840×2160, a 5.3K one still the 1080p copy) and `cut` gets `quality: '4k'`: each clip is made 4K at about 16 Mbit/s from
+  footage bigger than 1080p, else 1080p at about 6 Mbit/s (`ReelCutterPlugin.sharpness`), instead of the usual 960×540 at
+  2 Mbit/s. The cut's reel, `joinReel` and `relabel` keep a sharp clip's size by themselves (from the first clip). A 4K clip
+  is about 8 times the R2 storage of a usual one.
 - **Which camera each moment comes from:**
   - our goals: nearest the opposition goal;
   - goals against: nearest our goal;
@@ -983,7 +989,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v29 (a player running the game they started sends kickoff and goal; kind `live` from any team member, sent once; kind `report` tells the moderators, comments included; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
-    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v3 (players may upload/remove in their own `players/<pid>/` folder; puts a tiny test file in R2 first and says R2's own reason if it refuses), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `gopro-link` v2 (what's in a GoPro share link, both kinds of id; an iPhone video comes from Photos), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v3 (players may upload/remove in their own `players/<pid>/` folder; puts a tiny test file in R2 first and says R2's own reason if it refuses), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `gopro-link` v3 (what's in a GoPro share link, both kinds of id, 4K for the Gaffer tier; an iPhone video comes from Photos), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **The shop** (October 2026): `0033_shop.sql` is applied live, and `shop` v1 (verify_jwt = true) and `shop-webhook` v1
