@@ -270,7 +270,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
      footage" sets the camera's `k.no2`; `camNo2` keeps its second-half moments out of the line-up (`cutRows`) and gives
      them no clip from it (`camSeg` returns null, so another camera that filmed them is used). They still count in the
      stats. "There is second-half footage" takes it back. Test: `nosecondhalf.test.mjs`.
-  4. The phone cuts.
+  4. The phone cuts. **It carries on while you use the rest of Gaffer** (Ethan, October 2026): "Use Gaffer while it cuts"
+     (or Back) leaves it running, and a bar above the tab bar (`#cutBar`, `cutBarDraw`, fed by `cutSay`) says what's being
+     cut and how far it's got on every screen but the cut's own and the game's; tapping it goes back. When it finishes or
+     stops elsewhere the bar says so until the cut screen is seen (`CUT.seen`). One cut at a time (`cutBusy`: Cut from video
+     opens the one running), and no switching team mid-cut (`openTeam` refuses; the cut saves and uploads to the open
+     team). iOS still pauses the cutting once Gaffer is put away (only the uploads carry on). Test: `cutaway.test.mjs`.
 - **A camera's video from a GoPro share link** (Ethan, October 2026: his footage all goes to GoPro's cloud; an iPhone video
   still comes from Photos): "Add from a GoPro link" under the cameras, or "Paste a link" on a camera or for its second half
   (`gpOpen`, `gpBox`, `CUT.gp`). The `gopro-link` edge function (gaffers only) reads the share with GoPro's own public API
@@ -897,7 +902,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
 
 ### Rewarded ads (the free tier; `0035_rewarded_ads.sql`, `ad-reward`; Ethan: "just a 30 second ad to see your own highlight reel")
-- No banners. **Out of Experimental (Ethan, October 2026):** the ad plays while the phone makes something you'd be
+- **One banner** (Ethan: "have ads showing below while it's creating"): on the free tier, a banner ad (`banSync`,
+  `showBanner` ADAPTIVE_BANNER at the bottom) sits under the cut screen while highlights are cut, once the 30-second ad has
+  closed; it goes when you leave the screen or the cut ends, and the screen makes room for it (`body.adbanned`, `--adban`
+  from `bannerAdSizeChanged`). It needs Gaffer's banner ad unit in `config.js` `ads.banner` (empty: no banner; Ethan makes
+  one in AdMob, Apps, Gaffer, Ad units, Banner). Test: `cutaway.test.mjs`.
+- No other banners. **Out of Experimental (Ethan, October 2026):** the ad plays while the phone makes something you'd be
   waiting for anyway: a reel (a player's or a game's Highlight reel), a beat highlight, or a game's highlights being cut.
   Pressing Make first shows `#adAskPop` (`adAsk`: "While your reel is made, watch a 30-second ad to unlock it. It takes
   about that long to make anyway.", Watch the ad / Not now; Not now makes nothing). Your own reel kept on your card is
