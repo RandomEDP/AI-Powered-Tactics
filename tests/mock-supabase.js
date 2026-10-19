@@ -189,7 +189,7 @@
       return fail('no such function ' + name, '42883');
     }
     // ---------- profiles and following (0023), as the real functions behave
-    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team', 'create_post', 'remove_post', 'like_post', 'report_post', 'get_feed', 'user_posts', 'my_reels', 'team_people', 'tag_post', 'untag_post', 'user_tagged', 'post_comments', 'add_comment', 'remove_comment', 'report_comment'];
+    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team', 'create_post', 'remove_post', 'like_post', 'report_post', 'get_feed', 'user_posts', 'my_reels', 'team_people', 'tag_post', 'untag_post', 'user_tagged', 'public_feed', 'post_comments', 'add_comment', 'remove_comment', 'report_comment'];
     if (PEOPLE.includes(name)) {
       const RESERVED = d.reserved_usernames || ['edp', 'ethan', 'ethandp', 'e_d_p_1', 'gaffer', 'admin', 'support', 'official'].map((h) => ({ handle: h, user_id: null }));
       const prof = (u) => d.profiles.find((p) => p.user_id === u), byName = (n) => d.profiles.find((p) => p.username.toLowerCase() === String(n || '').trim().toLowerCase());
@@ -206,7 +206,7 @@
       const seeable = (p) => p.user_id === uid() || !p.private || fol(uid(), p.user_id) === 'accepted';
       const counts = (u) => ({ followers: d.follows.filter((f) => f.followee === u && f.status === 'accepted').length, following: d.follows.filter((f) => f.follower === u && f.status === 'accepted').length });
       if (name === 'username_status') return ok(status(String(a.p_username || '').trim(), uid()));
-      if (!uid()) return fail('Sign in first', '42501');
+      if (!uid() && name !== 'public_feed') return fail('Sign in first', '42501'); // (All, on Home, can be read before signing in)
       const mine = prof(uid());
       if (name === 'set_profile') {
         const u = String(a.p_username || '').trim(), st = status(u, uid()); if (st !== 'ok') return ok(st);
@@ -281,6 +281,9 @@
       if (name === 'report_post') { const x = d.posts.find((y) => y.id === a.p_id); if (!x) return ok(false); const r = d.post_reports.find((y) => y.post_id === x.id && y.user_id === uid());
         if (r) r.reason = String(a.p_reason || ''); else d.post_reports.push({ post_id: x.id, user_id: uid(), reason: String(a.p_reason || '') }); store(d); return ok(true); }
       if (name === 'get_feed') return ok(d.posts.filter((x) => live(x) && (x.user_id === uid() || fol(uid(), x.user_id) === 'accepted') && !blocked(uid(), x.user_id)).sort((x, y) => y.created_at - x.created_at).slice(0, 20).map(postJson).filter((x) => x));
+      if (name === 'public_feed') { const likes = (x) => d.post_likes.filter((l) => l.post_id === x.id && l.liked).length;
+        return ok(d.posts.filter((x) => { const pr = prof(x.user_id); return live(x) && pr && !pr.private && !(uid() && blocked(uid(), x.user_id)); })
+          .sort((x, y) => likes(y) - likes(x) || y.created_at - x.created_at).slice(Math.max(+a.p_offset || 0, 0)).slice(0, 40).map(postJson).filter((x) => x)); }
       if (name === 'user_posts') { const pr = byName(a.p_username); if (!pr || blocked(uid(), pr.user_id) || !seeable(pr)) return ok(null);
         return ok(d.posts.filter((x) => live(x) && x.user_id === pr.user_id).sort((x, y) => y.created_at - x.created_at).map(postJson).filter((x) => x)); }
       if (name === 'my_reels') return ok((d.player_reels || []).filter((r) => r.path && d.players.some((pl) => pl.team_id === r.team_id && pl.pid === r.pid && pl.user_id === uid()))

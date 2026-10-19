@@ -116,7 +116,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me). New ones are numbered on from 0043 |
+| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed). New ones are numbered on from 0046 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `gopro-link` (what's in a GoPro share link, for the highlights; an iPhone video comes from Photos), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -500,6 +500,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Home** (`v-feed`, `fdLoad`, `renderFeed`): the brand and three icons at the top: + (new post, `#fdNew`), the heart
   (follow requests, `#fdReq`) and search (Find people, `#fdFind`). Underneath, posts from people you follow and your own
   (`get_feed`, 20 at a time, newest first, blocked people left out) mixed with the game cards above.
+- **Following and All** (`0045_feed_all.sql`, Ethan, October 2026; `#fdTabs` in `#fdTabsBox`, `fdTab`, kept in `apt-feed-tab`):
+  Following is the feed above. All is `public_feed(p_offset)`: posts from every public profile, most liked first, 40 at a
+  time ("Show more"), and anon can read it. Posts this phone hasn't had on screen (`FDIO`, `apt-feed-all-seen`, last 500) come
+  first, then "You're all caught up" (`#fdCaught`) and the seen ones, each most liked first; the split is made once a load.
+  Signed out, All has a welcome card and likes, comments and ⋯ ask to sign in (the Account page's back returns Home). The
+  default tab is Following for a signed-in phone with a team, else All. A new phone (first swipe-through, no team) opens on
+  Home (`A.feedFirst`) until it's in a team. Test: `feedall.test.mjs`; `db.test.mjs`.
 - **Posting** (`#postPop`, `postOpen`, `renderNP`): pick one of your own clips (Your clips: clips you're tagged in, from
   `my_clips`) or one of your player reels (Your reels, `my_reels`), add a caption (300 characters), Share
   (`create_post(p_kind, p_team, p_game, p_at, p_caption)`; `kind` clip or reel). The server checks it's yours
