@@ -122,7 +122,7 @@ await S.run(800); await S.click('#prBody [data-ptab="pinned"]');
 eq(await S.page.$$eval('#prBody .vplayer [data-clip]', (b) => b.map((x) => x.textContent)), ['SOP FC 1–0 Dog Squad: 2\' Goal: Jake'], 'Sam can watch it on his profile');
 
 // ---------- the feed
-await S.click('#tabs [data-tab="feed"]'); await S.run(1200);
+await S.click('#tabs [data-tab="feed"]'); await S.run(1200); await S.click('#fdTabs [data-fdtab="following"]'); await S.run(300); // (no team on his phone: Home opens on All)
 eq(await S.page.$$eval('#fdBody .feedcard h3', (h) => h.map((x) => x.textContent.replace('New', '').trim())), ['SOP FC 1–0 Dog Squad'], 'Sam\'s feed has the game Jake played');
 check(/1 goal/.test(await S.text('#fdBody .feedcard')) && await S.page.$$eval('#fdBody .feedcard [data-clip]', (b) => b.length) === 1, 'with his goal and his clip');
 await shot(S, 'feed');
@@ -196,7 +196,7 @@ await A.page.check('#oFind'); await A.run(2500);
 // ---------- signed out, People asks you to sign in
 const N = await w.phone({ db: true, label: 'nobody' });
 await N.click('#pplBtn'); await N.run(300);
-check(/Sign in to share your moments/.test(await N.text('#fdBody')), 'without an account, Home says what it\'s for and asks you to sign in');
+check(/Welcome to Gaffer/.test(await N.text('#fdBody')) && await N.visible('#fdBody [data-fd="signin"]'), 'without an account, Home shows everyone\'s public posts and asks you to sign in');
 
 await w.close();
 await done(A, J, S, F, N);
