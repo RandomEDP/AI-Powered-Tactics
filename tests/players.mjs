@@ -44,7 +44,7 @@ await D.click('#pendCard [data-go="account"]'); await D.fill('#aEmail', 'jake@ex
 console.log('after confirming and signing in:', await view(D), '|', (await D.textContent('#meCard')).replace(/\s+/g, ' ').slice(0, 80));
 console.log('squad:', (await D.$$eval('#squadList .prow', (r) => r.map((x) => x.textContent.replace(/\s+/g, ' ')))).join(' / '));
 console.log('new game class:', await D.getAttribute('#mNew', 'class'), '| settings tab class:', await D.getAttribute('#mOptions', 'class'));
-await D.click('#mNew', { force: true }); console.log('tap New game:', await D.textContent('#lockMsg'), '| still on:', await view(D));
+await D.click('#mNew', { force: true }); console.log('tap New game (anyone in the squad can start one):', await view(D)); await D.click('#v-setup .back'); await wait(200);
 await D.click('#mOptions'); await wait(200); console.log('Settings for a player:', await view(D), '| team settings hidden:', !(await D.isVisible('#optGaffer')), '| experimental shown:', await D.isVisible('#expTrack'), '|', await D.textContent('#optViewer')); await D.click('#v-options .back'); await wait(200);
 await shot(D, 'home-player');
 await D.click('#mHighlights'); await wait(200); console.log('highlights by game:', (await D.textContent('#hlList')).replace(/\s+/g, ' ').slice(0, 170));

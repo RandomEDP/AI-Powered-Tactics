@@ -1,4 +1,4 @@
-// The database's side of "anyone in the squad can start a game, only the gaffers can delete one" (0044): a player who has
+// The database's side of "anyone in the squad can start a game, only the gaffers can delete one" (0046): a player who has
 // claimed their place can run a game they started (the live game, the goals followers log for it, and the finished game),
 // and nothing else: not a game a gaffer started, not another game, not the team or squad. Only the gaffers delete games.
 import { suite } from './lib.mjs';

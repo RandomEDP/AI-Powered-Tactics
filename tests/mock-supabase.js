@@ -16,7 +16,7 @@
     const us = [...new Set(d.players.filter((p) => p.team_id === team && p.user_id).map((p) => p.user_id).concat(d.team_members.filter((m) => m.team_id === team).map((m) => m.user_id)))];
     us.filter((o) => o !== user && !d.blocks.some((x) => (x.blocker === o && x.blocked === user) || (x.blocker === user && x.blocked === o))).forEach((o) => [[user, o], [o, user]].forEach(([a1, b1]) => {
       const f = d.follows.find((x) => x.follower === a1 && x.followee === b1); if (f) f.status = 'accepted'; else d.follows.push({ follower: a1, followee: b1, status: 'accepted', at: Date.now() }); })); };
-  // (0044) a player who has claimed their place runs a game they started: its live game (state.by), the goals logged for it,
+  // (0046) a player who has claimed their place runs a game they started: its live game (state.by), the goals logged for it,
   // and the finished game (games.run_by) with its players and events. Not in a friendlies team.
   const runs = (d, table, row) => {
     const team = teamOf(d, table, row), me = uid();
