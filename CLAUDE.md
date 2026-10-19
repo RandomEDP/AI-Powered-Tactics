@@ -275,7 +275,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
      cut and how far it's got on every screen but the cut's own and the game's; tapping it goes back. When it finishes or
      stops elsewhere the bar says so until the cut screen is seen (`CUT.seen`). One cut at a time (`cutBusy`: Cut from video
      opens the one running), and no switching team mid-cut (`openTeam` refuses; the cut saves and uploads to the open
-     team). iOS still pauses the cutting once Gaffer is put away (only the uploads carry on). Test: `cutaway.test.mjs`.
+     team). On iOS 26 the cut also carries on in other apps with **iOS's own progress card** (Ethan chose it; a Live Activity on the Lock Screen and at the top of the screen, from continued processing, no widget target or Apple setup): `ContinuedWork.swift` in the plugin, `bgStart({title, subtitle})` / `bgUpdate({subtitle, p})` / `bgEnd({ok})`, JS `cutBg`, `cutSay` keeps it up to date (`CUT.frac`); the identifier is `$(PRODUCT_BUNDLE_IDENTIFIER).work.*` in Info.plist `BGTaskSchedulerPermittedIdentifiers`, a new name each cut. Stopping it from the card stops the cut (event `bg` `stopped`, `BG_STOPPED`, the plugin's `stopAsked('cut')`). Older iOS: no card, and the screen says iOS pauses the cutting once Gaffer is put away (only the uploads carry on). Test: `cutaway.test.mjs`.
 - **A camera's video from a GoPro share link** (Ethan, October 2026: his footage all goes to GoPro's cloud; an iPhone video
   still comes from Photos): "Add from a GoPro link" under the cameras, or "Paste a link" on a camera or for its second half
   (`gpOpen`, `gpBox`, `CUT.gp`). The `gopro-link` edge function (gaffers only) reads the share with GoPro's own public API

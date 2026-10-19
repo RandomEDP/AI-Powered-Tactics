@@ -5598,7 +5598,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 
   // ---- cutting highlights on the phone (iPhone app only): pick the recording, line it up, cut, upload the clips
   var CUT = null, rcBound = false;
-  function RCp() { var rc = plugin('ReelCutter'); if (rc && !rcBound) { rcBound = true; try { rc.addListener('progress', cutProgress); rc.addListener('upload', upProgress); } catch (e) {} } return rc; }
+  function RCp() { var rc = plugin('ReelCutter'); if (rc && !rcBound) { rcBound = true; try { rc.addListener('progress', cutProgress); rc.addListener('upload', upProgress); rc.addListener('bg', cutBgSaid); } catch (e) {} } return rc; }
   function cutProgress(d) {
     if (!d) return;
     var pct = Math.round((d.p || 0) * 100);
@@ -5609,6 +5609,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (RB.busy && !mkJob) { RB.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'Joining the reel, ' + pct + '%'; var rm = $('rbProg'); if (rm) rm.textContent = RB.prog; }
     if (!CUT || mkJob) return;
     if (d.stage === 'download' && !(CUT.gp && CUT.gp.busy)) return; // (a download carrying on for a link no longer being used)
+    if (d.stage === 'cut') CUT.frac = 0.05 + 0.75 * ((d.i || 0) + (d.p || 0)) / (d.n || 1); else if (d.stage === 'reel') CUT.frac = 0.8 + 0.1 * (d.p || 0);
     CUT.prog = d.stage === 'download' ? 'Downloading the video, ' + pct + '%. It carries on if you put Gaffer away.' : d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';
     cutSay();
   }
@@ -5616,7 +5617,19 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   // highlights and then it has a banner somewhere to display progress"). The bar sits above the tab bar on every screen but
   // the cut's own and the game's, and tapping it goes back to the cut. iOS still pauses the cutting once Gaffer is put away.
   function cutBusy() { return !!(CUT && CUT.stage === 'work' && !CUT.msg); }
-  function cutSay() { var el = $('cutProg'); if (el && CUT) el.textContent = CUT.prog; cutBarDraw(); }
+  function cutSay() { var el = $('cutProg'); if (el && CUT) el.textContent = CUT.prog; cutBarDraw(); if (CUT && CUT.bg && cutBusy()) { var rc = RCp(); try { rc.bgUpdate({ subtitle: CUT.prog, p: CUT.frac || 0 }).catch(function () {}); } catch (e) {} } }
+  // iOS's own progress card (iOS 26 and later; Ethan chose it over a Gaffer-made Live Activity, October 2026): while it's up,
+  // iOS lets the cut carry on with Gaffer put away, showing how far it's got on the Lock Screen and at the top of the screen,
+  // with a button to stop it (cutBgSaid). On an older iOS nothing shows, and the cut pauses once Gaffer is put away, as before.
+  var BG_STOPPED = 'Stopped from the progress card, so the highlights weren’t saved. Cut them again when you’re ready.';
+  function cutBg(on, ok) {
+    var rc = RCp(); if (!rc || !CUT) return;
+    if (on) {
+      var r = S.results[CUT.idx], mine = CUT; CUT.bg = false;
+      try { rc.bgStart({ title: r ? 'Highlights v ' + r.opp : 'Cutting highlights', subtitle: CUT.prog || 'Starting…' }).then(function (x) { if (CUT === mine && x && x.started && cutBusy()) { CUT.bg = true; renderCut(); } }, function () {}); } catch (e) {}
+    } else if (CUT.bg) { CUT.bg = false; try { rc.bgEnd({ ok: !!ok }).catch(function () {}); } catch (e) {} }
+  }
+  function cutBgSaid(d) { if (d && d.state === 'stopped' && cutBusy()) { CUT.bgStop = true; CUT.bg = false; } } // (the cut itself stops at its next clip; the uploads stop here)
   var CUTBAR = { msg: '', t: 0 };
   function cutBarSay(msg) { CUTBAR.msg = msg; clearTimeout(CUTBAR.t); CUTBAR.t = setTimeout(function () { CUTBAR.msg = ''; cutBarDraw(); }, 5000); cutBarDraw(); }
   function cutBarDraw() {
@@ -5864,7 +5877,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         '<div class="actions"><button class="plain" type="button" data-cutdo="cams">Back to the cameras</button><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
     }
     else if (CUT.stage === 'work') html += (CUT.msg ? '' : '<p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>' + // (stopped by a problem: no spinner)
-      '<p class="note">A full game usually takes a minute or two. You can use the rest of Gaffer while it cuts: a bar at the bottom shows how it’s going. Keep Gaffer open until it’s done, as iOS pauses the cutting once Gaffer is put away.</p>' +
+      '<p class="note">A full game usually takes a minute or two. You can use the rest of Gaffer while it cuts: a bar at the bottom shows how it’s going. ' + (CUT.bg ? 'You can switch to other apps too: iOS shows how it’s going on the Lock Screen and at the top of the screen.' : 'Keep Gaffer open until it’s done, as iOS pauses the cutting once Gaffer is put away.') + '</p>' +
       '<div class="actions"><button class="plain" type="button" data-cutdo="away">Use Gaffer while it cuts</button></div>');
     else if (CUT.stage === 'done') html += '<p class="msg">' + CUT.n + (CUT.n === 1 ? ' clip is' : ' clips are') + ' now in Highlights for the whole team' + (CUT.voiced === true ? ', with commentary' : '') + '.</p>' + (CUT.voiced && CUT.voiced !== true ? '<p class="msg bad">The commentary couldn’t be added: ' + esc(CUT.voiced) + ' The clips were cut without it.</p>' : '') +
       (CUT.storeNote ? '<p class="note">' + esc(CUT.storeNote) + '</p>' : '') + (CUT.reelErr ? '<p class="msg bad">The full reel couldn’t be joined: ' + esc(CUT.reelErr) + ' The clips are all in Highlights; cut again to try the reel once more.</p>' : '') +
@@ -6212,7 +6225,8 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       var cutAd = adWanted(); // (the free tier: an ad plays while the phone cuts, which takes minutes anyway)
       if (cutAd && !(await adAsk('Watch an ad while your highlights are cut', 'While your highlights are cut, watch a 30-second ad. Cutting takes a few minutes anyway, so it won’t hold you up.'))) { cutKeep(); renderCut(); return; }
       if (cutAd && !AD.busy) { AD.busy = true; adRun('make', null, { local: true }).then(function (x) { AD.busy = false; banSync(); if (x === 'nofill') noAdPop('Google hasn’t got an ad for you right now, so there’s no ad this time. Your highlights are still being cut.'); }, function () { AD.busy = false; banSync(); }); } // (the cut carries on whatever happens to the ad)
-      CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; renderCut();
+      CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; CUT.frac = 0; CUT.bgStop = false; renderCut();
+      cutBg(true); // (iOS's own progress card, so the cut carries on in other apps)
       try {
         var b0 = camBase(r, live[0], false, false); if (b0 != null) r.sync = Math.max(0, Math.round(b0)); save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
         if (dirty || !r.id) throw new Error('Couldn’t save the game to the database. Check your signal and try again.');
@@ -6220,7 +6234,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         var said = null; CUT.voiced = null;
         if (CUT.voice && hasGaffer() && !aiYes) CUT.voiced = AI_NO;
         else if (CUT.voice && hasGaffer()) {
-          CUT.prog = 'Recording the commentary…'; cutSay();
+          CUT.prog = 'Recording the commentary…'; CUT.frac = 0.02; cutSay();
           var sw = swears(), ft = 'Full time. ' + usFull(r) + ' ' + r.us + ', ' + r.opp + ' ' + r.them + '.';
           var words = [sw ? usFull(r) + ' against ' + r.opp + '. Strap in, this gets fucking mental.' : usFull(r) + ' against ' + r.opp + '. Here are the highlights.'].concat(list.map(function (c) { return commentaryFor(r, { at: c.at, dur: c.end - c.start }, sw) || ''; }),
             [sw ? ft + ' ' + (r.us > r.them ? 'Get fucking in!' : r.us < r.them ? 'Absolute shambles. Pints are on the keeper.' : 'Honours even. Shite game, if we’re honest.') : ft]);
@@ -6231,6 +6245,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
             else CUT.voiced = (vd && vd.error) || (vr && vr.error && vr.error.message) || 'the voice service didn’t answer.';
           } catch (ve) { CUT.voiced = 'the voice service couldn’t be reached.'; }
         }
+        if (CUT.bgStop) throw new Error(BG_STOPPED); // (stopped from the progress card while the commentary was recorded)
         var bugs = CUT.bug !== false; CUT.storeNote = null;
         var res = await rc.cut({ path: list[0].path, watermark: 'Gaffer', reelFile: said ? 'reelv.mp4' : 'reel.mp4', reelCleanFile: said ? 'reel.mp4' : null, introVoice: said ? said[0] : null, outroVoice: said ? said[said.length - 1] : null, look: bugs ? lookFor(r) : null,
           clips: list.map(function (c, i) { var lk = clipLook(r, c); return { path: c.path, start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4', voice: said ? said[i + 1] : null, voiceAt: Math.max(0, c.t - c.start) + 0.7, bug: bugs ? lk.bug : null, lower: lk.lower }; }),
@@ -6262,7 +6277,8 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
           return { key: to, r2: false };
         };
         for (var i = 0; i < res.clips.length; i++) {
-          CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; cutSay();
+          if (CUT.bgStop) throw new Error(BG_STOPPED);
+          CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; CUT.frac = 0.9 + 0.08 * i / res.clips.length; cutSay();
           var a = await up(res.clips[i]), v = res.clips[i].voiced ? await up(res.clips[i].voiced) : null;
           if (a.r2 && v && !v.r2) { try { await q(sb.storage.from('clips').upload(a.key, await (await fetch(window.Capacitor.convertFileSrc(res.clips[i].path))).blob(), { contentType: 'video/mp4', upsert: true })); } catch (e) {} a.r2 = false; } // (both copies of a clip in one place)
           var path = a.key, vpath = v ? v.key : null;
@@ -6271,7 +6287,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         var reelRow = null, oldReel = r.reel || null;
         if (reelParts.length && marks) {
           try {
-            CUT.prog = 'Uploading the full reel'; cutSay();
+            CUT.prog = 'Uploading the full reel'; CUT.frac = 0.98; cutSay();
             var ups = []; for (var ri = 0; ri < reelParts.length; ri++) ups.push(await up(reelParts[ri]));
             if (ups.every(function (u) { return u.r2 === ups[0].r2; })) {
               reelRow = { path: ups[0].key, store: ups[0].r2 ? 'r2' : null }; if (ups[1]) reelRow.vpath = ups[1].key;
@@ -6297,6 +6313,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         CUT.stage = 'done'; CUT.n = rows.length; CUT.reel = res.reel ? res.reel.path : null; CUT.reelErr = res.reel ? null : res.reelError || null;
         notifyTeam('highlights', scoreLine(r, r.us, r.them), 'The highlights are ready to watch.');
       } catch (err) { CUT.msg = (err && err.message) || 'Something went wrong while cutting.'; }
+      cutBg(false, CUT.stage === 'done');
       renderCut();
     } else if (act === 'away') { go(reelBack || 'highlights'); }
     else if (act === 'retry') { CUT.stage = CUT.cams.some(function (k) { return k.src; }) ? 'sync' : 'cams'; CUT.msg = ''; renderCut(); }
