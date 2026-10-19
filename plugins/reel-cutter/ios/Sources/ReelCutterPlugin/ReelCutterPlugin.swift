@@ -45,6 +45,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         CAPPluginMethod(name: "upload", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "relabel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "beatEdit", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cancel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cleanup", returnType: CAPPluginReturnPromise)
     ]
 
@@ -482,6 +483,26 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     ///   joinReel({ items: [{ url, voice?, voiceAt? }], introVoice?, outroVoice?, outro: { title, sub, color, ink }, file })
     ///     -> { path, size }
     /// Emits "progress" { stage: "fetch", i, n, p, job } while fetching the clips, then { stage: "reel", p, job } (`job`: the call's own).
+    /// Cancel on a reel or beat edit being made (Ethan asked): `cancel({job})` names the `job` it was started with. A job
+    /// still waiting on the queue is stopped before it starts; one under way stops at its next clip or its export.
+    private let stopLock = NSLock()
+    private var stopJobs = Set<String>()
+    /// Asked by `run` and the clip fetching while a job is under way (only touched on `queue`, one job at a time).
+    private var stopNow: (() -> Bool)?
+    @objc public func cancel(_ call: CAPPluginCall) {
+        let job = call.getString("job") ?? ""
+        guard !job.isEmpty else { call.reject("Nothing to stop"); return }
+        stopLock.lock(); stopJobs.insert(job); stopLock.unlock()
+        call.resolve()
+    }
+    private func stopAsked(_ job: String) -> Bool {
+        guard !job.isEmpty else { return false }
+        stopLock.lock(); defer { stopLock.unlock() }
+        return stopJobs.contains(job)
+    }
+    private func stopForget(_ job: String) { stopLock.lock(); stopJobs.remove(job); stopLock.unlock() }
+    private func checkStop() throws { if stopNow?() == true { throw CutError(message: "Stopped. Nothing was made.") } }
+
     @objc public func joinReel(_ call: CAPPluginCall) {
         guard let raw = call.options["items"] as? [[String: Any]], !raw.isEmpty else { call.reject("No clips to join"); return }
         let outro = call.options["outro"] as? [String: Any]
@@ -492,9 +513,11 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         if Thread.isMainThread { begin() } else { DispatchQueue.main.sync(execute: begin) } // (time to finish if the app is put away)
         let finished = { DispatchQueue.main.async { if spare != .invalid { UIApplication.shared.endBackgroundTask(spare); spare = .invalid } } }
         queue.async {
-            defer { finished() }
+            defer { finished(); self.stopNow = nil; self.stopForget(tag) }
+            self.stopNow = { self.stopAsked(tag) }
             var job: URL?
             do {
+                try self.checkStop()
                 let dir = try WorkFolders.fresh("reel", in: self.ensureWorkDir()) // (its own: another join must never delete this one's video)
                 job = dir
                 var lines = 0
@@ -509,6 +532,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 var marks: [Any] = [] // where each item starts in the reel, in seconds (null for one left out), to skip to it
                 var at = 0.0
                 for (index, item) in raw.enumerated() {
+                    try self.checkStop()
                     guard let where_ = item["url"] as? String, !where_.isEmpty else { marks.append(NSNull()); continue }
                     var local: URL
                     if where_.hasPrefix("http") {
@@ -627,18 +651,22 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             return (from, to, times)
         }
         let name = (call.getString("file") ?? "beat-edit.mp4").replacingOccurrences(of: "/", with: "-")
+        let tag = call.getString("job") ?? ""
         var spare: UIBackgroundTaskIdentifier = .invalid
         let begin = { spare = UIApplication.shared.beginBackgroundTask(withName: "Making a beat edit") { UIApplication.shared.endBackgroundTask(spare) } }
         if Thread.isMainThread { begin() } else { DispatchQueue.main.sync(execute: begin) }
         let finished = { DispatchQueue.main.async { if spare != .invalid { UIApplication.shared.endBackgroundTask(spare); spare = .invalid } } }
         queue.async {
-            defer { finished() }
+            defer { finished(); self.stopNow = nil; self.stopForget(tag) }
+            self.stopNow = { self.stopAsked(tag) }
             do {
+                try self.checkStop()
                 let dir = try self.ensureWorkDir().appendingPathComponent("beat", isDirectory: true)
                 try? FileManager.default.removeItem(at: dir)
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
                 var clips: [AVURLAsset] = []
                 for (index, item) in raw.enumerated() {
+                    try self.checkStop()
                     guard let where_ = item["url"] as? String, !where_.isEmpty else { throw CutError(message: "A clip is missing. Pull down to refresh and try again.") }
                     var local = URL(fileURLWithPath: where_)
                     if where_.hasPrefix("http") {
@@ -978,6 +1006,11 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         session.exportAsynchronously { done.signal() }
         var best: Float = -1, movedAt = Date()
         while done.wait(timeout: .now() + 0.3) == .timedOut {
+            if stopNow?() == true { // (Cancel was tapped)
+                session.cancelExport()
+                _ = done.wait(timeout: .now() + 10)
+                throw CutError(message: "Stopped. Nothing was made.")
+            }
             progress(Double(session.progress))
             if session.progress > best + 0.001 { best = session.progress; movedAt = Date() }
             else if Date().timeIntervalSince(movedAt) > 180 { // three minutes without getting anywhere: it isn't going to

@@ -13,7 +13,7 @@ squad: EthanGafferClaimedUp front, 0 G, 1 A / SpiceNot claimed0 G, 0 A / JakeYou
 new game class: primary | settings tab class: herogear
 tap New game (anyone in the squad can start one): v-setup
 Settings for a player: v-options | team settings hidden: true | experimental shown: true | The team's own settings are for gaffers.
-highlights by game: SOP FC 1–0 Dog & Bone10 Oct, 2 moments1’Goal: Jake, set up by Ethan (1–0)1’Save by SpiceNo video for this game yet. Ask your gaffer to generate it.
+highlights by game: SOP FC 1–0 Dog & Bone10 Oct, 2 moments1’Goal: Jake, set up by Ethan (1–0)1’Save by SpiceNo footage for this game yet. Ask your gaffer to cut it.Stats
 by player, first card: JakeYou1 moment this season, oldest firstv Dog & Bone, 10 Oct: 1’ GoalNo clips for Jake yet. They appear here when a game’s highli
 gaffer sees squad: EthanGafferYouNotifications offUp front, 0 G, 1 A / SpiceNot claimed0 G, 0 A
 gaffer: the old computer-script button is gone: true

@@ -116,7 +116,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0046` lets squad players run a game they started). Other threads may be using numbers at the same time: check the live list first |
+| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed; `0046` lets squad players run a game they started). New ones are numbered on from 0047 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `gopro-link` (what's in a GoPro share link, for the highlights; an iPhone video comes from Photos), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -266,11 +266,16 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
      value, same half first), applied to every moment not marked; a marked moment is used exactly. A mark more than a
      minute from where the others put it is questioned; Clear removes one. Ethan asked for this after his first real
      cut came out late. `cuttiming.test.mjs` covers it.
+     **No second-half footage** (Ethan forgot to press record for one): next to Add a second-half video, "No second-half
+     footage" sets the camera's `k.no2`; `camNo2` keeps its second-half moments out of the line-up (`cutRows`) and gives
+     them no clip from it (`camSeg` returns null, so another camera that filmed them is used). They still count in the
+     stats. "There is second-half footage" takes it back. Test: `nosecondhalf.test.mjs`.
   4. The phone cuts.
 - **A camera's video from a GoPro share link** (Ethan, October 2026: his footage all goes to GoPro's cloud; an iPhone video
   still comes from Photos): "Add from a GoPro link" under the cameras, or "Paste a link" on a camera or for its second half
   (`gpOpen`, `gpBox`, `CUT.gp`). The `gopro-link` edge function (gaffers only) reads the share with GoPro's own public API
-  (`api.gopro.com/collections/<id>/media`, then `/media/<id>/download`; no GoPro sign-in, checked against a real link in
+  (`api.gopro.com/collections/<id>/media` for the older short ids, `/media/items/<id>` (each video under `medium`) for the newer
+  ids with dashes, which Ethan's links are, then `/media/<id>/download`; no GoPro sign-in, checked against a real link in
   October 2026) and returns each video's address, newest first; it picks GoPro's 1080p copy of a 4K/5.3K video (a half of
   5.3K is over 10 GB) and the original when that's 1080p or less. Several videos: the gaffer picks which. The phone then
   downloads it straight from GoPro (`fetchVideo`, iOS background transfer, `BackgroundDownloads.swift`; never through
@@ -390,13 +395,25 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   current (`mark`, `gameNow`), the phone's saved clips are rewritten (`clipsKeep`) and an open whole-match player moves
   onto the new clip (`mhRebind`, also after every pull; a clip that won't load re-reads the team once). Before this the
   phone kept playing the old file it had just deleted. Test: `reels.test.mjs`.
-- **Delete these highlights** (game card, two taps) deletes the game's `clips` rows and files (both copies) and its reel,
-  to cut again from scratch.
-- **Reels for everyone** (iPhone app, anyone in the team): "Download the reel" on a game card and "Make a reel" on each
-  player's card (Highlights → By player: untick clips, preview, Goals only; gaffers and claimed players can add an AI
-  voice). Both are joined on that phone by `ReelCutter.joinReel({items:[{url,voice,voiceAt}], …})` from the clips'
-  public links, then the share sheet, so nothing extra is stored. Code: `gameReel`, `rbOpen`/`renderRB`/`rbMake`,
-  `clipRole`. Test: `reels.test.mjs`.
+- **A game's card in By game** (Ethan's rework, October 2026): with footage, under the whole-match button and the
+  moments, **Make a highlight** (anyone on the iPhone app) and **Edit footage** (gaffers). Each opens an action sheet
+  (`hlSheet`, `HLM {i, kind}`, drawn into `#hlSheet` at body level so it sits over the tab bar; `hlSheetShut`, closed by
+  `go()`). Make a highlight: Highlight reel (`data-greel`, the reel maker for the game's clips, `rbOpen(null, gi)`) or
+  Beat highlight (Experimental) (`data-beat`). Edit footage: Delete all these highlights (red, first, two taps), Cut again
+  from a video, Remove goals (`HLM.kind 'remove'`, `hlRemoveClip`: two taps on one clip deletes its row and files, clears
+  the game's one video and joins it again from the rest under a new name, `MKVER`) and Change stats (Fix a goal). With no
+  footage: Cut from video (gaffers, iPhone) and **Stats** (the game's moments and each player's minutes, goals and assists,
+  with Change stats for gaffers). Tests: `reels`, `cuttiming`, `beat`, `hltag`.
+- **Delete these highlights** (Edit footage, two taps) deletes the game's `clips` rows and files (both copies) and its
+  reel, to cut again from scratch.
+- **Reels for everyone** (iPhone app, anyone in the team): Make a highlight → Highlight reel on a game card and "Make a
+  reel" on each player's card (Highlights → By player: untick clips, preview, Goals only; gaffers and claimed players can
+  add an AI voice; a game cut with commentary offers its own, `#rbSaid`). Both are joined on that phone by
+  `ReelCutter.joinReel({items:[{url,voice,voiceAt}], job, …})` from the clips' public links, then the share sheet, so
+  nothing extra is stored. **Cancel** while it's made (not while an ad is up; Ethan asked): `rbCancel`/`beCancel` call
+  the plugin's `cancel({job})` (`rb-<time>`, `be-<time>`), which stops it at its next clip or mid-export (`stopNow`,
+  checked in `run`), and say "Stopped. Nothing was made." Code: `rbOpen`/`renderRB`/`rbMake`, `clipRole`,
+  `gameClipRole`. Test: `reels.test.mjs`.
 - **A player's reel on their card** (`0026_player_reels.sql`, Ethan asked): when the player themselves or a gaffer makes
   a player's reel (`canKeepReel`), it is also uploaded (`keepPlayerReel`: `<team>/players/<pid>/reel-<time>.mp4`, which
   `clip-store` lets that player write) and kept with `save_player_reel` (one per player, a new one replaces it and the
@@ -476,7 +493,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   count on `#mChatBadge`; the chat screen's back, `#chatBack`, goes to Team), Ethan for 1.1. Android's bar keeps Chat.
 - **The Highlights tab** (`v-highlights`, Ethan for 1.1; `HLS`, `hlScopeNow`, `renderMyHl`, `0042_my_highlights.sql`): **My teams**
   (`#hlScope`) is the open team's highlights as before, with the teams on the phone as chips to switch (`#hlTeams`,
-  `openTeam(code, 'highlights')`; the friendlies team only when it's the open one); **Just me** is every clip you're in from
+  `openTeam(code, 'highlights')`), your friendlies team last as **Friendly games** (Ethan, October 2026), which starts with a
+  list of each friendly game (`#frJump`, `data-hljump`, both sides' names) linking down to its card; **Just me** is every clip you're in from
   every team (`my_clips`, grouped by game, newest first) with **Include friendlies** (`#hlFr`, `apt-hl-fr`) off to start
   (`clips_of` returns `personal` and `friendly`). The tab remembers the last choice (`apt-hl-scope`); anything else that
   opens Highlights (the Team tile, a result, a notification) shows that team's (`HLS.here`). Works with no team open.
@@ -486,6 +504,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Home** (`v-feed`, `fdLoad`, `renderFeed`): the brand and three icons at the top: + (new post, `#fdNew`), the heart
   (follow requests, `#fdReq`) and search (Find people, `#fdFind`). Underneath, posts from people you follow and your own
   (`get_feed`, 20 at a time, newest first, blocked people left out) mixed with the game cards above.
+- **Following and All** (`0045_feed_all.sql`, Ethan, October 2026; `#fdTabs` in `#fdTabsBox`, `fdTab`, kept in `apt-feed-tab`):
+  Following is the feed above. All is `public_feed(p_offset)`: posts from every public profile, most liked first, 40 at a
+  time ("Show more"), and anon can read it. Posts this phone hasn't had on screen (`FDIO`, `apt-feed-all-seen`, last 500) come
+  first, then "You're all caught up" (`#fdCaught`) and the seen ones, each most liked first; the split is made once a load.
+  Signed out, All has a welcome card and likes, comments and ⋯ ask to sign in (the Account page's back returns Home). The
+  default tab is Following for a signed-in phone with a team, else All. A new phone (first swipe-through, no team) opens on
+  Home (`A.feedFirst`) until it's in a team. Test: `feedall.test.mjs`; `db.test.mjs`.
 - **Posting** (`#postPop`, `postOpen`, `renderNP`): pick one of your own clips (Your clips: clips you're tagged in, from
   `my_clips`) or one of your player reels (Your reels, `my_reels`), add a caption (300 characters), Share
   (`create_post(p_kind, p_team, p_game, p_at, p_caption)`; `kind` clip or reel). The server checks it's yours
@@ -830,6 +855,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `--t-head`, `--t-body` 1rem, `--t-sub`, `--t-foot`, `--t-cap` .75rem) or a rem value; never px (the clip preview
   `.lk-*` is the one exception: it's a drawing of a video frame). `textSize()` (top of the script, `window.gafferTextSize`)
   sets the root from WebKit's `-apple-system-body` on an iPhone (17px standard), kept between 15 and 26px; 17px elsewhere.
+  From 21px up (Larger Text; Ethan's mum's phone had things overlapping) it also puts `bigtext` on `<html>`, and the CSS
+  makes room under `html.bigtext`: Start/Bench/Out under the name, picker notes under the name, the profile's counts under
+  the picture, the stats tiles two across, the polls' Date and Kick-off one above the other, no icons on Highlight and Keeper
+  save. The tab bar's labels stay the standard size, as in iOS. Pop-ups that are taller than the screen scroll instead of
+  squashing what's in them (`flex-shrink: 0`), and the game screen leaves the dock's measured height under it (`--dock-h`).
+  `bigtext.test.mjs` walks 46 screens at 26px on a 375-point iPhone and fails on writing that overlaps, runs off the screen,
+  is cut off or has a word broken in two; add new screens to it.
 - **Colours mean one thing each:** the kit colour (`--on`) for the main action and what's selected; orange (`--bib`,
   #b03f08, 5.2:1) only for bibs: the bench, coming off, side B in a game among the squad; red (`--danger`, = `--agg`) for
   errors and anything that deletes or can't be undone; goals against are plain ink.
@@ -859,14 +891,18 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
 
 ### Rewarded ads (the free tier; `0035_rewarded_ads.sql`, `ad-reward`; Ethan: "just a 30 second ad to see your own highlight reel")
-- No banners. On the free tier the one ad is on your own card in Highlights → By player: your kept player reel (0026) is
-  behind "Watch a 30-second ad" (Google AdMob rewarded, `@capacitor-community/admob` 8.2.1, iPhone app only). Watching
-  it unlocks that reel for you for good; a new reel needs a new ad. Other people's reels, games' highlights, cuts and
-  commentary are not gated (Ethan tried more unlocks and pulled back to this one, October 2026).
-- **Never during a game** (`adWatch` refuses while `S.match` is set) and **never for a paid team**: `adFree()` is the one
-  check (`teamPaid()` from the team pass, else `hasGaffer()`). Early access: everyone has Gaffer, so ads only show with
-  Experimental on and "Try the free tier" (`#expAds`, `A.exp.ads`). `freeTier()` = not ad-free and an ad can be shown
-  here; on the web and Android the reel isn't locked (no ad to lift it).
+- No banners. **Out of Experimental (Ethan, October 2026):** the ad plays while the phone makes something you'd be
+  waiting for anyway: a reel (a player's or a game's Highlight reel), a beat highlight, or a game's highlights being cut.
+  Pressing Make first shows `#adAskPop` (`adAsk`: "While your reel is made, watch a 30-second ad to unlock it. It takes
+  about that long to make anyway.", Watch the ad / Not now; Not now makes nothing). Your own reel kept on your card is
+  unlocked on the server (below). Anything else is only on the phone, so it's unlocked on the phone (`adRun(…, {local:
+  true})`: no ticket, no `ssv`); closed early, it's made but locked with "Watch the ad to unlock it" (`rbUnlock`,
+  `beUnlock`). The cut carries on whatever happens to its ad. Never for what Gaffer makes by itself (`mhMake`).
+  Your kept player reel (0026) is also behind "Watch a 30-second ad" on your card (Google AdMob rewarded,
+  `@capacitor-community/admob` 8.2.1, iPhone app only); a new reel needs a new ad.
+- **Never during a game** (`adWatch` refuses while `S.match` is set; `adWanted()` is false) and **never for a paid team**:
+  `adFree()` is the one check (`teamPaid()` from the team pass). `freeTier()` = not ad-free and an ad can be shown here;
+  on the web and Android nothing is locked (no ad to lift it). `AD.on` is true while an ad is up (Cancel hides).
 - **Server-side grant:** `ad_ticket('reel', path)` (only the player themselves, only their current reel) makes a ticket;
   the ad is loaded with `ssv {userId, customData: ticket}`; AdMob calls `ad-reward` (deployed `--no-verify-jwt`; Google's
   ECDSA signature checked against its published keys), which calls `ad_grant` (service role only). The app polls
@@ -947,7 +983,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
   - Deployed now: `team-notify` v29 (a player running the game they started sends kickoff and goal; kind `live` from any team member, sent once; kind `report` tells the moderators, comments included; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
-    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v3 (players may upload/remove in their own `players/<pid>/` folder; puts a tiny test file in R2 first and says R2's own reason if it refuses), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `gopro-link` v1 (what's in a GoPro share link; an iPhone video comes from Photos), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
+    `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v3 (players may upload/remove in their own `players/<pid>/` folder; puts a tiny test file in R2 first and says R2's own reason if it refuses), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `gopro-link` v2 (what's in a GoPro share link, both kinds of id; an iPhone video comes from Photos), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
 - **The shop** (October 2026): `0033_shop.sql` is applied live, and `shop` v1 (verify_jwt = true) and `shop-webhook` v1

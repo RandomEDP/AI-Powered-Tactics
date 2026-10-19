@@ -135,12 +135,19 @@ eq(adopts() - before, 2, 'one clip at a time, each once');
 
 // ---------- deleting the highlights, to start again
 const files = () => (w.db().files || []).filter((f) => f.bucket === 'clips' || f.bucket === 'r2').length;
-eq([await A.visible('#hlList [data-hldel]'), files()], [true, 2], 'a game with highlights has Delete these highlights');
-await A.click('#hlList [data-hldel]');
-eq([await A.text('#hlList [data-hldel]'), (w.db().clips || []).length], ['Tap again to delete them', 2], 'it needs a second tap');
-await A.click('#hlList [data-hldel]'); await A.run(1500);
-eq([(w.db().clips || []).length, files(), await A.visible('#hlList [data-hldel]'), await A.text('#hlList [data-cut]')], [0, 0, false, 'Cut from a video on this phone'],
+await A.click('#hlList [data-hlm^="edit:"]'); await A.run(200);
+eq([await A.visible('#hlSheet .hlsheet [data-hldel]'), files()], [true, 2], 'a game with highlights has Delete all these highlights, under Edit footage');
+await A.click('#hlSheet .hlsheet [data-hldel]');
+eq([await A.text('#hlSheet .hlsheet [data-hldel]'), (w.db().clips || []).length], ['Tap again to delete them all', 2], 'it needs a second tap');
+await A.click('#hlSheet .hlsheet [data-hldel]'); await A.run(1500);
+eq([(w.db().clips || []).length, files(), await A.visible('#hlList [data-hldel]'), await A.text('#hlList [data-cut]')], [0, 0, false, 'Cut from video'],
   'deleted: the clips are gone from Highlights and from storage (R2 too), and the game can be cut again from scratch');
+// a game with no footage: Cut from video and its Stats (Ethan's rework)
+eq(await A.page.$$eval('#hlList .hcard:first-child .hlacts button', (b) => b.map((x) => x.textContent)), ['Cut from video', 'Stats'], 'with no footage the game has Cut from video and Stats');
+await A.click('#hlList .hcard:first-child [data-hlm^="stats:"]'); await A.run(300);
+check(/Stats/.test(await A.text('#hlSheet .phead')) && /Moments/.test(await A.text('#hlSheet')) && (await A.page.$$('#hlSheet tbody tr')).length > 0, 'Stats shows the game\'s moments and each player\'s minutes, goals and assists');
+await A.click('#hlSheet .phead [data-hlmx]'); await A.run(200);
+eq(await A.visible('#hlSheet .hlsheet'), false, 'Done puts it away');
 
 for (const e of A.errs) check(false, 'page error: ' + e);
 await w.close();

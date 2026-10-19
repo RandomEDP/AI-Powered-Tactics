@@ -150,9 +150,10 @@ await A.click('#cutBody [data-cutdo="go"]'); await A.run(3000);
 await A.click('#cutBody [data-cutdo="finish"]'); await A.run(500);
 eq((w.db().clips || []).length, 4, 'the game is cut into four clips');
 
-// ---------- Make a beat edit, from the game's card
-eq(await A.page.$$eval('#hlList .hcard:first-child [data-beat]', (b) => b.map((x) => x.textContent)), ['Make a beat edit'], 'a game\'s highlights have Make a beat edit');
-await A.click('#hlList .hcard:first-child [data-beat]'); await A.run(200);
+// ---------- Make a beat highlight, from the game's card (Make a highlight, then Beat highlight (Experimental))
+await A.click('#hlList .hcard:first-child [data-hlm^="make:"]'); await A.run(200);
+eq(await A.page.$$eval('#hlSheet .hlsheet [data-beat]', (b) => b.map((x) => x.textContent)), ['Beat highlight (Experimental)'], 'a game\'s Make a highlight has the beat highlight, marked Experimental');
+await A.click('#hlSheet .hlsheet [data-beat]'); await A.run(200);
 eq([await A.visible('#beatPop'), await A.page.$$eval('#beBody [data-betrack]', (b) => b.map((x) => [x.firstChild.textContent, x.getAttribute('aria-pressed')]))],
   [true, [['Floodlights', 'true'], ['Last Minute', 'false'], ['Terrace', 'false']]], 'it offers Gaffer\'s three tracks, the first picked');
 check(/Floodlights.*House, 128 bpm, 36 seconds/.test(await A.text('#beBody')), 'each with its feel, tempo and length');
@@ -180,7 +181,7 @@ eq(await A.page.$eval('#beLuList [data-belu="0"] small', (s) => s.textContent), 
 check(/2 aren’t lined up yet/.test(await A.text('#beLuNote')), 'and how many are still to do');
 await A.page.evaluate(() => { window.__beatHold = new Promise((r) => { window.__beatGo = r; }); });
 await A.click('#beMake'); await A.run(300);
-eq([await A.page.evaluate(() => document.getElementById('beAudio').paused), await A.page.$eval('#beMake', (b) => b.disabled), await A.text('#beProg')], [true, true, 'Cutting it to the beat, 40%'], 'making it stops the preview and shows how far it\'s got');
+eq([await A.page.evaluate(() => document.getElementById('beAudio').paused), await A.visible('#beCancel'), await A.visible('#beMake'), await A.text('#beProg')], [true, true, false, 'Cutting it to the beat, 40%'], 'making it stops the preview, shows how far it\'s got, and has Cancel');
 await A.page.evaluate(() => window.__beatGo()); await A.run(500);
 const job = (await calls(A, 'beat')).pop(), rows = w.db().clips.slice().sort((a, b) => a.seq - b.seq);
 eq(job.loop, null, 'the music isn\'t played again for three moments');
@@ -212,7 +213,7 @@ for (let k = 1; k <= 6; k++) d0.clips.push(Object.assign({}, g0c, { id: 'extra-'
 w.setDb(d0); await A.page.reload(); await A.run(1500);
 await A.page.evaluate(() => { const b = document.querySelector('#mHighlights'); if (b) b.click(); }); await A.run(500);
 await A.page.evaluate(() => { const b = document.querySelector('#hlToggle [data-by="game"]'); if (b) b.click(); }); await A.run(300);
-await A.click('#hlList .hcard:first-child [data-beat]'); await A.run(300);
+await A.click('#hlList .hcard:first-child [data-hlm^="make:"]'); await A.run(200); await A.click('#hlSheet .hlsheet [data-beat]'); await A.run(300);
 eq(await A.page.$$eval('#beBody [data-beevery]', (b) => b.map((x) => [x.textContent, x.getAttribute('aria-pressed')])), [['All of them', 'true'], ['Just the best', 'false']], 'with ten clips there\'s a choice, All of them picked to start');
 eq(await A.text('#beCount'), 'Shows 9 moments of 10 (not the goals against), 58 seconds with the end card. The music’s drop plays again to fit them all in.', 'every moment but the goal against, the music made longer for them');
 check(/Terrace.*58 seconds/.test(await A.text('#beBody')), 'each track says how long it comes out');
