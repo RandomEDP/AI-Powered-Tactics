@@ -1,5 +1,5 @@
 after finish: v-stats
-before: SOP FC 1–1 Dog10 Oct, 3 moments1’Goal: Puxley (1–0)1’Highlight16’Goal for Dog (1–1)No video for this game yet.Cut from a video on this phone
+before: SOP FC 1–1 Dog10 Oct, 3 moments1’Goal: Puxley (1–0)1’Highlight16’Goal for Dog (1–1)No footage for this game yet. Cut it from your GoPro or iPhone footage.Cut from videoStats
 view: v-cut
 cameras screen: SOP FC 1–1 DogWhere were the cameras?Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.DogSOP FCGoals come from the camera nearest the goal they went in. Saves come from the one nearest SOP FC’s goal, and other highlights from the one nearest Dog’s goal.Teams swapped ends at half time (the ends drawn are for the first half)Add a cameraAdd from a GoPro 
 cancelled pick leaves 0 cameras | next button: false

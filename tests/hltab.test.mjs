@@ -45,12 +45,19 @@ await A.page.reload(); await A.run(1500);
 await A.click('#tabs [data-tab="highlights"]'); await A.run(600);
 eq([await A.view(), await scope(A), await A.visible('#hlToggle'), await A.page.$eval('#tabs [data-tab="highlights"]', (b) => b.getAttribute('aria-current'))], ['highlights', 'My teams', true, 'page'], 'the Highlights tab opens on My teams, with By game and By player');
 check(!(await A.visible('#hlBack')), 'the tab is its own place: no back button');
-eq(await A.page.$$eval('#hlTeams button', (b) => b.map((x) => x.textContent + (x.getAttribute('aria-pressed') === 'true' ? '*' : ''))), ['Sons of Pitches FC*', 'Dog Squad'], 'the teams on the phone to switch between (the friendlies team isn’t one of them)');
+eq(await A.page.$$eval('#hlTeams button', (b) => b.map((x) => x.textContent + (x.getAttribute('aria-pressed') === 'true' ? '*' : ''))), ['Sons of Pitches FC*', 'Dog Squad', 'Friendly games'], 'the teams on the phone to switch between, and his friendly games last (Ethan: one each)');
 check(/Cat FC/.test(await A.text('#hlList')) && !/Hamsters/.test(await A.text('#hlList')), 'showing Sons of Pitches FC’s games');
 await shot(A, 'hltab-teams');
 await A.click('#hlTeams [data-hlteam="DOGSQD"]'); await A.run(1500);
 eq([await A.view(), await A.page.evaluate(() => JSON.parse(localStorage.getItem('apt-app')).active), await scope(A)], ['highlights', 'DOGSQD', 'My teams'], 'tapping Dog Squad opens its highlights');
 check(/Hamsters/.test(await A.text('#hlList')), 'with its games');
+await A.click('#hlTeams [data-hlteam="FRNDLY"]'); await A.run(1500);
+eq([await A.page.evaluate(() => JSON.parse(localStorage.getItem('apt-app')).active), await scope(A), await A.page.$$eval('#frJump [data-hljump]', (b) => b.map((x) => x.firstChild.textContent))], ['FRNDLY', 'My teams', ['Bibs 4–3 Shirts']],
+  'Friendly games opens his friendlies, with a list of each game (both sides\' names)');
+await shot(A, 'hltab-friendlies');
+check(/Bibs 4–3 Shirts/.test(await A.text('#hlList .hcard[id^="hlg-"]')) && (await A.page.$$('#hlList .hcard[id^="hlg-"] .mhbtn')).length === 1, 'and the game\'s card with its highlights, which the list links to');
+await A.click('#frJump [data-hljump]'); await A.run(300);
+await A.click('#hlTeams [data-hlteam="DOGSQD"]'); await A.run(1500);
 
 // ---------- Just me: every clip of Ethan, from both teams, friendlies left out
 await A.click('#hlScope [data-scope="me"]'); await A.run(800);
