@@ -5309,8 +5309,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (base == null) return late == null ? null : { two: two, t: camRel(r, at, two) + late, marked: false }; // only marked moments to go on
     return { two: two, t: camRel(r, at, two) + base + (late || 0), marked: false };
   }
+  function camNo2(r, k, at) { return !!(k.no2 && r.h2At && r.periods !== 1 && at >= r.h2At); } // a second-half moment this camera has no footage of
   function camSeg(r, cam, c) { // where a clip (timed in seconds from kick-off) is in this camera's footage
-    if (!cam.src) return null;
+    if (!cam.src || camNo2(r, cam, c.at)) return null;
     var p = camAt(r, cam, c.at); if (!p) return null;
     var src = p.two ? cam.src2 : cam.src, shift = p.t - c.t, len = typeof src.duration === 'number' && src.duration > 0 ? src.duration : Infinity;
     var start = c.start + shift, end = c.end + shift;
@@ -5377,9 +5378,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var m = k.marks || {}, two2 = !!k.src2, rows = [];
     var b1 = camBase(r, k, false, false), bh = camBase(r, k, two2, true);
     rows.push({ key: 'ko', at: r.koAt, label: 'Kick-off', t: b1, two: false, marked: m.ko != null });
-    if (r.h2At && r.periods !== 1) rows.push({ key: 'h2', at: r.h2At, label: 'Second-half kick-off', t: bh == null ? null : bh + (two2 ? 0 : camGap(r)), two: two2, marked: m.h2 != null });
+    if (r.h2At && r.periods !== 1 && !k.no2) rows.push({ key: 'h2', at: r.h2At, label: 'Second-half kick-off', t: bh == null ? null : bh + (two2 ? 0 : camGap(r)), two: two2, marked: m.h2 != null });
     momentsOf(r).forEach(function (x) {
-      if (typeof x.e.at !== 'number') return;
+      if (typeof x.e.at !== 'number' || camNo2(r, k, x.e.at)) return;
       var p = camAt(r, k, x.e.at);
       rows.push({ key: 'e:' + x.e.at, at: x.e.at, label: minOf(x.e) + ' ' + x.text, t: p ? p.t : null, two: camTwo(r, k, x.e.at), marked: !!(p && p.marked) });
     });
@@ -5461,7 +5462,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         }).join('') + '</ol></div>';
       if (CUT.gp) html += gpBox(); else
       if (k.src2) html += '<div class="actions"><button class="plain" type="button" data-cutdo="drop2" data-cam="' + k.id + '">Remove the second-half video' + (many ? ' for camera ' + camNo(k) : '') + '</button></div>';
-      else if (r.h2At && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button><button class="plain" type="button" data-cutdo="gp2" data-cam="' + k.id + '">Paste a link</button></div>';
+      else if (k.no2 && !CUT.prog) html += '<div class="novid" id="cutNo2"><span>No second-half footage' + (many ? ' from camera ' + camNo(k) : '') + ', so its second-half moments get no clip' + (many ? ' unless another camera filmed them' : '') + '. They still count in the game’s stats.</span><button class="plain" type="button" data-cutdo="yes2" data-cam="' + k.id + '">There is second-half footage</button></div>';
+      else if (r.h2At && r.periods !== 1 && !CUT.prog) html += '<div class="novid"><span>' + (many ? 'Camera ' + camNo(k) + ' stopped' : 'Recording stopped') + ' at half time? Add the second-half video too. If the second half wasn’t recorded, tap No second-half footage.</span><button class="plain" type="button" data-cutdo="vid2" data-cam="' + k.id + '">Add a second-half video</button><button class="plain" type="button" data-cutdo="gp2" data-cam="' + k.id + '">Paste a link</button><button class="plain" type="button" data-cutdo="no2" data-cam="' + k.id + '">No second-half footage</button></div>';
       html += busy;
       if (hasGaffer()) html += '<label class="check" for="cutVoice"><input id="cutVoice" type="checkbox"' + (CUT.voice ? ' checked' : '') + '><span>Add AI commentary <small>(a commentator’s voice calls each moment by name, with an intro and a full-time sign-off on the reel; the clips are kept with and without it, and everyone can switch it on or off)</small></span></label>' +
         voiceBox('cut');
@@ -5523,7 +5525,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (CUT) { camStore(); renderCut(); }
   }
   function camTake(r, k, second, src) { // a camera's video (or its second half's), picked or downloaded
-    if (second) { var same2 = sameVideo(k.src2, src); k.src2 = src; if (!same2) { k.sync2 = cutGuess(src, r.h2At); camForget(r, k, true); } }
+    if (second) { var same2 = sameVideo(k.src2, src); k.src2 = src; k.no2 = false; if (!same2) { k.sync2 = cutGuess(src, r.h2At); camForget(r, k, true); } }
     else if (sameVideo(k.src, src)) k.src = src; // the same video chosen again (to open it afresh): its marks still stand
     else {
       k.src = src; camForget(r, k, false); var guess = cutGuess(src, r.koAt);
@@ -5765,6 +5767,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (act === 'vid' && cam) camPick(cam, false, false);
     else if (act === 'vid2' && cam) camPick(cam, true, false);
     else if (act === 'rm' && cam) { cutKeep(); CUT.cams = CUT.cams.filter(function (k) { return k !== cam; }); CUT.msg = ''; camStore(); renderCut(); }
+    else if (act === 'no2' && cam) { cutKeep(); cam.no2 = true; if (CUT.sel && CUT.sel !== 'ko' && !cutRows(r, cam).some(function (x) { return x.key === CUT.sel; })) CUT.sel = 'ko'; CUT.moved = ''; renderCut(); }
+    else if (act === 'yes2' && cam) { cutKeep(); cam.no2 = false; renderCut(); }
     else if (act === 'drop2' && cam) { cutKeep(); camForget(r, cam, true); cam.src2 = null; cam.sync2 = null; renderCut(); }
     else if (act === 'next') { cutKeep(); if (!CUT.cams.some(function (k) { return k.src; })) return; CUT.stage = 'sync'; CUT.msg = ''; renderCut(); }
     else if (act === 'cams') { cutKeep(); CUT.stage = 'cams'; CUT.msg = ''; renderCut(); }
@@ -5794,7 +5798,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var vlock = CUT.voice && hasGaffer() ? voLocked() : [];
       if (vlock.length) { cutKeep(); CUT.msg = voLockMsg(vlock); renderCut(); return; }
       var list = cutPlan(r, CUT.cams, CUT.swap);
-      if (!list.length) { CUT.msg = 'No timed moments were logged in this game.'; renderCut(); return; }
+      if (!list.length) { CUT.msg = live.every(function (k) { return k.no2; }) && momentsOf(r).some(function (x) { return typeof x.e.at === 'number'; }) ? 'There’s nothing to cut: every moment was in the second half, and there’s no footage of it.' : 'No timed moments were logged in this game.'; renderCut(); return; }
       // Can every video still be opened? Found out now, before any commentary is recorded (iOS can stop Gaffer reading a
       // video from Photos some time after it was chosen, and a damaged recording can't be read at all).
       var paths = []; live.forEach(function (k) { paths.push(k.src.path); if (k.src2) paths.push(k.src2.path); });
