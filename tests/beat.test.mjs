@@ -152,8 +152,8 @@ eq((w.db().clips || []).length, 4, 'the game is cut into four clips');
 
 // ---------- Make a beat highlight, from the game's card (Make a highlight, then Beat highlight (Experimental))
 await A.click('#hlList .hcard:first-child [data-hlm^="make:"]'); await A.run(200);
-eq(await A.page.$$eval('#hlList .hlsheet [data-beat]', (b) => b.map((x) => x.textContent)), ['Beat highlight (Experimental)'], 'a game\'s Make a highlight has the beat highlight, marked Experimental');
-await A.click('#hlList .hlsheet [data-beat]'); await A.run(200);
+eq(await A.page.$$eval('#hlSheet .hlsheet [data-beat]', (b) => b.map((x) => x.textContent)), ['Beat highlight (Experimental)'], 'a game\'s Make a highlight has the beat highlight, marked Experimental');
+await A.click('#hlSheet .hlsheet [data-beat]'); await A.run(200);
 eq([await A.visible('#beatPop'), await A.page.$$eval('#beBody [data-betrack]', (b) => b.map((x) => [x.firstChild.textContent, x.getAttribute('aria-pressed')]))],
   [true, [['Floodlights', 'true'], ['Last Minute', 'false'], ['Terrace', 'false']]], 'it offers Gaffer\'s three tracks, the first picked');
 check(/Floodlights.*House, 128 bpm, 36 seconds/.test(await A.text('#beBody')), 'each with its feel, tempo and length');
@@ -213,7 +213,7 @@ for (let k = 1; k <= 6; k++) d0.clips.push(Object.assign({}, g0c, { id: 'extra-'
 w.setDb(d0); await A.page.reload(); await A.run(1500);
 await A.page.evaluate(() => { const b = document.querySelector('#mHighlights'); if (b) b.click(); }); await A.run(500);
 await A.page.evaluate(() => { const b = document.querySelector('#hlToggle [data-by="game"]'); if (b) b.click(); }); await A.run(300);
-await A.click('#hlList .hcard:first-child [data-hlm^="make:"]'); await A.run(200); await A.click('#hlList .hlsheet [data-beat]'); await A.run(300);
+await A.click('#hlList .hcard:first-child [data-hlm^="make:"]'); await A.run(200); await A.click('#hlSheet .hlsheet [data-beat]'); await A.run(300);
 eq(await A.page.$$eval('#beBody [data-beevery]', (b) => b.map((x) => [x.textContent, x.getAttribute('aria-pressed')])), [['All of them', 'true'], ['Just the best', 'false']], 'with ten clips there\'s a choice, All of them picked to start');
 eq(await A.text('#beCount'), 'Shows 9 moments of 10 (not the goals against), 58 seconds with the end card. The music’s drop plays again to fit them all in.', 'every moment but the goal against, the music made longer for them');
 check(/Terrace.*58 seconds/.test(await A.text('#beBody')), 'each track says how long it comes out');

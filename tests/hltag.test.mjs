@@ -115,7 +115,7 @@ eq(jakeOnA, before - 1, 'and it isn\'t under Jake on anyone else\'s phone');
 eq(await A.visible('#hlList [data-hide]'), false, 'nobody else can take clips out from under Jake');
 
 // re-cutting the game doesn't put it back
-await A.click('#hlToggle [data-by="game"]'); await A.click('#hlList [data-hlm^="edit:"]'); await A.run(200); await A.click('#hlList .hlsheet [data-cut]'); await A.run(600);
+await A.click('#hlToggle [data-by="game"]'); await A.click('#hlList [data-hlm^="edit:"]'); await A.run(200); await A.click('#hlSheet .hlsheet [data-cut]'); await A.run(600);
 if (await A.visible('#cutBody [data-cutdo="vid"]')) { await A.click('#cutBody [data-cutdo="vid"]'); await A.run(600); }
 const go = async () => { for (let i = 0; i < 6 && !(await A.visible('#cutBody [data-cutdo="go"]')); i++) { const n = await A.page.$('#cutBody [data-cutdo="next"]'); if (n) await A.click('#cutBody [data-cutdo="next"]'); else break; await A.run(300); } };
 await go();

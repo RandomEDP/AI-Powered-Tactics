@@ -301,7 +301,7 @@ await J.page.evaluate(() => { window.__noFill = false; });
 
 // a game's highlight reel (Make a highlight, Highlight reel): the ad plays while it's made too, and unlocks it on this phone
 await J.click('#hlToggle [data-by="game"]'); await J.run(500);
-await J.click('#hlList [data-hlm^="make:"]'); await J.run(200); await J.click('#hlList .hlsheet [data-greel]'); await J.run(300);
+await J.click('#hlList [data-hlm^="make:"]'); await J.run(200); await J.click('#hlSheet .hlsheet [data-greel]'); await J.run(300);
 await J.page.evaluate(() => { window.__adEarly = true; }); s0 = await shows(); let sh0 = await rc('share');
 await make(); await J.run(33000);
 const tickets = () => J.page.evaluate(() => (window.__ad || []).filter((x) => Array.isArray(x) && x[0] === 'prepare').pop()[1]);

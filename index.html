@@ -1200,6 +1200,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     <li><b>Squad chat and nudges</b> from your gaffer</li></ul></div>
   <p id="pushNext">Your iPhone will ask next. You can change this any time in Settings.</p>
   <div class="actions"><button class="plain primary" id="pushYes" type="button">Turn on notifications</button><button class="plain" id="pushNo" type="button">Not now</button></div></div></div>
+<div id="hlSheet"></div>
 <div id="reelPop" role="dialog" aria-labelledby="rbTitle" hidden><div class="planbox" id="rbBody"></div></div>
 <div id="beatPop" role="dialog" aria-labelledby="beTitle" hidden><div class="planbox" id="beBody"></div><audio id="beAudio" preload="none"></audio></div>
 <div id="livePop" role="dialog" aria-labelledby="liveTitle" hidden><div class="planbox" id="liveBody"></div></div>
@@ -2403,6 +2404,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var HLS = { scope: null, here: null, fr: false, tab: false, list: null, at: 0, busy: false, msg: '' };
   try { HLS.scope = localStorage.getItem('apt-hl-scope'); HLS.fr = localStorage.getItem('apt-hl-fr') === '1'; } catch (e) {}
   function go(view, keep) {
+    if (view !== 'highlights' && HLM && HLM.i >= 0) hlSheetShut(); // (a game's sheet in Highlights never follows you to another screen)
     if (view !== 'account' && AM === 'new') AM = 'in'; // (choosing a new password is only ever where the reset link lands)
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
@@ -4671,14 +4673,15 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   var HIDE = { busy: false, msg: '' }; // Remove from my highlights
   var HLM = { i: -1, kind: '' }; // the sheet open on a game's card: 'make' (a highlight), 'edit' (footage), 'remove' (goals), 'stats'
   var HLRM = { i: -1, key: '', until: 0, busy: false, msg: '', bad: false }; // Remove goals: armed by the first tap on one
+  function hlSheetShut() { HLM.i = -1; var sh = $('hlSheet'); sh.innerHTML = ''; sh.setAttribute('data-was', ''); }
   function hlSheet(r, gi, vids, own, cutOk) { // an action sheet over the Highlights, from the bottom (Apple's action sheets: a short title, the choices, Cancel at the bottom)
     var head = function (t, sub) { return '<div class="phead"><strong id="hlsT">' + t + '</strong><button class="link" type="button" data-hlmx="1">' + (HLM.kind === 'remove' || HLM.kind === 'stats' ? 'Done' : 'Cancel') + '</button></div>' + (sub ? '<p class="note">' + sub + '</p>' : ''); };
     var btn = function (attr, label, cls) { return '<button class="pick wide' + (cls ? ' ' + cls : '') + '" type="button" ' + attr + '>' + label + '</button>'; };
-    var body = '';
-    if (HLM.kind === 'make') body = head('Make a highlight', esc(vs(r)) + '. Made on this phone, ready to share.') + '<div class="hlsopts">' +
+    var body = '', game = esc(scoreText({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them })) + (dayOf(r) ? ', ' + esc(dayOf(r)) : '');
+    if (HLM.kind === 'make') body = head('Make a highlight', game + '. Made on this phone, ready to share.') + '<div class="hlsopts">' +
       btn('data-greel="' + gi + '"', 'Highlight reel') + '<p class="note">Pick the clips you want in, with AI commentary if you like.</p>' +
       btn('data-beat="' + gi + '"', 'Beat highlight (Experimental)') + '<p class="note">Cut to the beat of one of Gaffer’s own tracks, tall for Reels and TikTok.</p></div>';
-    else if (HLM.kind === 'edit') body = head('Edit footage', esc(vs(r))) + '<div class="hlsopts">' +
+    else if (HLM.kind === 'edit') body = head('Edit footage', game) + '<div class="hlsopts">' +
       btn('data-hldel="' + gi + '"' + (HLDEL.busy ? ' disabled' : ''), HLDEL.i === gi && Date.now() < HLDEL.until ? 'Tap again to delete them all' : 'Delete all these highlights', 'danger') +
       (cutOk ? btn('data-cut="' + gi + '"', 'Cut again from a video') : '') +
       btn('data-hlm="remove:' + gi + '"', 'Remove goals') +
@@ -4690,7 +4693,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else if (HLM.kind === 'stats') {
       var per = r.per || {}, ids = Object.keys(per).map(Number).filter(function (k) { return isFinite(k) && per[k] && (per[k].mins || per[k].g || per[k].a); }).sort(function (a, b) { return ((per[b].g || 0) - (per[a].g || 0)) || ((per[b].a || 0) - (per[a].a || 0)) || ((per[b].mins || 0) - (per[a].mins || 0)); });
       var ms = momentsOf(r);
-      body = head('Stats', esc(scoreText({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them })) + (dayOf(r) ? ', ' + esc(dayOf(r)) : '')) +
+      body = head('Stats', game) +
         (ms.length ? '<h4>Moments</h4><ul class="hlstat">' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '<p class="note">Nothing was logged in this game.</p>') +
         (ids.length ? '<h4>Players</h4><div class="scroll"><table><thead><tr><th>Player</th><th class="n">Mins</th><th class="n">Goals</th><th class="n">Assists</th></tr></thead><tbody>' + ids.map(function (k) { var x = per[k]; return '<tr><td>' + esc(nm(k)) + '</td><td class="n">' + (x.mins || 0) + '</td><td class="n">' + (x.g || 0) + '</td><td class="n">' + (x.a || 0) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '') +
         (own && fixGoals(r).length ? '<div class="hlsopts">' + btn('data-fixg="' + gi + '"', 'Change stats') + '</div>' : '');
@@ -4797,7 +4800,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (guestGame) { var gr = S.results.filter(function (x) { return x.id === guestGame; })[0]; if (gr && hlFocus !== gr) { hlFocus = gr; hlBy = 'game'; } }
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
     $('hlGw').innerHTML = guestGame ? '' : gwStrip(); // (Goal of the Week, above the list)
-    var own = role === 'owner', html = guestCard(), games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
+    var own = role === 'owner', html = guestCard(), sheet = '', games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
     if (!games.length) { $('hlList').innerHTML = html + '<div class="hcard"><h3>No games yet</h3><p class="note">Highlights appear here after your first finished game. Every goal, assist and save you log is kept as a moment.</p></div>'; return; }
     if (hlBy === 'game') {
       games.forEach(function (g) {
@@ -4816,7 +4819,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
             : own ? (NATIVE ? 'No footage for this game yet. Cut it from your GoPro or iPhone footage.' : 'No footage for this game yet. Open the iPhone app to cut it from your GoPro or iPhone footage.') : 'No footage for this game yet. Ask your gaffer to cut it.') +
           '<div class="actions hlacts">' + (cutOk ? '<button class="plain primary" type="button" data-cut="' + g.i + '">Cut from video</button>' : '') + '<button class="plain" type="button" data-hlm="stats:' + g.i + '">Stats</button></div>' +
           (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '');
-        if (HLM.i === g.i) html += hlSheet(r, g.i, vids, own, cutOk);
+        if (HLM.i === g.i) sheet = hlSheet(r, g.i, vids, own, cutOk);
         html += guests + frLinksHtml(r, g.i) + linkClipsHtml(r) + '</div>';
       });
     } else {
@@ -4850,6 +4853,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       });
     }
     vidKeep($('hlList'), html); mkShow();
+    var sh = $('hlSheet'); if (sh.getAttribute('data-was') !== sheet) { sh.innerHTML = sheet; sh.setAttribute('data-was', sheet); } // (over the tab bar, so it sits outside the screen; drawn again only when it changes, so it doesn't slide in twice)
     if (hlBy === 'game' && role === 'owner' && !MK.busy && !joinsBusy() && RCp() && sb && teamId) { // a cut game without one video: this phone makes it, quietly, while you get on
       var want = S.results.slice().reverse().filter(function (r) { return !MKTRIED[r.id] && !triedLately('mk:' + r.id, 24 * 3600e3) && !(r.reel && r.reel.path) && clips.some(function (c) { return c.game_id === r.id; }); })[0];
       if (want) { MKTRIED[want.id] = true; setTimeout(function () { mhMake(want, true); }, 600); }
@@ -5349,7 +5353,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   $('hlToggle').addEventListener('click', function (e) { var by = e.target.getAttribute('data-by'); if (by) { hlBy = by; renderHighlights(); } });
   $('hlList').addEventListener('toggle', function (e) { var d = e.target; if (d && d.hasAttribute && d.hasAttribute('data-hlopen')) HLOPEN[d.getAttribute('data-hlopen')] = d.open; }, true);
   $('hlGw').addEventListener('click', function (e) { if (e.target.closest('[data-gw]')) gwOpen('highlights'); });
-  $('hlList').addEventListener('click', function (e) {
+  $('hlSheet').addEventListener('click', function (e) { hlClick(e); });
+  $('hlList').addEventListener('click', hlClick);
+  function hlClick(e) {
     var mb = e.target.closest('[data-mh]'); if (mb) { mhOpen(+mb.getAttribute('data-mh')); return; }
     var hm = e.target.closest('[data-hlm]'); // a game's sheet: Make a highlight, Edit footage, Remove goals, Stats
     if (hm) { var hv = hm.getAttribute('data-hlm').split(':'); HLM = { i: +hv[1], kind: hv[0] }; HLRM.msg = ''; if (hv[0] !== 'edit') HLDEL.msg = ''; renderHighlights(); return; }
@@ -5360,7 +5366,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       else { HLRM = { i: HLM.i, key: rk, until: Date.now() + 3000, busy: false, msg: '', bad: false }; renderHighlights(); setTimeout(function () { if (S.view === 'highlights') renderHighlights(); }, 3100); }
       return; }
     var sheet = e.target.closest('.hlsheet');
-    if (sheet && e.target.closest('button') && !e.target.hasAttribute('data-hldel')) { HLM.i = -1; sheet.remove(); } // (a choice in a sheet closes it, then does what it says)
+    if (sheet && e.target.closest('button') && !e.target.hasAttribute('data-hldel')) hlSheetShut(); // (a choice in a sheet closes it, then does what it says)
     var sk = e.target.closest('[data-seek]');
     if (sk) { // a moment in the game's reel: skip to it
       var sv = sk.closest('.vplayer').querySelector('video'), st = +sk.getAttribute('data-seek');
@@ -5395,7 +5401,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       if (HLDEL.i === di && Date.now() < HLDEL.until) { HLDEL.until = 0; hlDelete(dr, di); }
       else { HLDEL = { i: di, until: Date.now() + 3000, msg: '' }; renderHighlights(); setTimeout(function () { if (S.view === 'highlights') renderHighlights(); }, 3100); }
     }
-  });
+  }
 
   // ---- cutting highlights on the phone (iPhone app only): pick the recording, line it up, cut, upload the clips
   var CUT = null, rcBound = false;
