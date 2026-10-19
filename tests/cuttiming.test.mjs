@@ -135,11 +135,12 @@ eq(adopts() - before, 2, 'one clip at a time, each once');
 
 // ---------- deleting the highlights, to start again
 const files = () => (w.db().files || []).filter((f) => f.bucket === 'clips' || f.bucket === 'r2').length;
-eq([await A.visible('#hlList [data-hldel]'), files()], [true, 2], 'a game with highlights has Delete these highlights');
-await A.click('#hlList [data-hldel]');
-eq([await A.text('#hlList [data-hldel]'), (w.db().clips || []).length], ['Tap again to delete them', 2], 'it needs a second tap');
-await A.click('#hlList [data-hldel]'); await A.run(1500);
-eq([(w.db().clips || []).length, files(), await A.visible('#hlList [data-hldel]'), await A.text('#hlList [data-cut]')], [0, 0, false, 'Cut from a video on this phone'],
+await A.click('#hlList [data-hlm^="edit:"]'); await A.run(200);
+eq([await A.visible('#hlList .hlsheet [data-hldel]'), files()], [true, 2], 'a game with highlights has Delete all these highlights, under Edit footage');
+await A.click('#hlList .hlsheet [data-hldel]');
+eq([await A.text('#hlList .hlsheet [data-hldel]'), (w.db().clips || []).length], ['Tap again to delete them all', 2], 'it needs a second tap');
+await A.click('#hlList .hlsheet [data-hldel]'); await A.run(1500);
+eq([(w.db().clips || []).length, files(), await A.visible('#hlList [data-hldel]'), await A.text('#hlList [data-cut]')], [0, 0, false, 'Cut from video'],
   'deleted: the clips are gone from Highlights and from storage (R2 too), and the game can be cut again from scratch');
 
 for (const e of A.errs) check(false, 'page error: ' + e);
