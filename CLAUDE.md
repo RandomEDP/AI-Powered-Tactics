@@ -191,6 +191,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   it goes straight into `watchlink.inbox`. Tested in `tests/plugin/main.swift`.
   Setting it up: Shortcuts app → Gaffer → "Mark a highlight" → add it to My Shortcuts, with "Show on Apple Watch" on;
   then Watch app → Action Button → Shortcut → pick it.
+- **Staying on screen during a game** (Ethan, October 2026: it kept going back to the watch face): from set-up to full time
+  (`MatchState.staysOnScreen`) `MatchModel.stayInFront` runs a football `HKWorkoutSession` (HealthKit entitlement in
+  `Watch/Watch.entitlements`, `workout-processing` background mode), which is the only thing that keeps a watch app in
+  front when the wrist is raised again. Health is asked once (share workouts, nothing read) and nothing is saved. If Health
+  is refused or the workout is ended by something else (another workout app), the old physical-therapy runtime session
+  takes over for that game (it only runs in the background). Test: `watchscreen.test.mjs`, `tests/watch/main.swift`.
 - The watch buzzes for subs by its own clock. Changes wait for the gaffer to confirm (the subs pop-up on the phone and
   the watch).
 - **Match-day timing** (Ethan, after a real game where the ref called changes early and halves weren't exactly 15):
