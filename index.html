@@ -829,6 +829,25 @@ html.droid :is(#mChat, #chatBack, #hlScope, #hlTeams, #hlFrWrap, #wStart, #pplBt
 #tabBadge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ffc83d; color: #2a2100; font-size: var(--t-cap); font-weight: 800; line-height: 18px; }
 #tabMsg { text-align: center; padding: 8px 16px; margin: 0 auto 6px; max-width: 552px; font-size: var(--t-sub); background: var(--surface); border-radius: 14px; }
 body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+/* the cut's progress bar, above the tab bar while you use the rest of Gaffer */
+#cutBar { position: fixed; z-index: 21; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); max-width: 552px; margin-inline: auto;
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 14px; border: 0; border-radius: 18px; text-align: left; color: var(--ink); font: inherit;
+  background: var(--glass); -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6); box-shadow: 0 0 0 1px var(--line), 0 8px 28px rgba(0, 0, 0, .14); }
+@media (prefers-reduced-transparency: reduce) { #cutBar { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+#cutBar[hidden] { display: none; }
+body.tabbed #cutBar { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+body.cutbarred { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+body.tabbed.cutbarred { padding-bottom: calc(156px + env(safe-area-inset-bottom, 0px)); }
+#cutBar .cbtext { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#cutBar .cbtext b { font-size: var(--t-sub); }
+#cutBar .cbtext span { font-size: var(--t-foot); color: var(--muted); overflow-wrap: anywhere; }
+#cutBar .cbdot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--on); }
+#cutBar.work .cbdot { animation: cbpulse 1.4s ease-in-out infinite; }
+#cutBar.bad .cbdot { background: var(--danger); }
+#cutBar .cbgo { flex: none; font-size: var(--t-title); color: var(--muted); }
+@keyframes cbpulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { #cutBar.work .cbdot { animation: none; } }
+body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-inset-bottom, 0px)); }
 .gtrack { display: flex; flex-direction: column; gap: 14px; }
 .gtrack::-webkit-scrollbar { display: none; } .gtrack[hidden] { display: none; }
 .gtrack .fxc { flex: none; }
@@ -1224,6 +1243,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   <p id="pushNext">Your iPhone will ask next. You can change this any time in Settings.</p>
   <div class="actions"><button class="plain primary" id="pushYes" type="button">Turn on notifications</button><button class="plain" id="pushNo" type="button">Not now</button></div></div></div>
 <div id="hlSheet"></div>
+<button type="button" id="cutBar" class="cutbar" hidden></button>
 <div id="reelPop" role="dialog" aria-labelledby="rbTitle" hidden><div class="planbox" id="rbBody"></div></div>
 <div id="beatPop" role="dialog" aria-labelledby="beTitle" hidden><div class="planbox" id="beBody"></div><audio id="beAudio" preload="none"></audio></div>
 <div id="livePop" role="dialog" aria-labelledby="liveTitle" hidden><div class="planbox" id="liveBody"></div></div>
@@ -2019,6 +2039,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   // Open a team: show this device's copy straight away, then catch up with the database and follow it live.
   function openTeam(code, view) {
+    if (A.active !== code && cutBusy()) { cutBarSay('Your highlights are still being cut. You can switch team once they’re done.'); return; } // (the cut uploads to, and saves, the team that's open)
     if (A.active !== code) closeTeam();
     A.active = code;
     var cache = loadCache(code), meta = teamMeta(code);
@@ -2461,6 +2482,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     VIEWS.forEach(function (v) { $('v-' + v).hidden = v !== view; });
     if (view === 'intro' && fresh) { $('introTrack').scrollLeft = 0; introPaint(); }
     render();
+    if (CUT) { cutBarDraw(); banSync(); }
     try { window.scrollTo(0, 0); } catch (e) {}
     topbarWatch();
   }
@@ -5485,7 +5507,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       Array.prototype.forEach.call(box.querySelectorAll('[data-clip]'), function (b) { b.setAttribute('aria-pressed', b === e.target); });
       v.src = e.target.getAttribute('data-src'); try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {}
     }
-    else if (cut !== null) { CUT = cutStart(+cut); go('cut'); }
+    else if (cut !== null) { if (!cutBusy()) CUT = cutStart(+cut); go('cut'); } // (one cut at a time: while one runs, this opens it)
     else if (e.target.getAttribute('data-greel') !== null) rbOpen(null, +e.target.getAttribute('data-greel'));
     else if (e.target.getAttribute('data-beat') !== null) beOpen({ game: +e.target.getAttribute('data-beat') });
     else if (e.target.getAttribute('data-pbeat') !== null) beOpen({ pid: +e.target.getAttribute('data-pbeat') });
@@ -5521,7 +5543,50 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     if (!CUT || mkJob) return;
     if (d.stage === 'download' && !(CUT.gp && CUT.gp.busy)) return; // (a download carrying on for a link no longer being used)
     CUT.prog = d.stage === 'download' ? 'Downloading the video, ' + pct + '%. It carries on if you put Gaffer away.' : d.stage === 'copy' ? 'Reading the video, ' + pct + '%' : d.stage === 'reel' ? 'Joining the full reel, ' + pct + '%' : 'Cutting clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + ', ' + pct + '%';
-    var el = $('cutProg'); if (el) el.textContent = CUT.prog;
+    cutSay();
+  }
+  // The cut carries on while you use the rest of Gaffer (Ethan: "you should be able to leave that page when it is creating
+  // highlights and then it has a banner somewhere to display progress"). The bar sits above the tab bar on every screen but
+  // the cut's own and the game's, and tapping it goes back to the cut. iOS still pauses the cutting once Gaffer is put away.
+  function cutBusy() { return !!(CUT && CUT.stage === 'work' && !CUT.msg); }
+  function cutSay() { var el = $('cutProg'); if (el && CUT) el.textContent = CUT.prog; cutBarDraw(); }
+  var CUTBAR = { msg: '', t: 0 };
+  function cutBarSay(msg) { CUTBAR.msg = msg; clearTimeout(CUTBAR.t); CUTBAR.t = setTimeout(function () { CUTBAR.msg = ''; cutBarDraw(); }, 5000); cutBarDraw(); }
+  function cutBarDraw() {
+    var bar = $('cutBar'); if (!bar) return;
+    var state = !CUT ? '' : cutBusy() ? 'work' : CUT.seen ? '' : CUT.stage === 'done' ? 'done' : CUT.stage === 'work' && CUT.msg ? 'bad' : '';
+    var show = !!state && S.view !== 'cut' && S.view !== 'game';
+    bar.hidden = !show; document.body.classList.toggle('cutbarred', show); if (!show) return;
+    var r = S.results[CUT.idx], what = r ? 'Highlights v ' + r.opp : 'Highlights';
+    var line = CUTBAR.msg || (state === 'work' ? CUT.prog || 'Starting…' : state === 'done' ? 'Ready to watch. Tap to see them.' : 'Cutting stopped. Tap to see why.');
+    bar.className = 'cutbar ' + state;
+    bar.innerHTML = '<span class="cbdot" aria-hidden="true"></span><span class="cbtext"><b>' + esc(what) + '</b><span>' + esc(line) + '</span></span><span class="cbgo" aria-hidden="true">›</span>';
+    bar.setAttribute('aria-label', what + '. ' + line);
+  }
+  document.addEventListener('click', function (e) { if (e.target && e.target.closest && e.target.closest('#cutBar') && CUT) go('cut'); });
+  // A banner ad under the cut while it works (Ethan: "have ads showing below while it's creating"), on the free tier only,
+  // never during a game, and only once the 30-second ad (if one was watched) has closed. CFG.ads.banner is Gaffer's banner
+  // ad unit from AdMob; without one there's no banner (test: true uses Google's test banner instead).
+  var BAN = { on: false, busy: false, h: 0, hs: false, failed: null };
+  function banWanted() { return cutBusy() && S.view === 'cut' && adWanted() && !AD.busy && !AD.on && BAN.failed !== CUT && !!(CFG.ads && (CFG.ads.banner || CFG.ads.test)); }
+  async function banSync() {
+    var am = plugin('AdMob'); if (!am || BAN.busy) return;
+    var want = banWanted();
+    if (want === BAN.on) return;
+    BAN.busy = true;
+    try {
+      if (want) {
+        await adSetup(am);
+        if (!BAN.hs) { BAN.hs = true; try { am.addListener('bannerAdSizeChanged', function (d) { BAN.h = (d && d.height) || 0; document.documentElement.style.setProperty('--adban', BAN.h + 'px'); }); } catch (e) {} }
+        if (banWanted()) { // (still wanted once Google's ads have started)
+          var shown = await adStep(am.showBanner({ adId: CFG.ads.banner || '', adSize: 'ADAPTIVE_BANNER', position: 'BOTTOM_CENTER', margin: 0, isTesting: !!CFG.ads.test }), AD_MS.load);
+          if (shown === AD_LATE) throw new Error('late');
+          BAN.on = true; document.body.classList.add('adbanned');
+        }
+      } else { BAN.on = false; document.body.classList.remove('adbanned'); try { await am.removeBanner(); } catch (e) {} }
+    } catch (e) { BAN.on = false; BAN.failed = CUT; document.body.classList.remove('adbanned'); try { await am.removeBanner(); } catch (e2) {} } // (no banner from Google: this cut carries on without one)
+    BAN.busy = false;
+    if (banWanted() !== BAN.on) banSync(); // (things changed while Google answered)
   }
   // Cameras: the gaffer marks where each one stood around the pitch, and every moment is cut from the camera with the
   // best view of it. A goal comes from the camera nearest the goal it went in, a save from the one nearest our goal, and
@@ -5684,7 +5749,10 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     return o + '</svg>';
   }
   function renderCut() {
+    cutBarDraw(); banSync();
+    if (S.view !== 'cut') return; // (away from the cut screen only the bar is redrawn: a pull mid-cut never pulls you back)
     var r = CUT && S.results[CUT.idx]; if (!r) { go('highlights'); return; }
+    if (CUT.stage === 'done' || (CUT.stage === 'work' && CUT.msg)) CUT.seen = true; // (the bar's "ready" or "stopped" has been read)
     var html = '<p class="msg">' + esc(scoreLine(r, r.us, r.them)) + '</p>', live = CUT.cams.filter(function (k) { return k.src; }), busy = CUT.prog ? '<p class="msg busy" id="cutProg">' + esc(CUT.prog) + '</p>' : '<p class="msg busy" id="cutProg"></p>';
     if (CUT.stage === 'cams') {
       html += '<section><h2>Where were the cameras?</h2><p class="note">Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.</p>' + camPitch(r) +
@@ -5728,7 +5796,9 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       html += '<p class="note" id="cutCount">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut' + (from ? ' (' + from + ')' : '') + ', plus one joined reel that ends on the full-time card, to share.</p>' +
         '<div class="actions"><button class="plain" type="button" data-cutdo="cams">Back to the cameras</button><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
     }
-    else if (CUT.stage === 'work') html += '<p class="note">Keep the app open while it works. A full game usually takes a minute or two.</p>' + (CUT.msg ? '' : '<p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>'); // (stopped by a problem: no spinner)
+    else if (CUT.stage === 'work') html += (CUT.msg ? '' : '<p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>' + // (stopped by a problem: no spinner)
+      '<p class="note">A full game usually takes a minute or two. You can use the rest of Gaffer while it cuts: a bar at the bottom shows how it’s going. Keep Gaffer open until it’s done, as iOS pauses the cutting once Gaffer is put away.</p>' +
+      '<div class="actions"><button class="plain" type="button" data-cutdo="away">Use Gaffer while it cuts</button></div>');
     else if (CUT.stage === 'done') html += '<p class="msg">' + CUT.n + (CUT.n === 1 ? ' clip is' : ' clips are') + ' now in Highlights for the whole team' + (CUT.voiced === true ? ', with commentary' : '') + '.</p>' + (CUT.voiced && CUT.voiced !== true ? '<p class="msg bad">The commentary couldn’t be added: ' + esc(CUT.voiced) + ' The clips were cut without it.</p>' : '') +
       (CUT.storeNote ? '<p class="note">' + esc(CUT.storeNote) + '</p>' : '') + (CUT.reelErr ? '<p class="msg bad">The full reel couldn’t be joined: ' + esc(CUT.reelErr) + ' The clips are all in Highlights; cut again to try the reel once more.</p>' : '') +
       '<div class="actions">' + (CUT.reel ? '<button class="plain primary" type="button" data-cutdo="share">Share the full reel</button>' : '') + '<button class="plain" type="button" data-cutdo="finish">Done</button></div>' +
@@ -6074,8 +6144,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
       var aiYes = !(CUT.voice && hasGaffer()) || await aiAsk(); // (asked before the cut starts, not halfway through)
       var cutAd = adWanted(); // (the free tier: an ad plays while the phone cuts, which takes minutes anyway)
       if (cutAd && !(await adAsk('Watch an ad while your highlights are cut', 'While your highlights are cut, watch a 30-second ad. Cutting takes a few minutes anyway, so it won’t hold you up.'))) { cutKeep(); renderCut(); return; }
+      if (cutAd && !AD.busy) { AD.busy = true; adRun('make', null, { local: true }).then(function (x) { AD.busy = false; banSync(); if (x === 'nofill') noAdPop('Google hasn’t got an ad for you right now, so there’s no ad this time. Your highlights are still being cut.'); }, function () { AD.busy = false; banSync(); }); } // (the cut carries on whatever happens to the ad)
       CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; renderCut();
-      if (cutAd && !AD.busy) { AD.busy = true; adRun('make', null, { local: true }).then(function (x) { AD.busy = false; if (x === 'nofill') noAdPop('Google hasn’t got an ad for you right now, so there’s no ad this time. Your highlights are still being cut.'); }, function () { AD.busy = false; }); } // (the cut carries on whatever happens to the ad)
       try {
         var b0 = camBase(r, live[0], false, false); if (b0 != null) r.sync = Math.max(0, Math.round(b0)); save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
         if (dirty || !r.id) throw new Error('Couldn’t save the game to the database. Check your signal and try again.');
@@ -6083,7 +6153,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         var said = null; CUT.voiced = null;
         if (CUT.voice && hasGaffer() && !aiYes) CUT.voiced = AI_NO;
         else if (CUT.voice && hasGaffer()) {
-          CUT.prog = 'Recording the commentary…'; var vp = $('cutProg'); if (vp) vp.textContent = CUT.prog;
+          CUT.prog = 'Recording the commentary…'; cutSay();
           var sw = swears(), ft = 'Full time. ' + usFull(r) + ' ' + r.us + ', ' + r.opp + ' ' + r.them + '.';
           var words = [sw ? usFull(r) + ' against ' + r.opp + '. Strap in, this gets fucking mental.' : usFull(r) + ' against ' + r.opp + '. Here are the highlights.'].concat(list.map(function (c) { return commentaryFor(r, { at: c.at, dur: c.end - c.start }, sw) || ''; }),
             [sw ? ft + ' ' + (r.us > r.them ? 'Get fucking in!' : r.us < r.them ? 'Absolute shambles. Pints are on the keeper.' : 'Honours even. Shite game, if we’re honest.') : ft]);
@@ -6125,7 +6195,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
           return { key: to, r2: false };
         };
         for (var i = 0; i < res.clips.length; i++) {
-          CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; var el = $('cutProg'); if (el) el.textContent = CUT.prog;
+          CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; cutSay();
           var a = await up(res.clips[i]), v = res.clips[i].voiced ? await up(res.clips[i].voiced) : null;
           if (a.r2 && v && !v.r2) { try { await q(sb.storage.from('clips').upload(a.key, await (await fetch(window.Capacitor.convertFileSrc(res.clips[i].path))).blob(), { contentType: 'video/mp4', upsert: true })); } catch (e) {} a.r2 = false; } // (both copies of a clip in one place)
           var path = a.key, vpath = v ? v.key : null;
@@ -6134,7 +6204,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         var reelRow = null, oldReel = r.reel || null;
         if (reelParts.length && marks) {
           try {
-            CUT.prog = 'Uploading the full reel'; var elr = $('cutProg'); if (elr) elr.textContent = CUT.prog;
+            CUT.prog = 'Uploading the full reel'; cutSay();
             var ups = []; for (var ri = 0; ri < reelParts.length; ri++) ups.push(await up(reelParts[ri]));
             if (ups.every(function (u) { return u.r2 === ups[0].r2; })) {
               reelRow = { path: ups[0].key, store: ups[0].r2 ? 'r2' : null }; if (ups[1]) reelRow.vpath = ups[1].key;
@@ -6161,7 +6231,8 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
         notifyTeam('highlights', scoreLine(r, r.us, r.them), 'The highlights are ready to watch.');
       } catch (err) { CUT.msg = (err && err.message) || 'Something went wrong while cutting.'; }
       renderCut();
-    } else if (act === 'retry') { CUT.stage = CUT.cams.some(function (k) { return k.src; }) ? 'sync' : 'cams'; CUT.msg = ''; renderCut(); }
+    } else if (act === 'away') { go(reelBack || 'highlights'); }
+    else if (act === 'retry') { CUT.stage = CUT.cams.some(function (k) { return k.src; }) ? 'sync' : 'cams'; CUT.msg = ''; renderCut(); }
     else if (act === 'share') { try { var shared = await rc.share({ path: CUT.reel }); if (shared && shared.completed) rateAsk(); } catch (err) { CUT.msg = (err && err.message) || 'Couldn’t open the share sheet.'; renderCut(); } }
     else if (act === 'finish') { try { await rc.cleanup(); } catch (err) {} CUT = null; go('highlights'); }
   });
@@ -8312,7 +8383,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     }
   });
   // ================= end of playing other teams
-  // ================= rewarded ads (the free tier). No banners. Ethan (October 2026, out of Experimental): an ad plays while
+  // ================= rewarded ads (the free tier). The one banner is under a cut while it works (banSync). Ethan (October 2026, out of Experimental): an ad plays while
   // the phone makes something you'd be waiting for anyway: a reel, a beat highlight, or a game's highlights being cut. It's
   // offered first (adAsk: "while your reel is made, watch a 30-second ad to unlock it"), and the reel takes about that long.
   // Your own reel on your card is unlocked on the server: Google's AdMob calls the ad-reward edge function, signed, when the
