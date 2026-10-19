@@ -4,7 +4,7 @@
 // download what's in it without signing in to GoPro, so nothing of Ethan's GoPro account is needed or kept.
 // Only the small lists go through here: the video itself goes straight from GoPro's own servers to the gaffer's phone,
 // which needs the file anyway to cut the highlights on (so none of it passes through Supabase or R2).
-// Called by a team's gaffers with { code, link } -> { title, videos: [{ id, name, captured, duration, width, height,
+// Called by a team's gaffers with { code, link, res? } -> { title, videos: [{ id, name, captured, duration, width, height,
 // quality, size, url }] }, newest first. `url` works for about an hour; the phone starts its download straight away.
 // GoPro's addresses (api.gopro.com, as its own share page uses them; checked October 2026):
 //   /collections/<share id>/media   what's in the share (the older short ids, gopro.com/v/AbC123)
@@ -75,11 +75,14 @@ async function follow(pasted: string): Promise<string | null> {
 /// Which version of a video to download. The 1080p one GoPro makes of every upload is plenty for highlights (each clip
 /// is made smaller again before it's uploaded) and far smaller than a 4K or 5.3K original (a half of 5.3K is over 10 GB);
 /// the original is used when there's no 1080p one, or the original is no bigger than 1080p anyway.
-export function pickVersion(variations: Array<Record<string, unknown>>) {
+/// `res` "4k" (the Gaffer tier's 4K highlights): the original up to 4K (a 5.3K one is still too big, so it's the 1080p copy).
+export function pickVersion(variations: Array<Record<string, unknown>>, res?: string) {
   const ok = (variations || []).filter((v) => v && v.available !== false && typeof v.url === "string" && (v.type || "mp4") === "mp4");
   const by = (label: string) => ok.find((v) => v.label === label);
   const source = by("source"), proxy = by("high_res_proxy_mp4");
-  if (source && (!proxy || Number(source.height || 0) <= 1080 && Number(source.width || 0) <= 1920)) return source;
+  const [long, short] = res === "4k" ? [3840, 2160] : [1920, 1080];
+  const w = Number(source?.width || 0), h = Number(source?.height || 0);
+  if (source && (!proxy || Math.max(w, h) <= long && Math.min(w, h) <= short)) return source;
   return proxy || source || ok.filter((v) => v.label !== "mp4_low")[0] || null;
 }
 
@@ -117,7 +120,7 @@ Deno.serve(async (req: Request) => {
       const res = await ask(`/media/${m.id}/download`, "media");
       if (!res.ok) continue;
       const got = await res.json();
-      const v = pickVersion(got?._embedded?.variations || []);
+      const v = pickVersion(got?._embedded?.variations || [], input.res === "4k" ? "4k" : undefined);
       if (!v) continue;
       let size = v.label === "source" && Number(m.file_size) ? Number(m.file_size) : 0;
       if (!size && typeof v.head === "string") { // (how big the 1080p version is, so the phone can check it has room)

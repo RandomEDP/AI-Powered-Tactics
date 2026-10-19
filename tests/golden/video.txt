@@ -1,7 +1,7 @@
 after finish: v-stats
 before: SOP FC 1–1 Dog10 Oct, 3 moments1’Goal: Puxley (1–0)1’Highlight16’Goal for Dog (1–1)No footage for this game yet. Cut it from your GoPro or iPhone footage.Cut from videoStats
 view: v-cut
-cameras screen: SOP FC 1–1 DogWhere were the cameras?Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.DogSOP FCGoals come from the camera nearest the goal they went in. Saves come from the one nearest SOP FC’s goal, and other highlights from the one nearest Dog’s goal.Teams swapped ends at half time (the ends drawn are for the first half)Add a cameraAdd from a GoPro 
+cameras screen: SOP FC 1–1 DogWhere were the cameras?Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.DogSOP FCGoals come from the camera nearest the goal they went in. Saves come from the one nearest SOP FC’s goal, and other highlights from the one nearest Dog’s goal.Highlights in 4K (Gaffer: sharper clips from 4K GoPro or iPhone footage, 1080p from anything smaller
 cancelled pick leaves 0 cameras | next button: false
 after a tap and a video: 1 camera | Camera 150 min, started <hh:mm>Change videoPaste a linkRemove
 sync screen: SOP FC 1–1 DogLine up the videoMark kick-off, the second-half kick-off and two or three goals. For each: pick it below, play or drag the video to the moment (for a goal, when the ball hits the net), and tap It happens here. Gaffer works out every other moment from them; each clip starts 8 seconds before its moment.Marking Kick-o

@@ -32,6 +32,7 @@ const SHARES = {
   TwoHalves001: [{ id: 'Half1aaaaaaaa', type: 'Video', filename: 'GX010050.MP4', captured_at: '2026-10-10T17:58:00Z', source_duration: '1080000', file_size: 900000000, w: 1920, h: 1080 },
     { id: 'Photo1aaaaaaa', type: 'Photo', filename: 'GOPR0051.JPG', captured_at: '2026-10-10T18:30:00Z' },
     { id: 'Half2aaaaaaaa', type: 'Video', filename: 'GX010052.MP4', captured_at: '2026-10-10T18:01:30Z', source_duration: '1080000', file_size: 950000000, w: 1920, h: 1080 }],
+  FourKVideo01: [{ id: 'FourKaaaaaaaa', type: 'Video', filename: 'GX010090.MP4', captured_at: '2026-10-10T17:58:00Z', source_duration: '1800000', file_size: 5400000000, w: 3840, h: 2160 }],
   OnlyPhotos01: [{ id: 'Photo2aaaaaaa', type: 'Photo', filename: 'GOPR0060.JPG' }],
 };
 // the newer kind of share (gopro.com/v/<uuid>, Ethan's links in October 2026), read from /media/items/ with each video under `medium`
@@ -67,8 +68,8 @@ const src = fs.readFileSync(path.join(ROOT, 'supabase/functions/gopro-link/index
 check(!/^import /m.test(src), 'its only imports are the two that have stand-ins here');
 const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'gaffer-fn-')), 'gopro-link.ts'); fs.writeFileSync(file, src);
 const { shareId, pickVersion } = await import(file);
-const call = async (token, link, code = 'sopfc1') => {
-  const res = await handler(new Request('https://x.supabase.co/functions/v1/gopro-link', { method: 'POST', headers: token ? { Authorization: 'Bearer ' + token } : {}, body: JSON.stringify({ code, link }) }));
+const call = async (token, link, code = 'sopfc1', res4k = null) => {
+  const res = await handler(new Request('https://x.supabase.co/functions/v1/gopro-link', { method: 'POST', headers: token ? { Authorization: 'Bearer ' + token } : {}, body: JSON.stringify({ code, link, res: res4k }) }));
   return Object.assign(await res.json(), { status: res.status });
 };
 
@@ -89,6 +90,12 @@ const bad = [await call('tok-ethan', 'https://example.com/v/OneHalfVid01'), awai
 eq(bad.map((x) => [x.status, x.reason]), [[400, 'not_gopro'], [404, 'not_shared'], [404, 'no_video']], 'not a GoPro link, a share that\'s gone, and a share with no video each say so');
 check(/tap Share, then Copy link/.test(bad[0].error) && /isn't shared any more/.test(bad[1].error) && /only photos/.test(bad[2].error), 'each in plain words, with what to do');
 check(!asked.some((a) => /example\.com/.test(a)), 'a link to anywhere but GoPro is never fetched');
+// 4K, for the Gaffer tier (Ethan: "allow 4k uploads only for the pro gaffer tier ... also ... from GoPro footage")
+eq([pickVersion(vars('a', 3840, 2160), '4k').label, pickVersion(vars('a', 2704, 1520), '4k').label, pickVersion(vars('a', 5312, 2988), '4k').label, pickVersion(vars('a', 2160, 3840), '4k').label, pickVersion(vars('a', 1080, 1920)).label],
+  ['source', 'source', 'high_res_proxy_mp4', 'source', 'source'], 'with 4K asked for, the original up to 4K (either way up); a 5.3K one is still GoPro\'s 1080p copy; a portrait 1080p one is the original either way');
+const k4 = [await call('tok-ethan', 'https://gopro.com/v/FourKVideo01'), await call('tok-ethan', 'https://gopro.com/v/FourKVideo01', 'sopfc1', '4k')];
+eq(k4.map((x) => [x.videos[0].quality, x.videos[0].url, x.videos[0].size]), [['1080p', cdn('FourKaaaaaaaa', 'proxy'), 1400000000], ['2160p', cdn('FourKaaaaaaaa', 'source'), 5400000000]],
+  'a 4K video comes as the 1080p copy as usual, and as the 4K original (with its real size, so the phone checks there\'s room) when 4K is on');
 eq([shareId('https://gopro.com/v/26a90bf2-007d-4321-9a3b-5c7e1f0d2a44'), shareId('Check this https://gopro.com/v/26a90bf2-007d-4321-9a3b-5c7e1f0d2a44?utm_source=quik'), shareId(' 26a90bf2-007d-4321-9a3b-5c7e1f0d2a44 ')], ['26a90bf2-007d-4321-9a3b-5c7e1f0d2a44', '26a90bf2-007d-4321-9a3b-5c7e1f0d2a44', '26a90bf2-007d-4321-9a3b-5c7e1f0d2a44'],
   'the newer kind of link (gopro.com/v/ then a long id with dashes, which Ethan\'s were) is read whole, not cut off at the first dash');
 const fresh = await call('tok-ethan', 'Check this https://gopro.com/v/26a90bf2-007d-4321-9a3b-5c7e1f0d2a44?utm_source=quik');
@@ -163,7 +170,7 @@ await A.click('#cutBody [data-cutdo="cams"]');
 await A.click('#cutBody [data-cutdo="gp"]');
 await A.page.fill('#gpLink', 'https://gopro.com/v/TwoHalves001'); await A.click('#cutBody [data-cutdo="gpgo"]'); await A.run(300);
 const opts = await A.page.$$eval('#cutBody .gplist button', (b) => b.map((x) => x.textContent));
-eq(opts, ['GX010052.MP410 Oct 18:01, 18 min, 950 MB', 'GX010050.MP410 Oct 17:58, 18 min, 900 MB'], 'several videos: each with when it started, how long and how big, to pick from');
+eq(opts, ['GX010052.MP410 Oct 18:01, 18 min, 1080p, 950 MB', 'GX010050.MP410 Oct 17:58, 18 min, 1080p, 900 MB'], 'several videos: each with when it started, how long, how sharp and how big, to pick from');
 check(/Pick the first half here, then use Add a second-half video/.test(await A.text('#gpBox')), 'saying how to add the other half');
 await A.click('#cutBody [data-cutdo="gpuse"][data-i="1"]'); await A.run(2500);
 check(/^18 min, started 17:58$/.test((await A.text('#cutBody .camlist li span')).trim()), 'the first half is the camera\'s video now (the same video again would keep its marks)');
@@ -183,6 +190,23 @@ await A.page.evaluate(() => { window.__noRoom = true; });
 await A.click('#cutBody [data-cutdo="gp"]'); await A.page.fill('#gpLink', 'https://gopro.com/v/OneHalfVid01'); await A.click('#cutBody [data-cutdo="gpgo"]'); await A.run(400);
 check(/this phone only has 0\.3 GB free/.test(await A.text('#gpMsg')), 'not enough room on the phone says how much is needed, and what to do');
 check(/^18 min/.test((await A.text('#cutBody .camlist li span')).trim()), 'and the camera keeps the video it had');
+await A.click('#cutBody [data-cutdo="gpno"]');
+
+// 4K highlights (the Gaffer tier; everyone has it in early access)
+await A.page.evaluate(() => { window.__noRoom = false; });
+const goproAsked = () => w.db().calls.filter((c) => c.name === 'gopro-link').pop().body;
+check(await A.page.isVisible('#cut4k') && !(await A.page.isChecked('#cut4k')), 'the cameras screen offers Highlights in 4K, off to start');
+check(/4K GoPro or iPhone footage/.test(await A.text('label[for="cut4k"]')), 'saying it works for GoPro or iPhone footage, and what it costs in size and time');
+await A.click('#cutBody [data-cutdo="gp"]'); await A.page.fill('#gpLink', 'https://gopro.com/v/OneHalfVid01'); await A.click('#cutBody [data-cutdo="gpgo"]'); await A.run(2600);
+eq(goproAsked().res, null, 'with it off, a GoPro link asks for the usual 1080p copy');
+await A.page.check('#cut4k'); await A.run(100);
+eq(await A.page.evaluate(() => localStorage.getItem('apt-4k')), '1', 'switching it on is kept on this phone');
+await A.click('#cutBody [data-cutdo="gp"]'); await A.page.fill('#gpLink', 'https://gopro.com/v/OneHalfVid01'); await A.click('#cutBody [data-cutdo="gpgo"]'); await A.run(2600);
+eq(goproAsked().res, '4k', 'with it on, a GoPro link asks for the 4K original');
+check(await A.page.isChecked('#cut4k'), 'and it stays on as the screen is redrawn');
+await A.click('#cutBody [data-cutdo="next"]'); await A.click('#cutBody [data-cutdo="here"]'); await A.click('#cutBody [data-cutdo="go"]'); await A.run(3000);
+const cutWith = await A.page.evaluate(() => { const c = window.__rc.filter((x) => x[0] === 'cut').pop(); return c && c[1].quality; });
+eq(cutWith, '4k', 'and the phone is asked to cut the clips in 4K (an iPhone video from Photos is used as it is, so it\'s cut in 4K too)');
 
 await w.close();
 await done();
