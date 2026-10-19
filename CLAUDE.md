@@ -488,7 +488,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   count on `#mChatBadge`; the chat screen's back, `#chatBack`, goes to Team), Ethan for 1.1. Android's bar keeps Chat.
 - **The Highlights tab** (`v-highlights`, Ethan for 1.1; `HLS`, `hlScopeNow`, `renderMyHl`, `0042_my_highlights.sql`): **My teams**
   (`#hlScope`) is the open team's highlights as before, with the teams on the phone as chips to switch (`#hlTeams`,
-  `openTeam(code, 'highlights')`; the friendlies team only when it's the open one); **Just me** is every clip you're in from
+  `openTeam(code, 'highlights')`), your friendlies team last as **Friendly games** (Ethan, October 2026), which starts with a
+  list of each friendly game (`#frJump`, `data-hljump`, both sides' names) linking down to its card; **Just me** is every clip you're in from
   every team (`my_clips`, grouped by game, newest first) with **Include friendlies** (`#hlFr`, `apt-hl-fr`) off to start
   (`clips_of` returns `personal` and `friendly`). The tab remembers the last choice (`apt-hl-scope`); anything else that
   opens Highlights (the Team tile, a result, a notification) shows that team's (`HLS.here`). Works with no team open.
