@@ -34,16 +34,26 @@ const SHARES = {
     { id: 'Half2aaaaaaaa', type: 'Video', filename: 'GX010052.MP4', captured_at: '2026-10-10T18:01:30Z', source_duration: '1080000', file_size: 950000000, w: 1920, h: 1080 }],
   OnlyPhotos01: [{ id: 'Photo2aaaaaaa', type: 'Photo', filename: 'GOPR0060.JPG' }],
 };
+// the newer kind of share (gopro.com/v/<uuid>, Ethan's links in October 2026), read from /media/items/ with each video under `medium`
+const ITEMS = { '26a90bf2-007d-4321-9a3b-5c7e1f0d2a44': [{ id: 'NewShareVid01', type: 'Video', filename: 'GX010077.MP4', captured_at: '2026-10-10T17:58:00Z', source_duration: '1800000', file_size: 1100000000, w: 1920, h: 1080 }],
+  '00000000-0000-4000-8000-0000000000aa': 'private' };
 const asked = [];
 globalThis.fetch = async (url, init = {}) => {
   url = String(url); asked.push((init.method || 'GET') + ' ' + url);
-  let m = url.match(/^https:\/\/api\.gopro\.com\/collections\/([A-Za-z0-9]+)\/media$/);
+  let m = url.match(/^https:\/\/api\.gopro\.com\/collections\/([A-Za-z0-9-]+)\/media$/);
   if (m) {
     check(/application\/vnd\.gopro\.jk\.media\+json/.test(init.headers?.Accept || ''), 'GoPro is asked the way its own share page asks (it says 406 otherwise)');
     return SHARES[m[1]] ? new Response(JSON.stringify({ _embedded: { media: SHARES[m[1]].map(({ w, h, ...x }) => x) } })) : new Response('{}', { status: 404 });
   }
+  m = url.match(/^https:\/\/api\.gopro\.com\/media\/items\/([A-Za-z0-9-]+)\?page=1&per_page=200$/);
+  if (m) {
+    check(/application\/vnd\.gopro\.jk\.media\+json/.test(init.headers?.Accept || ''), 'a newer share is asked for the way GoPro\'s own page asks');
+    const x = ITEMS[m[1]];
+    if (x === 'private') return new Response('', { status: 403 });
+    return x ? new Response(JSON.stringify({ items: x.map(({ w, h, ...v }) => ({ id: 'item-' + v.id, medium: v })), _pages: { current_page: 1, total_pages: 1 } })) : new Response('', { status: 404 });
+  }
   m = url.match(/^https:\/\/api\.gopro\.com\/media\/([A-Za-z0-9]+)\/download$/);
-  if (m) { const x = Object.values(SHARES).flat().find((v) => v.id === m[1]); return new Response(JSON.stringify({ filename: x.filename, _embedded: { variations: vars(x.id, x.w, x.h) } })); }
+  if (m) { const x = [...Object.values(SHARES), ...Object.values(ITEMS).filter(Array.isArray)].flat().find((v) => v.id === m[1]); return new Response(JSON.stringify({ filename: x.filename, _embedded: { variations: vars(x.id, x.w, x.h) } })); }
   if (/&head$/.test(url) && init.method === 'HEAD') return new Response(null, { headers: { 'content-length': '1400000000' } });
   m = url.match(/^https:\/\/gopro\.app\.link\/(\w+)$/);
   if (m) return new Response(null, { status: 302, headers: { location: 'https://gopro.com/v/' + m[1] } });
@@ -79,6 +89,15 @@ const bad = [await call('tok-ethan', 'https://example.com/v/OneHalfVid01'), awai
 eq(bad.map((x) => [x.status, x.reason]), [[400, 'not_gopro'], [404, 'not_shared'], [404, 'no_video']], 'not a GoPro link, a share that\'s gone, and a share with no video each say so');
 check(/tap Share, then Copy link/.test(bad[0].error) && /isn't shared any more/.test(bad[1].error) && /only photos/.test(bad[2].error), 'each in plain words, with what to do');
 check(!asked.some((a) => /example\.com/.test(a)), 'a link to anywhere but GoPro is never fetched');
+eq([shareId('https://gopro.com/v/26a90bf2-007d-4321-9a3b-5c7e1f0d2a44'), shareId('Check this https://gopro.com/v/26a90bf2-007d-4321-9a3b-5c7e1f0d2a44?utm_source=quik'), shareId(' 26a90bf2-007d-4321-9a3b-5c7e1f0d2a44 ')], ['26a90bf2-007d-4321-9a3b-5c7e1f0d2a44', '26a90bf2-007d-4321-9a3b-5c7e1f0d2a44', '26a90bf2-007d-4321-9a3b-5c7e1f0d2a44'],
+  'the newer kind of link (gopro.com/v/ then a long id with dashes, which Ethan\'s were) is read whole, not cut off at the first dash');
+const fresh = await call('tok-ethan', 'Check this https://gopro.com/v/26a90bf2-007d-4321-9a3b-5c7e1f0d2a44?utm_source=quik');
+eq([fresh.status, fresh.videos?.map((v) => v.name), fresh.videos?.[0]?.quality, fresh.videos?.[0]?.url, fresh.videos?.[0]?.duration], [200, ['GX010077.MP4'], '1080p', cdn('NewShareVid01', 'source'), 1800],
+  'a newer link\'s video is found through GoPro\'s /media/items/ list, then downloaded like any other');
+const shut = [await call('tok-ethan', 'https://gopro.com/v/00000000-0000-4000-8000-0000000000aa'), await call('tok-ethan', 'https://gopro.com/v/11111111-2222-4333-8444-555555555555')];
+eq(shut.map((x) => [x.status, x.reason]), [[404, 'not_shared'], [404, 'not_shared']], 'a newer link GoPro keeps to signed-in people, or one that\'s gone, says so');
+check(/link anyone can open/.test(shut[0].error) && /isn't shared any more/.test(shut[1].error), 'the signed-in-only one says to share it again with a link anyone can open');
+check(asked.includes('GET https://api.gopro.com/collections/11111111-2222-4333-8444-555555555555/media'), 'a newer id GoPro can\'t find in /media/items/ is tried as an older share too');
 
 // ---------- the phone
 const w = await world();

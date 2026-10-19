@@ -7,7 +7,9 @@
 // Called by a team's gaffers with { code, link } -> { title, videos: [{ id, name, captured, duration, width, height,
 // quality, size, url }] }, newest first. `url` works for about an hour; the phone starts its download straight away.
 // GoPro's addresses (api.gopro.com, as its own share page uses them; checked October 2026):
-//   /collections/<share id>/media   what's in the share
+//   /collections/<share id>/media   what's in the share (the older short ids, gopro.com/v/AbC123)
+//   /media/items/<share id>         what's in the share for the newer ids, which look like 26a90bf2-007d-4321-...
+//                                   (each item's video is under `medium`; Ethan's links were these, October 2026)
 //   /media/<id>/download            each video's versions ("source" the original, "high_res_proxy_mp4" 1080p, "mp4_low")
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -23,9 +25,33 @@ const MAX = 10; // (a share of a whole season is cut down to the newest few)
 /// https://gopro.com/v/AbC123"), or the id on its own. Null if it isn't a GoPro share link.
 export function shareId(pasted: string): string | null {
   const s = String(pasted || "").trim();
-  const m = s.match(/gopro\.com\/v\/([A-Za-z0-9]{6,40})/i);
+  const m = s.match(/gopro\.com\/v\/([A-Za-z0-9-]{6,64})/i);
   if (m) return m[1];
-  return /^[A-Za-z0-9]{10,20}$/.test(s) ? s : null;
+  return /^[A-Za-z0-9]{10,20}$/.test(s) || isUuid(s) ? s : null;
+}
+
+/// The newer kind of share id (how GoPro's own share page tells them apart).
+export const isUuid = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+/// What's in the share: GoPro's own share page asks /media/items/ for the newer ids and /collections/ for the older.
+/// Each is tried the other way too if GoPro says it can't find it, in case GoPro moves the older ones across.
+async function shared(id: string): Promise<{ status: number; media: Array<Record<string, unknown>> }> {
+  const items = async () => {
+    const res = await ask(`/media/items/${id}?page=1&per_page=200`, "media");
+    if (!res.ok) return { status: res.status, media: [] };
+    const got = await res.json();
+    return { status: 200, media: (got?.items || []).map((i: Record<string, unknown>) => i?.medium || i).filter(Boolean) };
+  };
+  const collection = async () => {
+    const res = await ask(`/collections/${id}/media`, "media");
+    if (!res.ok) return { status: res.status, media: [] };
+    return { status: 200, media: (await res.json())?._embedded?.media || [] };
+  };
+  const [first, second] = isUuid(id) ? [items, collection] : [collection, items];
+  const a = await first();
+  if (a.status !== 404) return a;
+  const b = await second();
+  return b.status === 404 ? a : b;
 }
 
 /// A short link (Quik's gopro.app.link) followed to the gopro.com/v/ link it stands for, only ever through GoPro's own
@@ -76,11 +102,13 @@ Deno.serve(async (req: Request) => {
     const id = shareId(pasted) || await follow(pasted).catch(() => null);
     if (!id) return said("That isn't a GoPro share link. In GoPro Quik, open the video, tap Share, then Copy link, and paste that here. It looks like gopro.com/v/ followed by letters and numbers.", "not_gopro");
 
-    const list = await ask(`/collections/${id}/media`, "media");
-    if (list.status === 404 || list.status === 403 || list.status === 401)
+    const list = await shared(id);
+    if (list.status === 403 || list.status === 401)
+      return said("GoPro says only people signed in to it can open that link. In GoPro Quik, share the video again with a link anyone can open, and paste that.", "not_shared", 404);
+    if (list.status === 404)
       return said("GoPro says that link isn't shared any more, or it was copied wrong. Make a new share link in GoPro Quik and paste that.", "not_shared", 404);
-    if (!list.ok) return said(`GoPro didn't answer properly (${list.status}). Try again in a minute.`, "gopro_down", 502);
-    const media: Array<Record<string, unknown>> = ((await list.json())?._embedded?.media || []).filter((m: Record<string, unknown>) => m && m.id && (m.type === "Video" || m.type === "MultiClipEdit" || m.play_as === "video"));
+    if (list.status !== 200) return said(`GoPro didn't answer properly (${list.status}). Try again in a minute.`, "gopro_down", 502);
+    const media: Array<Record<string, unknown>> = list.media.filter((m: Record<string, unknown>) => m && m.id && (m.type === "Video" || m.type === "MultiClipEdit" || m.play_as === "video"));
     if (!media.length) return said("There's no video in that share, only photos. Share the match video itself from GoPro Quik.", "no_video", 404);
     media.sort((a, b) => String(b.captured_at || "").localeCompare(String(a.captured_at || "")));
 
