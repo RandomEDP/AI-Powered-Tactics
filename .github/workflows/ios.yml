@@ -1,11 +1,14 @@
 # Builds the iOS app on GitHub's Macs.
-# - Every push to main: checks the app still compiles (simulator build, no Apple account needed).
-# - Run manually ("Run workflow") with TestFlight ticked: signs the app and uploads it to TestFlight.
+# - Every pull request into main and every push to main: runs every test (split over four machines at once) and, at the
+#   same time, checks the app still compiles (simulator build, no Apple account needed).
+# - Run manually ("Run workflow") with TestFlight ticked: runs every test, then signs the app and uploads it to TestFlight.
 #   Needs these repository secrets: APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (see README).
 name: iOS
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -18,23 +21,33 @@ on:
         type: boolean
         default: false
 
+# A newer push to the same branch or pull request replaces a check that is still going. A TestFlight run has its own
+# group and is never cancelled, so merging into main while one is going no longer stops the upload.
 concurrency:
-  group: ios-${{ github.ref }}
-  cancel-in-progress: true
+  group: ios-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.testflight && 'testflight' || 'check' }}
+  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.testflight) }}
 
 jobs:
   # Everything that can be checked without an iPhone or a watch, on every push and before every TestFlight build:
   # the watch's logic on its own, whole games played between the phone app and the watch logic over a bad connection,
   # the phone app in a headless browser, and the database's functions and security rules in a real Postgres.
+  # The tests are shared between four machines (tests/run.mjs --shard), which between them run every one exactly once.
   tests:
+    name: tests (${{ matrix.shard }} of 4)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
 
       - name: Install the test tools
         working-directory: tests
@@ -49,11 +62,44 @@ jobs:
         env:
           EVENINGS: 12
           WALKS: warn
-        run: node tests/run.mjs
+        run: node tests/run.mjs --shard=${{ matrix.shard }}/4
 
+  # Checks the app compiles, alongside the tests rather than after them (it doesn't depend on them).
   ios:
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.testflight) }}
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Use the newest Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install
+        run: npm ci
+
+      - name: Copy the web app into the iOS project
+        run: npm run build:web && npx cap sync ios
+
+      - name: Check it builds (simulator, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/build.log" | tail -n 60 \
+            || { echo "--- compiler errors"; grep -E "error:" "$RUNNER_TEMP/build.log" | sort -u | head -40; exit 1; }
+
+  # TestFlight only goes ahead once every test has passed.
+  testflight:
     needs: tests
-    if: ${{ always() && (needs.tests.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.force)) }}
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.testflight && (needs.tests.result == 'success' || inputs.force) }}
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -82,14 +128,7 @@ jobs:
           swiftc ios/App/Watch/MatchLogic.swift tests/watch/main.swift -o "$RUNNER_TEMP/watchtests"
           "$RUNNER_TEMP/watchtests"
 
-      - name: Check it builds (simulator, unsigned)
-        run: |
-          set -o pipefail
-          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "$RUNNER_TEMP/build.log" | tail -n 60 \
-            || { echo "--- compiler errors"; grep -E "error:" "$RUNNER_TEMP/build.log" | sort -u | head -40; exit 1; }
-
+      # (No separate simulator build here: making the archive compiles everything anyway.)
       - name: Note the signing certificates the account already has
         if: github.event_name == 'workflow_dispatch' && inputs.testflight
         env:
