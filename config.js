@@ -26,6 +26,6 @@ window.APT_CONFIG = {
   // GADApplicationIdentifier). Ad unit ids are public by design (they're in every app that shows ads). Real ads are on
   // (October 2026). test: true makes the phone play Google's own test ads instead (the plugin swaps the unit), which earn
   // nothing and are safe to tap; with it on, ad_settings.trust_app has to be on too, as test ads never call the server.
-  // banner: Gaffer's banner ad unit, shown under the highlights while they're cut (empty: no banner until one is made in AdMob).
-  ads: { rewarded: 'ca-app-pub-2627873247729818/1194270899', banner: '', test: false }
+  // banner: Gaffer's banner ad unit, shown under the highlights while they're cut (empty: no banner).
+  ads: { rewarded: 'ca-app-pub-2627873247729818/1194270899', banner: 'ca-app-pub-2627873247729818/4003128992', test: false }
 };
