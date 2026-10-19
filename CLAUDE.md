@@ -266,6 +266,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
      value, same half first), applied to every moment not marked; a marked moment is used exactly. A mark more than a
      minute from where the others put it is questioned; Clear removes one. Ethan asked for this after his first real
      cut came out late. `cuttiming.test.mjs` covers it.
+     **No second-half footage** (Ethan forgot to press record for one): next to Add a second-half video, "No second-half
+     footage" sets the camera's `k.no2`; `camNo2` keeps its second-half moments out of the line-up (`cutRows`) and gives
+     them no clip from it (`camSeg` returns null, so another camera that filmed them is used). They still count in the
+     stats. "There is second-half footage" takes it back. Test: `nosecondhalf.test.mjs`.
   4. The phone cuts.
 - **A camera's video from a GoPro share link** (Ethan, October 2026: his footage all goes to GoPro's cloud; an iPhone video
   still comes from Photos): "Add from a GoPro link" under the cameras, or "Paste a link" on a camera or for its second half
