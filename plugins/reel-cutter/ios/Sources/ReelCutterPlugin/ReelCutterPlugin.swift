@@ -29,6 +29,12 @@ import UniformTypeIdentifiers
 ///   beatEdit({ items: [{ url }], music, loop, segs, fx, len, outroAt, outro, file })   a beat edit cut to one of Gaffer's own
 ///                                                  tracks, tall for Instagram, exactly as JS planned it (beatPlan in
 ///                                                  index.html) -> { path, size }; "progress" { stage: "fetch" | "beat" | "card", p }
+///   bgStart({ title, subtitle }) -> { started }    iOS's own progress card (iOS 26 and later) while highlights are cut, so
+///                                                  the cut carries on with Gaffer put away (ContinuedWork.swift); started
+///                                                  is false on an older iOS or if iOS says no. bgUpdate({ title?, subtitle, p })
+///                                                  keeps it up to date and bgEnd({ ok }) takes it away. Stopped from the
+///                                                  card: the cut stops at its next clip or export and a "bg" event
+///                                                  { state: "stopped" } is sent
 ///   cleanup()                                      deletes the working files
 /// While working it emits "progress" events: { stage: "copy" | "cut" | "reel", i, n, p }.
 @objc(ReelCutterPlugin)
@@ -47,6 +53,9 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         CAPPluginMethod(name: "relabel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "beatEdit", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cancel", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "bgStart", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "bgUpdate", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "bgEnd", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cleanup", returnType: CAPPluginReturnPromise)
     ]
 
@@ -310,7 +319,9 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         if Thread.isMainThread { begin() } else { DispatchQueue.main.sync(execute: begin) } // (a little time to finish if the phone is locked mid-cut)
         let finished = { DispatchQueue.main.async { if spare != .invalid { UIApplication.shared.endBackgroundTask(spare); spare = .invalid } } }
         queue.async {
-            defer { finished() }
+            self.stopForget("cut") // (a stop from an earlier cut's card doesn't carry over)
+            self.stopNow = { self.stopAsked("cut") } // (stopped from iOS's progress card: bgStart)
+            defer { finished(); self.stopNow = nil; self.stopForget("cut") }
             do {
                 let dir = try self.ensureWorkDir()
                 // Each clip can name its own video, for games filmed as one file per half.
@@ -349,6 +360,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
                 // or the other, as two sounds can't play at once on an iPhone. Each is made smaller for uploading.
                 var made: [[String: Any]] = []
                 for (index, segment) in segments.enumerated() {
+                    try self.checkStop()
                     let out = dir.appendingPathComponent(files[index])
                     var clean = segment
                     clean.voice = nil
@@ -493,6 +505,26 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     private var stopJobs = Set<String>()
     /// Asked by `run` and the clip fetching while a job is under way (only touched on `queue`, one job at a time).
     private var stopNow: (() -> Bool)?
+    @objc public func bgStart(_ call: CAPPluginCall) {
+        let title = call.getString("title") ?? "Cutting highlights", subtitle = call.getString("subtitle") ?? ""
+        ContinuedWork.shared.onStop = { [weak self] in
+            guard let self = self else { return }
+            self.stopLock.lock(); self.stopJobs.insert("cut"); self.stopLock.unlock()
+            self.notifyListeners("bg", data: ["state": "stopped"])
+        }
+        DispatchQueue.main.async {
+            let started = ContinuedWork.shared.start(prefix: (Bundle.main.bundleIdentifier ?? "") + ".work", title: title, subtitle: subtitle)
+            call.resolve(["started": started])
+        }
+    }
+    @objc public func bgUpdate(_ call: CAPPluginCall) {
+        ContinuedWork.shared.update(title: call.getString("title"), subtitle: call.getString("subtitle") ?? "", p: call.getDouble("p") ?? 0)
+        call.resolve()
+    }
+    @objc public func bgEnd(_ call: CAPPluginCall) {
+        ContinuedWork.shared.end(ok: call.getBool("ok") ?? false)
+        call.resolve()
+    }
     @objc public func cancel(_ call: CAPPluginCall) {
         let job = call.getString("job") ?? ""
         guard !job.isEmpty else { call.reject("Nothing to stop"); return }
