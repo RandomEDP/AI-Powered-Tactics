@@ -16,6 +16,17 @@
     const us = [...new Set(d.players.filter((p) => p.team_id === team && p.user_id).map((p) => p.user_id).concat(d.team_members.filter((m) => m.team_id === team).map((m) => m.user_id)))];
     us.filter((o) => o !== user && !d.blocks.some((x) => (x.blocker === o && x.blocked === user) || (x.blocker === user && x.blocked === o))).forEach((o) => [[user, o], [o, user]].forEach(([a1, b1]) => {
       const f = d.follows.find((x) => x.follower === a1 && x.followee === b1); if (f) f.status = 'accepted'; else d.follows.push({ follower: a1, followee: b1, status: 'accepted', at: Date.now() }); })); };
+  // (0046) a player who has claimed their place runs a game they started: its live game (state.by), the goals logged for it,
+  // and the finished game (games.run_by) with its players and events. Not in a friendlies team.
+  const runs = (d, table, row) => {
+    const team = teamOf(d, table, row), me = uid();
+    if (!me || !team || (d.teams.find((t) => t.id === team) || {}).personal || !d.players.some((p) => p.team_id === team && p.user_id === me)) return false;
+    if (table === 'live_matches') return !!row.state && row.state.by === me;
+    if (table === 'goal_queue') return d.live_matches.some((l) => l.team_id === team && l.state && l.state.by === me);
+    if (table === 'games') return row.run_by === me;
+    if (table === 'game_players' || table === 'game_events') return (d.games.find((g) => g.id === row.game_id) || {}).run_by === me;
+    return false;
+  };
   const teamOf = (d, table, row) => table === 'teams' ? row.id : (row.team_id || (d.games.find((g) => g.id === row.game_id) || {}).team_id);
   const ok = (data) => Promise.resolve({ data, error: null });
   const fail = (message, code) => Promise.resolve({ data: null, error: { message, code } });
@@ -519,7 +530,7 @@
       if (window.__offline) return fail('Failed to fetch', '');
       if (window.__refuse && window.__refuse(table, op, body)) return fail('invalid input syntax for type bigint', '22P02'); // a test making the database turn a row down
       const d = load(); window.__mockCalls.push(op + ':' + table);
-      const rows = d[table], allowed = (r) => isOrg(d, teamOf(d, table, r));
+      const rows = d[table], allowed = (r) => isOrg(d, teamOf(d, table, r)) || runs(d, table, r);
       if (op === 'select') return ok(rows.filter((r) => allowed(r) && filters.every((f) => f(r))));
       if (op === 'delete') { d[table] = rows.filter((r) => !(allowed(r) && filters.every((f) => f(r)))); store(d); return ok(null); }
       if (op === 'update') { rows.forEach((r) => { if (allowed(r) && filters.every((f) => f(r))) Object.assign(r, body); }); store(d); return ok(null); }
@@ -527,6 +538,7 @@
       for (const r of list) {
         if (!allowed(r)) return fail('new row violates row-level security policy for table "' + table + '"', '42501');
         const i = rows.findIndex((x) => pk.every((k) => x[k] === r[k]));
+        if (i >= 0 && !allowed(rows[i])) return fail('new row violates row-level security policy for table "' + table + '"', '42501'); // (an upsert onto a row this person may not change)
         if (i >= 0) { if (op === 'insert') return fail('duplicate key', '23505'); rows[i] = Object.assign({}, rows[i], r); } else rows.push(Object.assign(table === 'fixtures' && !r.id ? { id: crypto.randomUUID(), status: 'open' } : {}, r));
       }
       store(d); return ok(null);

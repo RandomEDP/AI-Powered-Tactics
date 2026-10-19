@@ -116,7 +116,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed). New ones are numbered on from 0046 |
+| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed; `0046` lets squad players run a game they started). New ones are numbered on from 0047 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `gopro-link` (what's in a GoPro share link, for the highlights; an iPhone video comes from Photos), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests, then the build check and the TestFlight upload (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -689,6 +689,23 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **The prize** (`0044_gotw_prize.sql`): a week's amount goes in `gotw_prizes` (week, pence) in the dashboard, like the sponsor; no row, nothing shown. `gotw_board` returns `prize`, copied onto the winner row when the week is decided (`gotw_winners.prize_pence`), and the strip, the week's header, the winner card and the reel's end card (`gwPrize`) say it.
 - Tests: `gotwdb.test.mjs`, `gotw.test.mjs`, `stream.test.mjs` (kind `gotw`).
 
+### Anyone in the squad starts a game; only the gaffers delete one (`0046_players_run_games.sql`; Ethan, 18 October 2026)
+- A player who has claimed their place (signed in, `myPid`) can tap New game when no game is going (`canStart()`; not on
+  Android, not in a friendlies team). Setting it up (`kick`, `houseKick`) calls `runBegin()`: the phone becomes the
+  game's runner (`RUNNER`, role `'owner'`, body class `runner`; `TKEY + code + ':run'` remembers it across restarts and no
+  signal) and the match gets `m.by` (their account). It runs the game exactly as a gaffer's phone does (the watch, subs,
+  folding in followers' goals, full time), but `syncAll` sends only the live game and games with `runBy` (`games.run_by`),
+  never the team, the squad, deleted games or anything else. Once the result is up (or the game is abandoned, or a gaffer
+  ends or takes it over) it goes back to following (`runEnd`). `gafferHere()` is the check for everything else a gaffer
+  does (settings, polls, Remove a result, cutting, linking); `role === 'owner'` stays the check for running the game.
+- The database: players may write `live_matches` only while `state->>'by'` is them, read and clear `goal_queue` for it, and
+  insert/update `games` (and rewrite `game_players`/`game_events`) where `run_by` is them. No delete policy on `games` for
+  players. `team-notify` lets the runner send kickoff and goal.
+- **Abandon game** (`#abandonBtn` under Finish game, and New game with a game going): `#abandonPop` warns that everything
+  from the game is deleted, nothing goes to stats and no highlights can be made; Abandon and delete it (`abandonGame`)
+  clears the live game. Gaffers, or the player running the game they started (`canAbandon()`). Not on the watch.
+- Tests: `runner.test.mjs` (a player runs a whole game, the gaffer deletes it, abandoning), `rundb.test.mjs`, `stream.test.mjs`.
+
 ### Games among the squad, with guests (`0020_games_among_the_squad.sql`)
 - New game → "Among ourselves" (`#gKind`, `D.kind = 'house'`, `renderHouse`): two named sides (Bibs and Shirts to start),
   any size, at least 2 a side, no fixed keeper and no subs plan. Squad players are set to a side or Out; guests are added
@@ -981,7 +998,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Edge functions:** all are deployed with **verify_jwt = true**, except `ad-reward` (false, see below). Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
-  - Deployed now: `team-notify` v28 (kind `live` from any team member, sent once; kind `report` tells the moderators, comments included; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
+  - Deployed now: `team-notify` v29 (a player running the game they started sends kickoff and goal; kind `live` from any team member, sent once; kind `report` tells the moderators, comments included; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
     `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v3 (players may upload/remove in their own `players/<pid>/` folder; puts a tiny test file in R2 first and says R2's own reason if it refuses), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `gopro-link` v3 (what's in a GoPro share link, both kinds of id, 4K for the Gaffer tier; an iPhone video comes from Photos), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.

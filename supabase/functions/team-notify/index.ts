@@ -2,6 +2,8 @@
 // Called by a gaffer's app with { code, kind, title, body, fixture? }:
 //   kickoff, goal, poll, highlights  go to everyone on the team except the sender
 //   nudge                      goes only to players who haven't answered the poll named by `fixture`
+// A player running the team's live game from their phone (they started it: the live game's `by` is them) may send kickoff
+// and goal too.
 // A player who has just claimed their profile calls it with { code, kind: "claimed" }, which tells the gaffers.
 // Anyone in the team's chat calls it with { code, kind: "chat", message: <id> } after posting; everyone else in the team is told.
 // A gaffer who has just sent, answered or agreed a challenge calls it with { code, kind: "challenge", challenge: <id> }:
@@ -266,7 +268,16 @@ Deno.serve(async (req: Request) => {
       if (Date.now() - new Date(msg.created_at).getTime() > 120000) return json({ sent: 0, reason: "old" });
       title = clean(team.name, 80);
       text = clean(`${msg.name || "Someone"}: ${msg.body || (msg.play ? `sent a play${msg.play_name ? `, ${msg.play_name}` : ""}` : "")}`, 180);
-    } else if (!isGaffer) return json({ error: "Only a gaffer can notify the team" }, 403);
+    } else if (!isGaffer) {
+      let runs = false; // a player running the game they started: kick-off and goals, as the gaffer's phone would
+      if (kind === "kickoff" || kind === "goal") {
+        const [{ data: live }, { data: mine }] = await Promise.all([
+          db.from("live_matches").select("state").eq("team_id", team.id).maybeSingle(),
+          db.from("players").select("pid").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle()]);
+        runs = !!mine && !!live && (live.state as Record<string, unknown> | null)?.by === who.user.id;
+      }
+      if (!runs) return json({ error: "Only a gaffer can notify the team" }, 403);
+    }
 
     if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
 

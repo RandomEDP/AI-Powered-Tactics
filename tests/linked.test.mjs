@@ -123,7 +123,7 @@ await A.click('#mNew'); await A.page.fill('#opp', 'Dog'); await A.run(800); awai
 await A.click('#startGame'); await A.click('#kick'); await A.run(1500);
 const l2 = (await A.match()).link;
 check(!!l2 && w.db().game_links.find((l) => l.id === l2).status === 'proposed', 'a second game against them asks again');
-await home(A); await A.run(300); await A.page.evaluate(() => document.getElementById('mNew').click()); await A.run(300); await A.page.evaluate(() => document.getElementById('mNew').click()); await A.run(1500);
+await home(A); await A.run(300); await A.page.evaluate(() => document.getElementById('mNew').click()); await A.run(300); await A.click('#abandonYes'); await A.run(1500); // (New game with one going: abandon it first)
 eq(w.db().game_links.find((l) => l.id === l2).status, 'cancelled', 'scrapping that game takes the unanswered request back');
 await B.page.reload(); await B.run(1500); await home(B); await B.run(300);
 check(!(await B.visible('#linkCard')), 'so Dog Squad aren\'t left with a request for a game that isn\'t happening');

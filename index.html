@@ -567,8 +567,13 @@ html.bigtext .two { grid-template-columns: minmax(0, 1fr); } /* (side by side, a
 #planPop[hidden] { display: none; }
 #unamePop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
 #unamePop[hidden] { display: none; }
-#termsPop, #aiPop, #fixPop, #noAdPop, #adAskPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
-#termsPop[hidden], #aiPop[hidden], #fixPop[hidden], #noAdPop[hidden], #adAskPop[hidden] { display: none; }
+#termsPop, #aiPop, #fixPop, #noAdPop, #adAskPop, #abandonPop { position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#termsPop[hidden], #aiPop[hidden], #fixPop[hidden], #noAdPop[hidden], #adAskPop[hidden], #abandonPop[hidden] { display: none; }
+#abandonPop { z-index: 60; } /* (over the game screen's dock) */
+.abwarn { border: 2px solid var(--danger); border-radius: 14px; padding: 12px 14px; background: color-mix(in srgb, var(--danger) 10%, var(--surface)); display: flex; flex-direction: column; gap: 6px; }
+.abwarn strong { color: var(--danger); font-size: var(--t-head); }
+.abwarn ul { margin: 0; padding-left: 1.2em; font-size: var(--t-sub); } .abwarn li { margin: 2px 0; }
+body.runner #gamesNew, body.runner #optGaffer { display: none !important; } /* (a player running a game: only the game is theirs) */
 #fixPop .planbox { max-height: 86vh; overflow-y: auto; }
 #aiPop { z-index: 50; } #termsPop { z-index: 51; } /* (the AI question can come up over Fix a goal; the terms over everything) */
 .fxgoals { display: grid; gap: 8px; margin: 10px 0; }
@@ -1206,6 +1211,19 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   <p id="noAdText">Google hasn’t got an ad for you at the moment. Try again in a few minutes.</p>
   <div class="actions"><button class="plain primary" id="noAdOk" type="button">OK</button></div>
 </div></div>
+<div id="abandonPop" role="alertdialog" aria-labelledby="abandonTitle" aria-describedby="abandonWarn" hidden><div class="planbox">
+  <h2 id="abandonTitle">Abandon this game?</h2>
+  <div class="abwarn" id="abandonWarn">
+    <strong>This deletes everything from this game.</strong>
+    <ul>
+      <li>The score, goals, assists, minutes and subs are all deleted.</li>
+      <li>Nothing is saved to anyone’s stats or the team’s record.</li>
+      <li>You won’t be able to make or edit highlights from it.</li>
+    </ul>
+    <strong>This can’t be undone.</strong>
+  </div>
+  <div class="actions"><button class="plain primary" id="abandonKeep" type="button">Keep the game</button><button class="plain danger" id="abandonYes" type="button">Abandon and delete it</button></div>
+</div></div>
 <div id="aiPop" role="dialog" aria-labelledby="aiTitle" hidden><div class="planbox">
   <h2 id="aiTitle">The commentary is made by Google’s AI</h2>
   <p>To make the commentator’s voice, Gaffer sends the lines it has written to Google (its Gemini and Text-to-Speech AI), through Gaffer’s server. The lines have players’ first names or nicknames, the team names, the score and the minute.</p>
@@ -1508,6 +1526,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   <section class="own">
     <div class="actions"><button class="plain primary" id="finish" type="button">Finish game</button></div>
     <p class="note" id="finNote">Finish game saves the result, goals, assists and minutes to your stats.</p>
+    <div class="actions"><button class="plain danger" id="abandonBtn" type="button">Abandon game</button></div>
   </section>
 
   <!-- before kick-off: who starts on the bench, so the gaffer can tell them (Ethan asked) -->
@@ -1772,6 +1791,22 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 
   // role in the open team: owner = gaffer (runs games); scorer = follower who may log goals; viewer = follower
   var role = 'viewer', teamId = null, orgCode = null;
+  // Anyone in the squad can start a game (Ethan, 18 October 2026): a player who has claimed their place sets it up on their
+  // own phone, which then runs that game as a gaffer's would (role 'owner', RUNNER) and saves only it: the live game (its
+  // `by` is them), the goals the others log, and the finished game (`runBy`). Never the team, the squad or another game;
+  // only the gaffers delete games. The phone remembers it's running one (TKEY + code + ':run') until the result is up.
+  var RUNNER = false;
+  function gafferHere() { return role === 'owner' && !RUNNER; }
+  function runFlag(code) { try { return localStorage.getItem(TKEY + code + ':run'); } catch (e) { return null; } }
+  function canStart() { return gafferHere() || (!DROID && !!sb && !!me && myPid != null && !!A.active && !frTeam() && !S.match); }
+  function canAbandon() { return !!S.match && role === 'owner'; } // a gaffer, or the player running the game they started
+  function runBegin() { // a player starting a game: from here this phone runs it
+    if (gafferHere() || !sb || !me) return;
+    try { localStorage.setItem(TKEY + A.active + ':run', me.id); } catch (e) {}
+    if (synced === null) synced = snapshot(); // what the database already has, so only this game goes up
+    RUNNER = true; role = 'owner'; document.body.className = 'runner'; setSync('ok');
+  }
+  function runEnd(code) { try { localStorage.removeItem(TKEY + (code || A.active) + ':run'); } catch (e) {} RUNNER = false; }
   var clips = []; // highlight clips stored for this team
   var LK = { list: [], code: null, busy: false, again: false, sending: false, busyA: false, msg: '', chan: null, chanId: null, t: null, armed: 0 }; // games linked with other teams on Gaffer (see "playing another team on Gaffer")
   var LINK_WIN = 90000, OF = { t: null, list: [] }; // (OF: teams found for the New game screen's opponent)
@@ -1781,8 +1816,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   var VIEWER_VIEWS = ['intro', 'welcome', 'join', 'highlights', 'account', 'feed', 'friendly', 'gotw', 'people', 'profile', 'teamview', 'home', 'games', 'rivals', 'chat', 'board', 'options', 'track', 'soon', 'insights', 'game', 'stats', 'live', 'shop'];
   function setRole(r) {
     if (DROID) r = 'viewer'; // (the Android app only ever follows the team)
-    role = r; document.body.className = r === 'owner' ? '' : r === 'scorer' ? 'ro sc' : 'ro';
-    if (r !== 'owner' && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me)) go(A.active ? 'home' : 'welcome'); else render();
+    if (r !== 'owner') RUNNER = false;
+    role = r; document.body.className = r === 'owner' ? (RUNNER ? 'runner' : '') : r === 'scorer' ? 'ro sc' : 'ro';
+    if (!gafferHere() && VIEWER_VIEWS.indexOf(S.view) < 0 && !(S.view === 'create' && me) && !(/^(setup|mins)$/.test(S.view) && canStart())) go(A.active ? 'home' : 'welcome'); else render();
   }
 
   var sync = 'local';
@@ -1844,6 +1880,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var row = { id: r.id, team_id: tid, seq: i, opp: (r.opp || '').slice(0, 60), friendly: !!r.friendly, us: r.us | 0, them: r.them | 0, half: whole(r.half),
       ko_at: whole(r.koAt), ht_at: whole(r.htAt), h2_at: whole(r.h2At), ft_at: whole(r.ftAt), finished_at: whole(r.at),
       sync: typeof r.sync === 'number' && isFinite(r.sync) ? r.sync : null, pre: whole(r.pre), post: whole(r.post), cap: r.cap == null ? null : !!r.cap, lineups: r.lu || null, periods: r.periods === 1 ? 1 : null, side: r.side === 7 ? 7 : null, tournament_id: r.tour || null, tournament: r.tourName ? String(r.tourName).slice(0, 60) : null, house: r.house || null };
+    if (r.runBy) row.run_by = r.runBy; // (a game a player ran from their phone: theirs to save)
     if (r.link) row.link = r.link; // (only for a linked game, so every other game saves the same as before 0031)
     var players = Object.keys(r.per || {}).filter(function (k) { return whole(+k) === +k; }).map(function (k) { var x = r.per[k]; return { game_id: r.id, pid: +k, mins: x.mins | 0, goals: x.g | 0, assists: x.a | 0, scored_on: x.gf == null ? null : x.gf | 0, conceded: x.ga == null ? null : x.ga | 0 }; });
     var events = (r.ev || []).map(function (e, j) {
@@ -1878,18 +1915,19 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var tid = teamId, code = A.active, prev = synced || { players: {}, games: {} }, snap = snapshot();
     saveLocal();
     try {
-      if (snap.team !== prev.team) await q(sb.from('teams').update(JSON.parse(snap.team)).eq('id', tid));
-      if (snap.crest !== prev.crest) await q(sb.from('teams').update({ crest: snap.crest }).eq('id', tid));
+      var mine = RUNNER ? (me && me.id) : null; // a player running a game sends that game and nothing else of the team's
+      if (!mine && snap.team !== prev.team) await q(sb.from('teams').update(JSON.parse(snap.team)).eq('id', tid));
+      if (!mine && snap.crest !== prev.crest) await q(sb.from('teams').update({ crest: snap.crest }).eq('id', tid));
       var up = [], gone = [];
       var upPos = []; // a position is only sent when the gaffer has one set, so a player's own choice is never blanked
-      Object.keys(snap.players).forEach(function (pid) {
+      if (!mine) Object.keys(snap.players).forEach(function (pid) {
         if (prev.players[pid] === snap.players[pid]) return;
         var v = snap.players[pid].split('\u0001');
         var shirt = v[2] === '' || v[2] == null ? null : +v[2];
         if (v[1]) upPos.push({ team_id: tid, pid: +pid, name: v[0], position: v[1], shirt_number: shirt }); else up.push({ team_id: tid, pid: +pid, name: v[0], shirt_number: shirt });
       });
       if (upPos.length) await q(sb.from('players').upsert(upPos));
-      Object.keys(prev.players).forEach(function (pid) { if (!(pid in snap.players)) gone.push(+pid); });
+      if (!mine) Object.keys(prev.players).forEach(function (pid) { if (!(pid in snap.players)) gone.push(+pid); });
       if (up.length) await q(sb.from('players').upsert(up));
       if (gone.length) await q(sb.from('players').delete().eq('team_id', tid).in('pid', gone));
       if (snap.live !== prev.live) {
@@ -1899,7 +1937,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       var refused = null, kept = snap;
       for (var i = 0; i < S.results.length; i++) {
         var r = S.results[i];
-        if (prev.games[r.id] === snap.games[r.id]) continue;
+        if (prev.games[r.id] === snap.games[r.id] || (mine && r.runBy !== mine)) continue;
         var g = gameParts(r, i, tid);
         try {
           await q(sb.from('games').upsert(g.row));
@@ -1915,12 +1953,13 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
           delete kept.games[r.id];
         }
       }
-      var dropped = Object.keys(prev.games).filter(function (id) { return !(id in snap.games); });
+      var dropped = mine ? [] : Object.keys(prev.games).filter(function (id) { return !(id in snap.games); }); // (only the gaffers delete games)
       if (dropped.length) await q(sb.from('games').delete().in('id', dropped));
       if (A.active === code) {
         synced = kept; try { localStorage.setItem(TKEY + code + ':synced', JSON.stringify(kept)); } catch (e) {}
         if (!refused) setSync('ok');
         ping('changed'); if (snap.live !== prev.live) linkPing();
+        if (mine && !S.match && !refused && !dirty) { runEnd(code); synced = null; setRole(S.followersCanScore ? 'scorer' : 'viewer'); setSync(S.followersCanScore ? 'watchS' : 'watch'); } // the game is up: back to following
       }
       if (refused) throw refused;
     } catch (e) {
@@ -1950,10 +1989,14 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       renderTabs(); tpLoad(); passLoad(); voLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
       var org = !DROID && !!d.is_organiser;
+      var runs = !org && !DROID && !!me && myPid != null && (d.live ? d.live.by === me.id : runFlag(code) === me.id), own = org || runs; // (a player running the game they started)
+      if (!runs && RUNNER) RUNNER = false; // a gaffer has taken the game over, or finished it
+      if (!runs && runFlag(code)) runEnd(code);
+      if (runs) RUNNER = true;
       rememberTeam(code, d.team.name, org);
-      if (org && (dirty || syncing)) { if (!syncing) { clearTimeout(wt); wt = setTimeout(syncAll, 300); } return; } // our own edits are on their way up (sent now if they were waiting for this); theirs will arrive after
+      if (own && (dirty || syncing)) { if (!syncing) { clearTimeout(wt); wt = setTimeout(syncAll, 300); } return; } // our own edits are on their way up (sent now if they were waiting for this); theirs will arrive after
       var remote = fromRemote(d);
-      if (org && synced === null) {
+      if (own && synced === null) {
         var saved = loadSynced(code), local = loadCache(code);
         if (saved && local) { // this phone has edits that never reached the database: send them rather than overwrite them
           var S0 = S; S = Object.assign(blankTeam(), local); S.view = S0.view;
@@ -1963,13 +2006,14 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       }
       adopt(remote); mhRebind();
       setCrest(d.team.crest, true);
-      synced = org ? snapshot() : null;
+      if (runs && !S.match) { runEnd(code); runs = false; own = org; } // the game this phone ran is over and saved
+      synced = own ? snapshot() : null;
       var flipScore = false;
       if (org) { try { if (!localStorage.getItem(TKEY + code + ':scoreOn')) { localStorage.setItem(TKEY + code + ':scoreOn', '1'); flipScore = !S.followersCanScore; } } catch (e) {} }
-      if (org) { try { localStorage.setItem(TKEY + code + ':synced', JSON.stringify(synced)); } catch (e) {} }
-      setRole(org ? 'owner' : remote.followersCanScore ? 'scorer' : 'viewer');
-      setSync(org ? 'ok' : remote.followersCanScore && !DROID ? 'watchS' : 'watch');
-      if (org) pullGoals();
+      if (own) { try { localStorage.setItem(TKEY + code + ':synced', JSON.stringify(synced)); } catch (e) {} }
+      setRole(own ? 'owner' : remote.followersCanScore ? 'scorer' : 'viewer');
+      setSync(own ? 'ok' : remote.followersCanScore && !DROID ? 'watchS' : 'watch');
+      if (own) pullGoals();
       if (flipScore) { S.followersCanScore = true; save(); } // teams made before everyone could log goals: switched on once, and Options can switch it off
       if (wantGame === code) { wantGame = null; if (S.match) go('game'); }
       pushSetup(); if (CH.code !== code) chatPull(); if (RV.code !== code || S.view === 'games') rivalsPull();
@@ -2018,7 +2062,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   }
   function closeTeam() {
     if (chan && sb) { try { sb.removeChannel(chan); } catch (e) {} }
-    chan = null; chanCode = null; teamId = null; orgCode = null; synced = null; dirty = false; clearTimeout(wt); clearInterval(pollT);
+    chan = null; chanCode = null; teamId = null; orgCode = null; synced = null; dirty = false; RUNNER = false; clearTimeout(wt); clearInterval(pollT);
     myAsk = null; asks = []; askMsg = '';
     if (LK.chan && sb) { try { sb.removeChannel(LK.chan); } catch (e) {} } LK.chan = null; LK.chanId = null; LK.list = []; LK.code = null; LK.msg = '';
     if (LV) { clearTimeout(LV.statT); LV.statT = null; LV.code = null; LV.s = null; LV.link = null; LV.msg = ''; LV.cam = false; LV.arm = null; livePlayer(null); }
@@ -2050,11 +2094,12 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     try { LK.list = JSON.parse(localStorage.getItem(TKEY + code + ':links')) || []; LK.code = code; } catch (e) { LK.list = []; }
     applyTheme(); renderCrest(); upgrade(S.match); lastBlock = S.match ? curSeg(S.match) : -1; pick = null; outPick = null;
     var org = !DROID && !!(meta && meta.org && me);
-    role = org ? 'owner' : 'viewer'; document.body.className = org ? '' : 'ro';
+    RUNNER = !org && !DROID && !!me && runFlag(code) === me.id; // (running a game it started: no signal needed to carry on)
+    role = org || RUNNER ? 'owner' : 'viewer'; document.body.className = org ? '' : RUNNER ? 'runner' : 'ro';
     saveLocal(); go(S.view);
     watchPush(); // anything the watch sent before this app knew who it was can be dealt with now
     if (!sb) { setRole('owner'); setSync('local'); return; }
-    setSync(org ? 'saving' : 'watch');
+    setSync(org || RUNNER ? 'saving' : 'watch');
     listen(code); pull();
   }
   async function addGoal(ev, at) { // `at`: when it really went in, for a goal pressed on the watch that has only just reached this phone
@@ -2457,7 +2502,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (view !== 'highlights' && HLM && HLM.i >= 0) hlSheetShut(); // (a game's sheet in Highlights never follows you to another screen)
     if (view !== 'account' && AM === 'new') AM = 'in'; // (choosing a new password is only ever where the reset link lands)
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
-    if (role !== 'owner' && !free) view = A.active ? 'home' : 'welcome';
+    if (!gafferHere() && !free && !(/^(setup|mins)$/.test(view) && canStart())) view = A.active ? 'home' : 'welcome'; // (anyone in the squad can set a game up)
     if (DROID && DROID_VIEWS.indexOf(view) < 0) view = A.active ? 'home' : 'welcome';
     if (view === 'cut' && (S.view === 'stats' || S.view === 'highlights')) reelBack = S.view;
     if (view === 'highlights' && !hlKeep) hlFocus = null; hlKeep = false; // (only "Highlights" on a result picks out its game)
@@ -3259,7 +3304,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   }
   // A gaffer, with their team open: put one of its goals up (or swap it for another).
   function gwPutUp() {
-    if (role !== 'owner' || !A.active || !teamId || DROID) return '';
+    if (!gafferHere() || !A.active || !teamId || DROID) return '';
     var up = (GW.d.entries || []).filter(function (x) { return x.team_id === teamId; })[0], list = gwGoals();
     var html = '<div class="hcard gwput"><h3>Put up one of ' + esc(teamName()) + '’s goals</h3><p class="note">' + (up ? 'You’ve put one up this week. Pick another to swap it.' : 'One goal a week. Everyone on Gaffer will be able to watch it, with its caption, your team’s name and who it was against.') + '</p>';
     if (!list.length) return html + '<p class="note">None of your goals from the last two weeks have been cut into clips yet. Cut a game’s highlights first, from Highlights.</p></div>';
@@ -3272,7 +3317,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   // The latest winner: the reel when it's been made, otherwise the clip; the winning team's gaffer makes the reel.
   function gwWinner() {
     var L = GW.d.last, x = L && L.entry; if (!x) return '';
-    var reel = L.reel && L.reel.path ? L.reel : null, mineToMake = x.gaffer && x.team_id === teamId && role === 'owner' && !!RCp(), M = GW.mk;
+    var reel = L.reel && L.reel.path ? L.reel : null, mineToMake = x.gaffer && x.team_id === teamId && gafferHere() && !!RCp(), M = GW.mk;
     var html = '<div class="hcard gwwin"><p class="gwkick">Winner, week of ' + esc(gwWeek(L.week)) + (L.sponsor ? ' · presented by ' + esc(L.sponsor) : '') + '</p>' +
       '<h3><span class="gwdot" style="background:' + esc(x.color || '#5629d7') + '"></span>' + esc(x.team) + (x.mine ? '<span class="badge you">Your team</span>' : '') + '</h3>' +
       '<p class="note">' + esc(gwGame(x)) + '. Won with ' + L.votes + (L.votes === 1 ? ' vote' : ' votes') + (gwPrize(L.prize) ? ' and ' + esc(gwPrize(L.prize)) : '') + '.</p>' +
@@ -3290,7 +3335,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     return html + '</div>';
   }
   async function gwNominate(game, at) {
-    if (!sb || !A.active || role !== 'owner') return;
+    if (!sb || !A.active || !gafferHere()) return;
     GW.msg = 'Putting it up…'; GW.bad = false; renderGotw();
     try {
       var res = (await q(sb.rpc('gotw_nominate', { p_code: A.active, p_game: game, p_at: at }))).data || {};
@@ -3300,7 +3345,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     GW.busy = false; await gwLoad(); window.scrollTo(0, 0);
   }
   async function gwWithdraw() {
-    if (!sb || !A.active || role !== 'owner') return;
+    if (!sb || !A.active || !gafferHere()) return;
     try { await q(sb.rpc('gotw_withdraw', { p_code: A.active })); GW.msg = 'Taken down. You can put another up this week.'; GW.bad = false; }
     catch (e) { GW.msg = 'Couldn’t take it down. Check your signal and try again.'; GW.bad = true; }
     await gwLoad();
@@ -3325,7 +3370,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   // The winner's reel, made on the winning gaffer's iPhone from the goal's clip (with its own commentary, if asked), with a
   // Goal of the Week end card, then kept for everyone (<team>/gotw/...) and shared.
   async function gwMake() {
-    var rc = RCp(), L = GW.d && GW.d.last, x = L && L.entry; if (!rc || !x || GW.mk.busy || x.team_id !== teamId || role !== 'owner') return;
+    var rc = RCp(), L = GW.d && GW.d.last, x = L && L.entry; if (!rc || !x || GW.mk.busy || x.team_id !== teamId || !gafferHere()) return;
     var c = clips.filter(function (k) { return k.game_id === x.game_id && k.at === x.at; }).sort(function (a, b) { return a.seq - b.seq; })[0] || x.video;
     if (!c || !c.path) { gwSay('', 'The clip for this goal has gone, so the reel can’t be made.', true); return; }
     var r = S.results.filter(function (k) { return k.id === x.game_id; })[0] || null, name = teamName(), note = '';
@@ -3918,7 +3963,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 
   // ---- home
   function renderHome() {
-    var r = recordLine(), m = S.match, own = role === 'owner';
+    var r = recordLine(), m = S.match, own = gafferHere();
     $('heroName').textContent = teamName(); renderCrest();
     $('soonPill').hidden = !(A.exp && A.exp.track); $('mShop').hidden = !(A.exp && A.exp.track) || DROID;
     $('homeRecord').textContent = frTeam() ? (S.results.length ? S.results.length + (S.results.length === 1 ? ' friendly' : ' friendlies') + ' played' : 'No friendlies yet') : r ? r.short : 'Season starts here';
@@ -3933,7 +3978,8 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     $('mInsSub').textContent = q && q.motm != null && P(q.motm) ? '★ ' + nm(q.motm) + ', last game' : 'Ratings and chemistry';
     $('mResume').hidden = !m; $('mResumeLbl').textContent = own ? 'Resume game' : 'Watch the game';
     $('homeNote').hidden = own || !!m;
-    $('mNew').className = (m ? '' : 'primary') + (own ? '' : ' locked'); $('mNew').setAttribute('aria-disabled', !own);
+    var canNew = m ? canAbandon() : canStart(); // (anyone in the squad can start one; with one going, it's abandoned first)
+    $('mNew').className = (m ? '' : 'primary') + (canNew ? '' : ' locked'); $('mNew').setAttribute('aria-disabled', !canNew);
     if (m) { var t = tally(m); $('mResumeSub').textContent = vs(m) + ', ' + t.us + '–' + t.them; }
     // you
     var pend = A.pending && A.pending.code === A.active && !me ? A.pending : null, card = $('meCard'), html = '';
@@ -4007,7 +4053,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (S.view === 'games') renderGames();
   }
   function fxFill(card, f, home) {
-    var own = role === 'owner', html = '';
+    var own = gafferHere(), html = '';
     if (!sb) { card.hidden = true; return; }
     card.classList.remove('live', 'ask'); card.removeAttribute('data-fxid');
     if (!f) {
@@ -4137,17 +4183,17 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (act === 'edit') { fxEdit = f; pollBack = S.view === 'games' ? 'games' : 'home'; go('poll'); }
     else if (act === 'answer') { fxAnswer = fxAnswer === f.id ? null : f.id; renderFixture(); }
     else if (act === 'cal') addToCalendar(f);
-    else if (act === 'nudge' && role === 'owner') nudge(f);
+    else if (act === 'nudge' && gafferHere()) nudge(f);
     else if (act === 'start') startFromPoll(f);
-    else if (act === 'endtour' && role === 'owner' && sb) { sb.from('fixtures').update({ status: 'done' }).eq('id', f.id).then(function () { ping('changed'); pull(); }); }
-    else if (vote && who !== null && role === 'owner') castVote(f, vote, +who);
+    else if (act === 'endtour' && gafferHere() && sb) { sb.from('fixtures').update({ status: 'done' }).eq('id', f.id).then(function () { ping('changed'); pull(); }); }
+    else if (vote && who !== null && gafferHere()) castVote(f, vote, +who);
     else if (vote && myPid != null) castVote(f, vote, null);
-    else if (un !== null && role === 'owner') { var s = fxSides(f); f.lineup = f.lineup || {}; f.lineup.bench = s.bench.filter(function (id) { return id !== +un; }); renderFixture(); saveLineup(f); }
+    else if (un !== null && gafferHere()) { var s = fxSides(f); f.lineup = f.lineup || {}; f.lineup.bench = s.bench.filter(function (id) { return id !== +un; }); renderFixture(); saveLineup(f); }
   }
   // gaffers drag players round the pitch; a tap without a drag sends that player to the bench
   var dragging = null, pollBack = 'home';
   function fxDown(e) {
-    var dot = e.target.closest('[data-dot]'), map = dot && dot.closest('.pitchmap'), f = dot && fxOf(dot); if (!dot || !map || !f || role !== 'owner') return;
+    var dot = e.target.closest('[data-dot]'), map = dot && dot.closest('.pitchmap'), f = dot && fxOf(dot); if (!dot || !map || !f || !gafferHere()) return;
     dragging = { f: f, id: +dot.getAttribute('data-dot'), el: dot, x0: e.clientX, y0: e.clientY, moved: false, box: map.getBoundingClientRect() };
     try { dot.setPointerCapture(e.pointerId); } catch (err) {}
     e.preventDefault();
@@ -4175,7 +4221,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   });
   // ---- the Games screen: every game that's lined up, one card each, in a list
   function renderGames() {
-    var track = $('gamesTrack'), own = role === 'owner', keep = track.scrollLeft, ids = fixtures.map(function (f) { return f.id; }).join();
+    var track = $('gamesTrack'), own = gafferHere(), keep = track.scrollLeft, ids = fixtures.map(function (f) { return f.id; }).join();
     $('gamesNew').hidden = !own || !sb;
     $('gamesEmpty').hidden = !!fixtures.length;
     $('gamesEmpty').textContent = !sb ? 'Games you line up appear here once the team is connected.' : own ? 'No games lined up. Schedule one and the squad can say who’s in.' : 'No games lined up yet. They appear here when your gaffer schedules one.';
@@ -4184,11 +4230,11 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     track.hidden = !fixtures.length; track.scrollLeft = keep;
     $('gamesCount').textContent = fixtures.length > 1 ? fixtures.length + ' games lined up.' : '';
   }
-  $('gamesNew').addEventListener('click', function () { if (role !== 'owner') return; fxEdit = null; pollBack = 'games'; go('poll'); });
+  $('gamesNew').addEventListener('click', function () { if (!gafferHere()) return; fxEdit = null; pollBack = 'games'; go('poll'); });
   // ---- the bar along the bottom: Home, Games, Settings
   function renderTabs() {
     if (AUTO.io) setTimeout(feedPick, 0); // (leaving the feed stops its video)
-    var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'highlights', 'friendly', 'gotw', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = role === 'owner';
+    var show = (!!A.active && ['home', 'games', 'chat', 'options'].indexOf(S.view) >= 0) || ['feed', 'highlights', 'friendly', 'gotw', 'people', 'profile', 'teamview'].indexOf(S.view) >= 0 || (S.view === 'account' && !!me), own = gafferHere();
     if (DROID) show = !!A.active && DROID_VIEWS.indexOf(S.view) >= 0 && ['welcome', 'join'].indexOf(S.view) < 0; // (Team, Highlights, Games, Chat and Account)
     $('tabMe').textContent = DROID ? 'Account' : 'Profile';
     $('tabs').hidden = !show; document.body.classList.toggle('tabbed', show);
@@ -4291,7 +4337,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   }
   $('pMax').addEventListener('input', pMaxShow);
   $('pSave').addEventListener('click', async function () {
-    if (role !== 'owner' || !sb || !teamId) return;
+    if (!gafferHere() || !sb || !teamId) return;
     var opp = $('pOpp').value.trim(), dt = new Date($('pDate').value + 'T' + ($('pTime').value || '19:00'));
     if (!opp) { $('pMsg').textContent = pKind === 'tournament' ? 'Give the tournament a name.' : 'Enter who you’re playing.'; $('pOpp').focus(); return; }
     var PF = fmtFix(FM.p), lim = SIDE[PF.side];
@@ -4317,14 +4363,14 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   $('homeMenu').addEventListener('click', function (e) { // gaffer-only buttons stay visible for everyone, and explain themselves
     var b = e.target.closest('button.locked'); if (!b) return;
     e.stopImmediatePropagation(); e.preventDefault();
-    $('lockMsg').textContent = 'Only the gaffer can start games.';
+    $('lockMsg').textContent = S.match ? 'A game is going. Only a gaffer, or whoever started it, can abandon it.' : !sb ? 'Only the gaffer can start games.' : 'Sign in and pick yourself in the squad (on this page) to start a game.';
     clearTimeout(lockT); lockT = setTimeout(function () { $('lockMsg').textContent = ''; }, 4000);
   }, true);
   $('meCard').addEventListener('change', async function (e) { // your own shirt number: kept on the team, and shown on line-ups in place of initials
     if (e.target.id !== 'myNum' || myPid == null || !P(myPid)) return;
     var v = e.target.value.replace(/\D/g, '').slice(0, 2), n = v === '' ? null : +v, mine = P(myPid);
     if (n == null) delete mine.num; else mine.num = n;
-    if (role === 'owner') { save(); return; } // a gaffer's copy is the one that's saved
+    if (gafferHere()) { save(); return; } // a gaffer's copy is the one that's saved
     saveLocal(); try { await q(sb.rpc('set_my_number', { p_code: A.active, p_number: n })); ping('changed'); pull(); } catch (err) {}
   });
   $('meCard').addEventListener('click', async function (e) {
@@ -4337,7 +4383,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   // Gaffers: people who have asked to join, each with Let in and Turn down. Always on the home screen while any are waiting.
   function renderAsks() {
     var el = $('askCard'); if (!el) return;
-    var show = role === 'owner' && !!sb && (asks.length || askMsg);
+    var show = gafferHere() && !!sb && (asks.length || askMsg);
     el.hidden = !show; if (!show) { el.innerHTML = ''; return; }
     el.innerHTML = (asks.length ? '<h2>' + (asks.length === 1 ? 'Someone wants to join' : asks.length + ' people want to join') + '</h2>' : '<h2>Requests to join</h2>') +
       asks.map(function (a) {
@@ -4349,7 +4395,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   }
   var askBusy = false;
   $('askCard').addEventListener('click', async function (e) {
-    var b = e.target.closest('button'); if (!b || askBusy || role !== 'owner' || !sb) return;
+    var b = e.target.closest('button'); if (!b || askBusy || !gafferHere() || !sb) return;
     var yes = b.getAttribute('data-askyes'), id = yes || b.getAttribute('data-askno'); if (!id) return;
     var who = asks.filter(function (a) { return a.id === id; })[0], code = A.active; if (!who) return;
     askBusy = true; askMsg = yes ? 'Letting ' + who.name + ' in…' : ''; renderAsks();
@@ -4364,7 +4410,28 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     setTimeout(function () { if (!askBusy) { askMsg = ''; renderAsks(); } }, 6000);
   });
   $('mResume').addEventListener('click', function () { go('game'); });
-  armed($('mNew'), 'Scrap the game in progress?', function () { if (role !== 'owner') return; if (S.match) { if (liveOn()) liveEnd(); linkDrop(S.match); S.match = null; save(); } if (frTeam()) friendlyOpen('home'); else go('setup'); }, function () { return !!S.match; });
+  $('mNew').addEventListener('click', function () { // a game going: abandoning it comes first, with the warning
+    if (S.match) { if (canAbandon()) abandonOpen('setup'); return; }
+    if (!canStart()) return;
+    if (frTeam()) friendlyOpen('home'); else go('setup');
+  });
+  // ---- abandoning the game in progress (Ethan: "a huge warning saying this will delete all data from this game"). The gaffers,
+  // or the player running the game they started. Nothing of it is kept: no result, no stats, nothing to cut highlights from.
+  var abandonThen = 'home';
+  function abandonOpen(then) { if (!canAbandon()) return; abandonThen = then || 'home'; $('abandonPop').hidden = false; $('abandonKeep').focus(); }
+  function abandonGame() {
+    var m = S.match; $('abandonPop').hidden = true; if (!m || !canAbandon()) return;
+    if (liveOn()) liveEnd(); // its stream ends with it
+    linkDrop(m);
+    S.match = null; pick = null; outPick = null; ed = null; lockUntil = 0; lockNote = ''; lastBlock = -1; lastDue = -1; subAsk = false; save(); syncAlerts();
+    if (abandonThen === 'setup' && canStart()) { if (frTeam()) friendlyOpen('home'); else go('setup'); } else go('home');
+    $('lockMsg').textContent = S.view === 'home' ? 'Game abandoned. Nothing from it was saved.' : '';
+    clearTimeout(lockT); lockT = setTimeout(function () { $('lockMsg').textContent = ''; }, 6000);
+  }
+  $('abandonBtn').addEventListener('click', function () { abandonOpen('home'); });
+  $('abandonKeep').addEventListener('click', function () { $('abandonPop').hidden = true; });
+  $('abandonYes').addEventListener('click', abandonGame);
+  $('abandonPop').addEventListener('click', function (e) { if (e.target === this) this.hidden = true; });
   $('mStats').addEventListener('click', function () { go('stats'); });
   $('mHighlights').addEventListener('click', function () { go('highlights'); });
   $('mInsights').addEventListener('click', function () { go('insights'); });
@@ -4444,7 +4511,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   // After a failed move it waits 12 hours before trying again.
   var moving = false, moved = {};
   async function clipsMove() {
-    if (moving || role !== 'owner' || !CFG.clipsUrl || !sb || !A.active || CUT || triedLately('move:' + A.active, 12 * 3600e3)) return;
+    if (moving || !gafferHere() || !CFG.clipsUrl || !sb || !A.active || CUT || triedLately('move:' + A.active, 12 * 3600e3)) return;
     var todo = clips.filter(function (c) { return !c.store && !moved[c.game_id + ':' + c.seq]; }); if (!todo.length) return;
     moving = true; var team = A.active, n = 0;
     try {
@@ -4495,14 +4562,14 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     MH = { gi: gi, r: r, list: list, reel: hasReel(r, list), i: 0 };
     $('mhTitle').textContent = vs(r) + ' ' + r.us + '–' + r.them;
     $('mhPop').hidden = false; mhLoad(0, true); mhDraw();
-    if (!MH.reel && role === 'owner' && RCp() && sb && teamId && !MK.busy) { MKPAUSED[r.id] = 0; mhMake(r); } // (no one video yet: this phone makes it, for everyone)
+    if (!MH.reel && gafferHere() && RCp() && sb && teamId && !MK.busy) { MKPAUSED[r.id] = 0; mhMake(r); } // (no one video yet: this phone makes it, for everyone)
   }
   // ---- a game's clips joined into one video, once, on a gaffer's phone, and kept for everyone (games cut before the cut
   // uploaded its reel, or whose reel didn't make it). The same reel the cut makes: shrunk, with and without commentary.
   var MK = { gid: null, busy: false, prog: '', msg: '', bad: false, part: '' }, MKTRIED = {}, MKPAUSED = {}; // (MKTRIED: games this phone has started on this time; MKPAUSED: how often each was stopped by Gaffer being put away)
   function joinsBusy() { return !!(RB.busy || BE.busy || EX.busy || (GW.mk && GW.mk.busy)); } // (another reel being joined on this phone: the one video waits, so it doesn't hold that one up)
   async function mhMake(r, quiet) {
-    var rc = RCp(); if (!rc || MK.busy || !r || role !== 'owner' || !sb || !teamId) return;
+    var rc = RCp(); if (!rc || MK.busy || !r || !gafferHere() || !sb || !teamId) return;
     var list = clips.filter(function (c) { return c.game_id === r.id; }).sort(function (a, b) { return a.seq - b.seq; }); if (!list.length) return;
     if (mkPending().some(function (p) { return p.gid === r.id; })) { mkResume(); return; } // (already made: its upload is still going, or done while Gaffer was away)
     var tag = MKVER[r.id] ? '-' + MKVER[r.id] : ''; // (made again after a goal was put right: a new name, so no phone keeps the old one)
@@ -4675,7 +4742,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     mhDraw(); mkShow(); if (S.view === 'highlights') renderHighlights();
   }
   async function mkResume() { // once it's all arrived (its public address answers), hand it over
-    var list = mkPending(); if (!list.length || role !== 'owner' || !sb) return;
+    var list = mkPending(); if (!list.length || !gafferHere() || !sb) return;
     for (var i = 0; i < list.length; i++) {
       var p = list[i]; if (p.code !== A.active) continue;
       if (Date.now() - p.when > 24 * 3600000) { mkSetPending(mkPending().filter(function (x) { return x.gid !== p.gid; })); continue; } // (never arrived)
@@ -4737,7 +4804,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     $('mhTools').innerHTML = '<button class="plain primary" type="button" data-mhsave="1"' + (EX.busy ? ' disabled' : '') + '>' + (EX.busy ? 'Getting it ready…' : 'Save or share') + '</button>' +
       (voiced ? '<button class="plain saybtn" type="button" data-mhsay="1" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '');
     var mine = MK.gid === MH.r.id, say = mine && MK.busy ? 'Making this one video for everyone' + MK.part + ': ' + MK.prog + ' You don’t need to wait: it carries on while you use Gaffer, and the upload finishes even if you close the app. The clips play one after another until then.'
-      : mine && MK.msg ? MK.msg : !MH.reel && role !== 'owner' ? 'Playing the clips one after another. Your gaffer’s phone makes them one video next time they open this.' : '';
+      : mine && MK.msg ? MK.msg : !MH.reel && !gafferHere() ? 'Playing the clips one after another. Your gaffer’s phone makes them one video next time they open this.' : '';
     $('mhMsg').hidden = !say; $('mhMsg').textContent = say; $('mhMsg').classList.toggle('bad', mine && MK.bad);
   }
   function mhClose() { MH = null; var v = $('mhVideo'); try { v.pause(); } catch (e) {} v.removeAttribute('src'); try { v.load(); } catch (e) {} $('mhPop').hidden = true; }
@@ -4770,7 +4837,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   }
   // A player's reel kept on their card: the same player as a game's reel, its moments underneath to skip to.
   function preelOf(pid) { return preels.filter(function (x) { return x.pid === pid && x.path; })[0] || null; }
-  function canKeepReel(pid) { return !!(sb && me && CFG.clipsUrl && teamId && (role === 'owner' || (myPid != null && myPid === pid))); } // the player themselves, or a gaffer
+  function canKeepReel(pid) { return !!(sb && me && CFG.clipsUrl && teamId && (gafferHere() || (myPid != null && myPid === pid))); } // the player themselves, or a gaffer
   function playerReelPlayer(pr) {
     return '<div class="vplayer reelp"><video controls playsinline preload="metadata" src="' + esc(clipUrl({ path: pr.path, store: pr.store })) + '"></video>' +
       '<p class="note">' + (pr.made_at ? 'Their reel, made ' + esc(dayText(pr.made_at)) + '. ' : '') + 'Tap a moment to skip to it.</p><ol class="cliplist">' +
@@ -4822,7 +4889,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   }
   async function hlRemoveClip(r, gi, key) { // one goal or moment out of the game's highlights: its row and files go, and the game's one video is made again
     var c = clips.filter(function (x) { return x.game_id + ':' + x.seq === key; })[0];
-    if (!sb || !r.id || role !== 'owner' || !c || HLRM.busy) return;
+    if (!sb || !r.id || !gafferHere() || !c || HLRM.busy) return;
     HLRM = { i: gi, key: '', until: 0, busy: true, msg: 'Removing it…', bad: false }; renderHighlights();
     var paths = [], inR2 = [], add = function (store, p) { if (p) (store === 'r2' ? inR2 : paths).push(p); };
     add(c.store, c.path); add(c.store, c.vpath);
@@ -4920,7 +4987,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (guestGame) { var gr = S.results.filter(function (x) { return x.id === guestGame; })[0]; if (gr && hlFocus !== gr) { hlFocus = gr; hlBy = 'game'; } }
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
     $('hlGw').innerHTML = guestGame ? '' : gwStrip(); // (Goal of the Week, above the list)
-    var own = role === 'owner', html = guestCard(), sheet = '', games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
+    var own = gafferHere(), html = guestCard(), sheet = '', games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
     if (!games.length) { $('hlList').innerHTML = html + '<div class="hcard"><h3>No games yet</h3><p class="note">Highlights appear here after your first finished game. Every goal, assist and save you log is kept as a moment.</p></div>'; return; }
     if (hlBy === 'game') {
       if (frTeam() && games.length) html += '<div class="hcard" id="frJump"><h3>Your friendly games</h3><ul class="frjump">' + games.map(function (g) { // (each one, straight to its highlights)
@@ -4978,7 +5045,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     }
     vidKeep($('hlList'), html); mkShow();
     var sh = $('hlSheet'); if (sh.getAttribute('data-was') !== sheet) { sh.innerHTML = sheet; sh.setAttribute('data-was', sheet); } // (over the tab bar, so it sits outside the screen; drawn again only when it changes, so it doesn't slide in twice)
-    if (hlBy === 'game' && role === 'owner' && !MK.busy && !joinsBusy() && RCp() && sb && teamId) { // a cut game without one video: this phone makes it, quietly, while you get on
+    if (hlBy === 'game' && gafferHere() && !MK.busy && !joinsBusy() && RCp() && sb && teamId) { // a cut game without one video: this phone makes it, quietly, while you get on
       var want = S.results.slice().reverse().filter(function (r) { return !MKTRIED[r.id] && !triedLately('mk:' + r.id, 24 * 3600e3) && !(r.reel && r.reel.path) && clips.some(function (c) { return c.game_id === r.id; }); })[0];
       if (want) { MKTRIED[want.id] = true; setTimeout(function () { mhMake(want, true); }, 600); }
     }
@@ -5018,7 +5085,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     renderHighlights();
   }
   async function hlDelete(r, i) { // so a game's highlights can be cut again from scratch
-    if (!sb || !r.id || role !== 'owner') return;
+    if (!sb || !r.id || !gafferHere()) return;
     HLDEL.busy = true; HLDEL.msg = 'Deleting…'; renderHighlights();
     var paths = [], inR2 = []; clips.forEach(function (c) { if (c.game_id === r.id) { var to = c.store === 'r2' ? inR2 : paths; to.push(c.path); if (c.vpath) to.push(c.vpath); } });
     if (r.reel) { var rto = r.reel.store === 'r2' ? inR2 : paths; rto.push(r.reel.path); if (r.reel.vpath) rto.push(r.reel.vpath); } // (and the game's whole reel)
@@ -6444,8 +6511,10 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var half = Math.max(1, Math.min(60, Math.round(+$('hHalf').value) || h.half || 15)), periods = $('hTwo').checked ? 2 : 1, ids = sides.a.concat(sides.b), side = {};
     sides.a.forEach(function (id) { side[id] = 'a'; }); sides.b.forEach(function (id) { side[id] = 'b'; });
     var guests = h.guests.filter(function (g) { return g.side === 'a' || g.side === 'b'; }).map(function (g) { return { id: g.id, name: g.name }; });
+    if (!canStart()) return; runBegin();
     S.match = { opp: n.b, friendly: true, house: { a: n.a, b: n.b, side: side, guests: guests }, order: ids, keeper: null, segs: mkSegs([], ids, null, half, half, periods),
                 squad: ids.slice(), gone: [], half: half, sub: half, pitch: ids.length, periods: periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
+    if (me) S.match.by = me.id;
     D = null; lastBlock = -1; pick = null; save(); go('game');
   }
   $('gKind').addEventListener('click', function (e) {
@@ -6646,7 +6715,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   // After a friendly: a personal link for each player, sent from the game's highlights
   var FRL = { i: -1, msg: '', busy: false };
   function frLinksHtml(r, i) {
-    if (!frGame(r) || role !== 'owner' || guestGame || !linkBase()) return ''; // (no link to send until Gaffer has its own address)
+    if (!frGame(r) || !gafferHere() || guestGame || !linkBase()) return ''; // (no link to send until Gaffer has its own address)
     var ids = Object.keys((r.house && r.house.side) || {}).map(Number).filter(function (id) { return id !== myPid && P(id); });
     if (!ids.length) return '';
     return '<details class="frlinks"' + (FRL.i === i ? ' open' : '') + '><summary>Send everyone their link</summary><p class="note">Each player gets their own link to these highlights. Anyone not on Gaffer yet gets the app from it, and once they make an account the game goes on their profile.</p>' +
@@ -6846,9 +6915,11 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   $('kick').addEventListener('click', function () {
     var pl = plan(), sched = buildSched(pl.ids, pl.benchIds, D.sits, pl.k, pl.B); if (!sched) return;
     var F = fmtFix(D.fmt);
+    if (!canStart()) return; runBegin();
     S.match = { opp: $('opp').value.trim() || 'Opponents', friendly: !D.tour && $('friendly').checked, order: pl.ids, keeper: D.keeper, segs: mkSegs(sched, pl.ids, D.keeper, F.half, F.sub, F.periods),
                 squad: pl.ids.concat(D.keeper != null ? [D.keeper] : []), gone: [],
                 half: F.half, sub: F.sub, pitch: F.side, periods: F.periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
+    if (me) S.match.by = me.id; // who started it: a player's phone may only save a game it started
     if (D.fx) S.match.fx = D.fx;
     if (D.tour) { S.match.tour = D.tour.id; S.match.tourName = D.tour.name; }
     var lt = D.linked || D.link; // another team on Gaffer: already linked (they asked), or to be asked now
@@ -7286,7 +7357,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   // Finished linked games (gaffers): the other side's goals kept in ours, redone when theirs change (a goal fixed or
   // undone after the whistle, or their game finishing after ours).
   function linkRefold() {
-    if (role !== 'owner' || stale) return;
+    if (!gafferHere() || stale) return;
     var changed = false, key = function (list) { return JSON.stringify(list.map(function (e) { return [e.at, !!e.us]; }).sort()); };
     S.results.forEach(function (r) {
       if (!r.link || r.house) return;
@@ -7329,7 +7400,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   function linkPing() { if (LK.chan && S.match && S.match.link === LK.chanId) LK.chan.send({ type: 'broadcast', event: 'changed', payload: { by: SESSION } }).catch(function () {}); }
   function linkNotify(id) { try { if (sb && sb.functions) sb.functions.invoke('team-notify', { body: { code: A.active, kind: 'link', link: id } }).catch(function () {}); } catch (e) {} }
   async function linkSend() { // the request goes once the game is set up, or the next time there's signal
-    var m = S.match, code = A.active; if (!sb || role !== 'owner' || stale || !m || !m.linkTo || m.link || LK.sending) return;
+    var m = S.match, code = A.active; if (!sb || !gafferHere() || stale || !m || !m.linkTo || m.link || LK.sending) return;
     var gid = m.gid, to = m.linkTo; LK.sending = true;
     try {
       var r = await sb.rpc('link_game', { p_code: code, p_to: to.id });
@@ -7340,11 +7411,11 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       save(); linkDraw(); if (m.link) linksPull(true);
     } catch (e) {} finally { LK.sending = false; }
   }
-  async function linkCancel(id) { if (!sb || role !== 'owner') return null; try { var r = await q(sb.rpc('link_answer', { p_code: A.active, p_id: id, p_action: 'cancel' })); return r.data; } catch (e) { return null; } }
+  async function linkCancel(id) { if (!sb || !gafferHere()) return null; try { var r = await q(sb.rpc('link_answer', { p_code: A.active, p_id: id, p_action: 'cancel' })); return r.data; } catch (e) { return null; } }
   function linkDrop(m) { var l = m && m.link ? linkOf(m.link) : null; if (l && l.status === 'proposed' && l.sent) linkCancel(l.id).then(function () { linksPull(); }); } // a scrapped game takes back a request nobody has answered
   function linkLine(m) { // under the game's title: where the link stands
     if (!m || m.house || m.solo) return '';
-    var own = role === 'owner', other = esc(linkName(m)), un = function (t) { return own ? ' <button class="link" type="button" data-unlink="1">' + (Date.now() < LK.armed ? 'Tap again to unlink' : t) + '</button>' : ''; };
+    var own = gafferHere(), other = esc(linkName(m)), un = function (t) { return own ? ' <button class="link" type="button" data-unlink="1">' + (Date.now() < LK.armed ? 'Tap again to unlink' : t) + '</button>' : ''; };
     if (m.linkErr && !m.link) return esc(m.linkErr) + ' Log their goals with Goal against.';
     if (m.linkTo && !m.link) return 'Asking ' + other + ' to link this game. Until they accept, log their goals with Goal against.';
     if (!m.link) return '';
@@ -7357,14 +7428,14 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       : 'Linked with ' + other + '. Their goals show here as they log them, and a goal logged on both phones counts once.') + sq + un('Unlink');
   }
   $('linkLine').addEventListener('click', async function (e) {
-    var m = S.match; if (!e.target.closest('[data-unlink]') || !m || !m.link || role !== 'owner') return;
+    var m = S.match; if (!e.target.closest('[data-unlink]') || !m || !m.link || !gafferHere()) return;
     if (Date.now() >= LK.armed) { LK.armed = Date.now() + 4000; renderScore(); setTimeout(function () { if (S.view === 'game') renderScore(); }, 4100); return; }
     LK.armed = 0; await linkCancel(m.link); await linksPull(true); renderScore(); watchPush();
   });
   // Home, for gaffers: another team asking to link a game
   function renderLinkCard() {
     var el = $('linkCard'); if (!el) return;
-    var ins = role === 'owner' ? LK.list.filter(function (l) { return !l.sent && l.status === 'proposed'; }) : [], show = ins.length || (role === 'owner' && LK.msg);
+    var ins = gafferHere() ? LK.list.filter(function (l) { return !l.sent && l.status === 'proposed'; }) : [], show = ins.length || (gafferHere() && LK.msg);
     el.hidden = !show; if (!show) { el.innerHTML = ''; return; }
     el.innerHTML = ins.map(function (l) {
       var when = new Date(l.at).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
@@ -7374,7 +7445,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     }).join('') + (LK.msg ? '<p class="msg" role="status">' + esc(LK.msg) + '</p>' : '');
   }
   $('linkCard').addEventListener('click', async function (e) {
-    var b = e.target.closest('button'); if (!b || LK.busyA || role !== 'owner' || !sb) return;
+    var b = e.target.closest('button'); if (!b || LK.busyA || !gafferHere() || !sb) return;
     var yes = b.getAttribute('data-lyes'), id = yes || b.getAttribute('data-lno'), l = linkOf(id), code = A.active; if (!id || !l) return;
     LK.busyA = true; LK.msg = ''; renderLinkCard();
     try {
@@ -7408,7 +7479,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     clearTimeout(OF.t);
     var v = $('opp').value.trim(), x = D && (D.linked || D.link);
     if (x && v !== x.name) { D.link = null; D.linked = null; renderOppLink(); }
-    if (!sb || !me || role !== 'owner' || v.length < 2 || (D && (D.link || D.linked))) { OF.list = []; renderOppFind(); return; }
+    if (!sb || !me || !gafferHere() || v.length < 2 || (D && (D.link || D.linked))) { OF.list = []; renderOppFind(); return; }
     OF.t = setTimeout(async function () {
       try { var r = await q(sb.rpc('search_teams', { p_query: v })); if ($('opp').value.trim() !== v || !D || D.link || D.linked) return; OF.list = (r.data || []).filter(function (t) { return t.id !== teamId; }).slice(0, 5); } catch (e) { OF.list = []; }
       renderOppFind();
@@ -7533,7 +7604,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var left = paid ? Math.ceil((d.until - Date.now()) / 86400000) : 0;
     var names = [], seen = {}; (d.chips || []).forEach(function (c) { var n = c.me ? 'you' : c.who; if (n && !seen[n]) { seen[n] = 1; names.push(n); } });
     var thanks = !names.length ? '' : 'Thanks to ' + (names.length <= 3 ? names.slice(0, -1).join(', ') + (names.length > 1 ? ' and ' : '') + names[names.length - 1] : names.slice(0, 3).join(', ') + ' and ' + (names.length - 3) + ' more') + '.';
-    var native = !!plugin('TeamPass'), own = role === 'owner', p = PASS.price;
+    var native = !!plugin('TeamPass'), own = gafferHere(), p = PASS.price;
     var bar = '<div class="passbar" role="progressbar" aria-valuemin="0" aria-valuemax="' + PASS_GOAL + '" aria-valuenow="' + pot + '" aria-label="Team pot"><span style="width:' + Math.round(100 * pot / PASS_GOAL) + '%"></span></div>';
     var pots = '<p id="passPot"><b>' + (paid ? 'Next month’s pot: ' : 'Team pot: ') + passMoney(pot) + '</b> of ' + passMoney(PASS_GOAL) + '</p>' + bar;
     var chips = ['chip099', 'chip199', 'chip299'].map(function (k) { return '<button class="plain tint" type="button" data-pass="' + k + '">' + esc(p[k]) + '</button>'; }).join('');
@@ -7833,6 +7904,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
     var played = m.fx ? RV.list.filter(function (c) { return c.fixture === m.fx; })[0] : null; // a game against another team on the app: tell them our score
     if (played && sb) sb.rpc('challenge_result', { p_code: A.active, p_id: played.id, p_us: t.us, p_them: t.them }).then(function () { rivalsPull(); }, function () {});
+    if (RUNNER && me) S.results[S.results.length - 1].runBy = me.id; // (run from a player's phone: theirs to save)
     if (liveOn()) liveEnd(); // the game's over, so is its stream
     S.match = null; pick = null; outPick = null; ed = null; lockUntil = 0; lockNote = ''; save(); // (the 8-second lock after a goal belongs to the game just finished)
     var fin = S.results[S.results.length - 1];
@@ -7862,10 +7934,10 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       if (statScope ? x.tour !== statScope : !!x.tour) continue;
       html += '<li><b class="' + w + '">' + w + '</b><span>' + x.us + '–' + x.them + '</span><span>' + (x.house ? esc(x.house.a) + ' v ' + esc(x.house.b) + '<span class="tagf">Among ourselves</span>' : (x.opp ? 'v ' + esc(x.opp) : '') + (x.friendly ? '<span class="tagf">Friendly</span>' : '')) + (function () { var q = ratingsOf(x); return q.motm != null && P(q.motm) ? '<br><small class="motm">★ ' + esc(nm(q.motm)) + ' ' + q.r[q.motm].toFixed(1) + '</small>' : ''; })() + '</span>' +
         '<span class="rowbtns">' + (x.koAt && x.ev && x.ev.length ? '<button class="del tint" type="button" data-reel="' + i + '">Highlights</button>' : '') +
-        (role === 'owner' ? '<button class="del danger' + (delIdx === i ? ' armed' : '') + '" type="button" data-del="' + i + '">' + (delIdx === i ? 'Tap to confirm' : 'Remove') + '</button>' : '') + '</span></li>';
+        (gafferHere() ? '<button class="del danger' + (delIdx === i ? ' armed' : '') + '" type="button" data-del="' + i + '">' + (delIdx === i ? 'Tap to confirm' : 'Remove') + '</button>' : '') + '</span></li>';
     }
     $('results').innerHTML = html || '<li><span></span><span></span><span class="note">Nothing yet</span></li>';
-    $('resNote').textContent = S.results.length && role === 'owner' ? "Player totals are worked out from these games, so removing one takes its minutes, goals and assists off too." : '';
+    $('resNote').textContent = S.results.length && gafferHere() ? "Player totals are worked out from these games, so removing one takes its minutes, goals and assists off too." : '';
   }
   // ---- insights: ratings, man of the match, chemistry and scoring patterns, all worked out from the logged stats
   function ratingsOf(r) { // a mark out of 10 for everyone who played, and the highest one
@@ -8209,7 +8281,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var nums = trStore('nums') || {}, on = {};
     var wrote = false;
     Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-trnum]'), function (el) { var v = el.value.replace(/\D/g, ''), id = el.getAttribute('data-trnum'), pl = P(+id);
-      if (v === '') delete nums[id]; else { nums[id] = +v; if (role === 'owner' && pl && pl.num == null) { pl.num = +v; wrote = true; } } }); // a gaffer's numbers are saved to the team, not just this screen
+      if (v === '') delete nums[id]; else { nums[id] = +v; if (gafferHere() && pl && pl.num == null) { pl.num = +v; wrote = true; } } }); // a gaffer's numbers are saved to the team, not just this screen
     if (wrote) save();
     Array.prototype.forEach.call($('trackBody').querySelectorAll('[data-tron]'), function (el) { if (el.checked) on[el.getAttribute('data-tron')] = 1; });
     if ($('trFrom')) { TR.from = $('trFrom').value; TR.to = $('trTo').value; var L = +$('trLen').value; if (L >= 10 && L <= 80) trStore('pitchLen', Math.round(L)); var Wd = +$('trWid').value; if (Wd >= 6 && Wd <= 60) trStore('pitchWid', Math.round(Wd)); trStore('nums', nums); trStore('trackOn', on); }
@@ -8284,7 +8356,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   function rvTerms(t) { return [whenText(t.ko_at), t.location || 'place to be agreed', t.side + '-a-side', t.periods === 2 ? '2 × ' + t.half + ' min' : t.half + ' min, no half time', 'up to ' + t.subs + (t.subs === 1 ? ' sub' : ' subs')].join(' · '); }
   function rvDefaults(side) { var f = fmtDefault('game', side); return { side: side, half: f.half, periods: f.periods, subs: side === 7 ? 3 : 3 }; }
   function renderRivals() {
-    var own = role === 'owner', h = RV.home, html = '';
+    var own = gafferHere(), h = RV.home, html = '';
     if (!sb) html = '<p class="note">This needs the team to be connected.</p>';
     else if (!me || RV.out) html = '<div class="hcard"><h3>For the squad</h3><p class="note">Sign in and claim your player to see nearby teams and your team’s rating.</p><div class="actions"><button class="plain primary" type="button" data-go="' + (me ? 'home' : 'account') + '">' + (me ? 'Go to the team screen' : 'Sign in') + '</button></div></div>';
     else if (RV.form) html = rvFormHtml();
@@ -8343,7 +8415,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   $('rivalsOpen').addEventListener('click', function () { RV.form = null; RV.homeEdit = false; RV.msg = ''; go('rivals'); });
   $('rivalsBody').addEventListener('submit', function (e) { e.preventDefault(); if (e.target.id !== 'rvSearch') return; RV.q = $('rvQ').value.trim(); rivalsPull(); });
   $('rivalsBody').addEventListener('click', async function (e) {
-    var t = e.target.closest('button'); if (!t || t.type === 'submit' || rvBusy) return; var g = function (a) { return t.getAttribute(a); }, v, own = role === 'owner';
+    var t = e.target.closest('button'); if (!t || t.type === 'submit' || rvBusy) return; var g = function (a) { return t.getAttribute(a); }, v, own = gafferHere();
     if ((v = g('data-rvkind')) !== null) { rvKeep(); RV.form.kind = v; renderRivals(); return; }
     if ((v = g('data-rvside')) !== null) { rvKeep(); if (+v !== RV.form.terms.side) Object.assign(RV.form.terms, rvDefaults(+v)); renderRivals(); return; }
     if ((v = g('data-rvper')) !== null) { rvKeep(); RV.form.terms.periods = +v; renderRivals(); return; }
@@ -8562,7 +8634,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   // makes the camera link and switches it on and off); everyone following the team watches it here, with the score held
   // back to match the picture. The stream itself never touches this app: GoPro Quik (or a streaming app on an iPhone) sends it, Cloudflare plays it.
   function hasGaffer() { return true; } // the Gaffer tier. Early access: everyone has it. When the subscription arrives, this is the check to change.
-  function canStream() { return role === 'owner' && !!sb && !!me && !!(A.exp && A.exp.track) && hasGaffer(); }
+  function canStream() { return gafferHere() && !!sb && !!me && !!(A.exp && A.exp.track) && hasGaffer(); }
   // s: the stream that's on (from team_stream: hls, gid, started, on_air), or null. cam: the camera is getting through right
   // now (the gaffer's phone checks). link: the camera link for GoPro Quik or an iPhone streaming app (gaffers only, never saved on the phone).
   var LV = { code: null, s: null, cam: false, link: null, msg: '', busy: false, statT: null, arm: null, told: null, phone: null };
@@ -8572,7 +8644,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   var LAG = 15000; // how far the picture runs behind real life, when the player can't say
   function liveOn() { return !!LV.s && LV.code === A.active; } // a stream is ready (or on) for the open team
   function liveSeen() { return liveOn() && (!!LV.s.on_air || LV.cam); } // and its picture has got through
-  function liveShown() { return liveSeen() || (liveOn() && role === 'owner'); } // the team sees it once the picture is through; its gaffers from the start
+  function liveShown() { return liveSeen() || (liveOn() && gafferHere()); } // the team sees it once the picture is through; its gaffers from the start
   function liveGame() { var m = S.match; return m && liveOn() && (!LV.s.gid || !m.gid || m.gid === LV.s.gid) ? m : null; }
   function streamPull() {
     var code = A.active; if (!sb || !code) return;
@@ -9209,7 +9281,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   $('showF').addEventListener('change', function (e) { showF = e.target.checked; renderStats(); });
   $('results').addEventListener('click', function (e) {
     var rl = e.target.getAttribute('data-reel'); if (rl !== null) { hlShow(S.results[+rl]); return; }
-    var v = e.target.getAttribute('data-del'); if (v === null || role !== 'owner') return;
+    var v = e.target.getAttribute('data-del'); if (v === null || !gafferHere()) return;
     var i = +v; clearTimeout(delT);
     if (delIdx !== i) { delIdx = i; delT = setTimeout(function () { delIdx = -1; renderStats(); }, 3000); renderStats(); return; }
     delIdx = -1;

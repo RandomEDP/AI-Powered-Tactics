@@ -661,6 +661,12 @@ do {
     check(field(old.send.first ?? "", "at") as? Double == ms(at(600)), "a tap from five minutes ago isn't believed: timed from now")
     let none = w.pressGoal(us: false, scorer: nil, assist: nil, now: at(700))
     check(field(none.send.first ?? "", "at") as? Double == ms(at(700)), "with no tap time it's now, as before")
+    var h = WatchBrain()
+    _ = h.receive(json: phone(), sent: ms(at(0)), now: at(0))
+    _ = h.pressEnd(now: at(900)) // half time, blown while Goal had been tapped and the scorer was still being picked
+    let late = h.pressGoal(us: true, scorer: 2, assist: nil, now: at(905), at: at(898))
+    check(late.send.count == 1 && field(late.send.first ?? "", "at") as? Double == ms(at(898)) && h.state?.us == 1, "a goal tapped just before the whistle still counts, timed from the tap (\(late.send.count))")
+    check(h.pressGoal(us: true, scorer: nil, assist: nil, now: at(910)).send.isEmpty && h.state?.us == 1, "but a goal with no tap from the half is still refused in the break")
     var b = WatchBrain()
     let pre = "{\"live\":true,\"gid\":\"g\",\"phase\":\"pre\",\"team\":\"SOP FC\",\"opp\":\"Dog\",\"players\":[{\"id\":2,\"name\":\"Jake\",\"on\":true},{\"id\":5,\"name\":\"Puxley\",\"on\":false},{\"id\":6,\"name\":\"Issac\",\"on\":false},{\"id\":1,\"name\":\"Spice\",\"on\":true,\"gk\":true}]}"
     _ = b.receive(json: pre, sent: ms(at(-60)), now: at(-60))
