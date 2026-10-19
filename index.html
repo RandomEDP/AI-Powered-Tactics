@@ -655,7 +655,7 @@ body.runner #gamesNew, body.runner #optGaffer { display: none !important; } /* (
 .gwcup { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--on); color: var(--on-ink); } .gwcup svg { width: 24px; height: 24px; }
 .gwchev { margin-left: auto; color: var(--muted); font-size: var(--t-head); }
 .gwdot { display: inline-block; width: .7em; height: .7em; border-radius: 50%; margin-right: 8px; vertical-align: .05em; }
-.gwentry.voted { box-shadow: inset 0 0 0 2px var(--on); } .gwlabel { margin: 0; font-weight: 650; } .gwspon, .gwkick { margin: 0; font-size: var(--t-cap); font-weight: 750; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.gwentry.voted { box-shadow: inset 0 0 0 2px var(--on); } .gwlabel { margin: 0; font-weight: 650; } .gwprize { margin: 0; font-weight: 750; color: var(--on); } .gwspon, .gwkick { margin: 0; font-size: var(--t-cap); font-weight: 750; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .gwlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; } .gwlist li { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .gwlist li small { display: block; color: var(--muted); font-size: var(--t-sub); } .gwhead { margin-bottom: 12px; } #gwBody .hcard { margin-bottom: 12px; }
 .mhplay { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 255, 255, .22); font-size: var(--t-head); }
@@ -3124,13 +3124,16 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   }
   function gwRedraw() { if (S.view === 'gotw') renderGotw(); else if (S.view === 'feed') renderFeed(); else if (S.view === 'highlights') renderHighlights(); }
   function gwWeek(w) { return dayText(Date.parse(w + 'T12:00:00Z')); }
+  // The week's prize, from gotw_prizes (pence), as £50 or £12.50; nothing when none is set.
+  function gwPrize(p) { p = +p; return p > 0 ? '£' + (p % 100 ? (p / 100).toFixed(2) : p / 100) : ''; }
   // The way in, on Home and at the top of Highlights: what's up this week, and whether you've voted.
   function gwStrip() {
     if (!sb || !me) return '';
     if (!GW.d && !GW.busy && Date.now() - GW.tried > 60000) setTimeout(gwLoad, 0);
-    var d = GW.d, n = d ? d.entries.length : 0, L = d && d.last && d.last.entry;
+    var d = GW.d, n = d ? d.entries.length : 0, L = d && d.last && d.last.entry, prize = d ? gwPrize(d.prize) : '';
     var sub = !d ? 'The best goals from every team on Gaffer, voted for by everyone.' : n ? n + (n === 1 ? ' goal is' : ' goals are') + ' up this week. ' + (d.voted ? 'You’ve voted.' : 'Watch them and vote.')
       : L ? 'Week of ' + gwWeek(d.last.week) + ': ' + L.team + ' won.' : 'No goals up yet this week.';
+    if (prize) sub = 'The winner gets ' + prize + '. ' + sub;
     return '<button class="gwstrip" type="button" data-gw="open"><span class="gwcup" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4h10v4a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M9.5 17h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' +
       '<span><b>Goal of the Week' + (d && d.sponsor ? ', presented by ' + esc(d.sponsor) : '') + '</b><small>' + esc(sub) + '</small></span><span class="gwchev" aria-hidden="true">›</span></button>';
   }
@@ -3153,6 +3156,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     else {
       var ends = new Date(d.ends - 1), closes = ends.getDate() + ' ' + MON[ends.getMonth()];
       html += '<div class="card gwhead"><h2>This week’s goals</h2>' + (d.sponsor ? '<p class="gwspon">Presented by ' + esc(d.sponsor) + '</p>' : '') +
+        (gwPrize(d.prize) ? '<p class="gwprize">This week’s winner gets ' + esc(gwPrize(d.prize)) + '</p>' : '') +
         '<p class="note">Gaffers put up their team’s best goal of the week. Watch them and vote for your favourite: one vote each, and not for your own team. Voting closes at midnight on Sunday ' + esc(closes) + ', and the winner is announced on Monday.</p>' +
         '<p class="note">' + (d.votes ? d.votes + (d.votes === 1 ? ' vote' : ' votes') + ' so far. The counts are kept secret until it’s over.' : 'No votes yet.') + '</p></div>';
       if (GW.msg) html += '<p class="msg' + (GW.bad ? ' bad' : '') + '" role="status" id="gwMsg">' + esc(GW.msg) + '</p>';
@@ -3189,7 +3193,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     var reel = L.reel && L.reel.path ? L.reel : null, mineToMake = x.gaffer && x.team_id === teamId && gafferHere() && !!RCp(), M = GW.mk;
     var html = '<div class="hcard gwwin"><p class="gwkick">Winner, week of ' + esc(gwWeek(L.week)) + (L.sponsor ? ' · presented by ' + esc(L.sponsor) : '') + '</p>' +
       '<h3><span class="gwdot" style="background:' + esc(x.color || '#5629d7') + '"></span>' + esc(x.team) + (x.mine ? '<span class="badge you">Your team</span>' : '') + '</h3>' +
-      '<p class="note">' + esc(gwGame(x)) + '. Won with ' + L.votes + (L.votes === 1 ? ' vote' : ' votes') + '.</p>' +
+      '<p class="note">' + esc(gwGame(x)) + '. Won with ' + L.votes + (L.votes === 1 ? ' vote' : ' votes') + (gwPrize(L.prize) ? ' and ' + esc(gwPrize(L.prize)) : '') + '.</p>' +
       (reel ? gwVideo(reel) : gwVideo(x.video)) + (x.video && x.video.label ? '<p class="gwlabel">' + esc(x.video.label) + '</p>' : '');
     var tools = '';
     if (mineToMake) {
@@ -3261,7 +3265,7 @@ body.tabbed { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
     try {
       var votes = L.votes + (L.votes === 1 ? ' vote' : ' votes'), label = String((x.video && x.video.label) || '').replace(/^\d+’?'?\s*/, '').replace(/\s*\(\d+–\d+\)$/, '');
       var res = await rc.joinReel({ items: [item], introVoice: intro, outroVoice: signOff, file: 'goal-of-the-week-' + L.week + '.mp4', shrink: true,
-        outro: { kicker: 'Goal of the Week', sponsor: L.sponsor || '', title: name, sub: [label, 'Week of ' + gwWeek(L.week), 'Won with ' + votes].filter(Boolean).join(' · '), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
+        outro: { kicker: 'Goal of the Week', sponsor: L.sponsor || '', title: name, sub: [label, 'Week of ' + gwWeek(L.week), 'Won with ' + votes, gwPrize(L.prize) ? 'Prize ' + gwPrize(L.prize) : ''].filter(Boolean).join(' · '), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
       if (!res || !res.path) throw new Error('the reel didn’t come out.');
       GW.mk.path = res.path; gwSay('Putting it up for everyone…');
       var key = teamId + '/gotw/' + L.week + '-' + Date.now() + '.mp4', got = await clipCall('upload', { paths: [key] });

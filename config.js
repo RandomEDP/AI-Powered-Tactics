@@ -4,7 +4,7 @@ window.APT_CONFIG = {
   url: 'https://kvefpqigpqprxfelesrb.supabase.co',
   key: 'sb_publishable_GVY0NOJ3upPsqoGztDN_4g_6g2I67hJ',
   // where account confirmation emails send people when they sign up from the iOS app
-  siteUrl: 'https://randomedp.github.io/AI-Powered-Tactics/',
+  siteUrl: 'https://gaffermanager.app/',
   // Gaffer's own web address for links that go to people outside the app (a friendly's personal links, the guests' link
   // after a game among the squad), Ethan's domain (October 2026). Never the GitHub address,
   // which must never be sent to anyone (Ethan); with this empty, the buttons that send those links don't show.

@@ -130,8 +130,8 @@ polls for games and the squad chat. Nothing a gaffer does is in it, and it never
 
 ## Setup
 
-1. **GitHub Pages:** Settings → Pages → Deploy from a branch → `main` / root. The app is served at `https://<user>.github.io/AI-Powered-Tactics/`.
-2. **Supabase Auth URLs:** Authentication → URL Configuration. Set *Site URL* to the Pages address above and add it under *Redirect URLs*, so confirmation emails link back to the app.
+1. **GitHub Pages:** Settings → Pages → Deploy from a branch → `main` / root, with the custom domain `gaffermanager.app` (the `CNAME` file). The app is served at `https://gaffermanager.app/`; the github.io address only redirects there and is never given to anyone.
+2. **Supabase Auth URLs:** Authentication → URL Configuration. Set *Site URL* to `https://gaffermanager.app/` and add it under *Redirect URLs*, so confirmation emails link back to the app.
 3. **Database:** the migrations in `supabase/migrations/` are already applied to the project. To rebuild elsewhere, run them in order in the SQL editor.
 
 ## Running the tests

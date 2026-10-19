@@ -152,7 +152,7 @@
     // ---------- Goal of the Week (0036), as the real functions behave: weeks run Monday to Sunday, UK time
     if (name.startsWith('gotw_')) {
       if (!uid()) return fail('Sign in first', '42501');
-      ['gotw_noms', 'gotw_votes', 'gotw_winners', 'gotw_sponsors', 'gotw_reports'].forEach((k) => { d[k] = d[k] || []; });
+      ['gotw_noms', 'gotw_votes', 'gotw_winners', 'gotw_sponsors', 'gotw_prizes', 'gotw_reports'].forEach((k) => { d[k] = d[k] || []; });
       const parts = (ms) => { const o = {}; new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms)).forEach((p) => { o[p.type] = +p.value; }); return o; };
       const weekOf = (ms) => { const o = parts(ms), day = new Date(Date.UTC(o.year, o.month - 1, o.day)); day.setUTCDate(day.getUTCDate() - (day.getUTCDay() + 6) % 7); return day.toISOString().slice(0, 10); };
       const endsOf = (w) => { const dt = new Date(w + 'T00:00:00Z'); dt.setUTCDate(dt.getUTCDate() + 7); const u = dt.getTime(), o = parts(u); return u - (Date.UTC(o.year, o.month - 1, o.day, o.hour, o.minute, o.second) - u); };
@@ -166,15 +166,15 @@
       if (name === 'gotw_board') {
         [...new Set(d.gotw_noms.filter((n) => n.week < w).map((n) => n.week))].sort().forEach((wk) => { if (d.gotw_winners.some((x) => x.week === wk)) return;
           const ranked = d.gotw_noms.filter((n) => n.week === wk && live(n)).map((n) => ({ n, v: d.gotw_votes.filter((v) => v.nom_id === n.id && v.week === wk).length })).sort((a1, b1) => b1.v - a1.v || a1.n.created_at - b1.n.created_at);
-          const best = ranked[0] && ranked[0].v > 0 ? ranked[0] : null, sp = d.gotw_sponsors.find((x) => x.week === wk);
-          d.gotw_winners.push({ week: wk, nom_id: best ? best.n.id : null, team_id: best ? best.n.team_id : null, votes: best ? best.v : 0, sponsor: sp ? sp.name : null, reel: null, decided_at: Date.now(), notified_at: null }); });
+          const best = ranked[0] && ranked[0].v > 0 ? ranked[0] : null, sp = d.gotw_sponsors.find((x) => x.week === wk), pz = d.gotw_prizes.find((x) => x.week === wk);
+          d.gotw_winners.push({ week: wk, nom_id: best ? best.n.id : null, team_id: best ? best.n.team_id : null, votes: best ? best.v : 0, sponsor: sp ? sp.name : null, prize_pence: pz ? pz.pence : null, reel: null, decided_at: Date.now(), notified_at: null }); });
         store(d);
-        const last = d.gotw_winners.filter((x) => x.week < w && x.nom_id).sort((a1, b1) => (a1.week < b1.week ? 1 : -1))[0], sp = d.gotw_sponsors.find((x) => x.week === w);
+        const last = d.gotw_winners.filter((x) => x.week < w && x.nom_id).sort((a1, b1) => (a1.week < b1.week ? 1 : -1))[0], sp = d.gotw_sponsors.find((x) => x.week === w), pz = d.gotw_prizes.find((x) => x.week === w);
         const counted = d.gotw_votes.filter((v) => v.week === w && d.gotw_noms.some((n) => n.id === v.nom_id && live(n))), mineV = counted.find((v) => v.user_id === uid());
         const ln = last && d.gotw_noms.find((n) => n.id === last.nom_id && !n.pulled);
-        return ok({ week: w, ends: endsOf(w), sponsor: sp ? sp.name : null, voted: mineV ? mineV.nom_id : null, votes: counted.length,
+        return ok({ week: w, ends: endsOf(w), sponsor: sp ? sp.name : null, prize: pz ? pz.pence : null, voted: mineV ? mineV.nom_id : null, votes: counted.length,
           entries: d.gotw_noms.filter((n) => n.week === w && live(n)).sort((a1, b1) => hash(a1.id + uid()) - hash(b1.id + uid())).map(entry).filter(Boolean),
-          last: last ? { week: last.week, votes: last.votes, sponsor: last.sponsor, reel: last.reel, notified: !!last.notified_at, entry: ln ? entry(ln) : null } : null });
+          last: last ? { week: last.week, votes: last.votes, sponsor: last.sponsor, prize: last.prize_pence ?? null, reel: last.reel, notified: !!last.notified_at, entry: ln ? entry(ln) : null } : null });
       }
       if (name === 'gotw_nominate') {
         const t = d.teams.find((x) => x.code === String(a.p_code || '').trim().toUpperCase()); if (!t || !isOrg(d, t.id)) return ok({ error: 'not_gaffer' });
