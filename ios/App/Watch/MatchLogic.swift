@@ -107,6 +107,9 @@ struct MatchState: Codable, Equatable {
         return left > 0 && left <= 30
     }
     var inPlay: Bool { phase == "h1" || phase == "h2" }
+    /// The watch app keeps itself on screen (a workout session) from when the game is set up until full time, so a raised
+    /// wrist shows the game, not the watch face (Ethan, after a game where it kept going back to the face).
+    var staysOnScreen: Bool { live && phase != "ft" }
     var playing: Bool { live && running && inPlay }
     /// The whistle that ends this half is the final one.
     var lastHalf: Bool { phase == "h2" || periods == 1 }

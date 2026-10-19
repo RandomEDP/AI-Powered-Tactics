@@ -1,11 +1,12 @@
 import Foundation
+import HealthKit
 import UserNotifications
 import WatchConnectivity
 import WatchKit
 
 /// The watch app's link to the phone and to the wrist. What the game *is* at any moment is decided in MatchLogic.swift (WatchBrain);
 /// this class delivers messages, buzzes, schedules notifications and keeps the app on screen.
-final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtendedRuntimeSessionDelegate, UNUserNotificationCenterDelegate {
+final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtendedRuntimeSessionDelegate, HKWorkoutSessionDelegate, UNUserNotificationCenterDelegate {
     /// The one model, shared by the app's screen and the "Mark a highlight" shortcut (HighlightIntent.swift), so a press from
     /// the Action button goes through the same brain and link as a tap on the screen.
     static let shared = MatchModel()
@@ -22,6 +23,10 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
     private var runtime: WKExtendedRuntimeSession?                    // keeps the app running during a game when the wrist drops
     private var runtimeNotBefore = Date.distantPast                   // so a session that won't start isn't tried again every second
     private var runtimeSince = Date.distantPast                       // when the session now running was started
+    private let health = HKHealthStore()
+    private var workout: HKWorkoutSession?                            // what keeps the app on screen during a game (see stayInFront)
+    private var workoutOff = false                                    // Health said no, or our workout was ended by someone else: use the runtime session
+    private var askingHealth = false
     private var renewing = false                                      // the old session is being ended so a fresh one can take over
     private var brain = WatchBrain()
     private var ticker: Timer?
@@ -184,25 +189,94 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
 
     // MARK: - Staying on screen
 
-    /// During a game the app keeps running when the wrist is lowered, so its own clock can buzz for a change and a glance shows
-    /// the time. A session lasts up to an hour and can only be started with the app on screen; if it has ended (or never
-    /// started), the next moment the app is on screen starts another. Called every second, so it mends itself.
+    /// During a game the app stays on screen: a raised wrist shows the game, not the watch face, and its own clock can buzz for
+    /// a change. Only a workout session does that. The hour-long runtime session it used before (physical therapy) only keeps
+    /// the app running behind the watch face, so a couple of minutes after the wrist dropped, raising it showed the face
+    /// (Ethan, October 2026). The workout is never saved to Health; it only holds the screen. If Health isn't allowed, or the
+    /// workout is ended by something else (another workout app, say), the runtime session takes over, as before, and the
+    /// workout isn't started again that game so the two never fight. Called every second, so it mends itself.
     func stayInFront() {
-        let wanted = (state?.live ?? false) && state?.phase != "ft"
+        let wanted = state?.staysOnScreen ?? false
         guard wanted else {
+            endWorkout()
             runtime?.invalidate()
             runtime = nil
             return
         }
+        if let current = workout, current.state != .ended, current.state != .stopped { return }
         // One under way, or about to be: leave it. (Starting a second alongside it is refused, and both can be lost.)
-        if let current = runtime, current.state != .invalid { return }
+        let runtimeAlive = runtime.map { $0.state != .invalid } ?? false
+        // Both can only be started with the app on screen.
         guard WKApplication.shared().applicationState == .active, Date() >= runtimeNotBefore else { return }
         runtimeNotBefore = Date().addingTimeInterval(5) // one that won't start isn't tried again every second
+        if startWorkout() { return }
+        if runtimeAlive { return }
         let session = WKExtendedRuntimeSession()
         session.delegate = self
         session.start()
         runtime = session
         runtimeSince = Date()
+    }
+
+    /// Starts the workout that keeps the app on screen; false if it can't (yet), so the runtime session is used meanwhile.
+    /// Health is asked once, the first time a game shows; the answer is kept by watchOS.
+    private func startWorkout() -> Bool {
+        guard !workoutOff, HKHealthStore.isHealthDataAvailable() else { return false }
+        let kind = HKObjectType.workoutType()
+        switch health.authorizationStatus(for: kind) {
+        case .sharingAuthorized: break
+        case .notDetermined:
+            if !askingHealth {
+                askingHealth = true
+                health.requestAuthorization(toShare: [kind], read: nil) { _, _ in
+                    DispatchQueue.main.async {
+                        self.askingHealth = false
+                        self.runtimeNotBefore = Date.distantPast
+                        self.stayInFront()
+                    }
+                }
+            }
+            return false
+        default: return false
+        }
+        let setup = HKWorkoutConfiguration()
+        setup.activityType = .soccer
+        setup.locationType = .outdoor
+        guard let session = try? HKWorkoutSession(healthStore: health, configuration: setup) else {
+            workoutOff = true
+            return false
+        }
+        session.delegate = self
+        session.startActivity(with: Date())
+        workout = session
+        runtime?.invalidate() // the workout does all it did, and more
+        runtime = nil
+        return true
+    }
+
+    /// Full time, or the game's gone: let the screen go. Nothing is saved to Health. The next game tries the workout again.
+    private func endWorkout() {
+        workout?.end()
+        workout = nil
+        workoutOff = false
+    }
+
+    func workoutSession(_ workoutSession: HKWorkoutSession, didChangeTo toState: HKWorkoutSessionState, from fromState: HKWorkoutSessionState, date: Date) {
+        guard toState == .ended || toState == .stopped else { return }
+        DispatchQueue.main.async { self.workoutLost(workoutSession) }
+    }
+
+    func workoutSession(_ workoutSession: HKWorkoutSession, didFailWithError error: Error) {
+        DispatchQueue.main.async { self.workoutLost(workoutSession) }
+    }
+
+    /// Our workout ended without us ending it: fall back to the runtime session for the rest of this game.
+    private func workoutLost(_ session: HKWorkoutSession) {
+        guard workout === session else { return } // one we ended ourselves
+        workout = nil
+        workoutOff = true
+        runtimeNotBefore = Date.distantPast
+        stayInFront()
     }
 
     /// A session lasts an hour from when it started, which may have been when the game was set up, well before kick-off.

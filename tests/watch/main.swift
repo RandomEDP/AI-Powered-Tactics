@@ -673,5 +673,23 @@ do {
     check(b.state?.benchNames == ["Puxley", "Issac"], "before kick-off the watch knows who starts on the bench (\(b.state?.benchNames ?? []))")
 }
 
+do {
+    // Ethan (October 2026): the watch kept going back to the watch face mid-game. It stays on screen from set-up to full time.
+    var w = WatchBrain()
+    check(w.state?.staysOnScreen != true, "no game: the watch face is left alone")
+    let pre = "{\"live\":true,\"gid\":\"g\",\"phase\":\"pre\",\"team\":\"SOP FC\",\"opp\":\"Dog\",\"players\":[]}"
+    _ = w.receive(json: pre, sent: ms(at(-60)), now: at(-60))
+    check(w.state?.staysOnScreen == true, "set up, before kick-off: Gaffer stays on screen")
+    _ = w.receive(json: phone(), sent: ms(at(0)), now: at(0))
+    check(w.state?.staysOnScreen == true, "first half: on screen")
+    _ = w.pressEnd(now: at(900))
+    check(w.state?.phase == "ht" && w.state?.staysOnScreen == true, "half time: still on screen (\(w.state?.phase ?? "-"))")
+    _ = w.pressStart(now: at(1200))
+    _ = w.pressEnd(now: at(2100))
+    check(w.state?.phase == "ft" && w.state?.staysOnScreen == false, "full time: it lets the watch face back (\(w.state?.phase ?? "-"))")
+    _ = w.receive(json: "{\"live\":false}", sent: ms(at(2200)), now: at(2200))
+    check(w.state?.staysOnScreen != true, "the game's gone (abandoned or finished on the phone): let go")
+}
+
 print(failures == 0 ? "watch logic: all \(checks) checks passed" : "watch logic: \(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

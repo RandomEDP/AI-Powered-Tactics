@@ -27,8 +27,13 @@
 	</array>
 	<key>WKBackgroundModes</key>
 	<array>
+		<string>workout-processing</string>
 		<string>physical-therapy</string>
 	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Gaffer starts a football workout on your watch during a game so it stays on screen when you raise your wrist. It doesn't read anything from Health.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Gaffer starts a football workout on your watch during a game so it stays on screen when you raise your wrist. Nothing is saved to Health.</string>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
