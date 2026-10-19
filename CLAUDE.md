@@ -905,8 +905,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **One banner** (Ethan: "have ads showing below while it's creating"): on the free tier, a banner ad (`banSync`,
   `showBanner` ADAPTIVE_BANNER at the bottom) sits under the cut screen while highlights are cut, once the 30-second ad has
   closed; it goes when you leave the screen or the cut ends, and the screen makes room for it (`body.adbanned`, `--adban`
-  from `bannerAdSizeChanged`). It needs Gaffer's banner ad unit in `config.js` `ads.banner` (empty: no banner; Ethan makes
-  one in AdMob, Apps, Gaffer, Ad units, Banner). Test: `cutaway.test.mjs`.
+  from `bannerAdSizeChanged`). Gaffer's banner ad unit `ca-app-pub-2627873247729818/4003128992` is in `config.js` `ads.banner`
+  (Ethan made it in AdMob, 19 October 2026; empty means no banner). Test: `cutaway.test.mjs`.
 - No other banners. **Out of Experimental (Ethan, October 2026):** the ad plays while the phone makes something you'd be
   waiting for anyway: a reel (a player's or a game's Highlight reel), a beat highlight, or a game's highlights being cut.
   Pressing Make first shows `#adAskPop` (`adAsk`: "While your reel is made, watch a 30-second ad to unlock it. It takes
