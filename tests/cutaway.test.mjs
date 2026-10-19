@@ -11,10 +11,13 @@ const native = () => { // the native ReelCutter and Google's AdMob, as the web a
   window.__rc = []; window.__ad = []; const L = {};
   let cfg; Object.defineProperty(window, 'APT_CONFIG', { configurable: true, get: () => cfg, set: (v) => { cfg = v; if (v && v.ads) v.ads.banner = 'ca-app-pub-2627873247729818/0000000001'; } }); // (a banner unit, as Ethan will make in AdMob)
   window.Capacitor.Plugins.ReelCutter = {
-    addListener: (n, f) => { if (n === 'progress') window.__prog = f; return { remove() {} }; },
+    addListener: (n, f) => { if (n === 'progress') window.__prog = f; if (n === 'bg') window.__bgSay = f; return { remove() {} }; },
+    bgStart: async (o) => { window.__rc.push(['bgStart', o]); return { started: !window.__oldIos }; }, // (iOS's own progress card: iOS 26 and later)
+    bgUpdate: async (o) => { window.__rc.push(['bgUpdate', o]); }, bgEnd: async (o) => { window.__rc.push(['bgEnd', o]); },
     pickVideo: async (o) => ({ path: '/phone/game' + o.slot + '.mov', duration: 5400 }),
     readable: async () => ({ bad: [] }),
-    cut: async (o) => { window.__rc.push(['cut', o]); if (window.__prog) window.__prog({ stage: 'clip', i: 0, n: o.clips.length, p: 0.5 }); await window.__hold;
+    cut: async (o) => { window.__rc.push(['cut', o]); if (window.__prog) window.__prog({ stage: 'cut', i: 0, n: o.clips.length, p: 0.5 }); await window.__hold;
+      if (window.__stopped) { window.__bgSay({ state: 'stopped' }); throw new Error('Stopped. Nothing was made.'); } // (stopped from the card mid-cut)
       return { clips: o.clips.map((c) => ({ file: c.file, path: '/phone/' + c.file })), reel: { path: '/phone/' + o.reelFile } }; },
     share: async () => ({}), cleanup: async () => ({}),
   };
@@ -59,8 +62,14 @@ const ban = await A.page.evaluate(() => (window.__ad.find((x) => Array.isArray(x
 eq(ban && [ban.adId, ban.position, ban.adSize, ban.isTesting], ['ca-app-pub-2627873247729818/0000000001', 'BOTTOM_CENTER', 'ADAPTIVE_BANNER', false], 'once it closes, Gaffer\'s banner ad goes along the bottom of the cut screen');
 check(await A.page.evaluate(() => document.body.classList.contains('adbanned') && getComputedStyle(document.documentElement).getPropertyValue('--adban').trim() === '62px'), 'and the screen makes room for it, as tall as Google says it is');
 const work = await A.text('#cutBody');
-check(/Cutting clip 1 of 1, 50%/.test(work) && /You can use the rest of Gaffer while it cuts/.test(work) && /iOS pauses the cutting once Gaffer is put away/.test(work), 'the cut screen says how far it\'s got, that you can use the rest of Gaffer, and to keep Gaffer open');
+check(/Cutting clip 1 of 1, 50%/.test(work) && /You can use the rest of Gaffer while it cuts/.test(work) && /switch to other apps too/.test(work), 'the cut screen says how far it\'s got, that you can use the rest of Gaffer, and other apps too');
 check(await bar() === null, 'no bar on the cut screen itself');
+// iOS's own progress card (Ethan chose it): asked for as the cut starts, kept up to date, so it carries on in other apps
+const bg = (k) => A.page.evaluate((x) => window.__rc.filter((c) => c[0] === x).map((c) => c[1]), k);
+eq((await bg('bgStart'))[0], { title: 'Highlights v Dog Squad', subtitle: 'Starting…' }, 'iOS\'s progress card is asked for as the cut starts, named after the game');
+const ups = await bg('bgUpdate'), last = ups[ups.length - 1];
+check(last && last.subtitle === 'Cutting clip 1 of 1, 50%' && Math.abs(last.p - 0.425) < 0.01, `and kept up to date with what's happening and how far it's got (${JSON.stringify(last)})`);
+check(/You can switch to other apps too: iOS shows how it’s going on the Lock Screen/.test(work) && !/iOS pauses the cutting/.test(work), 'with the card up, the cut screen says other apps are fine too');
 await shot('cutting');
 
 // ---------- leaving: the cut carries on, the bar shows it, the banner goes
@@ -84,10 +93,42 @@ await A.click('#v-cut .back'); await A.run(500);
 // ---------- done while you're elsewhere
 await A.page.evaluate(() => window.__go()); await A.run(3000);
 eq(await bar(), 'Highlights v Dog Squad: Ready to watch. Tap to see them.', 'when it finishes elsewhere, the bar says the highlights are ready');
+eq(await bg('bgEnd'), [{ ok: true }], 'and iOS\'s card goes, marked finished');
+check((await bg('bgUpdate')).some((u) => /Uploading clip 1 of 1/.test(u.subtitle) && u.p >= 0.9), 'it followed the uploads too');
 check(w.db().clips.length === 1, 'the clip went up while you were on another screen');
 await A.click('#cutBar'); await A.run(500);
 check(await A.view() === 'cut' && /now in Highlights for the whole team/.test(await A.text('#cutBody')), 'tapping it opens the finished cut, to share the reel');
 check(!(await A.page.evaluate(() => window.__ad.slice(-1)[0] && window.__ad.slice(-1)[0][0] === 'banner')), 'no banner ad once the cut is done');
 await A.click('#v-cut .back'); await A.run(500);
 eq(await bar(), null, 'once seen, the bar goes');
+
+// ---------- stopped from iOS's card, mid-cut
+if ((await A.view()) !== 'highlights') { await A.click('#tabs [data-tab="highlights"]'); await A.run(500); }
+await A.page.evaluate(() => { window.__stopped = true; window.__hold = Promise.resolve(); window.__rc.length = 0; });
+await A.click('#hlList [data-hlm^="edit:"]'); await A.run(200); await A.click('#hlSheet .hlsheet [data-cut]'); await A.run(600);
+for (let i = 0; i < 6 && !(await A.visible('#cutBody [data-cutdo="go"]')); i++) {
+  if (await A.visible('#cutBody [data-cutdo="here"]')) { await A.page.evaluate(() => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => 200, set: () => {} }); }); await A.click('#cutBody [data-cutdo="here"]'); }
+  else if (await A.page.$('#cutBody [data-cutdo="next"]')) await A.click('#cutBody [data-cutdo="next"]');
+  else if (await A.page.$('#cutBody [data-cutdo="vid"]')) await A.click('#cutBody [data-cutdo="vid"]'); else break;
+  await A.run(400);
+}
+const clipsBefore = w.db().clips.length;
+await A.click('#cutBody [data-cutdo="go"]'); await A.run(500); if (await A.visible('#adAskPop')) { await A.click('#adAskYes'); await A.run(31000); }
+await A.run(2000);
+check(/Stopped. Nothing was made./.test(await A.text('#cutBody')), 'stopping it from the card stops the cut, and says nothing was made');
+eq([await bg('bgEnd'), w.db().clips.length], [[], clipsBefore], 'the card had already gone (iOS took it away), and the highlights are as they were');
+
+// ---------- an older iOS: no card, and it says to keep Gaffer open
+await A.page.evaluate(() => { window.__stopped = false; window.__oldIos = true; window.__hold = new Promise((r) => { window.__go = r; }); });
+await A.click('#cutBody [data-cutdo="retry"]'); await A.run(400);
+for (let i = 0; i < 6 && !(await A.visible('#cutBody [data-cutdo="go"]')); i++) {
+  if (await A.visible('#cutBody [data-cutdo="here"]')) { await A.page.evaluate(() => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => 200, set: () => {} }); }); await A.click('#cutBody [data-cutdo="here"]'); }
+  else if (await A.page.$('#cutBody [data-cutdo="next"]')) await A.click('#cutBody [data-cutdo="next"]');
+  else if (await A.page.$('#cutBody [data-cutdo="vid"]')) await A.click('#cutBody [data-cutdo="vid"]'); else break;
+  await A.run(400);
+}
+await A.click('#cutBody [data-cutdo="go"]'); await A.run(500); if (await A.visible('#adAskPop')) { await A.click('#adAskYes'); await A.run(31000); }
+await A.run(1000);
+check(/iOS pauses the cutting once Gaffer is put away/.test(await A.text('#cutBody')), 'on an older iOS (no card) it still says to keep Gaffer open');
+await A.page.evaluate(() => window.__go()); await A.run(3000);
 done();
