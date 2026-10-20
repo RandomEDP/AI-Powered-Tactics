@@ -60,7 +60,8 @@ await d.admin(`update public.ad_settings set watched_unlock = false`);
 const wt2 = (await d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: `${sop.id}/players/2/reel-${Date.now() - 6}.mp4` })).ticket;
 eq(await d.rpc(jake, 'ad_watched', { p_ticket: wt2 }), 'off', 'with the switch off, only Google\'s call unlocks it');
 await d.admin(`update public.ad_settings set watched_unlock = true`);
-for (let i = 0; i < 19; i++) await d.rpc(jake, 'ad_watched', { p_ticket: (await d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: `${sop.id}/players/2/reel-${Date.now() - 100 - i}.mp4` })).ticket });
+const wBase = Date.now() - 1000; // (one base, so the 19 names never collide with each other or the ones above)
+for (let i = 0; i < 19; i++) eq(await d.rpc(jake, 'ad_watched', { p_ticket: (await d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: `${sop.id}/players/2/reel-${wBase - i}.mp4` })).ticket }), 'granted', '(watched ' + (i + 2) + ' of 20)');
 eq(await d.rpc(jake, 'ad_watched', { p_ticket: wt2 }), 'too_many', 'at most 20 a day on the app\'s word');
 await d.admin(`delete from public.ad_unlocks where app_said`);
 const grant = (t, u, tx) => d.admin(`select public.ad_grant($1, $2, $3) r`, [t, u, tx]).then((r) => r[0].r);
