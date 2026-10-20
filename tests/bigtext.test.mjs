@@ -18,6 +18,8 @@ const cutter = () => { // the iPhone's ReelCutter, so the gaffer can cut some hi
     joinReel: async (o) => ({ path: '/phone/' + o.file, size: 1000, marks: o.items.map((x, i) => i * 14.04) }),
     share: async () => ({}), cleanup: async () => ({}),
   };
+  window.Capacitor.Plugins.VoiceOver = { addListener: () => ({ remove() {} }), permission: async () => ({ state: 'granted' }), prepare: async () => ({ ok: true }), start: async () => ({ at: Date.now() }),
+    level: async () => ({ level: 0.5 }), stop: async () => ({ path: '/phone/take.m4a', dur: 20, spans: [] }), discard: async () => ({}), mix: async (o) => ({ path: '/phone/' + o.file }), settings: async () => ({}) };
   window.Capacitor.convertFileSrc = (path) => location.origin + '/_capacitor_file_' + path;
 };
 const big = (P) => P.page.evaluate((n) => window.gafferTextSize(n), SIZE);
@@ -137,7 +139,11 @@ await A.tap('#hlSheet [data-fixg]'); await A.run(400); await scan(A, 'fix a goal
 if (await A.visible('#hlSheet [data-hlmx]')) { await A.tap('#hlSheet [data-hlmx]'); await A.run(300); }
 await A.click('#hlToggle [data-by="player"]'); await A.run(400);
 if (await A.visible('#hlList [data-hlm^="pedit:"]')) { await A.tap('#hlList [data-hlm^="pedit:"]'); await A.run(400); await scan(A, 'a player\'s edit footage (the sheet)'); await A.tap('#hlSheet [data-hlmx]'); await A.run(300); }
-if (await A.visible('#hlList [data-hlm^="pmake:"]')) { await A.tap('#hlList [data-hlm^="pmake:"]'); await A.run(400); await scan(A, 'a player\'s make a highlight (the sheet)'); await A.tap('#hlSheet [data-preel]'); await A.run(500); await scan(A, 'make a reel'); await A.page.evaluate(() => { document.getElementById('reelPop').hidden = true; }); }
+if (await A.visible('#hlList [data-hlm^="pmake:"]')) { await A.tap('#hlList [data-hlm^="pmake:"]'); await A.run(400); await scan(A, 'a player\'s make a highlight (the sheet)'); await A.tap('#hlSheet [data-preel]'); await A.run(500); await scan(A, 'make a reel');
+  await A.tap('#rbOwn'); await A.run(200); await scan(A, 'make a reel, with your own commentary'); await A.tap('#rbMake'); await A.run(800); await scan(A, 'your commentary');
+  await A.tap('#micGo'); await A.run(3600); await scan(A, 'your commentary, recording'); await A.tap('#micStop'); await A.run(400); await scan(A, 'your commentary, your take');
+  await A.tap('#micCancel'); await A.tap('#micCancel'); await A.run(300);
+  await A.page.evaluate(() => { document.getElementById('reelPop').hidden = true; }); }
 // the poll, chat, the feed, a profile, finding people
 await tab(A, 'games'); await A.click('#gamesNew'); await A.run(300); await scan(A, 'a new poll');
 await A.page.fill('#pOpp', 'Rovers'); await A.page.fill('#pDate', '2026-10-14'); await A.page.fill('#pTime', '19:30'); await A.click('#pSave'); await A.run(800);

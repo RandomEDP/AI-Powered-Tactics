@@ -304,7 +304,7 @@ eq((w.db().player_reels || []).length, 0, 'someone just following the team can s
 // ---------- the gaffer makes Chaplin's reel with a commentator
 await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-hlm="pmake:3"]'); await A.click('#hlSheet [data-preel="3"]');
 eq(await A.visible('#rbVoice'), true, 'gaffers can add AI commentary to a player\'s reel');
-await A.page.check('#rbVoice'); await A.run(300);
+await A.click('#rbVoice'); await A.run(300);
 eq([await A.visible('#rbVoiceName'), await A.visible('#rbVoiceStyle')], [true, false], 'with a choice of voice (no separate delivery: each voice has its own)');
 await shot(A, 'reel-player-voice');
 await A.click('#rbMake'); await A.run(1500);
@@ -352,7 +352,7 @@ await A.page.evaluate(() => localStorage.removeItem('apt-ai'));
 const vcalls = () => (w.db().calls || []).filter((x) => x.name === 'reel-voice').length, vbefore = vcalls();
 const byNow = await A.page.$eval('#hlToggle [aria-pressed="true"]', (b) => b.getAttribute('data-by')).catch(() => 'game');
 await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-hlm="pmake:3"]'); await A.click('#hlSheet [data-preel="3"]'); await A.run(300);
-if (!(await A.page.isChecked('#rbVoice'))) await A.page.check('#rbVoice');
+if ((await A.page.getAttribute('#rbVoice', 'aria-pressed')) !== 'true') await A.click('#rbVoice');
 await A.click('#rbMake'); await A.run(300);
 eq(await A.visible('#aiPop'), true, 'not allowed on this phone: making a reel with commentary asks first');
 await A.click('#aiNo'); await A.run(4000);
