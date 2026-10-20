@@ -49,6 +49,20 @@ await d.admin(`update public.ad_settings set trust_app = false`);
 tk = await d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: reel2 });
 check(!!tk.ticket, 'a new reel needs a new ad');
 eq(await d.rpc(jake, 'ad_claim', { p_ticket: tk.ticket, p_app_says: true }), 'waiting', 'with real ads, the app saying the ad finished unlocks nothing');
+// watched to the end: it unlocks straight away on the app's word (0047; Ethan was left on "Google hasn't confirmed it yet",
+// and Google's call had never once reached the server), marked so it can be told apart, 20 a day at most
+const wt = (await d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: `${sop.id}/players/2/reel-${Date.now() - 5}.mp4` })).ticket;
+eq(await d.rpc(sam, 'ad_watched', { p_ticket: wt }), 'no_ticket', 'watched: only the ticket\'s owner can say so');
+eq(await d.rpc(jake, 'ad_watched', { p_ticket: wt }), 'granted', 'watched to the end: unlocked straight away, with real ads on and no word from Google');
+eq((await d.admin(`select app_said, by_google, no_fill from public.ad_unlocks where id = $1`, [wt]))[0], { app_said: true, by_google: false, no_fill: false }, 'marked as the app\'s word, not Google\'s');
+eq((await d.admin(`select has_function_privilege('anon', 'public.ad_watched(uuid)', 'execute') n`))[0].n, false, 'nobody signed out can call it');
+await d.admin(`update public.ad_settings set watched_unlock = false`);
+const wt2 = (await d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: `${sop.id}/players/2/reel-${Date.now() - 6}.mp4` })).ticket;
+eq(await d.rpc(jake, 'ad_watched', { p_ticket: wt2 }), 'off', 'with the switch off, only Google\'s call unlocks it');
+await d.admin(`update public.ad_settings set watched_unlock = true`);
+for (let i = 0; i < 19; i++) await d.rpc(jake, 'ad_watched', { p_ticket: (await d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: `${sop.id}/players/2/reel-${Date.now() - 100 - i}.mp4` })).ticket });
+eq(await d.rpc(jake, 'ad_watched', { p_ticket: wt2 }), 'too_many', 'at most 20 a day on the app\'s word');
+await d.admin(`delete from public.ad_unlocks where app_said`);
 const grant = (t, u, tx) => d.admin(`select public.ad_grant($1, $2, $3) r`, [t, u, tx]).then((r) => r[0].r);
 eq(await grant(tk.ticket, sam.id, 'tx-1'), 'wrong_user', 'Google\'s call must name the account the ad was loaded for');
 eq(await grant('not-a-ticket', jake.id, 'tx-1'), 'no_ticket', 'and a real ticket');
@@ -191,14 +205,16 @@ await J.click(mine + ' [data-ad="reel"]'); await J.run(32000);
 check(/closed before the end/.test(await J.text(mine)) && await J.page.$$eval(mine + ' .reelp video', (v) => v.length) === 0, 'an ad closed early unlocks nothing, and says so');
 await J.page.evaluate(() => { window.__adEarly = false; });
 
-// watched to the end
+// watched to the end, with real ads and Google's own call never coming (Ethan, 20 October 2026: "Google hasn't confirmed it yet")
+{ const d3 = w.db(); d3.ad_trust = false; w.setDb(d3); }
 await J.click(mine + ' [data-ad="reel"]'); await J.run(2000);
 const prep = (await ads(J)).find((x) => Array.isArray(x) && x[0] === 'prepare')[1];
 eq((await ads(J)).filter((x) => typeof x === 'string').slice(0, 3), ['initialize', 'consent', 'att'], 'Google\'s ads are started, the consent check runs and Apple\'s tracking question is asked, before the first ad');
 eq([prep.adId, prep.isTesting, prep.ssv.userId, /^tk-/.test(prep.ssv.customData)], ['ca-app-pub-2627873247729818/1194270899', false, 'u-jake', true], 'Gaffer\'s own rewarded ad unit, real ads, carrying the account and the ticket for the server-side check');
 check(/playing/.test(await J.text(mine)), 'it says the ad is playing');
 await J.run(31000); await J.run(1500);
-eq([await J.page.$$eval(mine + ' .reelp video', (v) => v.length), await J.page.$$eval(mine + ' [data-ad]', (b) => b.length)], [1, 0], 'watched to the end: his reel plays');
+eq([await J.page.$$eval(mine + ' .reelp video', (v) => v.length), await J.page.$$eval(mine + ' [data-ad]', (b) => b.length)], [1, 0], 'watched to the end: his reel plays straight away, without waiting for Google');
+check(!/confirmed/.test(await J.text(mine)) && w.db().unlocks.some((u) => u.target === jr(1) && u.app_said), 'no "Google hasn\'t confirmed it yet": the app\'s word that it was watched unlocked it');
 eq((await ads(J)).filter((x) => x === 'att').length, 1, 'Apple\'s tracking question is only ever asked once');
 await J.page.reload(); await J.run(2000); await openMine();
 eq(await J.page.$$eval(mine + ' .reelp video', (v) => v.length), 1, 'and it stays unlocked (kept on the server)');
