@@ -5065,9 +5065,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         if (x.vids.length) html += (pr ? '<details class="allclips"><summary>All ' + x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ', one by one</summary>' + clipPlayer(x.vids) + '</details>' : clipPlayer(x.vids)) +
           (RCp() || own ? '<div class="actions hlacts">' + (RCp() ? '<button class="plain tint" type="button" data-hlm="pmake:' + x.p.id + '">Make a highlight</button>' : '') + (own ? '<button class="plain" type="button" data-hlm="pedit:' + x.p.id + '">Edit footage</button>' : '') + '</div>' : '') + // (the same as a game's card: Ethan, October 2026)
           (hidBtn ? '<div class="actions">' + hidBtn + '</div>' : '');
-        if (x.vids.length && HLM.pid === x.p.id) sheet = hlPSheet(x.p, x.vids, own);
         else if (x.list.length) html += '<ul>' + x.list.map(function (m) { return '<li class="wide"><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' +
           novid('No clips for ' + esc(nm(x.p.id)) + ' yet. They appear here when a game’s highlights are cut.');
+        if (x.vids.length && HLM.pid === x.p.id) sheet = hlPSheet(x.p, x.vids, own);
         if (HLRM.msg && HLM.pid == null && HLRM.pid === x.p.id) html += '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status">' + esc(HLRM.msg) + '</p>'; // (Remove goals from this card, once its sheet has closed)
         if (mineNow) { var hid = clips.filter(function (c) { return (c.off || []).indexOf(myPid) >= 0; });
           if (HIDE.msg) html += '<p class="msg" role="status" id="hideMsg">' + esc(HIDE.msg) + '</p>';
