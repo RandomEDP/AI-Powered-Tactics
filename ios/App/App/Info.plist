@@ -68,7 +68,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo of your team crest, or film your games to stream them live and record them.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Record the sound of the game when this iPhone films it.</string>
+	<string>Gaffer records the sound of the game when this iPhone films it, and your voice when you commentate over your highlights.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save your highlight reels and the games this iPhone films to your photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -140,6 +140,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 | `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
 | `AppReviewPlugin` | Reviews on the App Store: `ask()` (Apple's own stars, `AppStore.requestReview`) and `write({id})` (opens Gaffer's page on Write a Review; with no id it looks the app up by bundle id in Apple's public lookup and keeps it) |
+| `VoiceOverPlugin` | Your own commentary over a reel: `permission`, `prepare`, `start`, `level`, `stop` → `{path, dur, spans}`, `discard`, `mix({path, voice, lead, spans, file, job})`, `settings`. Speech spans and the game sound's dips are `VoiceSpans.swift` (plain Foundation, `tests/voice/main.swift`) |
 | `ClipHandoffPlugin` | `take()` → `{url?}`: a friendly's personal link left by the App Clip (or by an App Clip link that opened the installed app, `SceneDelegate`) in the app group `group.Com.randomedp.aipoweredtactics`, key `gaffer.link`; given once |
 | `MatchVisionPlugin` | Experimental player tracking (YOLOX-S onnx plus Vision, reading shirt numbers) |
 | `LiveCamPlugin` | "Film with this iPhone": `start({url,title})`, `show()`, `stop()`, `state()`, event `state`. Streams the iPhone's camera over RTMPS to the camera link (HaishinKit 2.2.5, 720p ~2.5 Mbps, adaptive) and records 1080p HEVC to Photos at the same time (`CamRecorder`, its own AVAssetWriter, stamped with the start time). Native full-screen `CamScreen`, laid out for a phone on its side (the app stays portrait; the screen turns its contents by the accelerometer) |
@@ -434,6 +435,19 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   the plugin's `cancel({job})` (`rb-<time>`, `be-<time>`), which stops it at its next clip or mid-export (`stopNow`,
   checked in `run`), and say "Stopped. Nothing was made." Code: `rbOpen`/`renderRB`/`rbMake`, `clipRole`,
   `gameClipRole`. Test: `reels.test.mjs`.
+- **Your own commentary** (Ethan, October 2026: "a way to commentate over your own highlights"): the reel maker's
+  Commentary is a segmented choice, None / AI voice / Your voice (`#rbCmNone`, `#rbVoice`, `#rbOwn`, `RB.own`; AI voice
+  only where `canVoice()` and not Just me; Your voice wherever the `VoiceOver` plugin is). With Your voice, once `joinReel`
+  has made the reel (after the ad, if one is playing) it opens `#micPop` (`micOpen(path, file)` resolves with the new
+  video or null): Record asks for the microphone there and then (`prepare`), counts in 3, 2, 1 with taps, starts the
+  recorder (`start` → `at`) and plays the reel muted from the start, so the speaker isn't recorded; `MIC.lead` is where the
+  reel's start is in the recording. Stop, or the reel ending, keeps the take (`stop` → `{path, dur, spans}`); Play it back
+  plays the voice (`#micAud`) with the muted picture; Record again as often as wanted; Cancel needs a second tap once there's
+  a take. Use this take calls `mix` (`VoiceOverPlugin.swift`): the voice from `lead` laid over the reel, the game's sound
+  down to a quarter while there's talking (`VoiceSpans.swift`, from the recorder's level every 50 ms; nothing heard: it dips
+  under the whole take), at the reel's own size. That copy is the one shared and kept on a player's card. Refused
+  microphone: Open Settings (`settings`). Put away mid-take: what was recorded is kept. Tests: `commentary.test.mjs`,
+  `bigtext.test.mjs`, `tests/voice/main.swift`.
 - **A player's reel on their card** (`0026_player_reels.sql`, Ethan asked): when the player themselves or a gaffer makes
   a player's reel (`canKeepReel`), it is also uploaded (`keepPlayerReel`: `<team>/players/<pid>/reel-<time>.mp4`, which
   `clip-store` lets that player write) and kept with `save_player_reel` (one per player, a new one replaces it and the

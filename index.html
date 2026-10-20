@@ -727,6 +727,35 @@ html.bigtext .ighead { flex-direction: column; align-items: flex-start; gap: 10p
 .benudge { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0; }
 .benudge button { min-height: 44px; padding-inline: 4px; }
 #reelPop .planbox { max-height: calc(100vh - 32px); overflow-y: auto; }
+.rbcm { margin: 10px 0 4px; } .rbcmh { display: block; font-weight: 650; font-size: var(--t-sub); margin-bottom: 6px; }
+.rbcm .seg button { flex: 1; } .rbcm .seg button.is { background: var(--on); color: var(--on-ink); }
+/* Your own commentary: a dark full screen like the whole-match player, the reel on top and the record button where a thumb rests */
+#micPop { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; display: flex; flex-direction: column; overflow-y: auto; padding: calc(4px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+#micPop[hidden] { display: none; }
+.michead { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 48px; }
+.michead .link { justify-self: start; min-height: 44px; color: #fff; font-size: var(--t-body); } .michead .link:disabled { visibility: hidden; }
+.michead strong { font-size: var(--t-head); }
+.micstage { position: relative; margin-top: 4px; border-radius: 12px; overflow: hidden; background: #111; flex-shrink: 0; }
+#micVid { outline: 1px solid rgba(255, 255, 255, .14); outline-offset: -1px; display: block; width: 100%; aspect-ratio: 16 / 9; max-height: 46vh; object-fit: contain; background: #000; }
+.miccount { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 5rem; font-weight: 800; text-shadow: 0 2px 16px rgba(0, 0, 0, .7); pointer-events: none; }
+.miccount:empty { display: none; } .miccount span { animation: miccount 1s ease-out both; }
+@keyframes miccount { from { transform: scale(1.5); opacity: 0; } 25% { transform: scale(1); opacity: 1; } to { opacity: .35; } }
+.micrec { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 999px; background: rgba(0, 0, 0, .65); font-weight: 700; font-size: var(--t-sub); font-variant-numeric: tabular-nums; }
+.micrec[hidden] { display: none; } .micrec .dot { flex: none; width: .6em; height: .6em; border-radius: 50%; background: #ff3b30; animation: micblink 1.2s steps(2, jump-none) infinite; }
+@keyframes micblink { 50% { opacity: .25; } }
+.miclevel { display: flex; align-items: center; justify-content: center; gap: 3px; height: 52px; margin: 14px 0 2px; flex-shrink: 0; }
+.miclevel i { width: 4px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .22); transition: height .08s linear; }
+.miclevel.live i { background: color-mix(in srgb, var(--team) 45%, #fff); }
+#micSay { margin: 8px auto; max-width: 34em; min-height: 2.8em; text-align: center; color: rgba(255, 255, 255, .85); font-size: var(--t-sub); line-height: 1.4; } #micSay.bad { color: #ff9a8a; }
+.micctl { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: auto; padding-top: 10px; }
+.micbig { width: 78px; height: 78px; padding: 0; border-radius: 50%; border: 4px solid #fff; background: none; display: flex; align-items: center; justify-content: center; }
+.micbig .core { width: 62px; height: 62px; border-radius: 50%; background: #ff3b30; transition: width .2s, height .2s, border-radius .2s; }
+.micbig.on .core { width: 30px; height: 30px; border-radius: 7px; }
+.miclbl { font-weight: 650; font-size: var(--t-sub); }
+.microw { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; max-width: 440px; } .microw .plain { flex: 1 1 140px; }
+#micPop .plain { background: rgba(255, 255, 255, .16); color: #fff; } #micPop .plain.primary { background: var(--on); color: var(--on-ink); }
+.micbar { width: 100%; max-width: 440px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .18); overflow: hidden; } .micbar i { display: block; height: 100%; background: var(--on); border-radius: 3px; }
+@media (prefers-reduced-motion: reduce) { .miccount span, .micrec .dot { animation: none; } .micbig .core, .miclevel i { transition: none; } }
 #rbPrev { display: block; width: 100%; max-height: 220px; border-radius: 8px; background: #000; margin: 8px 0; }
 .rblist { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
 .rblist li { display: flex; align-items: center; gap: 8px; }
@@ -1263,6 +1292,14 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 <div id="hlSheet"></div>
 <button type="button" id="cutBar" class="cutbar" hidden></button>
 <div id="reelPop" role="dialog" aria-labelledby="rbTitle" hidden><div class="planbox" id="rbBody"></div></div>
+<div id="micPop" role="dialog" aria-modal="true" aria-labelledby="micTitle" hidden>
+  <div class="michead"><button class="link" type="button" id="micCancel">Cancel</button><strong id="micTitle">Your commentary</strong><span></span></div>
+  <div class="micstage"><video id="micVid" playsinline preload="auto"></video><div class="miccount" id="micCount" aria-live="assertive"></div><div class="micrec" id="micRec" hidden><span class="dot"></span><span id="micTime">0:00</span></div></div>
+  <div class="miclevel" id="micLevel" aria-hidden="true"></div>
+  <p id="micSay" role="status"></p>
+  <div class="micctl" id="micCtl"></div>
+  <audio id="micAud" preload="auto"></audio>
+</div>
 <div id="beatPop" role="dialog" aria-labelledby="beTitle" hidden><div class="planbox" id="beBody"></div><audio id="beAudio" preload="none"></audio></div>
 <div id="livePop" role="dialog" aria-labelledby="liveTitle" hidden><div class="planbox" id="liveBody"></div></div>
 <div id="subPop" role="alertdialog" aria-labelledby="subPopTitle" hidden><div class="kickbox"><button class="subx" id="subPopLater" type="button" aria-label="Not yet">&times;</button><p id="subPopTitle">Time for subs</p><div id="subPopBody"></div>
@@ -4869,7 +4906,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var btn = function (attr, label, cls) { return '<button class="pick wide' + (cls ? ' ' + cls : '') + '" type="button" ' + attr + '>' + label + '</button>'; };
     var body = '', game = esc(scoreText({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them })) + (dayOf(r) ? ', ' + esc(dayOf(r)) : '');
     if (HLM.kind === 'make') body = head('Make a highlight', game + '. Made on this phone, ready to share.') + '<div class="hlsopts">' +
-      btn('data-greel="' + gi + '"', 'Highlight reel') + '<p class="note">Pick the clips you want in, with AI commentary if you like.</p>' +
+      btn('data-greel="' + gi + '"', 'Highlight reel') + '<p class="note">Pick the clips you want in, with AI commentary or your own.</p>' +
       btn('data-beat="' + gi + '"', 'Beat highlight (Experimental)') + '<p class="note">Cut to the beat of one of Gaffer’s own tracks, tall for Reels and TikTok.</p></div>';
     else if (HLM.kind === 'edit') body = head('Edit footage', game) + '<div class="hlsopts">' +
       btn('data-hldel="' + gi + '"' + (HLDEL.busy ? ' disabled' : ''), HLDEL.i === gi && Date.now() < HLDEL.until ? 'Tap again to delete them all' : 'Delete all these highlights', 'danger') +
@@ -4900,7 +4937,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var cutGames = games.filter(function (g) { return own && NATIVE && g.r.koAt && momentsOf(g.r).length; }), fixed = games.filter(function (g) { return own && fixGoals(g.r).length; });
     var pr = preelOf(pid), body = '';
     if (HLM.kind === 'pmake') body = head('Make a highlight', who + '. Made on this phone, ready to share.') + '<div class="hlsopts">' +
-      btn('data-preel="' + pid + '"', pr ? 'New highlight reel' : 'Highlight reel') + '<p class="note">Pick the clips you want in, with AI commentary if you like.' + (canKeepReel(pid) ? ' It goes on ' + ofWho + ' card too.' : '') + '</p>' +
+      btn('data-preel="' + pid + '"', pr ? 'New highlight reel' : 'Highlight reel') + '<p class="note">Pick the clips you want in, with AI commentary or your own.' + (canKeepReel(pid) ? ' It goes on ' + ofWho + ' card too.' : '') + '</p>' +
       btn('data-pbeat="' + pid + '"', 'Beat highlight (Experimental)') + '<p class="note">Cut to the beat of one of Gaffer’s own tracks, tall for Reels and TikTok.</p></div>';
     else if (HLM.kind === 'pedit') body = head('Edit footage', who + ', ' + vids.length + (vids.length === 1 ? ' clip' : ' clips') + ' from ' + games.length + (games.length === 1 ? ' game' : ' games')) + '<div class="hlsopts">' +
       (cutGames.length ? btn(cutGames.length === 1 ? 'data-cut="' + cutGames[0].i + '"' : 'data-hlm="pcut:' + pid + '"', 'Cut again from a video') : '') +
@@ -5177,7 +5214,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: clipRole(c, RB.pid), title: (r ? vs(r) + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label });
     }).filter(function (c) { return !RB.goals || c.kind === 'Goal'; });
   }
-  function rbOpen(pid, gi) { var meR = pid === 'me'; RB = { me: meR, pid: gi != null || meR ? null : pid, gi: gi != null ? gi : null, said: sayOn, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false, stop: false, job: '', srv: null }; $('reelPop').hidden = false; renderRB(); }
+  function rbOpen(pid, gi) { var meR = pid === 'me'; RB = { me: meR, pid: gi != null || meR ? null : pid, gi: gi != null ? gi : null, said: sayOn, pick: {}, goals: false, voice: false, own: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false, stop: false, job: '', srv: null }; $('reelPop').hidden = false; renderRB(); }
   function renderRB() {
     if ($('reelPop').hidden) return;
     var gr = rbGame(), list = rbList(), on = list.filter(function (c) { return RB.pick[c.key] !== false; }), secs = 0, pv = list.filter(function (c) { return c.key === RB.pv; })[0] || list[0], who = gr ? vs(gr) : RB.me ? rbMeName() : nm(RB.pid);
@@ -5191,8 +5228,15 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       return '<li><label class="check" for="rbp-' + i + '"><input id="rbp-' + i + '" type="checkbox" data-rbpick="' + esc(c.key) + '"' + (RB.pick[c.key] !== false ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>' + esc(c.title) + (c.kind ? ' <span class="kind">' + esc(c.kind) + '</span>' : '') + '</span></label>' +
         '<button class="link" type="button" data-rbprev="' + esc(c.key) + '">Preview</button></li>';
     }).join('') + '</ol>' : '<p class="note">' + (RB.goals ? (gr ? 'None of this game’s clips is a goal.' : 'None of ' + esc(who) + '’s clips is a goal of theirs yet.') : 'No clips yet.') + '</p>';
-    if (canVoice() && !RB.me && !(hasSaid && RB.said)) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
-      (RB.voice ? voiceBox('rb') : '');
+    var aiOk = canVoice() && !RB.me, ownOk = !!plugin('VoiceOver'); // (AI commentary belongs to one team; your own voice is anyone's, on the iPhone)
+    if (!aiOk) RB.voice = false; if (!ownOk) RB.own = false;
+    if (!(hasSaid && RB.said) && (aiOk || ownOk)) {
+      var segB = function (id, label, on) { return '<button type="button" id="' + id + '" aria-pressed="' + on + '"' + (on ? ' class="is"' : '') + (RB.busy ? ' disabled' : '') + '>' + label + '</button>'; };
+      html += '<div class="rbcm"><span class="rbcmh" id="rbCmH">Commentary</span><div class="seg" role="group" aria-labelledby="rbCmH">' + segB('rbCmNone', 'None', !RB.voice && !RB.own) +
+        (aiOk ? segB('rbVoice', 'AI voice', RB.voice) : '') + (ownOk ? segB('rbOwn', 'Your voice', RB.own) : '') + '</div>' +
+        (RB.voice ? '<p class="note">A commentator calls each clip, with an intro and a sign-off.</p>' + voiceBox('rb')
+          : RB.own ? '<p class="note" id="rbOwnNote">Once the reel’s made, it plays and you talk over it, like you’re on the telly. Record it again as often as you like, and the game’s sound is turned down under your voice.</p>' : '') + '</div>';
+    }
     html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
       '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.ad ? '<p class="msg" role="status" id="rbAd">' + esc(RB.ad) + '</p>' : '') + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
       '<div class="actions">' + (RB.busy ? (AD.on || RB.unlocking ? '' : '<button class="plain" type="button" id="rbCancel"' + (RB.stop ? ' disabled' : '') + '>' + (RB.stop ? 'Stopping…' : 'Cancel') + '</button>') // (Cancel while it's made, except while the ad is up: Ethan asked)
@@ -5207,7 +5251,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var rc = RCp(); if (!rc || RB.busy) return;
     var gr = rbGame(), list = rbList().filter(function (c) { return RB.pick[c.key] !== false; }), who = gr ? vs(gr) : RB.me ? rbMeName() : nm(RB.pid), byId = {}; if (!list.length) return;
     var said = !!gr && RB.said && list.some(function (c) { return c.vpath; }); // (the game's own commentary, recorded when it was cut)
-    if (said) RB.voice = false;
+    if (said) { RB.voice = false; RB.own = false; }
     var vlock = RB.voice && canVoice() ? voLocked() : [];
     if (vlock.length) { RB.msg = voLockMsg(vlock); RB.bad = true; renderRB(); return; }
     var server = !gr && rbAd(), local = !server && adWanted(); // your own reel goes on your card, unlocked on the server; anything else is unlocked on this phone
@@ -5250,6 +5294,13 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         outro: gr ? endCard(gr) : { kicker: 'Player reel', title: who + '’s highlights', sub: RB.me ? rbMeTeams(list) : teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
       if (RB.stop) { if (adP) { await adP; AD.busy = false; } rbStopped(); return; } // (it finished just as Cancel was tapped)
       RB.path = res && res.path; RB.msg = 'The reel is ready' + (said ? ', with commentary' : '') + '.'; RB.locked = !!adP;
+      if (RB.path && RB.own && plugin('VoiceOver')) { // your own commentary: the reel plays and you talk over it (after the ad, if one's playing)
+        if (adP) { RB.prog = 'Your reel is ready for when the ad ends. Then it’s over to you for the commentary.'; renderRB(); await adP; }
+        if (RB.stop) { if (adP) AD.busy = false; rbStopped(); return; }
+        RB.prog = 'Recording your commentary…'; renderRB();
+        var mine = await micOpen(RB.path, (gr ? folderOf(gr) : slugify(who) || 'player') + '-commentary.mp4');
+        if (mine && mine.path) { RB.path = mine.path; RB.msg = 'The reel is ready, with your commentary.'; } else RB.msg = 'The reel is ready, without your commentary.';
+      }
       if (RB.path && !adP) rateAfter(rc.share({ path: RB.path }));
       var kept = false;
       if (RB.path && res.marks && RB.pid != null && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
@@ -5296,18 +5347,136 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     else if (b.id === 'rbCancel') rbCancel();
     else if (b.id === 'rbUnlock') rbUnlock();
     else if (b.id === 'rbShare') { var rc = RCp(); if (rc && RB.path) rateAfter(rc.share({ path: RB.path })); }
+    else if (b.id === 'rbCmNone' || b.id === 'rbVoice' || b.id === 'rbOwn') { if (RB.busy) return; RB.voice = b.id === 'rbVoice'; RB.own = b.id === 'rbOwn'; RB.path = null; RB.msg = ''; RB.note = ''; renderRB(); }
     else if (b.hasAttribute('data-rbprev')) { RB.pv = b.getAttribute('data-rbprev'); renderRB(); var v = $('rbPrev'); if (v) try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {} }
   });
   $('reelPop').addEventListener('change', function (e) {
     var t = e.target; if (RB.busy) return;
     if (t.id === 'rbGoals') RB.goals = t.checked;
     else if (t.hasAttribute('data-rbpick')) RB.pick[t.getAttribute('data-rbpick')] = t.checked;
-    else if (t.id === 'rbVoice') RB.voice = t.checked;
     else if (t.id === 'rbSaid') RB.said = t.checked;
     else if (t.id === 'rbVoiceName') { VO.msg = ''; voiceSet($('rbVoiceName').value); } // (a different voice is a different reel)
     else return;
     RB.path = null; RB.msg = ''; RB.note = ''; renderRB(); // (a change means the reel made before isn't this one)
   });
+  // ---- your own commentary (iPhone app, anyone making a reel; Ethan: "a way to commentate over your own highlights").
+  // Picked as "Your voice" in the reel maker: once the reel is made it opens here, full screen. Record counts in 3, 2, 1,
+  // then the reel plays from the start (muted, so the speaker isn't picked up) while the microphone records
+  // (VoiceOverPlugin). It stops by itself at the end. Then: play it back (the picture with your voice), Record again as
+  // often as you like, or Use this take, which lays your voice over the reel on the phone with the game's own sound
+  // turned down while you talk (VoiceSpans.swift). micOpen resolves with the new video, or null for the reel without it.
+  var MIC = { step: '' }, voBound = false, MIC_BARS = 28;
+  function VOp() { var v = plugin('VoiceOver'); if (v && !voBound) { voBound = true; try { v.addListener('progress', function (d) { if (d && d.job === MIC.job && MIC.step === 'mix') { MIC.p = d.p || 0; micDraw(); } }); } catch (e) {} } return v; }
+  function micT(sec) { sec = Math.max(0, Math.floor(sec || 0)); return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2); }
+  function micWait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function micTap(style) { try { if (Haptics) Haptics.impact({ style: style || 'LIGHT' }).catch(function () {}); } catch (e) {} }
+  function micOpen(path, file) {
+    return new Promise(function (done) {
+      MIC = { step: 'ready', reel: path, file: file || 'reel-commentary.mp4', done: done, take: null, lead: 0, at: 0, poll: 0, lv: [], msg: '', bad: false, armed: 0, playing: false, p: 0, job: '' };
+      var v = $('micVid'); v.muted = false; v.src = window.Capacitor.convertFileSrc(path) + '#t=0.1'; // (the first frame shows before it plays)
+      v.onended = function () { if (MIC.step === 'rec') micStop(); else if (MIC.playing) { micStopPlay(); micDraw(); } };
+      $('micCount').textContent = ''; $('micPop').hidden = false; micDraw();
+      var vo = VOp(); if (vo && vo.permission) vo.permission().then(function (r) { if (r && r.state === 'denied' && MIC.step === 'ready') { MIC.step = 'denied'; micDraw(); } }, function () {});
+    });
+  }
+  function micDraw() {
+    if ($('micPop').hidden) return;
+    var st = MIC.step, say = MIC.msg, ctl = '', big = function (on, label) { return '<button class="micbig' + (on ? ' on' : '') + '" type="button" id="' + (on ? 'micStop' : 'micGo') + '" aria-label="' + label + (on ? '' : ' your commentary') + '"><span class="core"></span></button><span class="miclbl" aria-hidden="true">' + label + '</span>'; };
+    if (st === 'ready') { say = say || 'Tap Record. After 3, 2, 1 your reel plays from the start: talk over it like you’re on the telly. The game’s sound is muted while you record, then goes back in under your voice.'; ctl = big(false, 'Record'); }
+    else if (st === 'denied') { say = 'Gaffer isn’t allowed to use the microphone. Turn on Microphone for Gaffer in the Settings app, then come back and tap Try again.'; ctl = '<div class="microw"><button class="plain primary" type="button" id="micSettings">Open Settings</button><button class="plain" type="button" id="micGo">Try again</button></div>'; }
+    else if (st === 'count') { say = 'Get ready…'; ctl = big(true, 'Stop'); }
+    else if (st === 'rec') { say = 'Recording. Talk over your reel; it stops by itself at the end.'; ctl = big(true, 'Stop'); }
+    else if (st === 'saving') say = 'Saving your take…';
+    else if (st === 'review') {
+      var quiet = MIC.take && Array.isArray(MIC.take.spans) && !MIC.take.spans.length;
+      say = say || ('Your take is ' + micT(MIC.take && MIC.take.dur - MIC.lead) + ' long. Play it back to hear your voice over the picture; the game’s sound goes back in under it when you use it.' + (quiet ? ' It sounds very quiet: check nothing’s covering the microphone.' : ''));
+      ctl = '<div class="microw"><button class="plain" type="button" id="micPlay">' + (MIC.playing ? 'Stop playing' : 'Play it back') + '</button><button class="plain" type="button" id="micAgain">Record again</button></div>' +
+        '<div class="microw"><button class="plain primary" type="button" id="micUse">Use this take</button></div>';
+    }
+    else if (st === 'mix') { say = 'Putting your voice on the reel… ' + Math.round((MIC.p || 0) * 100) + '%'; ctl = '<div class="micbar" role="progressbar" aria-label="Putting your voice on the reel" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round((MIC.p || 0) * 100) + '"><i style="width:' + Math.round((MIC.p || 0) * 100) + '%"></i></div>'; }
+    $('micSay').textContent = say; $('micSay').className = MIC.bad && MIC.msg ? 'bad' : '';
+    $('micCtl').innerHTML = ctl;
+    var c = $('micCancel'); c.disabled = st === 'mix' || st === 'saving'; c.textContent = MIC.armed > Date.now() ? 'Tap again to discard it' : 'Cancel';
+    $('micRec').hidden = st !== 'rec';
+    micBars();
+  }
+  function micBars() { // the microphone's level, newest on the right, like Voice Memos: shows it can hear you
+    var box = $('micLevel'), lv = MIC.lv || [], h = '';
+    for (var i = 0; i < MIC_BARS; i++) { var x = lv[lv.length - MIC_BARS + i]; h += '<i style="height:' + Math.max(4, Math.round((x || 0) * 52)) + 'px"></i>'; }
+    box.innerHTML = h; box.className = 'miclevel' + (MIC.step === 'rec' ? ' live' : '');
+  }
+  async function micGo() {
+    var vo = VOp(); if (!vo || ['count', 'rec', 'saving', 'mix'].indexOf(MIC.step) >= 0) return;
+    micStopPlay(); MIC.msg = ''; MIC.bad = false; MIC.armed = 0;
+    try { await vo.prepare(); }
+    catch (e) { if (e && (e.code === 'denied' || /allowed/.test(e.message || ''))) MIC.step = 'denied'; else { MIC.step = MIC.take ? 'review' : 'ready'; MIC.msg = (e && e.message) || 'The microphone couldn’t be started.'; MIC.bad = true; } micDraw(); return; }
+    MIC.step = 'count'; MIC.take = null; MIC.lv = []; micDraw();
+    var v = $('micVid'); try { v.pause(); v.currentTime = 0; } catch (e) {}
+    for (var n = 3; n >= 1; n--) { if (MIC.step !== 'count') return; $('micCount').innerHTML = '<span>' + n + '</span>'; micTap(); await micWait(1000); }
+    $('micCount').textContent = ''; if (MIC.step !== 'count') return;
+    var st; try { st = await vo.start(); } catch (e) { MIC.step = 'ready'; MIC.msg = (e && e.message) || 'The microphone couldn’t be started.'; MIC.bad = true; micDraw(); return; }
+    if (MIC.step !== 'count') { try { vo.discard(); } catch (e) {} return; }
+    MIC.at = (st && st.at) || Date.now(); MIC.step = 'rec'; micTap('MEDIUM'); micDraw();
+    v.muted = true; MIC.lead = Math.max(0, (Date.now() - MIC.at) / 1000);
+    v.onplaying = function () { if (MIC.step === 'rec' && v.currentTime < 0.5) MIC.lead = Math.max(0, (Date.now() - MIC.at) / 1000 - v.currentTime); v.onplaying = null; }; // (where the reel's start is in the recording)
+    try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {}
+    MIC.poll = setInterval(micTick, 80);
+  }
+  function micTick() {
+    if (MIC.step !== 'rec') return;
+    var v = $('micVid'), len = isFinite(v.duration) ? v.duration : 0;
+    $('micTime').textContent = micT(v.currentTime) + (len ? ' of ' + micT(len) : '');
+    var vo = VOp(); if (vo && vo.level) vo.level().then(function (r) { if (MIC.step !== 'rec') return; MIC.lv.push(Math.max(0, Math.min(1, (r && r.level) || 0))); if (MIC.lv.length > MIC_BARS) MIC.lv.shift(); micBars(); }, function () {});
+  }
+  async function micStop() {
+    if (MIC.step === 'count') { MIC.step = 'ready'; $('micCount').textContent = ''; try { await VOp().discard(); } catch (e) {} micDraw(); return; }
+    if (MIC.step !== 'rec') return;
+    MIC.step = 'saving'; clearInterval(MIC.poll); var v = $('micVid'); try { v.pause(); } catch (e) {} micDraw();
+    try {
+      var t = await VOp().stop();
+      if (!t || !t.path || (t.dur || 0) - MIC.lead < 1) { MIC.step = 'ready'; MIC.msg = 'That was too short to use. Tap Record and talk over the reel.'; MIC.bad = true; }
+      else { MIC.take = t; MIC.step = 'review'; buzz(); }
+    } catch (e) { MIC.step = 'ready'; MIC.msg = 'Your take couldn’t be saved: ' + ((e && e.message) || 'something went wrong.') + ' Tap Record to try again.'; MIC.bad = true; }
+    v.muted = false; try { v.currentTime = 0; } catch (e) {} micDraw();
+  }
+  function micStopPlay() { if (!MIC.playing) return; MIC.playing = false; try { $('micVid').pause(); $('micAud').pause(); } catch (e) {} $('micVid').muted = false; }
+  function micPlay() { // the picture with your voice (the phone plays one sound at a time over a video, so the game's sound is left out here)
+    if (!MIC.take) return; if (MIC.playing) { micStopPlay(); micDraw(); return; }
+    var v = $('micVid'), a = $('micAud'), src = window.Capacitor.convertFileSrc(MIC.take.path);
+    if (a.getAttribute('data-src') !== src) { a.src = src; a.setAttribute('data-src', src); }
+    a.onloadedmetadata = function () { try { a.currentTime = MIC.lead; } catch (e) {} };
+    try { a.currentTime = MIC.lead; } catch (e) {}
+    v.muted = true; try { v.currentTime = 0; } catch (e) {}
+    MIC.playing = true; MIC.msg = '';
+    [v, a].forEach(function (m) { try { var pr = m.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} });
+    micDraw();
+  }
+  async function micUse() {
+    var vo = VOp(); if (!vo || !MIC.take || MIC.step !== 'review') return;
+    micStopPlay(); MIC.step = 'mix'; MIC.p = 0; MIC.msg = ''; MIC.bad = false; MIC.armed = 0; MIC.job = 'vo-' + Date.now(); micDraw();
+    try { var r = await vo.mix({ path: MIC.reel, voice: MIC.take.path, lead: MIC.lead, spans: MIC.take.spans || [], file: MIC.file, job: MIC.job }); if (!r || !r.path) throw new Error('the phone didn’t say where it put it.'); micShut(r); }
+    catch (e) { MIC.step = 'review'; MIC.msg = 'Your commentary couldn’t be added: ' + String((e && e.message) || 'something went wrong.').replace(/^Your commentary couldn’t be added: /, '') + ' Try Use this take again.'; MIC.bad = true; micDraw(); }
+  }
+  function micShut(result) {
+    var was = MIC.step; clearInterval(MIC.poll); micStopPlay();
+    if (was === 'count' || was === 'rec') { var vo = VOp(); if (vo) try { vo.discard().then(function () {}, function () {}); } catch (e) {} }
+    try { $('micVid').pause(); } catch (e) {} $('micVid').removeAttribute('src'); $('micCount').textContent = '';
+    $('micPop').hidden = true; var done = MIC.done; MIC = { step: '' }; if (done) done(result || null);
+  }
+  $('micPop').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || b.disabled) return;
+    if (b.id === 'micGo') micGo();
+    else if (b.id === 'micStop') micStop();
+    else if (b.id === 'micPlay') micPlay();
+    else if (b.id === 'micUse') micUse();
+    else if (b.id === 'micAgain') micGo();
+    else if (b.id === 'micSettings') { var vo = VOp(); if (vo && vo.settings) vo.settings(); }
+    else if (b.id === 'micCancel') { // a take you've recorded isn't thrown away on one tap
+      if (MIC.take && MIC.armed < Date.now()) { MIC.armed = Date.now() + 4000; micDraw(); setTimeout(function () { if (MIC.armed && MIC.armed <= Date.now()) { MIC.armed = 0; micDraw(); } }, 4100); return; }
+      micShut(null);
+    }
+  });
+  document.addEventListener('visibilitychange', function () { if (document.hidden && (MIC.step === 'rec' || MIC.step === 'count')) micStop(); else if (document.hidden && MIC.playing) { micStopPlay(); micDraw(); } }); // (put away mid-take: what's recorded so far is kept)
   // ---- beat edits (iPhone app, anyone in the team): a game's or a player's clips cut to one of Gaffer's own tracks, tall
   // for Instagram (Ethan: "not just joining some videos together, it needs to sync to the beat, have effects"). Every cut
   // is on a beat; the build-up is quick black-and-white glimpses, the best moment's ball goes in on the drop, and each
@@ -8271,7 +8440,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     return o + '</g><g fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1"><rect x="2" y="2" width="' + (cols * 10 - 4) + '" height="' + (rows * 10 - 4) + '"/><line x1="2" y1="' + rows * 5 + '" x2="' + (cols * 10 - 2) + '" y2="' + rows * 5 + '"/></g></svg>';
   }
   function trResult(res) {
-    var mmss2 = function (sec) { sec = Math.round(sec); return Math.floor(sec / 60) + ':' + p2(sec % 60); }, html = '';
+    var mmss2 = function (sec) { sec = Math.round(sec); return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2); }, html = '';
     html += '<p class="msg">' + mmss2(res.duration) + ' analysed on a ' + Math.round(res.pitch.length) + ' by ' + Math.round(res.pitch.width) + ' m pitch. Camera worked out as about ' + (Math.round(res.cameraHeight * 10) / 10) + ' m up.</p>';
     if (res.ask && res.ask.length) {
       html += '<div class="hcard"><h3>Who is this?</h3><p class="note">It couldn’t read a number on ' + (res.ask.length > 1 ? 'these players' : 'this player') + '. Say who it is and it will follow him from there.' + (res.more ? ' ' + res.more + ' more after ' + (res.ask.length > 1 ? 'these' : 'this') + ', longest first; stop whenever it’s good enough.' : '') + '</p>';
