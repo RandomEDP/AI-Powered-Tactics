@@ -1,0 +1,53 @@
+name: Restore the database from a backup
+
+# Run by hand, only when it's needed: puts one of the nightly copies (scripts/db-backup.sh) into a NEW, empty Supabase
+# project, whose connection string goes in the RESTORE_DB_URL secret first. It refuses a database that already has
+# Gaffer's tables, so it can't overwrite the live one. supabase/BACKUPS.md has the whole procedure.
+on:
+  workflow_dispatch:
+    inputs:
+      backup:
+        description: Which copy (a name from the last backup run's list, or latest)
+        default: latest
+        required: true
+      confirm:
+        description: Type restore to go ahead
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check it was meant
+        if: inputs.confirm != 'restore'
+        run: |
+          echo "::error::Type restore in the confirm box to go ahead. Nothing was done."
+          exit 1
+      - uses: actions/checkout@v4
+      - name: Install Postgres 17's tools
+        run: |
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Fetch the copy from R2
+        env:
+          BACKUP_R2_ENDPOINT: ${{ secrets.BACKUP_R2_ENDPOINT }}
+          BACKUP_R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+          BACKUP_R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          WHICH: ${{ inputs.backup }}
+        run: scripts/db-backup.sh fetch "$WHICH" "$RUNNER_TEMP/gaffer.dump"
+      - name: Restore it into the new project
+        env:
+          RESTORE_DB_URL: ${{ secrets.RESTORE_DB_URL }}
+        run: |
+          [ -n "$RESTORE_DB_URL" ] || { echo "::error::Put the new project's connection string in the RESTORE_DB_URL secret first (supabase/BACKUPS.md)."; exit 1; }
+          scripts/db-backup.sh restore "$RUNNER_TEMP/gaffer.dump" "$RESTORE_DB_URL"
+      - name: Tidy up
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/gaffer.dump*
