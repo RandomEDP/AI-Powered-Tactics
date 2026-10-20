@@ -39,6 +39,11 @@ db.clips.push({ team_id: sop.id, game_id: 'g-sop', seq: 0, path: sop.id + '/cat/
   { team_id: fr.id, game_id: 'g-fr', seq: 0, path: fr.id + '/sh/01.mp4', store: 'r2', at: T - 864e5, dur: 14, pids: [1], label: '3\' Goal: Ethan' });
 w.setDb(db);
 await A.page.evaluate(() => { const a = JSON.parse(localStorage.getItem('apt-app')); a.teams.push({ code: 'DOGSQD', name: 'Dog Squad', org: false }, { code: 'FRNDLY', name: 'Ethan’s friendlies', org: true, fr: true }); localStorage.setItem('apt-app', JSON.stringify(a)); });
+await A.ctx.addInitScript(() => { // a stand-in for the iPhone's reel maker
+  window.__rc = [];
+  window.Capacitor.Plugins.ReelCutter = { addListener: () => ({ remove() {} }), cancel: async () => ({}), share: async (o) => { window.__rc.push(['share', o.path]); return {}; },
+    joinReel: async (o) => { window.__rc.push(['join', o]); return { path: '/phone/' + o.file, size: 1000, marks: o.items.map((x, i) => i * 14) }; } };
+});
 await A.page.reload(); await A.run(1500);
 
 // ---------- My teams: the open team's highlights, and the other teams to switch to
@@ -68,6 +73,22 @@ eq(await A.page.$$eval('#hlList .mehl .cliplist button', (b) => b.map((x) => x.t
 await A.page.check('#hlFr'); await A.run(300);
 eq(await cards(A), ['Bibs 4–3 ShirtsFriendly', 'DOG 2–2 Hamsters', 'SOP FC 3–1 Cat FC'], 'Include friendlies: the friendly comes in, marked as one');
 await shot(A, 'hltab-me');
+
+// ---------- Just me: one highlight reel of you, from every game and team (Ethan, October 2026)
+check(await A.visible('#hlMeMake [data-mereel]'), 'Just me has Make a highlight reel of me');
+await A.click('#hlMeMake [data-mereel]'); await A.run(300);
+const rbl = () => A.page.$$eval('#rbBody .rblist li label span', (s) => s.map((x) => x.textContent));
+eq([await A.text('#rbTitle'), await A.visible('#rbGoals'), await A.visible('#rbVoice')], ['Your highlight reel', false, false], 'it opens the reel maker for you (no Goals only or AI voice: those belong to one team)');
+const items = await rbl();
+eq([items.length, /Cat FC \(Sons of Pitches FC\)/.test(items[0]), /Hamsters \(Dog Squad\)/.test(items[1]), /^Bibs 4–3 Shirts, /.test(items[2])], [3, true, true, true],
+  'oldest first, each with its game and team (the friendly too, as friendlies are shown)');
+await A.page.uncheck('#rbBody [data-rbpick="g-fr:0"]'); await A.run(100);
+await A.click('#rbMake'); await A.run(800);
+const jn = (await A.page.evaluate(() => window.__rc.filter((x) => x[0] === 'join').map((x) => x[1]))).pop();
+eq([jn && jn.items.map((x) => x.url.replace(/^.*\/(team-\w+|[^/]+)\/(\w+)\/(\d+\.mp4)$/, '$2/$3')), jn && jn.outro.kicker, jn && jn.outro.sub], [['cat/01.mp4', 'ham/01.mp4'], 'Player reel', 'Sons of Pitches FC · Dog Squad'],
+  'Make the reel joins the clips ticked, from both teams, with an end card naming them');
+check(/ready/.test(await A.text('#rbMsg')) && (await A.page.evaluate(() => window.__rc.filter((x) => x[0] === 'share').length)) === 1, 'and it goes to the share sheet');
+await A.click('#rbClose'); await A.run(200);
 
 // ---------- the tab keeps the last choice; a team's own Highlights tile opens that team's
 await A.click('#tabs [data-tab="home"]'); await A.click('#tabs [data-tab="highlights"]'); await A.run(300);

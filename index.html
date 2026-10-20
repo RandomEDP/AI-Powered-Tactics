@@ -918,7 +918,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 .vplayer { display: flex; flex-direction: column; gap: 8px; }
 .vplayer video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: var(--r-ctl); }
 .hlsheet .hlsopts { display: flex; flex-direction: column; gap: 8px; } .hlsheet .hlsopts .note { margin: -2px 6px 6px; font-size: var(--t-foot); }
-.hlsheet .pick.wide { width: 100%; justify-content: center; text-align: center; border-radius: 16px; } .hlsheet .pick.danger { color: var(--danger); background: var(--fill); }
+.hlsheet .pick.wide { width: 100%; justify-content: center; text-align: center; border-radius: 16px; } .hlsheet .pick.pgame { flex-direction: column; gap: 2px; } .hlsheet .pick.pgame small { color: var(--muted); font-size: var(--t-foot); font-weight: 400; } .hlsheet .pick.danger { color: var(--danger); background: var(--fill); }
 .hlsheet h4 { font-size: var(--t-sub); margin: 6px 0 0; } .hlstat, .hlrm { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .hlstat li { display: flex; gap: 10px; font-size: var(--t-sub); } .hlstat li span:first-child { min-width: 2.6em; color: var(--muted); font-variant-numeric: tabular-nums; }
 .hlrm li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: var(--t-sub); flex-wrap: wrap; } .hlrm li span { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
@@ -2499,7 +2499,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   var HLS = { scope: null, here: null, fr: false, tab: false, list: null, at: 0, busy: false, msg: '' };
   try { HLS.scope = localStorage.getItem('apt-hl-scope'); HLS.fr = localStorage.getItem('apt-hl-fr') === '1'; } catch (e) {}
   function go(view, keep) {
-    if (view !== 'highlights' && HLM && HLM.i >= 0) hlSheetShut(); // (a game's sheet in Highlights never follows you to another screen)
+    if (view !== 'highlights' && HLM && (HLM.i >= 0 || HLM.pid != null)) hlSheetShut(); // (a game's sheet in Highlights never follows you to another screen)
     if (view !== 'account' && AM === 'new') AM = 'in'; // (choosing a new password is only ever where the reset link lands)
     var free = VIEWER_VIEWS.indexOf(view) >= 0 || (view === 'create' && (me || !sb)) || (view === 'code' && A.active);
     if (!gafferHere() && !free && !(/^(setup|mins)$/.test(view) && canStart())) view = A.active ? 'home' : 'welcome'; // (anyone in the squad can set a game up)
@@ -4458,7 +4458,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     games.sort(function (a, b) { return (b.c.when || 0) - (a.c.when || 0); });
     var html = HLS.msg ? '<p class="msg bad" role="status">' + esc(HLS.msg) + '</p>' : '';
     if (!games.length) return html + '<div class="hcard"><h3>No clips of you yet</h3><p class="note">' + (fr && !HLS.fr ? 'You’re in ' + fr + (fr === 1 ? ' clip' : ' clips') + ' from friendlies. Turn on Include friendlies to see ' + (fr === 1 ? 'it' : 'them') + '.' : 'Your goals, assists and highlights show up here once a game you played in has been cut, from every team you’re in.') + '</p></div>';
-    html += '<p class="note" id="hlMeSum">' + list.length + (list.length === 1 ? ' clip' : ' clips') + ' of you from ' + games.length + (games.length === 1 ? ' game' : ' games') + (fr && !HLS.fr ? '. Friendlies are left out.' : '.') + '</p>';
+    html += '<p class="note" id="hlMeSum">' + list.length + (list.length === 1 ? ' clip' : ' clips') + ' of you from ' + games.length + (games.length === 1 ? ' game' : ' games') + (fr && !HLS.fr ? '. Friendlies are left out.' : '.') + '</p>' +
+      (RCp() ? '<div class="actions hlacts" id="hlMeMake"><button class="plain tint" type="button" data-mereel="1">Make a highlight reel of me</button></div>' // (Ethan: one reel of you across games and teams)
+        : DROID ? '' : '<p class="note">Open the iPhone app to make a highlight reel of you from all of these.</p>');
     games.forEach(function (g) {
       var c = g.c, f = hlMeFriendly(c), vids = g.clips.slice().sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
       html += '<div class="hcard mehl"><h3>' + scoreBug({ house: c.house, team: c.team, opp: c.opp, us: c.us, them: c.them }) + (f || c.friendly ? '<span class="badge">Friendly</span>' : c.house ? '<span class="badge">Among ourselves</span>' : '') + '</h3>' +
@@ -4858,9 +4860,10 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   }
   var HLDEL = { i: -1, until: 0, msg: '', busy: false }; // Delete these highlights: armed by the first tap
   var HIDE = { busy: false, msg: '' }; // Remove from my highlights
-  var HLM = { i: -1, kind: '' }; // the sheet open on a game's card: 'make' (a highlight), 'edit' (footage), 'remove' (goals), 'stats'
+  var HLM = { i: -1, kind: '', pid: null }; // the sheet open on a game's card: 'make' (a highlight), 'edit' (footage), 'remove' (goals), 'stats';
+  // or on a player's card in By player (pid set): 'pmake', 'pedit', and 'pcut', 'premove', 'pstats' (each across that player's games)
   var HLRM = { i: -1, key: '', until: 0, busy: false, msg: '', bad: false }; // Remove goals: armed by the first tap on one
-  function hlSheetShut() { HLM.i = -1; var sh = $('hlSheet'); sh.innerHTML = ''; sh.setAttribute('data-was', ''); }
+  function hlSheetShut() { HLM.i = -1; HLM.pid = null; var sh = $('hlSheet'); sh.innerHTML = ''; sh.setAttribute('data-was', ''); }
   function hlSheet(r, gi, vids, own, cutOk) { // an action sheet over the Highlights, from the bottom (Apple's action sheets: a short title, the choices, Cancel at the bottom)
     var head = function (t, sub) { return '<div class="phead"><strong id="hlsT">' + t + '</strong><button class="link" type="button" data-hlmx="1">' + (HLM.kind === 'remove' || HLM.kind === 'stats' ? 'Done' : 'Cancel') + '</button></div>' + (sub ? '<p class="note">' + sub + '</p>' : ''); };
     var btn = function (attr, label, cls) { return '<button class="pick wide' + (cls ? ' ' + cls : '') + '" type="button" ' + attr + '>' + label + '</button>'; };
@@ -4887,10 +4890,35 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     }
     return '<div class="pickpop hlsheet" data-hlmx="1"><div class="picker" role="dialog" aria-labelledby="hlsT">' + body + '</div></div>';
   }
+  function hlPSheet(p, vids, own) { // a player's card in By player, the same sheets as a game's card (Ethan, October 2026): Make a highlight and Edit footage
+    var pid = p.id, who = esc(nm(pid)), yours = pid === myPid, ofWho = yours ? 'your' : who + '’s';
+    var head = function (t, sub) { return '<div class="phead"><strong id="hlsT">' + t + '</strong><button class="link" type="button" data-hlmx="1">' + (HLM.kind === 'premove' || HLM.kind === 'pstats' ? 'Done' : 'Cancel') + '</button></div>' + (sub ? '<p class="note">' + sub + '</p>' : ''); };
+    var btn = function (attr, label, cls) { return '<button class="pick wide' + (cls ? ' ' + cls : '') + '" type="button" ' + attr + '>' + label + '</button>'; };
+    var gameIds = []; vids.forEach(function (c) { if (gameIds.indexOf(c.game_id) < 0) gameIds.push(c.game_id); });
+    var games = S.results.map(function (r, i) { return { r: r, i: i }; }).filter(function (g) { return gameIds.indexOf(g.r.id) >= 0; }).reverse(); // (the games they've clips in, newest first)
+    var gname = function (r) { return esc(scoreText({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them })) + (dayOf(r) ? '<small>' + esc(dayOf(r)) + '</small>' : ''); };
+    var cutGames = games.filter(function (g) { return own && NATIVE && g.r.koAt && momentsOf(g.r).length; }), fixed = games.filter(function (g) { return own && fixGoals(g.r).length; });
+    var pr = preelOf(pid), body = '';
+    if (HLM.kind === 'pmake') body = head('Make a highlight', who + '. Made on this phone, ready to share.') + '<div class="hlsopts">' +
+      btn('data-preel="' + pid + '"', pr ? 'New highlight reel' : 'Highlight reel') + '<p class="note">Pick the clips you want in, with AI commentary if you like.' + (canKeepReel(pid) ? ' It goes on ' + ofWho + ' card too.' : '') + '</p>' +
+      btn('data-pbeat="' + pid + '"', 'Beat highlight (Experimental)') + '<p class="note">Cut to the beat of one of Gaffer’s own tracks, tall for Reels and TikTok.</p></div>';
+    else if (HLM.kind === 'pedit') body = head('Edit footage', who + ', ' + vids.length + (vids.length === 1 ? ' clip' : ' clips') + ' from ' + games.length + (games.length === 1 ? ' game' : ' games')) + '<div class="hlsopts">' +
+      (cutGames.length ? btn(cutGames.length === 1 ? 'data-cut="' + cutGames[0].i + '"' : 'data-hlm="pcut:' + pid + '"', 'Cut again from a video') : '') +
+      btn('data-hlm="premove:' + pid + '"', 'Remove goals') +
+      (fixed.length ? btn(fixed.length === 1 ? 'data-fixg="' + fixed[0].i + '"' : 'data-hlm="pstats:' + pid + '"', 'Change stats') : '') + '</div>';
+    else if (HLM.kind === 'pcut' || HLM.kind === 'pstats') { var pick = HLM.kind === 'pcut' ? cutGames : fixed;
+      body = head(HLM.kind === 'pcut' ? 'Cut again from a video' : 'Change stats', 'Which game?') + '<div class="hlsopts">' +
+        pick.map(function (g) { return btn((HLM.kind === 'pcut' ? 'data-cut="' : 'data-fixg="') + g.i + '"', gname(g.r), 'pgame'); }).join('') + '</div>'; }
+    else if (HLM.kind === 'premove') body = head('Remove goals', 'Take one of ' + ofWho + ' goals or moments out of its game’s highlights, for everyone. Its stats stay; the game’s one video is made again without it.') +
+      '<ol class="hlrm">' + vids.map(function (c) { var key = c.game_id + ':' + c.seq, armed = HLRM.key === key && Date.now() < HLRM.until;
+        return '<li><span>' + esc(String(c.title || c.label || 'Highlight').replace(/\s{2,}/g, ' · ')) + '</span><button class="plain danger" type="button" data-hlrm="' + esc(key) + '"' + (HLRM.busy ? ' disabled' : '') + '>' + (armed ? 'Tap again' : 'Remove') + '</button></li>'; }).join('') + '</ol>' +
+      (HLRM.msg ? '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status">' + esc(HLRM.msg) + '</p>' : '');
+    return '<div class="pickpop hlsheet" data-hlmx="1"><div class="picker" role="dialog" aria-labelledby="hlsT">' + body + '</div></div>';
+  }
   async function hlRemoveClip(r, gi, key) { // one goal or moment out of the game's highlights: its row and files go, and the game's one video is made again
     var c = clips.filter(function (x) { return x.game_id + ':' + x.seq === key; })[0];
     if (!sb || !r.id || !gafferHere() || !c || HLRM.busy) return;
-    HLRM = { i: gi, key: '', until: 0, busy: true, msg: 'Removing it…', bad: false }; renderHighlights();
+    HLRM = { i: gi, pid: HLM.pid, key: '', until: 0, busy: true, msg: 'Removing it…', bad: false }; renderHighlights();
     var paths = [], inR2 = [], add = function (store, p) { if (p) (store === 'r2' ? inR2 : paths).push(p); };
     add(c.store, c.path); add(c.store, c.vpath);
     if (r.reel) { add(r.reel.store, r.reel.path); add(r.reel.store, r.reel.vpath); } // (the game's one video had it in: it's joined again from the rest)
@@ -4906,13 +4934,14 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       }
       try { if (paths.length) await q(sb.storage.from('clips').remove(paths)); } catch (e) {}
       try { if (inR2.length) await clipCall('remove', { paths: inR2 }); } catch (e) {} // (a file left behind is never shown: the rows are what list them)
-      HLRM = { i: gi, key: '', until: 0, busy: false, msg: 'Removed. It’s out of this game’s highlights.', bad: false };
+      HLRM = { i: gi, pid: HLM.pid, key: '', until: 0, busy: false, msg: 'Removed. It’s out of this game’s highlights.', bad: false };
       var left = clips.some(function (x) { return x.game_id === r.id; });
       if (!left) HLM.i = -1;
+      if (HLM.pid != null && !clips.some(function (x) { return (x.pids || []).indexOf(HLM.pid) >= 0; })) HLM.pid = null; // (a player with none left: their sheet closes)
       ping('changed'); await pull();
       var now = S.results.filter(function (x) { return x.id === r.id; })[0] || r;
       if (hadReel && left && RCp()) setTimeout(function () { mhMake(now, true); }, 300);
-    } catch (e) { HLRM = { i: gi, key: '', until: 0, busy: false, msg: 'Couldn’t remove it. Check your signal and try again.', bad: true }; }
+    } catch (e) { HLRM = { i: gi, pid: HLM.pid, key: '', until: 0, busy: false, msg: 'Couldn’t remove it. Check your signal and try again.', bad: true }; }
     renderHighlights();
   }
   var RB = { pid: null, gi: null, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false, stop: false, job: '', srv: null };
@@ -5034,9 +5063,12 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         if (pr && reelLocked(pr)) html += '<div class="novid"><span>Your highlight reel is ready. Watch a 30-second ad to see it; it stays unlocked until you make a new one.</span></div>' + adBtn('reel', pr.path, 'Watch a 30-second ad');
         else if (pr) html += playerReelPlayer(pr) + (canKeepReel(x.p.id) ? '<div class="actions"><button class="link" type="button" data-preeloff="' + x.p.id + '">Take this reel off ' + (x.p.id === myPid ? 'my' : esc(nm(x.p.id)) + '’s') + ' card</button></div>' : '');
         if (x.vids.length) html += (pr ? '<details class="allclips"><summary>All ' + x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ', one by one</summary>' + clipPlayer(x.vids) + '</details>' : clipPlayer(x.vids)) +
-          (RCp() || hidBtn ? '<div class="actions">' + (RCp() ? '<button class="plain primary" type="button" data-preel="' + x.p.id + '">' + (pr ? 'Make a new reel' : 'Make a reel') + '</button><button class="plain tint" type="button" data-pbeat="' + x.p.id + '">Make a beat highlight (Experimental)</button>' : '') + hidBtn + '</div>' : '');
+          (RCp() || own ? '<div class="actions hlacts">' + (RCp() ? '<button class="plain tint" type="button" data-hlm="pmake:' + x.p.id + '">Make a highlight</button>' : '') + (own ? '<button class="plain" type="button" data-hlm="pedit:' + x.p.id + '">Edit footage</button>' : '') + '</div>' : '') + // (the same as a game's card: Ethan, October 2026)
+          (hidBtn ? '<div class="actions">' + hidBtn + '</div>' : '');
         else if (x.list.length) html += '<ul>' + x.list.map(function (m) { return '<li class="wide"><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' +
           novid('No clips for ' + esc(nm(x.p.id)) + ' yet. They appear here when a game’s highlights are cut.');
+        if (x.vids.length && HLM.pid === x.p.id) sheet = hlPSheet(x.p, x.vids, own);
+        if (HLRM.msg && HLM.pid == null && HLRM.pid === x.p.id) html += '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status">' + esc(HLRM.msg) + '</p>'; // (Remove goals from this card, once its sheet has closed)
         if (mineNow) { var hid = clips.filter(function (c) { return (c.off || []).indexOf(myPid) >= 0; });
           if (HIDE.msg) html += '<p class="msg" role="status" id="hideMsg">' + esc(HIDE.msg) + '</p>';
           if (hid.length) html += '<p class="note">' + (hid.length === 1 ? '1 clip is' : hid.length + ' clips are') + ' taken out of your highlights. They’re still in the games’ highlights for everyone.</p><div class="actions"><button class="link" type="button" data-unhide="1"' + (HIDE.busy ? ' disabled' : '') + '>Put ' + (hid.length === 1 ? 'it' : 'them') + ' back</button></div>'; }
@@ -5125,8 +5157,17 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     });
     return out;
   }
+  function rbMeName() { return (MYP && MYP.name) || myName() || 'You'; }
+  function rbMeList() { // Just me: every clip you're in, from every team you play for (friendlies only if they're shown), oldest first
+    return (HLS.list || []).filter(function (c) { return HLS.fr || !hlMeFriendly(c); }).slice().sort(function (a, b) { return ((a.when || 0) - (b.when || 0)) || ((a.at || 0) - (b.at || 0)); }).map(function (c) {
+      var f = hlMeFriendly(c), game = scoreText({ house: c.house, team: c.team, opp: c.opp, us: c.us, them: c.them });
+      return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: '', title: game + (f || !c.team_name ? '' : ' (' + c.team_name + ')') + (dayText(c.when) ? ', ' + dayText(c.when) : '') + ': ' + String(c.label || 'Highlight').replace(/\s{2,}/g, ' · ') });
+    });
+  }
+  function rbMeTeams(list) { var ns = []; list.forEach(function (c) { var n = hlMeFriendly(c) ? 'Friendlies' : c.team_name; if (n && ns.indexOf(n) < 0) ns.push(n); }); return ns.join(' · ').slice(0, 80); }
   function rbGame() { return RB.gi != null ? S.results[RB.gi] || null : null; } // a game's highlight reel, rather than a player's
   function rbList() { // the player's clips (or the game's), oldest first, each with what it is for them (only goals, if asked)
+    if (RB.me) return rbMeList(); // (no goals-only here: a clip's role for you is only known inside its own team)
     var byId = {}, gr = rbGame(); S.results.forEach(function (r) { byId[r.id] = r; });
     if (gr) return clips.filter(function (c) { return c.game_id === gr.id; }).sort(function (a, b) { return (a.seq || 0) - (b.seq || 0); }).map(function (c) {
       return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: gameClipRole(c, gr), title: String(c.label || 'Highlight').replace(/\s{2,}/g, ' · ') });
@@ -5136,21 +5177,21 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       return Object.assign({}, c, { key: c.game_id + ':' + c.seq, kind: clipRole(c, RB.pid), title: (r ? vs(r) + (dayOf(r) ? ', ' + dayOf(r) : '') + ': ' : '') + c.label });
     }).filter(function (c) { return !RB.goals || c.kind === 'Goal'; });
   }
-  function rbOpen(pid, gi) { RB = { pid: gi != null ? null : pid, gi: gi != null ? gi : null, said: sayOn, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false, stop: false, job: '', srv: null }; $('reelPop').hidden = false; renderRB(); }
+  function rbOpen(pid, gi) { var meR = pid === 'me'; RB = { me: meR, pid: gi != null || meR ? null : pid, gi: gi != null ? gi : null, said: sayOn, pick: {}, goals: false, voice: false, pv: null, busy: false, prog: '', msg: '', note: '', path: null, bad: false, ad: '', locked: false, stop: false, job: '', srv: null }; $('reelPop').hidden = false; renderRB(); }
   function renderRB() {
     if ($('reelPop').hidden) return;
-    var gr = rbGame(), list = rbList(), on = list.filter(function (c) { return RB.pick[c.key] !== false; }), secs = 0, pv = list.filter(function (c) { return c.key === RB.pv; })[0] || list[0], who = gr ? vs(gr) : nm(RB.pid);
+    var gr = rbGame(), list = rbList(), on = list.filter(function (c) { return RB.pick[c.key] !== false; }), secs = 0, pv = list.filter(function (c) { return c.key === RB.pv; })[0] || list[0], who = gr ? vs(gr) : RB.me ? rbMeName() : nm(RB.pid);
     on.forEach(function (c) { secs += c.dur || 0; });
-    var html = '<h2 id="rbTitle">' + (gr ? 'Highlight reel' : 'Reel for ' + esc(who)) + '</h2><p class="note">' + (gr ? esc(who) + (dayOf(gr) ? ', ' + esc(dayOf(gr)) : '') + '. ' : '') + 'Untick any clips to leave out. Preview plays one here.</p>' +
+    var html = '<h2 id="rbTitle">' + (gr ? 'Highlight reel' : RB.me ? 'Your highlight reel' : 'Reel for ' + esc(who)) + '</h2><p class="note">' + (gr ? esc(who) + (dayOf(gr) ? ', ' + esc(dayOf(gr)) : '') + '. ' : RB.me ? 'Clips of you from every game and team' + (HLS.fr ? ', friendlies included' : '') + '. ' : '') + 'Untick any clips to leave out. Preview plays one here.</p>' +
       (pv ? '<video id="rbPrev" playsinline controls preload="metadata" src="' + esc(clipSrc(pv, false)) + '"></video>' : '') +
-      '<label class="check" for="rbGoals"><input id="rbGoals" type="checkbox"' + (RB.goals ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>Goals only <small>(leaves out ' + (gr && !gr.house ? 'goals against, ' : '') + (gr ? '' : 'assists, ') + 'saves and other highlights)</small></span></label>';
+      (RB.me ? '' : '<label class="check" for="rbGoals"><input id="rbGoals" type="checkbox"' + (RB.goals ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>Goals only <small>(leaves out ' + (gr && !gr.house ? 'goals against, ' : '') + (gr ? '' : 'assists, ') + 'saves and other highlights)</small></span></label>');
     var hasSaid = !!gr && list.some(function (c) { return c.vpath; }); // (a game cut with commentary: its own commentary, rather than a new one)
     if (hasSaid) html += '<label class="check" for="rbSaid"><input id="rbSaid" type="checkbox"' + (RB.said ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>With the commentary <small>(the one recorded when the game was cut)</small></span></label>';
     html += list.length ? '<ol class="rblist">' + list.map(function (c, i) {
       return '<li><label class="check" for="rbp-' + i + '"><input id="rbp-' + i + '" type="checkbox" data-rbpick="' + esc(c.key) + '"' + (RB.pick[c.key] !== false ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>' + esc(c.title) + (c.kind ? ' <span class="kind">' + esc(c.kind) + '</span>' : '') + '</span></label>' +
         '<button class="link" type="button" data-rbprev="' + esc(c.key) + '">Preview</button></li>';
     }).join('') + '</ol>' : '<p class="note">' + (RB.goals ? (gr ? 'None of this game’s clips is a goal.' : 'None of ' + esc(who) + '’s clips is a goal of theirs yet.') : 'No clips yet.') + '</p>';
-    if (canVoice() && !(hasSaid && RB.said)) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
+    if (canVoice() && !RB.me && !(hasSaid && RB.said)) html += '<label class="check" for="rbVoice"><input id="rbVoice" type="checkbox"' + (RB.voice ? ' checked' : '') + (RB.busy ? ' disabled' : '') + '><span>Add AI commentary <small>(a commentator calls each clip, with an intro and a sign-off)</small></span></label>' +
       (RB.voice ? voiceBox('rb') : '');
     html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
       '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.ad ? '<p class="msg" role="status" id="rbAd">' + esc(RB.ad) + '</p>' : '') + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
@@ -5164,7 +5205,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   function rbAdSay(m) { RB.ad = !m || RB.prog.indexOf('ready for when') >= 0 ? '' : m === 'The ad is playing…' ? (RB.unlocking ? '' : 'The ad is playing. Your reel is being made at the same time.') : m; renderRB(); } // (also redraws Cancel, which hides while the ad is up)
   async function rbMake() {
     var rc = RCp(); if (!rc || RB.busy) return;
-    var gr = rbGame(), list = rbList().filter(function (c) { return RB.pick[c.key] !== false; }), who = gr ? vs(gr) : nm(RB.pid), byId = {}; if (!list.length) return;
+    var gr = rbGame(), list = rbList().filter(function (c) { return RB.pick[c.key] !== false; }), who = gr ? vs(gr) : RB.me ? rbMeName() : nm(RB.pid), byId = {}; if (!list.length) return;
     var said = !!gr && RB.said && list.some(function (c) { return c.vpath; }); // (the game's own commentary, recorded when it was cut)
     if (said) RB.voice = false;
     var vlock = RB.voice && canVoice() ? voLocked() : [];
@@ -5206,7 +5247,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (RB.stop) { if (adP) { await adP; AD.busy = false; } rbStopped(); return; }
     try {
       var res = await rc.joinReel({ items: items, introVoice: intro, outroVoice: signOff, job: RB.job, file: gr ? folderOf(gr) + '-highlights.mp4' : (slugify(who) || 'player') + '-highlights.mp4',
-        outro: gr ? endCard(gr) : { kicker: 'Player reel', title: who + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
+        outro: gr ? endCard(gr) : { kicker: 'Player reel', title: who + '’s highlights', sub: RB.me ? rbMeTeams(list) : teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
       if (RB.stop) { if (adP) { await adP; AD.busy = false; } rbStopped(); return; } // (it finished just as Cancel was tapped)
       RB.path = res && res.path; RB.msg = 'The reel is ready' + (said ? ', with commentary' : '') + '.'; RB.locked = !!adP;
       if (RB.path && !adP) rateAfter(rc.share({ path: RB.path }));
@@ -5551,12 +5592,12 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var hj = e.target.closest('[data-hljump]'); // a friendly game in the list: down to its card
     if (hj) { var je = $('hlg-' + hj.getAttribute('data-hljump')); if (je) try { je.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (err) {} return; }
     var hm = e.target.closest('[data-hlm]'); // a game's sheet: Make a highlight, Edit footage, Remove goals, Stats
-    if (hm) { var hv = hm.getAttribute('data-hlm').split(':'); HLM = { i: +hv[1], kind: hv[0] }; HLRM.msg = ''; if (hv[0] !== 'edit') HLDEL.msg = ''; renderHighlights(); return; }
-    if (e.target.hasAttribute && e.target.hasAttribute('data-hlmx')) { HLM.i = -1; renderHighlights(); return; } // (Cancel, Done, or a tap outside it)
+    if (hm) { var hv = hm.getAttribute('data-hlm').split(':'), pk = hv[0].charAt(0) === 'p'; HLM = { i: pk ? -1 : +hv[1], kind: hv[0], pid: pk ? +hv[1] : null }; HLRM.msg = ''; if (hv[0] !== 'edit') HLDEL.msg = ''; renderHighlights(); return; }
+    if (e.target.hasAttribute && e.target.hasAttribute('data-hlmx')) { HLM.i = -1; HLM.pid = null; renderHighlights(); return; } // (Cancel, Done, or a tap outside it)
     var rm = e.target.closest('[data-hlrm]');
-    if (rm) { if (rm.disabled) return; var rk = rm.getAttribute('data-hlrm'), rr = S.results[HLM.i];
-      if (HLRM.key === rk && Date.now() < HLRM.until) hlRemoveClip(rr, HLM.i, rk);
-      else { HLRM = { i: HLM.i, key: rk, until: Date.now() + 3000, busy: false, msg: '', bad: false }; renderHighlights(); setTimeout(function () { if (S.view === 'highlights') renderHighlights(); }, 3100); }
+    if (rm) { if (rm.disabled) return; var rk = rm.getAttribute('data-hlrm'), rgi = HLM.pid != null ? S.results.map(function (x) { return x.id; }).indexOf(rk.slice(0, rk.lastIndexOf(':'))) : HLM.i, rr = S.results[rgi]; // (from a player's sheet: the clip's own game)
+      if (HLRM.key === rk && Date.now() < HLRM.until) hlRemoveClip(rr, rgi, rk);
+      else { HLRM = { i: rgi, key: rk, until: Date.now() + 3000, busy: false, msg: '', bad: false }; renderHighlights(); setTimeout(function () { if (S.view === 'highlights') renderHighlights(); }, 3100); }
       return; }
     var sheet = e.target.closest('.hlsheet');
     if (sheet && e.target.closest('button') && !e.target.hasAttribute('data-hldel')) hlSheetShut(); // (a choice in a sheet closes it, then does what it says)
@@ -5580,6 +5621,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     else if (e.target.getAttribute('data-pbeat') !== null) beOpen({ pid: +e.target.getAttribute('data-pbeat') });
     else if (e.target.getAttribute('data-fixg') !== null) fixOpen(+e.target.getAttribute('data-fixg'));
     else if (e.target.getAttribute('data-preel') !== null) rbOpen(+e.target.getAttribute('data-preel'));
+    else if (e.target.getAttribute('data-mereel') !== null) rbOpen('me');
     else if (e.target.getAttribute('data-preeloff') !== null) { // off the card (the file goes too)
       var offPid = +e.target.getAttribute('data-preeloff');
       (async function () { try { var rr = (await q(sb.rpc('save_player_reel', { p_code: A.active, p_pid: offPid, p_path: null }))).data || {}; if (rr.old) await clipCall('remove', { paths: [rr.old] }); ping('changed'); await pull(); } catch (err) {} renderHighlights(); })();
