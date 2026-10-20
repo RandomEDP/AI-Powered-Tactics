@@ -198,9 +198,9 @@ check(rows.length === 4, 'nothing is uploaded or changed in the team');
 
 // ---------- from a player's card too
 await A.click('#hlToggle [data-by="player"]'); await A.run(300);
-const jake = await A.page.$$eval('#hlList [data-pbeat]', (b) => b.map((x) => x.getAttribute('data-pbeat')));
+const jake = await A.page.$$eval('#hlList [data-hlm^="pmake:"]', (b) => b.map((x) => x.getAttribute('data-hlm').slice(6)));
 check(jake.includes('2'), 'each player with clips has Make a beat edit on their card');
-await A.click('#hlList [data-pbeat="2"]'); await A.run(200);
+await A.click('#hlList [data-hlm="pmake:2"]'); await A.click('#hlSheet [data-pbeat="2"]'); await A.run(200);
 check(/^Jake\./.test(await A.page.$eval('#beBody .note', (n) => n.textContent)) && /Terrace/.test(await A.page.$eval('#beBody [aria-pressed="true"]', (b) => b.textContent)), 'it\'s Jake\'s, on the track picked last time');
 await A.click('#beMake'); await A.run(500);
 const pj = (await calls(A, 'beat')).pop();

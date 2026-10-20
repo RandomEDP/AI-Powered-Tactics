@@ -271,9 +271,14 @@ await F.click('#rbClose'); await F.run(200);
 
 // ---------- a follower makes Jake's reel: every clip of his, untick some, preview, goals only
 await F.click('#hlToggle [data-by="player"]');
-const jake = '#hlList [data-preel="2"]';
-eq(await F.visible(jake), true, 'each player with clips has Make a reel');
-await F.click(jake);
+const jake = '#hlList [data-hlm="pmake:2"]';
+eq(await F.visible(jake), true, 'each player with clips has Make a highlight, as on a game\'s card');
+eq(await F.visible('#hlList [data-hlm^="pedit:"]'), false, 'and only gaffers have Edit footage on a player\'s card');
+await F.click(jake); await F.run(200);
+eq([await F.text('#hlSheet #hlsT'), await F.page.$$eval('#hlSheet .hlsopts .pick', (b) => b.map((x) => x.textContent))], ['Make a highlight', ['Highlight reel', 'Beat highlight (Experimental)']],
+  'Make a highlight on a player\'s card: a highlight reel or a beat highlight (still marked Experimental)');
+await F.click('#hlSheet [data-preel="2"]'); await F.run(200);
+eq(await F.visible('#hlSheet .hlsheet'), false, 'picking one closes the sheet');
 const rb = () => F.page.$$eval('#rbBody .rblist li', (li) => li.map((x) => ({ text: x.querySelector('label span').textContent, on: x.querySelector('input').checked, key: x.querySelector('input').getAttribute('data-rbpick') })));
 let list = await rb();
 eq([await F.visible('#reelPop'), await F.text('#rbTitle'), list.length, list.map((x) => (/Goal|Assist/.exec(x.text) || [''])[0]), list.every((x) => x.on)],
@@ -297,7 +302,7 @@ await F.click('#rbClose'); eq(await F.visible('#reelPop'), false, 'Close puts it
 eq((w.db().player_reels || []).length, 0, 'someone just following the team can share a player\'s reel, but it isn\'t put on his card (only he or a gaffer can)');
 
 // ---------- the gaffer makes Chaplin's reel with a commentator
-await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-preel="3"]');
+await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-hlm="pmake:3"]'); await A.click('#hlSheet [data-preel="3"]');
 eq(await A.visible('#rbVoice'), true, 'gaffers can add AI commentary to a player\'s reel');
 await A.page.check('#rbVoice'); await A.run(300);
 eq([await A.visible('#rbVoiceName'), await A.visible('#rbVoiceStyle')], [true, false], 'with a choice of voice (no separate delivery: each voice has its own)');
@@ -325,14 +330,14 @@ check(!!kept && kept.path.startsWith(w.db().teams[0].id + '/players/3/reel-') &&
 eq([kept.marks.map((m) => m.t), kept.marks.every((m) => /Dog Squad/.test(m.label))], [[0, 14.04], true], 'with where each of his moments is in it');
 check((w.db().files || []).some((f) => f.bucket === 'r2' && f.path === kept.path), 'the reel itself is uploaded');
 await A.click('#rbClose'); await A.run(800);
-const card = '#hlList .hcard:has([data-preel="3"])';
+const card = '#hlList .hcard:has([data-hlm="pmake:3"])';
 eq([await A.page.$$eval(card + ' .reelp video', (v) => v.length), await A.page.$$eval(card + ' [data-seek]', (b) => b.map((x) => x.getAttribute('data-seek')))], [1, ['0', '14.04']], 'his card plays the reel, with his moments underneath');
 check(/All 2 clips, one by one/.test(await A.text(card)), 'and his clips one by one are still there, folded away');
 await shot(A, 'player-reel-card');
 await A.page.evaluate((c) => { const v = document.querySelector(c + ' .reelp video'); let t = 0; Object.defineProperty(v, 'currentTime', { configurable: true, get: () => t, set: (x) => { t = x; } }); v.play = () => Promise.resolve(); }, card);
 await A.click(card + ' [data-seek="14.04"]');
 eq(await A.page.$eval(card + ' .reelp video', (v) => Math.round(v.currentTime * 100) / 100), 14.09, 'tapping a moment skips to it');
-await A.click('#hlList [data-preel="3"]'); await A.click('#rbMake'); await A.run(1500);
+await A.click('#hlList [data-hlm="pmake:3"]'); await A.click('#hlSheet [data-preel="3"]'); await A.click('#rbMake'); await A.run(1500);
 check(/on Chaplin’s card in Highlights/.test(await A.text('#rbMsg')), 'the reel maker says it\'s on his card');
 await A.click('#rbClose'); await A.run(800);
 const again = (w.db().player_reels || []).find((x) => x.pid === 3);
@@ -346,7 +351,7 @@ await A.click('#hlToggle [data-by="game"]');
 await A.page.evaluate(() => localStorage.removeItem('apt-ai'));
 const vcalls = () => (w.db().calls || []).filter((x) => x.name === 'reel-voice').length, vbefore = vcalls();
 const byNow = await A.page.$eval('#hlToggle [aria-pressed="true"]', (b) => b.getAttribute('data-by')).catch(() => 'game');
-await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-preel="3"]'); await A.run(300);
+await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-hlm="pmake:3"]'); await A.click('#hlSheet [data-preel="3"]'); await A.run(300);
 if (!(await A.page.isChecked('#rbVoice'))) await A.page.check('#rbVoice');
 await A.click('#rbMake'); await A.run(300);
 eq(await A.visible('#aiPop'), true, 'not allowed on this phone: making a reel with commentary asks first');
@@ -426,6 +431,23 @@ await A.click('#hlSheet .hlsheet [data-hlrm]'); await A.run(1500);
 eq([rows().filter((c) => c.game_id === gameId).length, ((w.db().games[0].reel || {}).path || 'none') !== reelWas], [before - 1, true], 'it takes that clip out, and the game\'s one video goes, made again without it');
 check(/Removed/.test(await A.text('#hlSheet .hlsheet')), 'and says so');
 await A.click('#hlSheet .hlsheet .phead [data-hlmx]'); await A.run(300);
+
+// ---------- a player's card has the same Edit footage (Ethan: "filtered ... onto a specific player")
+await A.click('#hlToggle [data-by="player"]'); await A.run(300);
+const pe = await A.page.$eval('#hlList [data-hlm^="pedit:"]', (b) => b.getAttribute('data-hlm').slice(6));
+const pclips = () => rows().filter((c) => (c.pids || []).includes(+pe)).length, pbefore = pclips(), allBefore = rows().length;
+eq([await A.visible('#hlList [data-hlm="pmake:' + pe + '"]'), await A.visible('#hlList [data-hlm="pedit:' + pe + '"]')], [true, true], 'a player\'s card: Make a highlight and, for gaffers, Edit footage');
+await A.click('#hlList [data-hlm="pedit:' + pe + '"]'); await A.run(200);
+eq([await A.text('#hlSheet #hlsT'), await A.page.$$eval('#hlSheet .hlsheet .hlsopts .pick', (b) => b.map((x) => x.textContent))], ['Edit footage', ['Cut again from a video', 'Remove goals', 'Change stats']],
+  'Edit footage on a player\'s card: cut again, remove goals, change stats');
+await A.run(400); await shot(A, 'player-edit-footage-sheet');
+await A.click('#hlSheet .hlsheet [data-hlm="premove:' + pe + '"]'); await A.run(200);
+eq(await A.page.$$eval('#hlSheet .hlrm li', (l) => l.length), pbefore, 'Remove goals lists that player\'s clips');
+await A.click('#hlSheet .hlsheet [data-hlrm]'); await A.run(200); await A.click('#hlSheet .hlsheet [data-hlrm]'); await A.run(1500);
+eq([pclips(), rows().length], [pbefore - 1, allBefore - 1], 'two taps take that clip out of its game\'s highlights');
+check(/Removed/.test(await A.text('#hlSheet')) || /Removed/.test(await A.text('#hlList')), 'and says so');
+if (await A.visible('#hlSheet [data-hlmx]')) { await A.click('#hlSheet .hlsheet .phead [data-hlmx]'); await A.run(300); }
+await A.click('#hlToggle [data-by="game"]'); await A.run(300);
 await A.click('#hlList .hcard:first-child [data-hlm^="edit:"]'); await A.run(200);
 await A.click('#hlSheet .hlsheet [data-hldel]'); await A.click('#hlSheet .hlsheet [data-hldel]'); await A.run(1500);
 eq([rows().length, (w.db().files || []).filter((f) => f.bucket === 'r2' && !/\/players\//.test(f.path)).length], [0, 0], 'deleting a game\'s highlights removes the copies with commentary too (a player\'s own reel stays on his card)');

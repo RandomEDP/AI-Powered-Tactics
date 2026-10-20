@@ -419,7 +419,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   moments, **Make a highlight** (anyone on the iPhone app) and **Edit footage** (gaffers). Each opens an action sheet
   (`hlSheet`, `HLM {i, kind}`, drawn into `#hlSheet` at body level so it sits over the tab bar; `hlSheetShut`, closed by
   `go()`). Make a highlight: Highlight reel (`data-greel`, the reel maker for the game's clips, `rbOpen(null, gi)`) or
-  Beat highlight (Experimental) (`data-beat`). Edit footage: Delete all these highlights (red, first, two taps), Cut again
+  Beat highlight (Experimental) (`data-beat`). **A player's card in By player has the same two buttons** (Ethan, October 2026; `hlPSheet`, `HLM.pid`, kinds `pmake`/`pedit`, and `pcut`/`premove`/`pstats`, which pick the game first when the player has clips in more than one). Edit footage: Delete all these highlights (red, first, two taps), Cut again
   from a video, Remove goals (`HLM.kind 'remove'`, `hlRemoveClip`: two taps on one clip deletes its row and files, clears
   the game's one video and joins it again from the rest under a new name, `MKVER`) and Change stats (Fix a goal). With no
   footage: Cut from video (gaffers, iPhone) and **Stats** (the game's moments and each player's minutes, goals and assists,
@@ -516,7 +516,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `openTeam(code, 'highlights')`), your friendlies team last as **Friendly games** (Ethan, October 2026), which starts with a
   list of each friendly game (`#frJump`, `data-hljump`, both sides' names) linking down to its card; **Just me** is every clip you're in from
   every team (`my_clips`, grouped by game, newest first) with **Include friendlies** (`#hlFr`, `apt-hl-fr`) off to start
-  (`clips_of` returns `personal` and `friendly`). The tab remembers the last choice (`apt-hl-scope`); anything else that
+  (`clips_of` returns `personal` and `friendly`). **Make a highlight reel of me** (`#hlMeMake`, `data-mereel`, iPhone app) opens the reel maker in `RB.me` mode (`rbMeList`): the clips shown, from every team, oldest first, no Goals only or AI voice (both belong to one team), not kept on any card. The tab remembers the last choice (`apt-hl-scope`); anything else that
   opens Highlights (the Team tile, a result, a notification) shows that team's (`HLS.here`). Works with no team open.
   Not on Android (its Highlights stays the team's). Test: `hltab.test.mjs`. Tactics board (`#mBoard`) and Team settings
   (`#mOptions`) are on the Team page now; Settings also opens from the gear on your own profile (`#prGear`), and its back

@@ -212,7 +212,7 @@ eq(await J.page.$$eval(mine + ' [data-ad="reel"]', (b) => b.length), 1, 'a new r
 const make = async () => { await J.click('#rbMake'); await J.run(200); await J.click('#adAskYes'); }; // (Make the reel, then Watch the ad on the pop-up)
 const rc = (k) => J.page.evaluate((k) => window.__rc.filter((x) => x[0] === k).length, k), shows = async () => (await ads(J)).filter((x) => x === 'show').length;
 let s0 = await shows();
-await J.click('#hlList [data-preel="2"]'); await J.run(300);
+await J.click('#hlList [data-hlm="pmake:2"]'); await J.click('#hlSheet [data-preel="2"]'); await J.run(300);
 check(!/30-second/.test(await J.text('#rbBody')), 'the reel maker no longer has a line about the ad under it'); await shot(J, 'reel-maker-free');
 await J.click('#rbMake'); await J.run(300);
 eq([await J.visible('#adAskPop'), await J.text('#adAskText'), await J.page.$$eval('#adAskPop button', (b) => b.map((x) => x.textContent))],
@@ -234,7 +234,7 @@ check(await J.page.evaluate(() => localStorage.getItem('apt-ad-ahead')) === null
 
 // closed early while the reel was made: the reel goes on his card, locked, and nothing to share
 await J.page.evaluate(() => { window.__adEarly = true; }); s0 = await shows();
-await J.click('#hlList [data-preel="2"]'); await J.run(300); await make(); await J.run(33000);
+await J.click('#hlList [data-hlm="pmake:2"]'); await J.click('#hlSheet [data-preel="2"]'); await J.run(300); await make(); await J.run(33000);
 eq([await shows() - s0, /closed before the end/.test(await J.text('#rbMsg')), await J.visible('#rbShare'), await rc('share')], [1, true, false, 1], 'an ad closed early: the reel is made but locked, with no share');
 await J.click('#rbClose'); await J.run(800);
 eq(await J.page.$$eval(mine + ' [data-ad="reel"]', (b) => b.length), 1, 'it\'s on his card behind the ad, to watch there');
@@ -254,7 +254,7 @@ eq([await shows() - s0, /didn’t send an ad in time/.test(await J.text(mine)), 
 check(await J.visible('#noAdPop') && /No ads to show right now/.test(await J.text('#noAdPop')), 'and a pop-up says there are no ads to show right now');
 await J.click('#noAdOk'); await J.run(300); check(!(await J.visible('#noAdPop')), 'OK closes it');
 await J.page.evaluate(() => { let go; window.__hold = new Promise((r) => { go = r; }); window.__go = go; }); // (a slow join: the ad's answer can't wait for it)
-await J.click('#hlList [data-preel="2"]'); await J.run(300); await make(); await J.run(6000);
+await J.click('#hlList [data-hlm="pmake:2"]'); await J.click('#hlSheet [data-preel="2"]'); await J.run(300); await make(); await J.run(6000);
 check(/didn’t send an ad in time/.test(await J.text('#rbAd')) && /still being made/.test(await J.text('#rbAd')), 'no ad while the reel is still being made: it says so straight away, not when the reel is ready');
 check(await J.visible('#noAdPop') && /goes on your card, locked/.test(await J.text('#noAdPop')), 'with the same pop-up, saying the reel still goes on his card');
 await J.click('#noAdOk'); await J.run(300);
@@ -271,11 +271,11 @@ await J.page.evaluate(() => { window.__hang = null; }); await J.page.reload(); a
 
 // Gaffer closed after the ad was watched but before the reel was made: that ad counts for the next go
 await J.page.evaluate(() => { window.__hold = new Promise(() => {}); }); s0 = await shows();
-await J.click('#hlList [data-preel="2"]'); await J.run(300); await make(); await J.run(33000);
+await J.click('#hlList [data-hlm="pmake:2"]'); await J.click('#hlSheet [data-preel="2"]'); await J.run(300); await make(); await J.run(33000);
 const was = await J.page.evaluate(() => JSON.parse(localStorage.getItem('apt-ad-ahead')));
 check(!!(was && was.watched && was.ticket && was.key), 'while it\'s being made, the phone keeps the reel\'s name and the watched ad');
 await J.page.reload(); await J.run(2000); await openMine(); s0 = await shows();
-await J.click('#hlList [data-preel="2"]'); await J.run(300); await make(); await J.run(3000);
+await J.click('#hlList [data-hlm="pmake:2"]'); await J.click('#hlSheet [data-preel="2"]'); await J.run(300); await make(); await J.run(3000);
 eq([await shows() - s0, w.db().player_reels.find((r) => r.pid === 2).path, await rc('share')], [0, was.key, 1], 'made again after reopening Gaffer: no second ad, the same name, and it\'s ready to share');
 await J.click('#rbClose'); await J.run(800);
 eq(await J.page.$$eval(mine + ' .reelp video', (v) => v.length), 1, 'and it plays on his card');
@@ -283,14 +283,14 @@ eq(await J.page.$$eval(mine + ' .reelp video', (v) => v.length), 1, 'and it play
 // Google has no ad (Ethan chose to unlock it anyway): making his reel, and the button on his card
 { const dx = w.db(); delete dx.ad_nofill; w.setDb(dx); }
 await J.page.evaluate(() => { window.__noFill = true; }); s0 = await shows();
-await J.click('#hlList [data-preel="2"]'); await J.run(300); const r0 = await rc('share'); await make(); await J.run(4000);
+await J.click('#hlList [data-hlm="pmake:2"]'); await J.click('#hlSheet [data-preel="2"]'); await J.run(300); const r0 = await rc('share'); await make(); await J.run(4000);
 check(await J.visible('#noAdPop') && /unlocked anyway/.test(await J.text('#noAdPop')), 'no ad from Google while his reel is made: a pop-up says there\'s no ad this time and his reel is unlocked anyway');
 await J.click('#noAdOk'); await J.run(300);
 eq([await shows() - s0, await rc('share') - r0, await J.visible('#rbShare')], [0, 1, true], 'no ad played, and his reel is ready to share straight away');
 await J.click('#rbClose'); await J.run(800);
 eq([await J.page.$$eval(mine + ' .reelp video', (v) => v.length), await J.page.$$eval(mine + ' [data-ad]', (b) => b.length)], [1, 0], 'and it plays on his card, unlocked');
 await J.page.evaluate(() => { window.__noFill = false; window.__adEarly = true; });
-await J.click('#hlList [data-preel="2"]'); await J.run(300); await make(); await J.run(33000); await J.click('#rbClose'); await J.run(800);
+await J.click('#hlList [data-hlm="pmake:2"]'); await J.click('#hlSheet [data-preel="2"]'); await J.run(300); await make(); await J.run(33000); await J.click('#rbClose'); await J.run(800);
 await J.page.evaluate(() => { window.__adEarly = false; window.__noFill = true; });
 eq(await J.page.$$eval(mine + ' [data-ad="reel"]', (b) => b.length), 1, '(a reel left locked by an ad closed early)');
 await J.click(mine + ' [data-ad="reel"]'); await J.run(3000);

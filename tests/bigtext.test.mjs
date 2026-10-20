@@ -136,7 +136,8 @@ await A.tap('#hlList [data-hlm^="edit:"]'); await A.run(400); await scan(A, 'edi
 await A.tap('#hlSheet [data-fixg]'); await A.run(400); await scan(A, 'fix a goal'); await A.page.evaluate(() => { document.getElementById('fixPop').hidden = true; });
 if (await A.visible('#hlSheet [data-hlmx]')) { await A.tap('#hlSheet [data-hlmx]'); await A.run(300); }
 await A.click('#hlToggle [data-by="player"]'); await A.run(400);
-if (await A.visible('#hlList [data-preel]')) { await A.tap('#hlList [data-preel]'); await A.run(500); await scan(A, 'make a reel'); await A.page.evaluate(() => { document.getElementById('reelPop').hidden = true; }); }
+if (await A.visible('#hlList [data-hlm^="pedit:"]')) { await A.tap('#hlList [data-hlm^="pedit:"]'); await A.run(400); await scan(A, 'a player\'s edit footage (the sheet)'); await A.tap('#hlSheet [data-hlmx]'); await A.run(300); }
+if (await A.visible('#hlList [data-hlm^="pmake:"]')) { await A.tap('#hlList [data-hlm^="pmake:"]'); await A.run(400); await scan(A, 'a player\'s make a highlight (the sheet)'); await A.tap('#hlSheet [data-preel]'); await A.run(500); await scan(A, 'make a reel'); await A.page.evaluate(() => { document.getElementById('reelPop').hidden = true; }); }
 // the poll, chat, the feed, a profile, finding people
 await tab(A, 'games'); await A.click('#gamesNew'); await A.run(300); await scan(A, 'a new poll');
 await A.page.fill('#pOpp', 'Rovers'); await A.page.fill('#pDate', '2026-10-14'); await A.page.fill('#pTime', '19:30'); await A.click('#pSave'); await A.run(800);

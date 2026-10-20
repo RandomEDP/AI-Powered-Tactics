@@ -225,7 +225,7 @@ check(used.body.lines.some((l) => /fuck|shit|bollocks|bastard|filth|hell/i.test(
 await A.click('#cutBody [data-cutdo="finish"]'); await A.run(500);
 
 // a player's reel: the same picker; the free voice reads straight
-await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-preel="3"]'); await A.page.check('#rbVoice'); await A.run(300);
+await A.click('#hlToggle [data-by="player"]'); await A.click('#hlList [data-hlm="pmake:3"]'); await A.click('#hlSheet [data-preel="3"]'); await A.page.check('#rbVoice'); await A.run(300);
 eq(await opts(A, '#rbVoiceName'), ['Read it straight, free', 'East London Steve 18+'], 'the reel builder knows Steve is unlocked');
 await A.page.selectOption('#rbVoiceName', 'free'); await A.run(300); await A.click('#rbMake'); await A.run(1500);
 eq(voiceCalls().pop().body.style, 'plain', 'the free voice is asked for read straight (free up to Google\'s million characters a month)');
@@ -247,7 +247,7 @@ eq(await J.page.evaluate(() => window.gafferVoiceOwns('steve')), false, 'Jake, o
 await J.page.evaluate((a) => { window.__apple.owned = [{ transactionId: '7000000001', productId: 'com.randomedp.aipoweredtactics.voice.steve', account: a, environment: 'Sandbox' }]; }, jake2);
 w.setDb(Object.assign(w.db(), { apple: Object.assign(w.db().apple || {}, { 7000000001: { productId: 'com.randomedp.aipoweredtactics.voice.steve', account: jake2 } }) }));
 await J.click('#tabs [data-tab="home"]'); await J.run(300);
-await J.click('#mHighlights'); await J.click('#hlToggle [data-by="player"]'); await J.click('#hlList [data-preel="2"]'); await J.page.check('#rbVoice'); await J.run(300);
+await J.click('#mHighlights'); await J.click('#hlToggle [data-by="player"]'); await J.click('#hlList [data-hlm="pmake:2"]'); await J.click('#hlSheet [data-preel="2"]'); await J.page.check('#rbVoice'); await J.run(300);
 await J.page.selectOption('#rbVoiceName', 'steve'); await J.run(300);
 const jb = voiceCalls().length; await J.click('#rbMake'); await J.run(800);
 eq([voiceCalls().length, /East London Steve isn’t unlocked yet/.test(await J.text('#rbMsg'))], [jb, true], 'his own reel with Steve locked: nothing recorded, and it says why');
