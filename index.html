@@ -8535,7 +8535,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       am.showRewardVideoAd().then(function () { got = true; }, function (e) { end(reject, new Error('The ad wouldn’t play' + (e && e.message ? ': ' + e.message : '') + '. Try again in a moment.')); });
     });
   }
-  async function adClaim(ticket) { // asks the server whether Google has said the ad was watched (it usually has within a few seconds)
+  async function adClaim(ticket) { // the ad was watched to the end (Google's own reward event said so): unlocked straight away (0047, ad_watched;
+    // Ethan was left on "Google hasn't confirmed it yet"). Only if the server won't take the app's word does it wait for Google's call.
+    try { if ((await adRpc('ad_watched', { p_ticket: ticket })).data === 'granted') return true; } catch (e) {}
     for (var i = 0; i < 12; i++) {
       var r = (await adRpc('ad_claim', { p_ticket: ticket, p_app_says: true })).data;
       if (r === 'granted') return true;
@@ -8617,7 +8619,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   async function aheadStart(pid) {
     var was = aheadGet(), mine = was && was.code === A.active && was.pid === pid && was.key && was.key.indexOf(teamId + '/players/' + pid + '/reel-') === 0;
     if (!mine) { was = { code: A.active, pid: pid, key: teamId + '/players/' + pid + '/reel-' + Date.now() + '.mp4' }; aheadPut(was); }
-    else if (was.ticket && was.watched) try { await adRpc('ad_claim', { p_ticket: was.ticket, p_app_says: true }); } catch (e) {} // (watched last time, before Gaffer was closed)
+    else if (was.ticket && was.watched) try { if ((await adRpc('ad_watched', { p_ticket: was.ticket })).data !== 'granted') await adRpc('ad_claim', { p_ticket: was.ticket, p_app_says: true }); } catch (e) {} // (watched last time, before Gaffer was closed)
     return was;
   }
   document.addEventListener('click', function (e) { // every "watch an ad" button
