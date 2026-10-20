@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import AppTrackingTransparency
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
@@ -14,6 +15,25 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
         connectionOptions.userActivities.forEach { keepClipLink($0.webpageURL) }
     }
+
+    /// Apple's tracking question, asked as soon as Gaffer is first on screen, before Google's ads are ever started (App
+    /// Review turned 1.1 down twice because it was only asked just before the first ad, which a reviewer never reaches).
+    /// Asked on the main thread, a moment after the app is active: asked any earlier (or while another pop-up is going),
+    /// iOS can drop it without showing anything. Once answered iOS never shows it again, and the web app's own ask before
+    /// an ad (adSetup in index.html) then has nothing to do.
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        guard ATTrackingManager.trackingAuthorizationStatus == .notDetermined, !trackingAsked else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self = self, !self.trackingAsked, UIApplication.shared.applicationState == .active,
+                  ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
+            self.trackingAsked = true
+            ATTrackingManager.requestTrackingAuthorization { status in
+                // (it came back without asking, so it wasn't shown: try again next time Gaffer is on screen)
+                if status == .notDetermined { DispatchQueue.main.async { self.trackingAsked = false } }
+            }
+        }
+    }
+    private var trackingAsked = false
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)

@@ -944,6 +944,9 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Every step of Google's has a time limit** (`adStep`, `AD_MS`; Ethan's phone sat on "Getting the ad…" for good): starting, the consent check (no answer: carry on), loading (30 s: "Google didn't send an ad in time") and the ad opening (20 s after show with no `onRewardedVideoAdShowed`). Each step says what it's doing ("Checking your ad choices…", "Loading the ad…"), so a screenshot shows where it stopped. A brand-new AdMob app gets few or no real ads until it's live on the App Store and linked in AdMob; a test device gets test ads.
 - First ad of a session: `initialize`, Google's consent form where the law needs it (UK/EU; Settings → Ads → Ad choices
   reopens it), then Apple's tracking question (`NSUserTrackingUsageDescription`). Either answer still unlocks.
+- **Apple's tracking question is asked at launch** (`SceneDelegate.sceneDidBecomeActive`, a second after Gaffer is on screen,
+  only while never answered): App Review turned 1.1 down twice (to build 290) because a reviewer never reaches an ad, so
+  never saw it. The ask before an ad (`adSetup`) is only the back-up. Test: `tracking.test.mjs`.
 - **Real ads are on (15 October 2026):** Gaffer's app id `ca-app-pub-2627873247729818~2068368869` is in `Info.plist`
   (`GADApplicationIdentifier`) and its rewarded unit `ca-app-pub-2627873247729818/1194270899` in `config.js` `ads`
   (`test: false`). Server-side verification is on in AdMob (its Verify URL call reached `ad-reward` and got a 200), and
