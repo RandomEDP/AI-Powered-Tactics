@@ -1,0 +1,63 @@
+name: Back up the database
+
+# Every night, and by hand from the Actions tab (Run workflow). Makes Gaffer's own copy of the Supabase database,
+# restores it into an empty Postgres here to prove it works, then encrypts it and puts it in the private R2 bucket
+# (30 days of nightly copies, plus the first of each month for a year). supabase/BACKUPS.md has the secrets it needs
+# and how to restore one. GitHub emails Ethan if a run fails.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      # A throwaway Postgres, the same version as Supabase's, to restore the copy into. Gone when the run ends.
+      scratch:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: scratch
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Postgres 17's tools
+        run: |
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Copy the database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: scripts/db-backup.sh dump "$RUNNER_TEMP/gaffer.dump"
+      - name: Restore it here to check it
+        id: check
+        continue-on-error: true
+        run: scripts/db-backup.sh check "$RUNNER_TEMP/gaffer.dump" postgresql://postgres:scratch@localhost:5432/postgres
+      - name: Encrypt it and send it to R2
+        env:
+          BACKUP_R2_ENDPOINT: ${{ secrets.BACKUP_R2_ENDPOINT }}
+          BACKUP_R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+          BACKUP_R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: scripts/db-backup.sh send "$RUNNER_TEMP/gaffer.dump"
+      # A copy that didn't restore is still kept (better than none), but the run goes red so someone looks.
+      - name: Did the restore check pass?
+        if: steps.check.outcome != 'success'
+        run: |
+          echo "::error::The copy was saved, but it didn't restore cleanly. See 'Restore it here to check it'."
+          exit 1
+      - name: Tidy up
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/gaffer.dump*

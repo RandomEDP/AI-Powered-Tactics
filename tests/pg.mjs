@@ -7,7 +7,7 @@ import path from 'path';
 import { ROOT } from './lib.mjs';
 
 // The parts of Supabase the migrations lean on: its roles, auth.users and auth.uid(), and the storage tables.
-const SUPABASE = `
+export const SUPABASE = `
 create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
 create schema auth; create schema extensions; create schema storage;
 grant usage on schema auth, extensions, storage, public to anon, authenticated, service_role;

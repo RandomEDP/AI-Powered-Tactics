@@ -126,6 +126,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `.github/workflows/android.yml` | Every push: the `android` tests, then builds the Android app (`.apk` to install, `.aab` for Google Play) as the run's artifacts. Run by hand with "Upload to Google Play" for the internal testing track (needs the Android secrets, section 7) |
 | `android/` | The Android app shell (Capacitor). `MainActivity.java` (the back button), icons and splash in `app/src/main/res`, signing and version in `app/build.gradle`. `app/src/main/assets/public` is git-ignored and filled by `npx cap sync android` |
 | `.github/workflows/store-text.yml` | "Update App Store text and pictures" (run by hand): sends `store/text/*.txt` (name, subtitle, description, keywords, promotional text) to App Store Connect through `scripts/asc-text.mjs` with the `ASC_*` secrets; with "Pictures too" ticked, `scripts/asc-shots.mjs` also replaces the 6.9" iPhone pictures with `store/6 iPhone (6.9 inch)` (only on a version that can still be edited; new ones go up before the old ones are deleted). Unticked "Send it" only shows what would change. Tests: `storetext.test.mjs`, `storeshots.test.mjs` |
+| `.github/workflows/db-backup.yml`, `db-restore.yml` | Gaffer's own nightly database backup (`scripts/db-backup.sh`: pg_dump, restored on the runner to check every row, encrypted, into the private R2 bucket `gaffer-backups`, 30 nightly plus 12 monthly) and, by hand only, a restore into a new Supabase project. `supabase/BACKUPS.md` has the secrets and the procedure. Test: `backup.test.mjs` |
 | `.github/workflows/watch-shots.yml` | Takes Apple Watch App Store screenshots in a simulator (run by hand) |
 | `store/` | App Store pictures, in the folders App Store Connect wants, plus social pictures in `5 Social` (squares, stories, a wide one). `node store/capture.mjs` plays SOP FC 15–2 Dog Squad through the test harness and takes the redesigned app's screens (402×874 @3×, dark mode), then `node store/compose.mjs` lays them all out in the purple style. `store/src/footage/` holds stills from that game's real highlights (the score box and GOAL bar are Gaffer's own); the screens' videos show them. Nothing behind the Experimental switch goes in |
 | `shots/` | Raw screenshots from `tests/shots.mjs`, for checking the design |
@@ -1035,9 +1036,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Edge Function secrets (names only):** `APNS_KEY_P8`, `APNS_KEY_ID`, `APPLE_TEAM_ID`, `GOOGLE_TTS_KEY`,
   `GOOGLE_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_STREAM_TOKEN`, `R2_ACCESS_KEY_ID`,
   `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` (all set by Ethan), and `ADMOB_AD_UNITS` (optional, once real ads are on).
-- **GitHub repository secrets:** `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`. For Android notifications:
+- **GitHub repository secrets:** `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`. For the database backup: `SUPABASE_DB_URL`, `BACKUP_R2_ENDPOINT`, `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`, `BACKUP_PASSPHRASE` (Ethan's to add; `RESTORE_DB_URL` only during a restore). For Android notifications:
   `GOOGLE_SERVICES_JSON` (the Firebase file; Ethan's to add). For Google Play (not set yet; Ethan's to make): `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`,
   `PLAY_SERVICE_ACCOUNT_JSON`.
+- **Backups:** Supabase Pro's own (daily, kept 7 days, Database → Backups), plus Gaffer's own nightly copy in R2
+  (`supabase/BACKUPS.md`). A new schema needs adding to `SCHEMAS` in `scripts/db-backup.sh` (the backup stops and says
+  so). Restoring a dump as it is into a new project would let anon call server-only functions (the project's default
+  privileges); `restore` puts them aside while it runs, and `backup.test.mjs` checks every grant comes back exactly.
 - **Auth:** email and password. Site URL and redirect go to the GitHub Pages address.
 - **Any Google API key used by `reel-voice`** is server-side. Don't give it an iOS-app restriction (requests come from
   Supabase, not the phone). Restrict it by API instead.
