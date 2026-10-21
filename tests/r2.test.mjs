@@ -99,6 +99,18 @@ eq([(await up('tok-jake', ['t-sop/players/3/reel.mp4'])).status, (await up('tok-
 eq((await call('tok-jake', { code: 'SOPFC1', action: 'remove', paths: ['t-sop/players/2/reel-1791660000000.mp4'] })).removed, 1, 'and can remove their own old reel');
 eq((await up('tok-ethan', ['t-sop/players/2/reel-2.mp4'])).urls.length, 1, 'a gaffer can put a reel in any player\'s folder');
 
+// ---------- your own short clips (0049): anyone signed in, only into their own folder, with no team
+const own = (who, action, paths) => call(who, { own: true, action, paths });
+const ownUp = await own('tok-rival', 'upload', ['users/u-rival/k3x9ab.mp4']);
+check(ownUp.urls && ownUp.urls.length === 1 && ownUp.urls[0].startsWith('https://acct-1.r2.cloudflarestorage.com/gaffer-clips/users/u-rival/k3x9ab.mp4?'), 'anyone signed in gets a link to upload their own clip, into their own folder, no team needed');
+eq([(await own(null, 'upload', ['users/u-rival/a.mp4'])).status, (await own('tok-rival', 'upload', ['users/u-jake/a.mp4'])).status, (await own('tok-rival', 'upload', ['users/u-rival/../u-jake/a.mp4'])).status,
+  (await own('tok-rival', 'upload', ['users/u-rival/a.mov'])).status, (await own('tok-rival', 'upload', ['users/u-rival/a.mp4', 'users/u-rival/b.mp4', 'users/u-rival/c.mp4'])).status,
+  (await own('tok-rival', 'adopt', ['users/u-rival/a.mp4'])).status, (await own('tok-rival', 'upload', ['t-ath/x/01.mp4'])).status],
+  [401, 403, 403, 403, 403, 403, 403], 'but not signed out, not into anyone else\'s folder or a team\'s, only .mp4 files, a couple at a time, and nothing but upload and remove');
+await fetch(ownUp.urls[0], { method: 'PUT', body: new TextEncoder().encode('my rabona'), headers: { 'Content-Type': 'video/mp4' } });
+eq(R2['users/u-rival/k3x9ab.mp4'], { body: 'my rabona', type: 'video/mp4' }, 'the clip goes straight into R2');
+eq([(await own('tok-rival', 'remove', ['users/u-rival/k3x9ab.mp4'])).removed, 'users/u-rival/k3x9ab.mp4' in R2], [1, false], 'and its owner can remove it (when the post is deleted)');
+
 // ---------- moving the clips cut before R2
 const adopt = (seq) => call('tok-ethan', { code: 'SOPFC1', action: 'adopt', game_id: 'g1', seq });
 refusePut = true;
@@ -128,6 +140,7 @@ check(/SignatureDoesNotMatch/.test(no.error), `and says R2's own reason (${no.er
 const noUp = await up('tok-ethan', mine);
 eq([noUp.status, noUp.reason, noUp.r2], [503, 'not_configured', 'r2_refused'], 'and the phone gets no upload links, told it\'s not set up, so every build uses the old storage straight away');
 eq((await call('tok-ethan', { code: 'SOPFC1', action: 'check' })).status, 503, 'check says so too');
+eq([(await own('tok-rival', 'upload', ['users/u-rival/z.mp4'])).status, oldReads], [503, 0], 'and your own clips aren\'t taken either (they only ever go to R2, never the old storage)');
 
 // ---------- a bucket made in the EU jurisdiction, and secrets pasted with a new line on the end
 refuseAll = null; euOnly = true; resetR2();
