@@ -149,9 +149,9 @@ const terms = { side: 5, half: 20, periods: 2, subs: 3, ko_at: future, location:
 check(/Only a gaffer/.test(await d.fails(d.rpc(jake, 'challenge_send', { p_code: sop.code, p_to: ath.id, p_kind: 'elo', p_terms: terms }))), 'a player cannot challenge another team');
 check(/can.t be challenged/.test(await d.fails(d.rpc(ethan, 'challenge_send', { p_code: sop.code, p_to: sop.id, p_kind: 'elo', p_terms: terms }))), 'a team cannot challenge itself');
 check(/hasn.t passed/.test(await d.fails(d.rpc(ethan, 'challenge_send', { p_code: sop.code, p_to: ath.id, p_kind: 'elo', p_terms: Object.assign({}, terms, { ko_at: Date.now() - 86400000 }) }))), 'nor for a time that has gone');
-const ch = await d.rpc(ethan, 'challenge_send', { p_code: sop.code, p_to: ath.id, p_kind: 'elo', p_terms: Object.assign({}, terms, { half: 500, subs: -2, side: 11, hack: 'x' }) });
+const ch = await d.rpc(ethan, 'challenge_send', { p_code: sop.code, p_to: ath.id, p_kind: 'elo', p_terms: Object.assign({}, terms, { half: 500, subs: -2, side: 150, hack: 'x' }) });
 let mineC = (await d.rpc(ethan, 'my_challenges', { p_code: sop.code }))[0], theirs = (await d.rpc(rival, 'my_challenges', { p_code: ath.code }))[0];
-eq([mineC.terms.half, mineC.terms.subs, mineC.terms.side, mineC.terms.hack ?? null, mineC.sent, mineC.my_turn, theirs.sent, theirs.my_turn, theirs.other.name], [60, 0, 5, null, true, false, false, true, 'Sons of Pitches'], 'a challenge is tidied to sensible terms and waits for the other gaffer');
+eq([mineC.terms.half, mineC.terms.subs, mineC.terms.side, mineC.terms.hack ?? null, mineC.sent, mineC.my_turn, theirs.sent, theirs.my_turn, theirs.other.name], [60, 0, 99, null, true, false, false, true, 'Sons of Pitches'], 'a challenge is tidied to sensible terms and waits for the other gaffer');
 eq(await d.rpc(sam, 'my_challenges', { p_code: sop.code }), null, 'a stranger cannot read a team\'s challenges');
 eq([await d.rpc(ethan, 'challenge_reply', { p_code: sop.code, p_id: ch, p_action: 'accept' }), await d.rpc(sam, 'challenge_reply', { p_code: far.code, p_id: ch, p_action: 'accept' }), await d.rpc(jake, 'challenge_reply', { p_code: sop.code, p_id: ch, p_action: 'accept' })],
   ['not_your_turn', 'missing', 'not_gaffer'], 'the sender cannot accept their own challenge; a third team cannot touch it; nor can a player');

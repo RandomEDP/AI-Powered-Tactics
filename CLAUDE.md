@@ -119,7 +119,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed; `0046` lets squad players run a game they started; `0047` unlocks a watched ad straight away). New ones are numbered on from 0048 |
+| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed; `0046` lets squad players run a game they started; `0047` unlocks a watched ad straight away; `0048` is any team size, 2 to 99 a side). New ones are numbered on from 0049 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `gopro-link` (what's in a GoPro share link, for the highlights; an iPhone video comes from Photos), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests (four shards) with the build check alongside, and the TestFlight upload after the tests (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -729,6 +729,17 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   from the game is deleted, nothing goes to stats and no highlights can be made; Abandon and delete it (`abandonGame`)
   clears the live game. Gaffers, or the player running the game they started (`canAbandon()`). Not on the watch.
 - Tests: `runner.test.mjs` (a player runs a whole game, the gaffer deletes it, abandoning), `rundb.test.mjs`, `stream.test.mjs`.
+
+### Any number a side, at most 99 from a team (`0048_any_team_size.sql`; Ethan, 21 October 2026)
+- The format card (new game, polls; `fmtCard`) has 5, 7 and 11-a-side to tap (`SIDE_QUICK`) and "Players a side" (`#gSide`,
+  `#pSide`) for anything from 2 to 99 (`sideOk`, `TEAM_MAX`, `SIDE_MIN`); a challenge has the same (`#rvSide`, subs up to
+  99 less the side). A new game still picks the side + 3 to start (`PICKP`, `sideLim().pick`), but up to 99 can be put in
+  (`MAXP`). A poll's outfield slider starts at the side + 2 and its + (`#pMore`) goes on to 98. Results keep any side but
+  5 (`sideKept`; none for games among the squad). A poll with more than 11 starting (`PITCH_DOTS`) lists them instead of
+  the pitch drawing (tap one to bench them, `data-bench`). Games among the squad and friendlies take up to 99 a side
+  (`friendly_people` up to 198 people); creating a team takes up to 200 names. The watch's message is kept under
+  `WATCH_BYTES` (48,000 characters) by dropping the furthest-off changes (its limit is about 64 KB). The tactics board
+  stays 5 or 7-a-side. Tests: `teamsize.test.mjs`, `teamsizedb.test.mjs`.
 
 ### Games among the squad, with guests (`0020_games_among_the_squad.sql`)
 - New game → "Among ourselves" (`#gKind`, `D.kind = 'house'`, `renderHouse`): two named sides (Bibs and Shirts to start),
