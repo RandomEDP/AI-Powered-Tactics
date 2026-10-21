@@ -32,7 +32,7 @@ await d.admin(`insert into public.blocks (blocker, blocked) values ('${mo.id}', 
 const dans = await d.rpc(dan, 'friendly_people', { p_people: [{ k: 'm', u: 'mo_fc' }, { k: 'j', u: 'jake_fc' }] });
 check(dans.code !== got.code, 'Dan\'s friendlies are his own team');
 eq(dans.players.map((p) => p.pid), [null, 1], 'someone who has blocked you can\'t be added');
-check(/Up to 40/.test(await d.fails(d.rpc(ethan, 'friendly_people', { p_people: Array.from({ length: 41 }, (_, i) => ({ k: i, n: 'G' + i })) }))), 'at most 40 people');
+check(/Up to 99 a side/.test(await d.fails(d.rpc(ethan, 'friendly_people', { p_people: Array.from({ length: 199 }, (_, i) => ({ k: i, n: 'G' + i })) }))), 'at most 99 a side (198 people)');
 
 // ---------- the game counts for each person, not for any team
 const gid = '11111111-1111-4111-8111-111111111111';
