@@ -200,7 +200,7 @@
       return fail('no such function ' + name, '42883');
     }
     // ---------- profiles and following (0023), as the real functions behave
-    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team', 'create_post', 'remove_post', 'like_post', 'report_post', 'get_feed', 'user_posts', 'my_reels', 'team_people', 'tag_post', 'untag_post', 'user_tagged', 'public_feed', 'post_comments', 'add_comment', 'remove_comment', 'report_comment'];
+    const PEOPLE = ['username_status', 'set_profile', 'my_profile', 'find_people', 'get_profile', 'my_clips', 'set_pins', 'follow', 'unfollow', 'answer_follow', 'my_follows', 'my_feed', 'block_user', 'my_blocks', 'report_user', 'search_teams', 'view_team', 'create_post', 'create_own_post', 'remove_post', 'like_post', 'report_post', 'get_feed', 'user_posts', 'my_reels', 'team_people', 'tag_post', 'untag_post', 'user_tagged', 'public_feed', 'post_comments', 'add_comment', 'remove_comment', 'report_comment'];
     if (PEOPLE.includes(name)) {
       const RESERVED = d.reserved_usernames || ['edp', 'ethan', 'ethandp', 'e_d_p_1', 'gaffer', 'admin', 'support', 'official'].map((h) => ({ handle: h, user_id: null }));
       const prof = (u) => d.profiles.find((p) => p.user_id === u), byName = (n) => d.profiles.find((p) => p.username.toLowerCase() === String(n || '').trim().toLowerCase());
@@ -250,7 +250,7 @@
       const postJson = (x) => { const pr = prof(x.user_id), t = d.teams.find((y) => y.id === x.team_id) || {}; if (!pr) return null;
         const c = x.kind === 'clip' ? d.clips.filter((y) => y.game_id === x.game_id && y.at === x.at).sort((a1, b1) => a1.seq - b1.seq)[0] : null;
         return { id: x.id, kind: x.kind, caption: x.caption, at: x.created_at, username: pr.username, name: pr.name, mine: x.user_id === uid(), team: t.name, short: t.short, color: t.color,
-          video: x.kind === 'reel' ? { path: x.path, store: x.store, label: 'Player reel' } : c ? { path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur } : null,
+          video: x.kind === 'reel' ? { path: x.path, store: x.store, label: 'Player reel' } : x.kind === 'own' ? { path: x.path, store: x.store, label: 'Own clip', dur: x.dur } : c ? { path: c.path, vpath: c.vpath || null, store: c.store || null, label: c.label, dur: c.dur } : null,
           likes: d.post_likes.filter((l) => l.post_id === x.id && l.liked).length, liked: d.post_likes.some((l) => l.post_id === x.id && l.user_id === uid() && l.liked),
           tags: (d.post_tags || []).filter((g) => g.post_id === x.id && !g.removed && !blocked(uid(), g.user_id)).map((g) => prof(g.user_id)).filter(Boolean).map((tp) => ({ username: tp.username, name: tp.name })).sort((p1, p2) => p1.username < p2.username ? -1 : 1),
           tagged_me: (d.post_tags || []).some((g) => g.post_id === x.id && g.user_id === uid() && !g.removed),
@@ -284,6 +284,12 @@
         else if (a.p_kind === 'reel') { const r = (d.player_reels || []).find((y) => y.team_id === a.p_team && y.path && d.players.some((pl) => pl.team_id === y.team_id && pl.pid === y.pid && pl.user_id === uid())); if (r) { team = r.team_id; path = r.path; st = r.store; } }
         if (!team) return ok({ error: 'not_yours' });
         const row = { id: crypto.randomUUID(), user_id: uid(), team_id: team, kind: a.p_kind, game_id: a.p_kind === 'clip' ? a.p_game : null, at: a.p_kind === 'clip' ? a.p_at : null, path, store: st, caption: String(a.p_caption || '').replace(/\s+/g, ' ').trim().slice(0, 300), created_at: Date.now() + d.posts.length, removed_at: null };
+        d.posts.push(row); store(d); return ok({ id: row.id }); }
+      // (0049) your own short clip, already uploaded to your own folder in R2
+      if (name === 'create_own_post') { if (!mine) return ok({ error: 'no_profile' }); const own = 'users/' + uid() + '/';
+        if (!/^users\/[^/]+\/[A-Za-z0-9_-]{1,80}\.mp4$/.test(String(a.p_path || '')) || !String(a.p_path).startsWith(own) || d.posts.some((y) => y.path === a.p_path && live(y))) return ok({ error: 'not_yours' });
+        if (!(a.p_dur > 0) || a.p_dur > 30.5) return ok({ error: 'too_long' });
+        const row = { id: crypto.randomUUID(), user_id: uid(), team_id: null, kind: 'own', game_id: null, at: null, path: a.p_path, store: 'r2', dur: a.p_dur, caption: String(a.p_caption || '').replace(/\s+/g, ' ').trim().slice(0, 300), created_at: Date.now() + d.posts.length, removed_at: null };
         d.posts.push(row); store(d); return ok({ id: row.id }); }
       if (name === 'remove_post') { const x = d.posts.find((y) => y.id === a.p_id && y.user_id === uid() && live(y)); if (!x) return ok(false); x.removed_at = Date.now(); store(d); return ok(true); }
       if (name === 'like_post') { const x = d.posts.find((y) => y.id === a.p_id && live(y)); const au = x && prof(x.user_id); if (!x || !au || !seeable(au) || blocked(uid(), x.user_id)) return ok(null);
@@ -585,8 +591,16 @@
   // on this test server, PUT to by the app and caught below), deleting, and moving a clip from the old storage. Gaffers only.
   function clipStore(d, b) {
     const no = (status, error, reason) => ({ data: null, error: { message: 'Edge Function returned a non-2xx status code', context: new Response(JSON.stringify({ error, reason }), { status }) } });
+    if (!uid()) return no(401, 'Sign in first.');
+    if (b.own === true) { // (0049) your own short clips, in your own folder, as the real function
+      const own = 'users/' + uid() + '/', keys = b.paths || [];
+      if (!['upload', 'remove'].includes(b.action) || !keys.length || keys.length > 2 || !keys.every((k) => String(k).startsWith(own) && /^[A-Za-z0-9_-]{1,80}\.mp4$/.test(String(k).slice(own.length)))) return no(403, 'Those files aren\'t in your own folder.');
+      if (d.r2Off) return no(503, 'Clip storage isn\'t set up on Gaffer\'s server yet.', 'not_configured');
+      if (b.action === 'upload') return { data: { urls: keys.map((k) => location.origin + '/__r2/' + k) }, error: null };
+      d.files = (d.files || []).filter((f) => !(f.bucket === 'r2' && keys.includes(f.path))); store(d); return { data: { removed: keys.length }, error: null };
+    }
     const t = d.teams.find((x) => x.code === String(b.code || '').trim().toUpperCase());
-    if (!uid()) return no(401, 'Sign in first.'); if (!t) return no(404, 'No such team.');
+    if (!t) return no(404, 'No such team.');
     if (!isOrg(d, t.id)) { // a player: only their own reel's folder, as the real function
       const me = d.players.find((p) => p.team_id === t.id && p.user_id === uid()), own = me ? t.id + '/players/' + me.pid + '/' : '';
       if (!own || !['upload', 'remove'].includes(b.action) || !(b.paths || []).length || !(b.paths || []).every((k) => String(k).startsWith(own))) return no(403, 'Only a gaffer can change the team\'s highlights.');

@@ -925,9 +925,10 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 .squad .sqstep { display: flex; align-items: center; gap: 10px; }
 .squad .sqstep button { min-width: 44px; min-height: 44px; padding: 0; font-size: var(--t-head); font-weight: 700; }
 .squad .sqstep b { min-width: 2ch; text-align: center; }
-.squad input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; border-radius: 7px; margin: 8px 0 0; background: var(--fill); }
-.squad input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; border-radius: 50%; background: var(--on); border: 3px solid var(--surface); box-shadow: 0 1px 4px rgba(0, 0, 0, .3); cursor: pointer; }
-.squad input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: var(--on); border: 3px solid var(--surface); cursor: pointer; }
+.squad input[type=range], #postPop input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; border-radius: 7px; margin: 8px 0 0; background: var(--fill); }
+.squad input[type=range]::-webkit-slider-thumb, #postPop input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; border-radius: 50%; background: var(--on); border: 3px solid var(--surface); box-shadow: 0 1px 4px rgba(0, 0, 0, .3); cursor: pointer; }
+.squad input[type=range]::-moz-range-thumb, #postPop input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: var(--on); border: 3px solid var(--surface); cursor: pointer; }
+#postPop input[type=range] { padding: 0; border: 0; margin: 14px 0 4px; } /* (the slider for which 30 seconds of your own clip) */
 .sqticks { display: flex; justify-content: space-between; padding-inline: 11px; color: var(--muted); font-size: var(--t-sub); font-variant-numeric: tabular-nums; }
 #fxCard.live { box-shadow: inset 0 0 0 2px var(--team); }
 #fxCard.ask { box-shadow: inset 0 0 0 3px #ffc83d; }
@@ -1172,11 +1173,13 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 <div id="postPop" role="dialog" aria-labelledby="npTitle" hidden><div class="planbox">
   <h2 id="npTitle">New post</h2>
   <p>Share one of your moments with the people who follow you.</p>
-  <div class="toggle" id="npKind"><button type="button" data-k="clip" aria-pressed="true">Your clips</button><button type="button" data-k="reel" aria-pressed="false">Your reels</button></div>
+  <div class="toggle" id="npKind"><button type="button" data-k="clip" aria-pressed="true">Your clips</button><button type="button" data-k="reel" aria-pressed="false">Your reels</button><button type="button" data-k="own" aria-pressed="false">Upload</button></div>
   <div id="npList"></div>
+  <input type="file" id="npFile" class="vh" accept="video/*" tabindex="-1" aria-hidden="true">
   <label class="field" for="npCap">Caption<textarea id="npCap" rows="2" maxlength="300" placeholder="Say something about it"></textarea></label>
   <label class="field" for="npTagQ">Tag people<input id="npTagQ" type="search" autocomplete="off" autocapitalize="off" placeholder="Search by name or username"></label>
   <div id="npTags" class="chips"></div><div id="npTagList" class="taglist"></div>
+  <p class="note" id="npProg" role="status" hidden></p>
   <p class="msg bad" id="npMsg" hidden></p>
   <div class="actions"><button class="plain primary" id="npPost" type="button">Share</button><button class="link" id="npCancel" type="button">Cancel</button></div>
 </div></div>
@@ -3574,7 +3577,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if ((id = b.getAttribute('data-pmore'))) { FD.open = FD.open === id ? null : id; FD.arm = null; postsRedraw(); return; }
     if ((id = b.getAttribute('data-pdel'))) {
       if (FD.arm !== id) { FD.arm = id; postsRedraw(); setTimeout(function () { if (FD.arm === id) { FD.arm = null; postsRedraw(); } }, 3000); return; }
-      try { await q(sb.rpc('remove_post', { p_id: id })); } catch (err) {}
+      var gone = postsEverywhere(id)[0], gp = null;
+      try { gp = (await q(sb.rpc('remove_post', { p_id: id }))).data; } catch (err) {}
+      if (gp && gone && gone.kind === 'own' && gone.mine && gone.video && gone.video.path) ownCall('remove', [gone.video.path]); // (your own clip's file goes with it)
       var drop = function (l) { return (l || []).filter(function (x) { return x.id !== id; }); };
       FD.posts = FD.posts ? drop(FD.posts) : FD.posts; FD.all = FD.all ? drop(FD.all) : FD.all; PF.posts = PF.posts ? drop(PF.posts) : PF.posts; FD.open = FD.arm = null;
       if (PV.post && PV.post.id === id) { PV.post = null; $('postView').hidden = true; }
@@ -3587,11 +3592,11 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   });
 
   // ---- a new post: one of your clips, or your player reel, with a caption
-  var NP = { kind: 'clip', clips: null, reels: null, pick: null, busy: false, tags: [], follows: null, found: null, tq: '' };
+  var NP = { kind: 'clip', clips: null, reels: null, pick: null, busy: false, tags: [], follows: null, found: null, tq: '', own: null };
   async function postOpen() {
     if (!sb || !me) { A.after = 'feed'; go('account'); return; }
     if (!MYP) { unameOpen(false); return; }
-    NP = { kind: 'clip', clips: null, reels: null, pick: null, busy: false, tags: [], follows: null, found: null, tq: '' }; $('npCap').value = ''; $('npTagQ').value = ''; $('npMsg').hidden = true; $('postPop').hidden = false; renderNP(); renderTags();
+    ownDrop(); NP = { kind: 'clip', clips: null, reels: null, pick: null, busy: false, tags: [], follows: null, found: null, tq: '', own: null }; $('npCap').value = ''; $('npTagQ').value = ''; $('npMsg').hidden = true; $('npProg').hidden = true; $('postPop').hidden = false; renderNP(); renderTags();
     try { var r = await Promise.all([q(sb.rpc('my_clips')), q(sb.rpc('my_reels')), q(sb.rpc('my_follows'))]); NP.clips = r[0].data || []; NP.reels = r[1].data || []; NP.follows = ((r[2].data || {}).following || []).filter(function (x) { return x.status === 'accepted'; }); renderTags(); } catch (e) { NP.clips = NP.clips || []; NP.reels = NP.reels || []; $('npMsg').textContent = 'Couldn’t load your clips. Check your signal.'; $('npMsg').hidden = false; }
     if (!NP.clips.length && NP.reels.length) NP.kind = 'reel';
     renderNP();
@@ -3600,6 +3605,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     : (NP.clips || []).map(function (c) { return { key: 'c:' + c.game_id + ':' + c.at, label: scoreText(c) + ': ' + c.label, src: clipSrc(c, false), c: c }; }); }
   function renderNP() {
     Array.prototype.forEach.call($('npKind').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-k') === NP.kind); });
+    if (NP.kind === 'own') { renderOwn(); return; }
     var list = npItems(), have = NP.kind === 'reel' ? NP.reels : NP.clips, html = '';
     if (!have) html = '<p class="note">Loading your ' + (NP.kind === 'reel' ? 'reels' : 'clips') + '…</p>';
     else if (!list.length) html = '<p class="note">' + (NP.kind === 'reel' ? 'You haven’t a player reel yet. Make one in Highlights, By player, then post it here.' : 'You haven’t any clips yet. They appear once a game you played in is cut into highlights.') + '</p>';
@@ -3638,8 +3644,113 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   $('npTags').addEventListener('click', function (e) { var b = e.target.closest('[data-untag]'); if (!b) return; var u = b.getAttribute('data-untag'); NP.tags = NP.tags.filter(function (t) { return t.username !== u; }); renderTags(); });
   $('npKind').addEventListener('click', function (e) { var b = e.target.closest('[data-k]'); if (!b) return; NP.kind = b.getAttribute('data-k'); NP.pick = null; renderNP(); });
   $('npList').addEventListener('change', function (e) { var k = e.target.getAttribute('data-np'); if (k) { NP.pick = k; renderNP(); } });
-  $('npCancel').addEventListener('click', function () { if (!NP.busy) $('postPop').hidden = true; });
+  $('npCancel').addEventListener('click', function () { if (!NP.busy) { $('postPop').hidden = true; ownDrop(); } });
+  // ---- your own short clip (0049; Ethan, October 2026: "upload custom short clips, max 30 seconds long, and post them
+  // to your profile / feed"). A video from your phone: on the iPhone app it's picked from Photos, and a longer one has its
+  // 30 seconds chosen with a slider, then the plugin makes that stretch ready to upload (trimVideo: 720p, about 11 MB for
+  // 30 seconds); on the website it has to be 30 seconds or less already. It goes straight from the phone to R2 (clip-store
+  // with own: true, your own folder, never Supabase's storage), then create_own_post makes it a post like any other.
+  var OWN_MAX = 30, OWN_WEB_MB = 80;
+  function ownNative() { var rc = RCp(); return rc && rc.pickVideo && rc.trimVideo ? rc : null; }
+  function ownT(sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ':' + ('0' + sec % 60).slice(-2); }
+  function ownDrop() { if (NP && NP.own && NP.own.blobUrl) try { URL.revokeObjectURL(NP.own.blobUrl); } catch (e) {} if (NP) NP.own = null; }
+  function ownLen() { return NP.own ? Math.min(OWN_MAX, NP.own.dur) : 0; }
+  function renderOwn() {
+    var o = NP.own, html = '';
+    if (!o) html = '<p class="note">A video from your phone, up to ' + OWN_MAX + ' seconds.' + (ownNative() ? ' If it’s longer, you choose which ' + OWN_MAX + ' seconds.' : ' Trim a longer one in Photos first, or choose which ' + OWN_MAX + ' seconds in the Gaffer app on your iPhone.') + '</p>' +
+      '<button class="plain tint" type="button" id="npChoose"' + (NP.busy ? ' disabled' : '') + '>Choose a video</button>';
+    else {
+      var long = o.dur > OWN_MAX + 0.5, end = o.start + ownLen();
+      html = '<video id="npPrev" controls playsinline preload="metadata" src="' + esc(o.src + '#t=' + (o.start + 0.1).toFixed(1)) + '"></video>' +
+        (long ? '<label class="field" for="npStart">Which ' + OWN_MAX + ' seconds<input id="npStart" type="range" min="0" max="' + (o.dur - OWN_MAX).toFixed(1) + '" step="0.1" value="' + o.start.toFixed(1) + '"' + (NP.busy ? ' disabled' : '') + '></label>' +
+          '<p class="note" id="npWin">From ' + ownT(o.start) + ' to ' + ownT(end) + ' of ' + ownT(o.dur) + '.</p>' : '<p class="note">' + ownT(o.dur) + ' long.</p>') +
+        '<button class="link" type="button" id="npChoose"' + (NP.busy ? ' disabled' : '') + '>Choose a different video</button>';
+    }
+    $('npList').innerHTML = html; $('npPost').disabled = NP.busy || !o;
+  }
+  async function ownChoose() {
+    if (NP.busy) return;
+    $('npMsg').hidden = true;
+    var rc = ownNative();
+    if (!rc) { $('npFile').value = ''; $('npFile').click(); return; }
+    if (cutBusy()) { npSay('Highlights are being cut on this phone. Upload your clip once they’re done.'); return; }
+    NP.busy = true; npProg('Opening your videos…'); renderOwn();
+    try {
+      var got = await rc.pickVideo({ slot: 9 });
+      if (got && got.path && !got.cancelled) { ownDrop(); NP.own = { path: got.path, dur: +got.duration || 0, start: 0, src: window.Capacitor.convertFileSrc(got.path) }; if (!(NP.own.dur > 0.5)) { NP.own = null; throw new Error('That video is too short to post.'); } }
+    } catch (e) { npSay((e && e.message) || 'Couldn’t read that video. Try another.'); }
+    NP.busy = false; npProg(''); renderOwn();
+  }
+  function npSay(t) { $('npMsg').textContent = t; $('npMsg').hidden = !t; }
+  function npProg(t) { $('npProg').textContent = t; $('npProg').hidden = !t; }
+  $('npFile').addEventListener('change', function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    npSay('');
+    if (!/^video\//.test(f.type || 'video/')) { npSay('That isn’t a video. Choose a video from your phone.'); return; }
+    if (f.size > OWN_WEB_MB * 1e6) { npSay('That video is too big to upload (' + Math.round(f.size / 1e6) + ' MB). Choose one under ' + OWN_WEB_MB + ' MB, or use the Gaffer app on your iPhone.'); return; }
+    var url = URL.createObjectURL(f), v = document.createElement('video'); v.preload = 'metadata'; v.muted = true;
+    var done = function (dur) {
+      v.removeAttribute('src');
+      if (!(dur > 0.5)) { URL.revokeObjectURL(url); npSay('Gaffer can’t play that video here. Try another, or use the Gaffer app on your iPhone.'); return; }
+      if (dur > OWN_MAX + 0.5) { URL.revokeObjectURL(url); npSay('That video is ' + ownT(dur) + ' long. Clips can be up to ' + OWN_MAX + ' seconds: trim it in Photos first, or choose which ' + OWN_MAX + ' seconds in the Gaffer app on your iPhone.'); return; }
+      ownDrop(); NP.own = { file: f, blobUrl: url, src: url, dur: dur, start: 0 }; renderOwn();
+    };
+    v.onloadedmetadata = function () { done(v.duration); }; v.onerror = function () { done(0); }; v.src = url;
+  });
+  $('npList').addEventListener('click', function (e) { if (e.target.closest('#npChoose')) ownChoose(); });
+  $('npList').addEventListener('input', function (e) {
+    if (e.target.id !== 'npStart' || !NP.own) return;
+    NP.own.start = Math.max(0, Math.min(NP.own.dur - OWN_MAX, +e.target.value || 0));
+    var w = $('npWin'); if (w) w.textContent = 'From ' + ownT(NP.own.start) + ' to ' + ownT(NP.own.start + ownLen()) + ' of ' + ownT(NP.own.dur) + '.';
+    var pv = $('npPrev'); if (pv) try { pv.currentTime = NP.own.start; } catch (err) {}
+  });
+  // the preview plays only the chosen stretch, round and round
+  $('npList').addEventListener('timeupdate', function (e) { var o = NP.own; if (e.target.id !== 'npPrev' || !o || o.dur <= OWN_MAX + 0.5) return; var t = e.target.currentTime; if (t > o.start + OWN_MAX || t < o.start - 0.5) try { e.target.currentTime = o.start; } catch (err) {} }, true);
+  async function ownCall(action, paths) { // the clip-store function, for your own folder
+    var none = 'Couldn’t reach Gaffer’s server. Check your signal and try again.';
+    try {
+      var res = await sb.functions.invoke('clip-store', { body: { own: true, action: action, paths: paths } });
+      if (res && res.data && !res.error) return res.data;
+      var said = null; try { if (res && res.error && res.error.context && typeof res.error.context.json === 'function') said = await res.error.context.json(); } catch (e) {}
+      return { error: said && said.reason ? 'Uploading clips isn’t working on Gaffer’s server at the moment. Try again later.' : (said && said.error) || none };
+    } catch (e) { return { error: none }; }
+  }
+  var OWNUP = null; // (the upload's progress, from the plugin's "upload" events)
+  async function ownShare() {
+    var o = NP.own; if (!o || NP.busy) return;
+    if (rude($('npCap').value, true)) { npSay('Your caption has a word Gaffer doesn’t allow. Please change it.'); return; }
+    var rc = o.path ? ownNative() : null;
+    if (o.path && (!rc || cutBusy())) { npSay(rc ? 'Highlights are being cut on this phone. Upload your clip once they’re done.' : 'Choose the video again.'); return; }
+    NP.busy = true; npSay(''); renderOwn();
+    var key = 'users/' + me.id + '/' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8) + '.mp4', dur = ownLen(), file = null;
+    try {
+      if (o.path) {
+        npProg('Getting your clip ready…');
+        var made = await rc.trimVideo({ path: o.path, start: o.start, dur: dur, file: key.split('/').pop() });
+        file = made.path; if (made.duration > 0) dur = Math.min(OWN_MAX, made.duration);
+      }
+      npProg('Uploading…');
+      var up = await ownCall('upload', [key]); if (up.error) throw new Error(up.error);
+      var link = (up.urls || [])[0], ok = false;
+      if (!link) throw new Error('Couldn’t reach Gaffer’s server. Check your signal and try again.');
+      if (file) {
+        OWNUP = function (p) { npProg('Uploading, ' + Math.round(p * 100) + '%…'); };
+        if (rc.upload) { var r = null; try { r = await rc.upload({ path: file, url: link, contentType: 'video/mp4' }); } catch (e) {} ok = !!(r && r.ok); }
+        if (!ok) { var blob = await (await fetch(window.Capacitor.convertFileSrc(file))).blob(); var put = await fetch(link, { method: 'PUT', body: blob.slice(0, blob.size, 'video/mp4'), headers: { 'Content-Type': 'video/mp4' } }).catch(function () { return null; }); ok = !!(put && put.ok); }
+      } else { var put2 = await fetch(link, { method: 'PUT', body: o.file.slice(0, o.file.size, 'video/mp4'), headers: { 'Content-Type': 'video/mp4' } }).catch(function () { return null; }); ok = !!(put2 && put2.ok); }
+      OWNUP = null;
+      if (!ok) throw new Error('The upload didn’t go through. Check your signal and try again.');
+      npProg('Sharing…');
+      var res = (await q(sb.rpc('create_own_post', { p_path: key, p_dur: Math.round(dur * 10) / 10, p_caption: $('npCap').value }))).data || {};
+      if (res.error) { ownCall('remove', [key]); throw new Error(res.error === 'too_many' ? 'That’s a lot of posts today. Try again tomorrow.' : res.error === 'no_profile' ? 'Pick a username first.' : res.error === 'too_long' ? 'Clips can be up to ' + OWN_MAX + ' seconds.' : 'Couldn’t share it. Try again.'); }
+      var tagMsg = '';
+      if (NP.tags.length) { try { var tr = await q(sb.rpc('tag_post', { p_id: res.id, p_tags: NP.tags.map(function (t) { return t.username; }) })); if (tr.error) throw tr.error; } catch (err) { tagMsg = ' The tags didn’t go through, so nobody’s tagged.'; } }
+      $('postPop').hidden = true; NP.busy = false; npProg(''); ownDrop(); FD.posts = null; FD.all = null; FD.msg = 'Shared.' + tagMsg;
+      if (S.view === 'profile' && PF.d && PF.d.me) { PF.loaded = false; renderProfile(); } else go('feed');
+    } catch (e) { OWNUP = null; NP.busy = false; npProg(''); npSay((e && e.message) || 'Couldn’t share it. Check your signal.'); renderOwn(); }
+  }
   $('npPost').addEventListener('click', async function () {
+    if (NP.kind === 'own') { ownShare(); return; }
     var it = npItems().filter(function (x) { return x.key === NP.pick; })[0]; if (!it || NP.busy) return;
     if (rude($('npCap').value, true)) { $('npMsg').textContent = 'Your caption has a word Gaffer doesn’t allow. Please change it.'; $('npMsg').hidden = false; return; }
     NP.busy = true; renderNP(); $('npMsg').hidden = true;
@@ -3902,6 +4013,10 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (!sb || !me) return;
     say('Deleting your account\u2026');
     try {
+      try { // (your own uploaded clips' files go too: the posts go with the account, the files are in R2)
+        var ownPosts = MYP ? ((await q(sb.rpc('user_posts', { p_username: MYP.username }))).data || []).filter(function (x) { return x.kind === 'own' && x.video && x.video.path; }) : [];
+        for (var oi = 0; oi < ownPosts.length; oi += 2) await ownCall('remove', ownPosts.slice(oi, oi + 2).map(function (x) { return x.video.path; }));
+      } catch (e) {}
       await q(sb.rpc('delete_my_account'));
       A.teams.forEach(function (t) { t.org = false; }); myTeams = null;
       dirty = false; clearTimeout(wt); // (its teams may be gone: nothing to save)
@@ -4806,7 +4921,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   function mkTick() { // (progress, on whichever of the two is on screen)
     if (MH && MK.gid === MH.r.id) mhDraw(); mkShow();
   }
-  function upProgress(d) { if (MK.busy && d && typeof d.p === 'number') { MK.prog = 'uploading, ' + Math.round(d.p * 100) + '%.'; mkTick(); } }
+  function upProgress(d) { if (OWNUP && d && typeof d.p === 'number') OWNUP(d.p); if (MK.busy && d && typeof d.p === 'number') { MK.prog = 'uploading, ' + Math.round(d.p * 100) + '%.'; mkTick(); } }
   function mkShow() { // a line on the game's card in Highlights, so nobody has to sit and watch it
     var el = document.querySelector('[data-mkline="' + MK.gid + '"]'); if (!el) return;
     var t = MK.busy ? 'Making it one video' + MK.part + ': ' + MK.prog : MK.msg; el.textContent = t; el.hidden = !t; el.classList.toggle('bad', !!MK.bad);
@@ -5826,6 +5941,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   function cutProgress(d) {
     if (!d) return;
     var pct = Math.round((d.p || 0) * 100);
+    if (NP.busy && NP.kind === 'own' && (d.stage === 'trim' || (d.stage === 'copy' && !cutBusy()))) { npProg(d.stage === 'trim' ? 'Getting your clip ready, ' + pct + '%…' : 'Reading the video, ' + pct + '%…'); return; }
     if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
     var mkJob = d.job === 'mk'; // (the plugin says whose join it is; the game's one video can be waiting behind someone's reel, or the other way round)
     if (MK.busy && (mkJob || !('job' in d))) { MK.prog = d.stage === 'fetch' ? 'fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'joining, ' + pct + '%.'; mkTick(); }

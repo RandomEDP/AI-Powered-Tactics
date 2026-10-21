@@ -14,6 +14,9 @@ import UniformTypeIdentifiers
 ///   fetchVideo({ url, key, size? })  -> { path, duration, created? }   or downloads it (a GoPro share link's video, the
 ///                                                  address from the gopro-link edge function), carrying on in the
 ///                                                  background; "progress" events { stage: "download", p }
+///   trimVideo({ path, start, dur, file })  -> { path, size, duration }   your own short clip for posting: that stretch of
+///                                                  a picked video (30 seconds at most), the right way up, 720p at about
+///                                                  3 Mbit/s, ready to upload; "progress" { stage: "trim", p }
 ///   cut({ path, clips: [{ start, dur, caption, file, bug?, lower? }], watermark, look?, outro: { kicker, title, sub, color, ink, crest }, reelFile, reelCleanFile?, quality? })
 ///                (quality "4k": the Gaffer tier's sharp clips, 4K from 4K footage, else 1080p; see `sharpness`)
 ///                -> { clips: [{ file, path, size }], reel: { path, size, marks }, reelClean?: { path, size, marks } }
@@ -44,6 +47,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "pickVideo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "fetchVideo", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "trimVideo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cut", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "joinReel", returnType: CAPPluginReturnPromise),
@@ -268,6 +272,39 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             var result: [String: Any] = ["path": file.path, "duration": seconds]
             if let made = asset.creationDate?.dateValue { result["created"] = made.timeIntervalSince1970 * 1000 }
             call.resolve(result)
+        }
+    }
+
+    /// Your own short clip, for posting (Ethan, October 2026: "upload custom short clips, max 30 seconds"): the stretch
+    /// chosen from a picked video, made ready to upload. No graphics and no composition, so it keeps its own shape (a
+    /// phone held upright stays upright); 720p, then made about 3 Mbit/s like the clips (`shrink`), so 30 seconds is
+    /// about 11 MB.
+    @objc public func trimVideo(_ call: CAPPluginCall) {
+        guard let path = call.getString("path") else { call.reject("Choose a video first."); return }
+        let start = max(0, call.getDouble("start") ?? 0), want = min(30, max(1, call.getDouble("dur") ?? 30))
+        let name = (call.getString("file") ?? "own.mp4").replacingOccurrences(of: "/", with: "-")
+        queue.async {
+            do {
+                let asset = self.picked[path] ?? AVURLAsset(url: URL(fileURLWithPath: path))
+                let total = CMTimeGetSeconds(asset.duration)
+                guard total.isFinite, total > 0.5, asset.tracks(withMediaType: .video).first != nil else { throw CutError(message: "Gaffer can't open that video. Check it plays in the Photos app, then choose it again.") }
+                let from = min(start, max(0, total - 0.5)), dur = min(want, total - from)
+                let dir = try self.ensureWorkDir().appendingPathComponent("own", isDirectory: true)
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let out = dir.appendingPathComponent(name)
+                try? FileManager.default.removeItem(at: out)
+                guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1280x720) else { throw CutError(message: "Couldn't get that video ready.") }
+                session.outputURL = out
+                session.outputFileType = .mp4
+                session.shouldOptimizeForNetworkUse = true
+                session.timeRange = CMTimeRange(start: CMTime(seconds: from, preferredTimescale: 600), duration: CMTime(seconds: dur, preferredTimescale: 600))
+                try self.run(session) { p in self.notifyListeners("progress", data: ["stage": "trim", "p": p]) }
+                self.shrink(out, bitRate: 3_000_000)
+                let made = CMTimeGetSeconds(AVURLAsset(url: out).duration)
+                call.resolve(["path": out.path, "size": self.fileSize(out), "duration": made.isFinite ? made : dur])
+            } catch {
+                call.reject(error.localizedDescription)
+            }
         }
     }
 

@@ -8,6 +8,8 @@
 //   check                              -> { ok }            is R2 taking files? (else 503 with R2's own reason)
 // Every key must be in the team's own folder ("<team id>/..."). A player who has joined the squad as themselves may also
 // upload and remove their own reel, in their own folder ("<team id>/players/<their pid>/..."), and nothing else.
+// Anyone signed in, with { own: true, action, paths } and no team: upload (or remove) their own short clips, for posting
+// (0049), in their own folder ("users/<their account>/<name>.mp4"), two files a call at most. These only ever go to R2.
 // Secrets (Edge Functions > Secrets):
 //   CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET (and R2_HOST only if the bucket's S3 address
 //   isn't <account>.r2.cloudflarestorage.com or the EU one)
@@ -83,6 +85,19 @@ Deno.serve(async (req: Request) => {
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
     if (!who?.user) return json({ error: "Sign in first." }, 401);
+    if (input.own === true) { // your own short clips, in your own folder, not in any team
+      const own = `users/${who.user.id}/`;
+      const keys: unknown[] = Array.isArray(input.paths) ? input.paths : [];
+      if ((input.action !== "upload" && input.action !== "remove") || !keys.length || keys.length > 2 ||
+          !keys.every((k) => typeof k === "string" && k.startsWith(own) && !k.includes("..") && /^[A-Za-z0-9_-]{1,80}\.mp4$/.test(k.slice(own.length))))
+        return json({ error: "Those files aren't in your own folder." }, 403);
+      const r2 = await r2Ready(own.slice(0, -1));
+      if (!r2.ok) return json({ error: r2.error, reason: r2.reason }, 503);
+      if (input.action === "upload") return json({ urls: await Promise.all((keys as string[]).map((k) => r2.link("PUT", k))) });
+      let removed = 0;
+      for (const k of keys as string[]) { const res = await fetch(await r2.link("DELETE", k, 300), { method: "DELETE" }); if (res.ok || res.status === 404) removed++; }
+      return json({ removed });
+    }
     const { data: team } = await db.from("teams").select("id").eq("code", String(input.code || "").toUpperCase().trim()).maybeSingle();
     if (!team) return json({ error: "No such team." }, 404);
     const { data: gaffer } = await db.from("team_members").select("user_id").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
