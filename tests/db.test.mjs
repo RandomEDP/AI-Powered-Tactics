@@ -41,6 +41,10 @@ await d.as(ethan, `insert into public.players (team_id, pid, name) values ('${so
 await d.as(ethan, `insert into public.live_matches (team_id, state, updated_by) values ('${sop.id}', '{"phase":"h1","events":[]}', 'x')`);
 t = await d.rpc(null, 'get_team', { p_code: sop.code });
 eq([t.team.name, t.players.length, t.live.phase], ['Sons of Pitches', 8, 'h1'], 'the gaffer can rename the team, add players and put a live game up; followers see it');
+await d.as(ethan, `insert into public.games (id, team_id, seq, opp, friendly, us, them, guests) values ('00000000-0000-4000-8000-000000000050', '${sop.id}', 0, 'Dog Squad', true, 0, 1, '[{"id":1001,"name":"Big Dave"}]')`);
+t = await d.rpc(null, 'get_team', { p_code: sop.code });
+eq(t.games.find((g) => g.opp === 'Dog Squad').guests, [{ id: 1001, name: 'Big Dave' }], 'a friendly keeps the other team\'s scorers typed in by name, and get_team gives them (0050)');
+await d.as(ethan, `delete from public.games where id = '00000000-0000-4000-8000-000000000050'`);
 
 // ---------- players claiming their profile
 eq(await d.rpc(jake, 'claim_player', { p_code: sop.code, p_pid: 2, p_last_name: 'Smith', p_position: 'fwd' }), 'ok', 'a player claims their profile');
@@ -85,6 +89,10 @@ eq(await d.rpc(null, 'queue_goal', { p_code: sop.code, p_payload: { p: 2 } }), f
 eq([await count(null, 'public.goal_queue'), await count(sam, 'public.goal_queue')], [0, 0], 'followers cannot read the queue back');
 const queued = await d.as(ethan, `select payload from public.goal_queue`);
 eq(queued.map((r) => [r.payload.us, r.payload.p, r.payload.ts, Object.keys(r.payload).length]), [[true, 2, 1000, 3]], 'the gaffer reads it, with anything unexpected stripped out');
+eq(await d.rpc(null, 'queue_goal', { p_code: sop.code, p_payload: { us: false, pn: '  Big Dave  ', an: 'x'.repeat(40), p: '7' } }), true, 'a friendly: their scorer typed in by name (0050)');
+const typedQ = await d.as(ethan, `select payload from public.goal_queue where payload ? 'pn'`);
+eq(typedQ.map((r) => [r.payload.pn, r.payload.an.length, r.payload.p ?? null]), [['Big Dave', 30, null]], 'names are kept, trimmed and cut to 30 letters; a scorer that isn\'t a number is dropped');
+await d.as(ethan, `delete from public.goal_queue where payload ? 'pn'`);
 for (let i = 0; i < 60; i++) await d.rpc(null, 'queue_goal', { p_code: sop.code, p_payload: { us: false } });
 eq(await count(ethan, 'public.goal_queue'), 50, 'the queue stops at 50, so it cannot be flooded');
 await d.as(ethan, `delete from public.goal_queue where team_id = '${sop.id}'`);

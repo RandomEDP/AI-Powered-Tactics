@@ -691,5 +691,20 @@ do {
     check(w.state?.staysOnScreen != true, "the game's gone (abandoned or finished on the phone): let go")
 }
 
+do {
+    // ---------- 28. A friendly (Ethan: "you should be able to select who scored for both teams"): the other side's goal
+    // asks who scored too, when the phone sends anyone for them; with nobody sent it logs straight away as before
+    var f = WatchBrain()
+    let fr = "{\"live\":true,\"gid\":\"f\",\"phase\":\"h1\",\"running\":true,\"t0\":\(ms(at(0))),\"team\":\"Bibs\",\"opp\":\"Shirts\",\"players\":[{\"id\":2,\"name\":\"Jake\",\"on\":true}],\"oppPlayers\":[{\"id\":7,\"name\":\"Kofi\",\"on\":true},{\"id\":1001,\"name\":\"Big Dave\",\"on\":true}]}"
+    _ = f.receive(json: fr, sent: ms(at(10)), now: at(10))
+    check(f.state?.asksOppScorer == true && f.state?.scorers(us: false).map { $0.name } == ["Kofi", "Big Dave"], "a friendly: their scorers come from the phone (\(f.state?.scorers(us: false).map { $0.name } ?? []))")
+    check(f.state?.scorers(us: true).map { $0.id } == [2], "ours are still ours")
+    let theirs = f.pressGoal(us: false, scorer: 1001, assist: 7, now: at(60), at: at(55))
+    check(theirs.send.count == 1 && field(theirs.send.first ?? "", "us") as? Bool == false && field(theirs.send.first ?? "", "p") as? Int == 1001 && field(theirs.send.first ?? "", "a") as? Int == 7 && f.state?.them == 1, "their goal goes to the phone with its scorer and who set it up")
+    var g = WatchBrain()
+    _ = g.receive(json: phone(), sent: ms(at(10)), now: at(10))
+    check(g.state?.asksOppScorer == false, "a league game (nobody sent for them): Goal against logs straight away")
+}
+
 print(failures == 0 ? "watch logic: all \(checks) checks passed" : "watch logic: \(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

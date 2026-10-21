@@ -4,6 +4,8 @@ import WatchKit
 enum Step: Hashable {
     case scorer
     case assist(Int)
+    case oppScorer        // a friendly: who scored for the other side
+    case oppAssist(Int)
     case highlight(Date)  // when Highlight was tapped: the moment the clip is cut around
 }
 
@@ -24,9 +26,13 @@ struct ContentView: View {
                 if let state = model.state {
                     switch step {
                     case .scorer:
-                        ScorerList(state: state, path: $path)
+                        ScorerList(state: state, us: true, path: $path)
                     case .assist(let scorer):
-                        AssistList(state: state, scorer: scorer, path: $path)
+                        AssistList(state: state, us: true, scorer: scorer, path: $path)
+                    case .oppScorer:
+                        ScorerList(state: state, us: false, path: $path)
+                    case .oppAssist(let scorer):
+                        AssistList(state: state, us: false, scorer: scorer, path: $path)
                     case .highlight(let at):
                         HighlightList(state: state, at: at, path: $path)
                     }
@@ -342,7 +348,7 @@ struct LogButtons: View {
     private var goalThem: some View {
         Button {
             model.goalTapped()
-            confirmThem = true
+            if state.asksOppScorer { path = [.oppScorer] } else { confirmThem = true }
         } label: {
             Text("Goal \(state.opp)").lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, maxHeight: grid ? .infinity : nil)
@@ -536,21 +542,22 @@ struct Changes: View {
 
 struct ScorerList: View {
     let state: MatchState
+    let us: Bool          // false: a friendly's other side
     @Binding var path: [Step]
     @EnvironmentObject var model: MatchModel
 
     var body: some View {
         List {
-            ForEach(state.players) { player in // the phone sends them likeliest scorer first, keeper last
-                Button { path = [.scorer, .assist(player.id)] } label: { PlayerRow(player: player) }
+            ForEach(state.scorers(us: us)) { player in // the phone sends them likeliest scorer first, keeper last
+                Button { path = us ? [.scorer, .assist(player.id)] : [.oppScorer, .oppAssist(player.id)] } label: { PlayerRow(player: player) }
             }
             Button("Own goal or not sure") {
-                model.goal(us: true, scorer: nil, assist: nil)
+                model.goal(us: us, scorer: nil, assist: nil)
                 path = []
             }
             .foregroundStyle(.secondary)
         }
-        .navigationTitle("Who scored?")
+        .navigationTitle(us ? "Who scored?" : "Who scored for \(state.opp)?")
     }
 }
 
@@ -581,6 +588,7 @@ struct HighlightList: View {
 
 struct AssistList: View {
     let state: MatchState
+    let us: Bool
     let scorer: Int
     @Binding var path: [Step]
     @EnvironmentObject var model: MatchModel
@@ -588,12 +596,12 @@ struct AssistList: View {
     var body: some View {
         List {
             Button("No assist") {
-                model.goal(us: true, scorer: scorer, assist: nil)
+                model.goal(us: us, scorer: scorer, assist: nil)
                 path = []
             }
-            ForEach(state.players.filter { $0.id != scorer }) { player in
+            ForEach(state.scorers(us: us).filter { $0.id != scorer }) { player in
                 Button {
-                    model.goal(us: true, scorer: scorer, assist: player.id)
+                    model.goal(us: us, scorer: scorer, assist: player.id)
                     path = []
                 } label: { PlayerRow(player: player) }
             }
