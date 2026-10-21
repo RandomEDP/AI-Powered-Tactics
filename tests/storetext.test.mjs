@@ -80,4 +80,17 @@ check(sent.some((l) => /WAITING_FOR_REVIEW.*nothing changed/.test(l)), 'and that
 
 const again = await run(api, text, { send: true });
 check(again.filter((l) => /up to date/.test(l)).length === 2, 'sending twice changes only what still differs: ' + again.join(' | '));
+
+// The in-app purchases check (scripts/asc-iap.mjs): it asks for exactly the ids the app does, and says which are missing.
+import fs from 'node:fs';
+const iap = await import('../scripts/asc-iap.mjs');
+const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const appIds = [...html.matchAll(/'(com\.randomedp\.aipoweredtactics\.team\.\w+)'/g)].map((m) => m[1]);
+check(appIds.length === 4 && appIds.every((id) => iap.WANTED.includes(id)), 'the purchases check knows every team pass id the app asks for');
+check(/VOICE_BUY = 'com\.randomedp\.aipoweredtactics\.voice\.'/.test(html) && iap.WANTED.includes('com.randomedp.aipoweredtactics.voice.steve'), 'and East London Steve');
+const iapApi = async (p) => p.startsWith('/v1/apps?') ? { data: [{ id: 'app1' }] }
+  : { data: [{ attributes: { productId: 'com.randomedp.aipoweredtactics.voice.steve', name: 'East London Steve 18+', inAppPurchaseType: 'NON_CONSUMABLE', state: 'READY_TO_SUBMIT' } }] };
+const lines = await iap.run(iapApi);
+check(lines.some((l) => /voice\.steve.*READY_TO_SUBMIT \(ready to submit, but not sent/.test(l)), 'a purchase not yet sent to Apple is worded plainly: ' + lines.join(' | '));
+check(lines.filter((l) => /not in App Store Connect/.test(l)).length === 4, 'and the four missing team pass ids are named');
 await done();

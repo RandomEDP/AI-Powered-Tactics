@@ -41,6 +41,13 @@ jobs:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: node scripts/asc-text.mjs ${{ inputs.send && 'send' || 'show' }}
 
+      - name: Show the in-app purchases (read only)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: node scripts/asc-iap.mjs
+
       - name: ${{ inputs.send && 'Send the pictures to App Store Connect' || 'Show what would change in the pictures' }}
         if: inputs.pictures
         env:
