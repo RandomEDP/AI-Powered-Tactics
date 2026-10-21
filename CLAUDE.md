@@ -119,7 +119,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed; `0046` lets squad players run a game they started; `0047` unlocks a watched ad straight away; `0048` is any team size, 2 to 99 a side; `0049` is your own short clips). New ones are numbered on from 0050 |
+| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed; `0046` lets squad players run a game they started; `0047` unlocks a watched ad straight away; `0048` is any team size, 2 to 99 a side; `0049` is your own short clips; `0050` is the other side's scorers in friendlies). New ones are numbered on from 0051 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2, and your own short clips with `own: true`), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `gopro-link` (what's in a GoPro share link, for the highlights; an iPhone video comes from Photos), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests (four shards) with the build check alongside, and the TestFlight upload after the tests (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -768,6 +768,21 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   shows the game's highlights with a welcome (`guestCard`): get the app (`config.js` `appStore`, empty until the App Store
   page is live), make an account, join or start a team. The link uses the 6-character follow code, never the organiser code.
 - Test: `house.test.mjs`. Guests' names are covered on the privacy page.
+
+### Scorers for both sides in a friendly (`0050_friendly_scorers.sql`; Ethan, 21 October 2026)
+- "When playing a friendly game you should be able to select who scored for both teams." In a game among the squad and a
+  friendly outside any team, a goal for side B already offered side B's players on the phone; now the **watch** does too
+  (`oppPlayers` in the watch state, `MatchState.asksOppScorer`/`scorers(us:)`, Step `.oppScorer`/`.oppAssist`), and the
+  phone takes the scorer of a side-B goal from it (checked against the side).
+- **A side with nobody from Gaffer on it** (`canType`): a friendly against another team (the Friendly switch, not linked),
+  or a friendly whose opponents are only a name. Goal against asks "Who scored for <them>?" with a box for a name
+  (`typeBox`, `#pkName`, `.pktype`), then who set it up the same way. Each name is a guest of the game (`typedAdd`, ids
+  from `guestId`, which now also stays above the squad's pids): on `m.house.guests` with `house.side[id] = 'b'` in a game
+  among the squad, else on `m.guests`, kept with the result as `games.guests` (0050, returned by `get_team`). The same
+  name typed again is the same guest (`typedIds`). They show everywhere `nm()` does (`guestName` also reads `.guests`),
+  never in anyone's stats. A teammate's phone sends a typed name as `pn`/`an` (`queue_goal` keeps them, 30 letters) and
+  the gaffer's phone adds it. League games still log Goal against straight away. Test: `friendlyscorers.test.mjs`,
+  `db.test.mjs`, `tests/watch/main.swift` (28).
 
 ### Friendly games, outside any team (`0040_friendly_games.sql`; Ethan asked for 1.1, replacing "Just me")
 - Started from **Play a friendly** on Home (`#fdFriendly`), the welcome screen (`#wFriendly`) or the link under New game's

@@ -388,6 +388,8 @@ html.bigtext :is(.pickpop .chips, .modal.sheet) .pick { flex-wrap: wrap; row-gap
 .pno { font-style: normal; font-weight: 800; font-stretch: 75%; color: var(--on); min-width: 1.4em; font-variant-numeric: tabular-nums; }
 .pickpop .pick { min-height: 52px; font-size: var(--t-body); } .pick small { font-weight: 500; opacity: .6; font-size: var(--t-cap); }
 @media (prefers-reduced-motion: reduce) { .pickpop, .pickpop .picker { animation: none; } }
+.pktype { display: flex; flex-direction: column; gap: 8px; margin: 0; flex-shrink: 0; }
+.pktype .field { margin: 0; }
 .picker strong { font-size: var(--t-head); font-weight: 750; letter-spacing: -.01em; line-height: 1.2; }
 .pick { min-height: 46px; padding: 6px 16px; border-radius: 999px; border: 0; background: var(--on-soft); color: var(--ink); font-weight: 600; font-size: var(--t-body); overflow-wrap: anywhere; }
 .pick.benchp, .pick.alt, .picker.out .pick, .ed .pick { background: var(--fill); }
@@ -1909,7 +1911,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         return stripNull(o);
       });
       return stripNull({ id: g.id, opp: g.opp, friendly: g.friendly, us: g.us, them: g.them, half: g.half, koAt: g.ko_at, htAt: g.ht_at, h2At: g.h2_at,
-        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: sideKept(g.side), tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null, reel: g.reel || null, link: g.link || null });
+        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: sideKept(g.side), tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null, reel: g.reel || null, link: g.link || null, guests: g.guests || null });
     });
     s.match = d.live || null;
     return s;
@@ -1926,6 +1928,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var row = { id: r.id, team_id: tid, seq: i, opp: (r.opp || '').slice(0, 60), friendly: !!r.friendly, us: r.us | 0, them: r.them | 0, half: whole(r.half),
       ko_at: whole(r.koAt), ht_at: whole(r.htAt), h2_at: whole(r.h2At), ft_at: whole(r.ftAt), finished_at: whole(r.at),
       sync: typeof r.sync === 'number' && isFinite(r.sync) ? r.sync : null, pre: whole(r.pre), post: whole(r.post), cap: r.cap == null ? null : !!r.cap, lineups: r.lu || null, periods: r.periods === 1 ? 1 : null, side: sideKept(r.side), tournament_id: r.tour || null, tournament: r.tourName ? String(r.tourName).slice(0, 60) : null, house: r.house || null };
+    if (r.guests && r.guests.length) row.guests = r.guests; // (the other team's scorers typed in by name, in a friendly; only then, so every other game saves the same as before 0050)
     if (r.runBy) row.run_by = r.runBy; // (a game a player ran from their phone: theirs to save)
     if (r.link) row.link = r.link; // (only for a linked game, so every other game saves the same as before 0031)
     var players = Object.keys(r.per || {}).filter(function (k) { return whole(+k) === +k; }).map(function (k) { var x = r.per[k]; return { game_id: r.id, pid: +k, mins: x.mins | 0, goals: x.g | 0, assists: x.a | 0, scored_on: x.gf == null ? null : x.gf | 0, conceded: x.ga == null ? null : x.ga | 0 }; });
@@ -2095,7 +2098,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         if (m && m.events.some(function (e) { return !e.hl && typeof e.at === 'number' && Math.abs(e.at - when) < LOCK_MS; })) return;
         var ok = function (v) { return v == null || (typeof v === 'number' && m.squad.indexOf(v) >= 0); };
         if (m && m.phase !== 'ft' && typeof g.us === 'boolean' && ok(g.p) && ok(g.a)) {
-          goalPush(m, putEvent(m, stripNull({ on: onPitch(m, curSeg(m)), us: g.us, p: (g.us || m.house) && g.p != null ? g.p : null, a: (g.us || m.house) && g.a != null ? g.a : null, by: 'team', at: when,
+          var named = g.us || m.house || canType(m, 'b'), side = g.us ? 'a' : 'b', typed = function (v, n) { return v != null ? (m.house ? sideOf(m, v) === side : g.us || typedIds(m, 'b').indexOf(v) >= 0) ? v : null : typeof n === 'string' && canType(m, side) ? typedAdd(m, side, n) : null; }; // (their scorer typed in by name on a teammate's phone)
+          var gp = named ? typed(g.p, g.pn) : null, ga = named ? typed(g.a, g.an) : null;
+          goalPush(m, putEvent(m, stripNull({ on: onPitch(m, curSeg(m)), us: g.us, p: gp, a: ga, by: 'team', at: when,
             min: typeof g.min === 'number' ? Math.max(0, Math.min(m.half * (m.periods === 1 ? 1 : 2), Math.round(g.min))) : matchMin(m),
             x: typeof g.x === 'number' && g.x >= 1 ? Math.min(60, Math.round(g.x)) : null })));
         }
@@ -2153,6 +2158,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (!at && Date.now() < lockUntil) return;
     if (role === 'owner') { ev.at = at || Date.now(); putEvent(m, ev); save(); lockScore({ us: !!ev.us, mine: true, at: ev.at }); if (!hush && !quietGame(m)) { ping('goal', { us: !!ev.us }); goalPush(m, ev); } return; }
     if (!sb || !A.active) return;
+    ['p', 'a'].forEach(function (k) { if (ev[k] != null && (m.squad || []).indexOf(ev[k]) < 0) { if (guestName(ev[k])) ev[k + 'n'] = guestName(ev[k]); delete ev[k]; } }); // (a name typed in on this phone: the gaffer's phone adds it by name)
     var say = function (t) { goalMsg = t; clearTimeout(goalT); goalT = setTimeout(function () { goalMsg = ''; renderScore(); }, 8000); renderScore(); };
     ev.ts = at || Date.now(); say('Sending the goal…');
     try {
@@ -2167,7 +2173,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   }
   var goalMsg = '', goalT = null;
   function goalPush(m, ev) { // tell everyone who isn't watching that the score has changed
-    var t = tally(m), line = scoreLine(m, t.us, t.them), who = ev.p != null && (ev.us || m.house) ? nm(ev.p) + (ev.a != null ? ', set up by ' + nm(ev.a) : '') + '.' : 'Tap to watch along.';
+    var t = tally(m), line = scoreLine(m, t.us, t.them), who = ev.p != null ? nm(ev.p) + (ev.a != null ? ', set up by ' + nm(ev.a) : '') + '.' : 'Tap to watch along.';
     notifyTeam('goal', m.house ? 'Goal for ' + (ev.us ? m.house.a : m.house.b) + '! ' + line : ev.us ? 'Goal! ' + line : 'Goal for ' + m.opp + '. ' + line, who);
   }
   // ---- "game started": a pop-up for everyone with the team open, and a notification for everyone else
@@ -2375,7 +2381,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   var nm = function (id) { var p = P(id); return p ? (p.name.trim() || 'Player') : guestName(id) || 'Player'; };
   function guestName(id) { // someone from outside the squad who played in a game among the squad
     if (typeof id !== 'number' || id < 1000) return null;
-    var hs = [S.match && S.match.house, typeof D !== 'undefined' && D && D.house].concat((S.results || []).map(function (r) { return r.house; })), out = null;
+    var hs = [S.match && S.match.house, S.match, typeof D !== 'undefined' && D && D.house].concat((S.results || []).map(function (r) { return r.house; }), S.results || []), out = null; // (a house's guests, or the other side's scorers typed in for a friendly, `guests` on the game)
     hs.forEach(function (h) { ((h && h.guests) || []).forEach(function (g) { if (!out && g.id === id) out = g.name; }); });
     return out;
   }
@@ -6808,9 +6814,10 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   }
   function guestId() { // guests get ids of their own, never a squad player's
     var top = 1000;
-    [D && D.house, S.match && S.match.house].concat(S.results.map(function (r) { return r.house; })).forEach(function (h) {
+    [D && D.house, S.match && S.match.house, S.match].concat(S.results.map(function (r) { return r.house; }), S.results).forEach(function (h) {
       ((h && h.guests) || []).forEach(function (g) { if (g.id > top) top = g.id; });
     });
+    S.players.forEach(function (p) { if (p.id > top) top = p.id; }); // (never one of the squad's, however big it's got)
     return top + 1;
   }
   function houseNames(h) { var a = (h.a || '').trim() || HOUSE_A, b = (h.b || '').trim() || HOUSE_B; if (a.toLowerCase() === b.toLowerCase()) b += ' 2'; return { a: a, b: b }; }
@@ -7545,24 +7552,52 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   // ---- score
   // Who to offer first when a goal goes in: outfield players on the pitch, most prolific first (goals for the scorer, assists for the pass),
   // then the bench, and the keeper last of all.
-  function pickOrder(m, assist, side) { // (a game among the squad: only the side that scored, `side` 'a' or 'b')
-    var cb = curSeg(m), on = onPitch(m, cb), gk = m.segs[cb].gk, n = {};
+  function pickOrder(m, assist, side) { // (a game among the squad: only the side that scored, `side` 'a' or 'b'; any other game: 'b' is the other team)
+    var cb = curSeg(m), on = onPitch(m, cb), gk = m.segs[cb].gk, n = {}, typed = typedIds(m, side || 'a');
     if (m.house) on = on.filter(function (id) { return sideOf(m, id) === (side || 'a'); });
+    else if (side === 'b') on = []; // (the other team: only the names typed in for them)
     S.results.forEach(function (r) { Object.keys(r.per || {}).forEach(function (k) { n[k] = (n[k] || 0) + ((assist ? r.per[k].a : r.per[k].g) || 0); }); });
-    m.events.forEach(function (e) { var k = e.us || m.house ? (assist ? e.a : e.p) : null; if (k != null) n[k] = (n[k] || 0) + 1; });
+    m.events.forEach(function (e) { var k = e.us || m.house || side === 'b' ? (assist ? e.a : e.p) : null; if (k != null) n[k] = (n[k] || 0) + 1; });
     var best = function (a, b) { return (n[b] || 0) - (n[a] || 0); };
-    return on.filter(function (id) { return id !== gk; }).sort(best).concat(m.house ? [] : m.segs[cb].bench.slice().sort(best), on.filter(function (id) { return id === gk; }));
+    return on.filter(function (id) { return id !== gk; }).sort(best).concat(m.house || side === 'b' ? [] : m.segs[cb].bench.slice().sort(best), on.filter(function (id) { return id === gk; }), typed.sort(best));
+  }
+  // Friendlies (Ethan: "you should be able to select who scored for both teams"). A side with nobody from Gaffer on it (a
+  // friendly against a team that isn't on Gaffer, or a friendly's opponents who are only a name) gets its scorers typed in
+  // by name. Each name is kept with the game as a guest (`m.guests`, or the house's guests on that side), so it shows in the
+  // game's list, the highlights and the reels; it never counts in anyone's stats.
+  function canType(m, side) {
+    if (!m || m.solo || m.link || m.linkTo) return false; // (a linked game: the other team logs its own scorers)
+    if (m.house) { var cb = curSeg(m); return !onPitch(m, cb).some(function (id) { return sideOf(m, id) === side; }); }
+    return !!m.friendly && side === 'b';
+  }
+  function typedIds(m, side) { // the names typed in for a side so far
+    if (m.house) { var on = onPitch(m, curSeg(m)); return (m.house.guests || []).filter(function (g) { return sideOf(m, g.id) === side && on.indexOf(g.id) < 0; }).map(function (g) { return g.id; }); }
+    return side === 'b' ? (m.guests || []).map(function (g) { return g.id; }) : [];
+  }
+  function typedAdd(m, side, raw) { // a typed name: the same guest again if it's been typed before, else a new one. Null if it can't be used
+    var name = String(raw || '').trim().replace(/\s+/g, ' ').slice(0, 30); if (!name || rude(name, true) || !canType(m, side)) return null;
+    var had = typedIds(m, side).filter(function (id) { return nm(id).toLowerCase() === name.toLowerCase(); })[0]; if (had != null) return had;
+    var id = guestId();
+    if (m.house) { m.house.guests = (m.house.guests || []).concat({ id: id, name: name }); m.house.side[id] = side; }
+    else m.guests = (m.guests || []).concat({ id: id, name: name });
+    return id;
   }
   function hlCands(m) { var cb = curSeg(m), gk = m.segs[cb].gk; return onPitch(m, cb).filter(function (id) { return m.house || id !== gk; }); }
   function hlFind(m, at) { return m.events.filter(function (e) { return e.hl && e.k !== 'save' && e.at === at; })[0]; }
   function pickBtns(m, skip, assist, side) {
-    var cb = curSeg(m), on = onPitch(m, cb), gk = m.segs[cb].gk, html = '';
+    var cb = curSeg(m), on = onPitch(m, cb), gk = m.segs[cb].gk, html = '', typed = typedIds(m, side || 'a');
     pickOrder(m, assist, side).forEach(function (id) {
       if (id === skip) return;
-      var pl = P(id), no = pl && pl.num != null ? '<em class="pno" aria-hidden="true">' + esc(String(pl.num)) + '</em>' : '';
-      html += '<button class="pick' + (on.indexOf(id) < 0 ? ' benchp' : '') + '" type="button" data-p="' + id + '">' + no + esc(nm(id)) + (id === gk ? ' <small>keeper</small>' : on.indexOf(id) < 0 ? ' <small>bench</small>' : '') + '</button>';
+      var pl = P(id), no = pl && pl.num != null ? '<em class="pno" aria-hidden="true">' + esc(String(pl.num)) + '</em>' : '', off = on.indexOf(id) < 0 && typed.indexOf(id) < 0;
+      html += '<button class="pick' + (off ? ' benchp' : '') + '" type="button" data-p="' + id + '">' + no + esc(nm(id)) + (id === gk ? ' <small>keeper</small>' : off ? ' <small>bench</small>' : '') + '</button>';
     });
     return html;
+  }
+  function typeBox(m, side, assist) { // "Someone else": a name typed in for a side with nobody from Gaffer on it
+    if (!canType(m, side)) return '';
+    return '<form class="pktype" data-pktype="1"><label class="field" for="pkName">' + (typedIds(m, side).length ? 'Someone else' : 'Their name') +
+      '<input id="pkName" type="text" maxlength="30" autocomplete="off" autocapitalize="words" enterkeyhint="done" placeholder="' + (assist ? 'Who set it up' : 'Who scored') + '"></label>' +
+      '<button class="plain tint" type="submit">' + (assist ? 'Set up by them' : 'They scored') + '</button><p class="msg bad" id="pkMsg" hidden></p></form>';
   }
   function renderScore() {
     var m = S.match; if (!m) return;
@@ -7586,11 +7621,13 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (hlE) html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Whose highlight?"><div class="phead"><strong>Whose highlight?</strong><button class="link" type="button" data-cancel="1">Close</button></div><p class="note">Marked at ' + esc(ml(hlE)) + '. It goes under their name in Highlights.</p><div class="chips">' +
       hlCands(m).map(function (id) { return '<button class="pick' + (hlE.p === id ? ' on' : '') + '" type="button" data-p="' + id + '">' + esc(nm(id)) + (m.house ? ' <small>' + esc(sideOf(m, id) === 'b' ? m.opp : usOf(m)) + '</small>' : '') + '</button>'; }).join('') +
       '<button class="pick alt wide" type="button" data-p="x">No one</button></div></div></div>';
-    else if (pick && pick.step === 'scorer') html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Who scored?"><div class="phead"><strong>Who scored' + (m.house ? ' for ' + esc(pick.side === 'b' ? m.opp : usOf(m)) : '') + '?</strong><button class="link" type="button" data-cancel="1">Cancel</button></div><div class="chips">' + pickBtns(m, null, false, pick.side) +
-      '<button class="pick alt wide" type="button" data-p="x">Own goal or not sure</button></div></div></div>';
+    else if (pick && pick.step === 'scorer') html = '<div class="pickpop" data-cancel="1"><div class="picker" role="dialog" aria-label="Who scored?"><div class="phead"><strong>Who scored' + (m.house || pick.side === 'b' ? ' for ' + esc(pick.side === 'b' ? m.opp : usOf(m)) : '') + '?</strong><button class="link" type="button" data-cancel="1">Cancel</button></div><div class="chips">' + pickBtns(m, null, false, pick.side) +
+      '<button class="pick alt wide" type="button" data-p="x">' + (pick.side === 'b' && !m.house ? 'Not sure' : 'Own goal or not sure') + '</button></div>' + typeBox(m, pick.side, false) + '</div></div>';
     else if (pick) html = '<div class="pickpop"><div class="picker" role="dialog" aria-label="Who set it up?"><strong>Who set up ' + esc(nm(pick.p)) + '?</strong><div class="chips"><button class="pick alt wide" type="button" data-p="x">No assist</button>' + pickBtns(m, pick.p, true, pick.side) +
-      '</div></div></div>';
-    $('picker').innerHTML = html;
+      '</div>' + typeBox(m, pick.side, true) + '</div></div>';
+    var typing = $('pkName'), typed = typing ? typing.value : '', focused = typing && document.activeElement === typing, was = $('picker').getAttribute('data-was'), now = pick ? pick.step + ':' + pick.side : '';
+    $('picker').innerHTML = html; $('picker').setAttribute('data-was', now);
+    if (typed && was === now && $('pkName')) { $('pkName').value = typed; if (focused) $('pkName').focus(); } // (drawn again mid-typing, by a pull say: what's typed stays)
     html = '';
     var ll = linkLine(m); $('linkLine').hidden = !ll; $('linkLine').innerHTML = ll;
     var lv = !m.house && m.link ? linkView(m) : null, shown = m.events.slice(), lname = lv ? linkName(m) : '';
@@ -7604,7 +7641,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       }
       var setUp = e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '';
       var who = e.hl ? (e.k === 'save' ? '<span class="note">Save by ' + esc(nm(e.p)) + '</span>' : role === 'owner' && typeof e.at === 'number' && !m.solo ? '<button class="link hlwho" type="button" data-hlwho="' + e.at + '">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked: whose?') + '</button>'
-        : '<span class="note">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked') + '</span>') : !e.us ? (m.house && e.p != null ? '<span class="ag">' + esc(nm(e.p)) + ' for ' + esc(m.opp) + '</span>' + setUp : '<span class="ag">Goal for ' + esc(m.opp) + '</span>') :
+        : '<span class="note">' + (e.p != null ? 'Highlight: ' + esc(nm(e.p)) : 'Highlight marked') + '</span>') : !e.us ? (e.p != null ? '<span class="ag">' + esc(nm(e.p)) + ' for ' + esc(m.opp) + '</span>' + setUp : '<span class="ag">Goal for ' + esc(m.opp) + '</span>') :
         (e.p != null ? (m.house ? '' : 'Goal: ') + esc(nm(e.p)) + (m.house ? ' <span class="note">for ' + esc(usOf(m)) + '</span>' : '') : 'Goal for ' + esc(usOf(m))) + setUp;
       if (e.by) who += ' <span class="tagf">Logged by a teammate</span>';
       html += '<li><span class="t">' + ml(e) + '</span><span>' + who + '</span></li>';
@@ -7614,7 +7651,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   $('kickWatch').addEventListener('click', function () { $('kickPop').hidden = true; if (S.match) go('game'); else { wantGame = A.active; pull(); } });
   $('kickLater').addEventListener('click', function () { $('kickPop').hidden = true; });
   // A goal is timed from the tap on Goal (what the highlights are cut around), not from when the scorer has been picked
-  $('goalUs').addEventListener('click', function () { var m = S.match; if (m && (m.solo || (m.house && !pickOrder(m, false, 'a').length))) { pick = null; addGoal(stamped(m, { us: true })); return; } pick = { step: 'scorer', side: 'a', at: Date.now() }; renderScore(); }); // (just me, or nobody on that side: nobody to ask)
+  $('goalUs').addEventListener('click', function () { var m = S.match; if (m && (m.solo || (m.house && !pickOrder(m, false, 'a').length && !canType(m, 'a')))) { pick = null; addGoal(stamped(m, { us: true })); return; } pick = { step: 'scorer', side: 'a', at: Date.now() }; renderScore(); }); // (just me, or nobody on that side: nobody to ask)
   $('hlBtn').addEventListener('click', function () { // marked this second (the clip is cut around it), then: whose was it?
     var m = S.match; if (!m || role !== 'owner') return;
     var e = stamped(m, { hl: true, at: Date.now() }); while (hlFind(m, e.at)) e.at++;
@@ -7629,7 +7666,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var gk = m.segs[curSeg(m)].gk; if (gk == null) return;
     pick = null; m.events.push(stamped(m, { hl: true, k: 'save', p: gk, at: Date.now() })); save(); renderScore();
   });
-  $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; if (m.house && pickOrder(m, false, 'b').length) { pick = { step: 'scorer', side: 'b', at: Date.now() }; renderScore(); return; } pick = null; addGoal(stamped(m, { us: false })); });
+  $('goalThem').addEventListener('click', function () { var m = S.match; if (!m) return; if ((m.house && pickOrder(m, false, 'b').length) || canType(m, 'b')) { pick = { step: 'scorer', side: 'b', at: Date.now() }; renderScore(); return; } pick = null; addGoal(stamped(m, { us: false })); });
   $('undo').addEventListener('click', function () {
     var m = S.match; if (!m) return; pick = null;
     var e = m.events.pop();
@@ -7654,10 +7691,20 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var pb = e.target.closest('[data-p]'), v = pb ? pb.getAttribute('data-p') : null; if (v === null) return;
     var id = v === 'x' ? null : +v;
     if (pick.step === 'hl') { var he = hlFind(m, pick.at); pick = null; if (he) { if (id == null) delete he.p; else he.p = id; save(); } renderScore(); return; }
+    pickChose(m, id);
+  });
+  function pickChose(m, id) { // a scorer (then who set it up), or who set it up: the goal goes in
     if (pick.step === 'scorer' && id != null) { pick = { step: 'assist', p: id, side: pick.side, at: pick.at }; renderScore(); return; }
     var at = typeof pick.at === 'number' && pick.at <= Date.now() ? pick.at : null, o = { us: pick.side !== 'b', p: pick.step === 'scorer' ? null : pick.p, a: pick.step === 'scorer' ? null : id };
     var ev = at ? stampAt(m, o, at) : stamped(m, o);
     pick = null; addGoal(ev, at || undefined);
+  }
+  $('picker').addEventListener('submit', function (e) { // a name typed in for the other side
+    e.preventDefault(); var m = S.match, el = $('pkName'); if (!m || !pick || pick.step === 'hl' || !el) return;
+    var name = el.value.trim(), id = name ? typedAdd(m, pick.side, name) : null;
+    if (id == null) { $('pkMsg').hidden = false; $('pkMsg').textContent = name ? 'That name isn’t allowed. Try another.' : 'Type their name first.'; el.focus(); return; }
+    if (role === 'owner') save();
+    el.blur(); pickChose(m, id);
   });
 
   // ---- playing another team on Gaffer (0031; Ethan: "type in another team's name when starting a new game and select
@@ -8015,6 +8062,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var out = { live: true, gid: m.gid, acks: acks, due: subDue(m) >= 0, team: usOf(m), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
       color: /^#[0-9a-f]{6}$/i.test(S.color || '') ? S.color : DEFAULT_COLOR, // (the watch's Goal button wears the kit)
       players: pickOrder(m).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0, gk: id === m.segs[cb].gk }; }) };
+    if (m.house || canType(m, 'b')) out.oppPlayers = pickOrder(m, false, 'b').map(function (id) { return { id: id, name: nm(id), on: true }; }); // (a friendly: who can score for the other side, so the watch asks for theirs too)
     // A message to the watch can't be much over 64 KB. A big squad's changes (up to 99 a side) can come near it, so the
     // furthest-off changes are left out until it fits; the next ones are always sent, and the rest follow as the game goes on.
     while (out.changes.length > 3 && JSON.stringify(out).length > WATCH_BYTES) out.changes.pop();
@@ -8042,7 +8090,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     };
     if (ev.gid && m.gid && ev.gid !== m.gid) { seen(); return false; } // pressed during a different game
     var now = Date.now(), raw = typeof ev.at === 'number' && now - ev.at > -10000 && now - ev.at < 3 * 3600000 ? Math.round(ev.at) : now, when = Math.min(raw, now), at = PHASES[m.phase]; // the watch's clock can be a second or two ahead of this one
-    var ok = function (v) { return typeof v === 'number' && m.squad.indexOf(v) >= 0 ? v : null; };
+    var ok = function (v) { return typeof v === 'number' && (m.squad.indexOf(v) >= 0 || typedIds(m, ev.us ? 'a' : 'b').indexOf(v) >= 0) ? v : null; }; // (or a name typed in for the other side)
     hush = now - when > 90000; // something that happened a while ago is recorded quietly: no beeps, no "Goal!" sent to the team long after the event
     try { return watchDo(ev, m, seen, raw, when, at, ok); } finally { hush = false; }
   }
@@ -8073,7 +8121,8 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     } else if (ev.type === 'goal') {
       seen(); pick = null;
       if (m.events.some(function (e) { return !e.hl && typeof e.at === 'number' && Math.abs(e.at - raw) < LOCK_MS; })) return false; // the same goal, already logged on another phone
-      addGoal(stampAt(m, stripNull({ us: !!ev.us, p: ev.us ? ok(ev.p) : null, a: ev.us ? ok(ev.a) : null }), when), raw);
+      var mayName = ev.us || m.house || canType(m, 'b'), sideOk = function (v) { v = ok(v); return v != null && (m.house ? sideOf(m, v) === (ev.us ? 'a' : 'b') : ev.us || typedIds(m, 'b').indexOf(v) >= 0) ? v : null; }; // (the other side's scorer too, in a friendly)
+      addGoal(stampAt(m, stripNull({ us: !!ev.us, p: mayName ? sideOk(ev.p) : null, a: mayName ? sideOk(ev.a) : null }), when), raw);
     } else if (ev.type === 'hl') {
       seen();
       var hp = ev.pick ? ok(ev.p) : myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null;
@@ -8254,7 +8303,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     else all.forEach(function (e) { if (e.hl || !e.on) return; e.on.forEach(function (id) { if (per[id]) per[id][e.us ? 'gf' : 'ga']++; }); });
     var ev = all.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; if (e.on) o.on = e.on; if (e.lk) o.lk = true; } return o; });
     var lu = m.segs.filter(function (s) { return s.to > s.from; }).map(function (s) { return { h: s.h, f: s.from, t: s.to, on: (s.gk != null ? [s.gk] : []).concat(s.on) }; });
-    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.house ? null : sideKept(m.pitch), tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now(), house: m.house ? JSON.parse(JSON.stringify(m.house)) : null, link: m.link || null });
+    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.house ? null : sideKept(m.pitch), tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now(), house: m.house ? JSON.parse(JSON.stringify(m.house)) : null, link: m.link || null, guests: !m.house && m.guests && m.guests.length ? m.guests.slice() : null });
     if (!m.house) S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
     if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
     var played = m.fx ? RV.list.filter(function (c) { return c.fixture === m.fx; })[0] : null; // a game against another team on the app: tell them our score
@@ -9263,7 +9312,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var lag = liveLag(), g = seenGame(m, Date.now() - lag);
     sc.hidden = false; sc.innerHTML = esc(teamShort()) + ' ' + g.us + '–' + g.them + ' ' + esc(m.opp) + ' <small>' + esc(g.clock) + '</small>';
     $('lvEvents').innerHTML = g.goals.slice().reverse().map(function (e) {
-      var who = !e.us ? '<span class="ag">Goal for ' + esc(m.opp) + '</span>' : (e.p != null ? esc(nm(e.p)) : 'Goal for ' + esc(teamShort())) + (e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '');
+      var who = !e.us ? '<span class="ag">' + (e.p != null ? esc(nm(e.p)) + ' for ' : 'Goal for ') + esc(m.opp) + '</span>' : (e.p != null ? esc(nm(e.p)) : 'Goal for ' + esc(teamShort())) + (e.a != null ? ' <span class="note">(set up by ' + esc(nm(e.a)) + ')</span>' : '');
       return '<li><span class="t">' + ml(e) + '</span><span>' + who + '</span></li>';
     }).join('');
     $('lvNote').textContent = 'The score is held back about ' + Math.round(lag / 1000) + ' seconds to match the picture, so it never gives a goal away.';

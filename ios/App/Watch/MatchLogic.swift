@@ -47,6 +47,7 @@ struct MatchState: Codable, Equatable {
     var lockUntil: Double = 0
     var changes: [Change] = []
     var players: [Player] = []
+    var oppPlayers: [Player] = [] // a friendly: who can score for the other side (their squad, or names typed in on the phone); empty: their goals log straight away
     var color: String = ""      // the team's kit colour, "#rrggbb", worn by Goal for us; empty from a phone on an older build
 
     init(from decoder: Decoder) throws {
@@ -68,6 +69,7 @@ struct MatchState: Codable, Equatable {
         lockUntil = (try? c.decode(Double.self, forKey: .lockUntil)) ?? 0
         changes = ((try? c.decode([Change].self, forKey: .changes)) ?? []).filter { ($0.h == 0 || $0.h == 1) && $0.from >= 0 && $0.from <= 200 }
         players = (try? c.decode([Player].self, forKey: .players)) ?? []
+        oppPlayers = (try? c.decode([Player].self, forKey: .oppPlayers)) ?? []
         let hex = (try? c.decode(String.self, forKey: .color)) ?? ""
         color = hex.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil ? hex : ""
     }
@@ -97,6 +99,11 @@ struct MatchState: Codable, Equatable {
     var highlightPlayers: [Player] { players.filter { $0.on && !$0.gk } }
     /// A game of just one person ("Just me" on the phone) has no players: Goal logs straight away, nobody to ask who scored.
     var asksScorer: Bool { !players.isEmpty }
+    /// A friendly (Ethan: "select who scored for both teams"): the other side's goal asks who scored as well, when the phone
+    /// has sent anyone for them.
+    var asksOppScorer: Bool { !oppPlayers.isEmpty }
+    /// Who can be picked for a goal for us (`us`) or for the other side.
+    func scorers(us: Bool) -> [Player] { us ? players : oppPlayers }
     /// Before kick-off: who starts on the bench (Ethan asked for it to be shown at the start of a game).
     var benchNames: [String] { players.filter { !$0.on && !$0.gk }.map { $0.name } }
     /// The next change is in this half and at most 30 seconds away: it's shown early, and can be made early (the ref
