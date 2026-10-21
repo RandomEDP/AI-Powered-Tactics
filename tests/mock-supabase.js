@@ -95,7 +95,7 @@
       d.friendly_invites = d.friendly_invites || [];
       const blockedU = (x, y) => (d.blocks || []).some((b) => (b.blocker === x && b.blocked === y) || (b.blocker === y && b.blocked === x));
       if (name === 'friendly_people') {
-        const list = Array.isArray(a.p_people) ? a.p_people : []; if (list.length > 40) return fail('Up to 40 people in a friendly', '22023');
+        const list = Array.isArray(a.p_people) ? a.p_people : []; if (list.length > 198) return fail('Up to 99 a side in a friendly', '22023');
         const mine = (d.profiles || []).find((p) => p.user_id === uid()) || {};
         let t = d.teams.find((x) => x.personal && x.created_by === uid());
         if (!t) { t = { id: crypto.randomUUID(), code: code(6), organiser_code: code(10), name: ((String(mine.name || '').trim().split(' ')[0]) || mine.username || 'My') + '\'s friendlies', short: 'Friendlies', color: '#1f6b4a', crest: null, settings: {}, followers_can_score: true, listed: false, personal: true, created_by: uid() };
@@ -509,7 +509,7 @@
       d.riv = d.riv || {}; d.chal = d.chal || [];
       const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok(null);
       const org = isOrg(d, t.id), inTeam = org || (!!uid() && d.players.some((p) => p.team_id === t.id && p.user_id === uid())), r = d.riv[t.id] || {};
-      const terms = (p) => ({ side: +p.side === 7 ? 7 : 5, half: Math.max(1, Math.min(60, Math.round(+p.half) || 15)), periods: +p.periods === 1 ? 1 : 2, subs: Math.max(0, Math.min(7, Math.round(+p.subs) || 0)), ko_at: +p.ko_at, location: String(p.location || '').slice(0, 120), note: String(p.note || '').slice(0, 200) });
+      const sd = (p) => Math.max(2, Math.min(99, Math.round(+p.side) || 5)), terms = (p) => ({ side: sd(p), half: Math.max(1, Math.min(60, Math.round(+p.half) || 15)), periods: +p.periods === 1 ? 1 : 2, subs: Math.max(0, Math.min(99 - sd(p), Math.round(+p.subs) || 0)), ko_at: +p.ko_at, location: String(p.location || '').slice(0, 120), note: String(p.note || '').slice(0, 200) });
       if (name === 'rival_home') return ok({ home: r.home || '', set: r.lat != null, elo: r.elo || 1000, games: r.games || 0 });
       if (name === 'set_home') { if (!org) return ok(false); d.riv[t.id] = Object.assign({ elo: 1000, games: 0 }, r, { home: a.p_name, lat: a.p_lat, lng: a.p_lng }); store(d); return ok(true); }
       if (!inTeam) return ok(null);

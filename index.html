@@ -922,6 +922,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 .saybtn { align-self: flex-start; }
 .squad .sqrow { display: flex; align-items: baseline; justify-content: space-between; font-weight: 650; }
 .squad .sqrow b { font-size: var(--t-title); font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.squad .sqstep { display: flex; align-items: center; gap: 10px; }
+.squad .sqstep button { min-width: 44px; min-height: 44px; padding: 0; font-size: var(--t-head); font-weight: 700; }
+.squad .sqstep b { min-width: 2ch; text-align: center; }
 .squad input[type=range], #postPop input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; border-radius: 7px; margin: 8px 0 0; background: var(--fill); }
 .squad input[type=range]::-webkit-slider-thumb, #postPop input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; border-radius: 50%; background: var(--on); border: 3px solid var(--surface); box-shadow: 0 1px 4px rgba(0, 0, 0, .3); cursor: pointer; }
 .squad input[type=range]::-moz-range-thumb, #postPop input[type=range]::-moz-range-thumb { width: 28px; height: 28px; border-radius: 50%; background: var(--on); border: 3px solid var(--surface); cursor: pointer; }
@@ -1434,7 +1437,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   <div class="card fmtcard" id="pFmt"></div>
   <div class="card squad"><h2>Squad size</h2>
     <div class="sqrow"><span>Keeper</span><b>1</b></div>
-    <div class="sqrow"><label for="pMax">Outfield players</label><b id="pMaxN">7</b></div>
+    <div class="sqrow"><label for="pMax">Outfield players</label><span class="sqstep"><button class="plain" type="button" id="pLess" aria-label="One fewer">&minus;</button><b id="pMaxN">7</b><button class="plain" type="button" id="pMore" aria-label="One more">+</button></span></div>
     <input id="pMax" type="range" min="4" max="7" step="1" value="7" aria-describedby="pMaxNote">
     <div class="sqticks" id="pTicks" aria-hidden="true"></div>
     <p class="note" id="pMaxNote"></p></div>
@@ -1703,7 +1706,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     <div class="setup">
       <label for="setHalf">Half (min)<input id="setHalf" type="number" inputmode="numeric" min="1" max="60"></label>
       <label for="setSub">Sub every (min)<input id="setSub" type="number" inputmode="numeric" min="1" max="60"></label>
-      <label for="setPitch">On pitch<input id="setPitch" type="number" inputmode="numeric" min="1" max="15"></label>
+      <label for="setPitch">On pitch<input id="setPitch" type="number" inputmode="numeric" min="1" max="99"></label>
     </div>
     <p class="note">On pitch includes the keeper. Changes apply from the next game you start.</p>
   </section>
@@ -1758,6 +1761,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   var CFG = window.APT_CONFIG || {}, sb = null;
   // The app's full name, as on the App Store and the reels' end card. Change it here (and the fallback in ReelGraphics.swift).
   var APP_NAME = 'Gaffer: Small-Sided Football';
+  var TEAM_MAX = 99, SIDE_MIN = 2, SIDE_QUICK = [5, 7, 11]; // any number a side from 2 to 99, at most 99 from a team in a game (see game formats)
+  var PITCH_DOTS = 11; // the most starters drawn on a poll's pitch (11-a-side); more are listed
+  var WATCH_BYTES = 48000; // the most sent to the watch in one go (its limit is about 64 KB)
   try { if (window.supabase && CFG.url && CFG.key) sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }); } catch (e) { sb = null; }
   var SESSION = Math.random().toString(36).slice(2, 10); // tells this device's own broadcasts apart from others'
   var me = null; // the signed-in gaffer account, if any
@@ -1903,7 +1909,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         return stripNull(o);
       });
       return stripNull({ id: g.id, opp: g.opp, friendly: g.friendly, us: g.us, them: g.them, half: g.half, koAt: g.ko_at, htAt: g.ht_at, h2At: g.h2_at,
-        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: g.side === 7 ? 7 : null, tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null, reel: g.reel || null, link: g.link || null });
+        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: sideKept(g.side), tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null, reel: g.reel || null, link: g.link || null });
     });
     s.match = d.live || null;
     return s;
@@ -1919,7 +1925,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   function gameParts(r, i, tid) {
     var row = { id: r.id, team_id: tid, seq: i, opp: (r.opp || '').slice(0, 60), friendly: !!r.friendly, us: r.us | 0, them: r.them | 0, half: whole(r.half),
       ko_at: whole(r.koAt), ht_at: whole(r.htAt), h2_at: whole(r.h2At), ft_at: whole(r.ftAt), finished_at: whole(r.at),
-      sync: typeof r.sync === 'number' && isFinite(r.sync) ? r.sync : null, pre: whole(r.pre), post: whole(r.post), cap: r.cap == null ? null : !!r.cap, lineups: r.lu || null, periods: r.periods === 1 ? 1 : null, side: r.side === 7 ? 7 : null, tournament_id: r.tour || null, tournament: r.tourName ? String(r.tourName).slice(0, 60) : null, house: r.house || null };
+      sync: typeof r.sync === 'number' && isFinite(r.sync) ? r.sync : null, pre: whole(r.pre), post: whole(r.post), cap: r.cap == null ? null : !!r.cap, lineups: r.lu || null, periods: r.periods === 1 ? 1 : null, side: sideKept(r.side), tournament_id: r.tour || null, tournament: r.tourName ? String(r.tourName).slice(0, 60) : null, house: r.house || null };
     if (r.runBy) row.run_by = r.runBy; // (a game a player ran from their phone: theirs to save)
     if (r.link) row.link = r.link; // (only for a linked game, so every other game saves the same as before 0031)
     var players = Object.keys(r.per || {}).filter(function (k) { return whole(+k) === +k; }).map(function (k) { var x = r.per[k]; return { game_id: r.id, pid: +k, mins: x.mins | 0, goals: x.g | 0, assists: x.a | 0, scored_on: x.gf == null ? null : x.gf | 0, conceded: x.ga == null ? null : x.ga | 0 }; });
@@ -4091,7 +4097,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var name = $('tName').value.trim();
     if (!name) { tSay('Give the team a name.'); $('tName').focus(); return; }
     if (rude(name, true) || rude($('tShort').value, true)) { tSay('That team name has a word Gaffer doesn’t allow. Please change it.'); return; }
-    var names = $('tPlayers').value.split('\n').map(function (x) { return x.trim().slice(0, 24); }).filter(Boolean).slice(0, 40);
+    var names = $('tPlayers').value.split('\n').map(function (x) { return x.trim().slice(0, 24); }).filter(Boolean).slice(0, 200); // (big squads: up to 99 a side)
     if (names.some(function (n) { return rude(n); })) { tSay('One of the player names has a word Gaffer doesn’t allow. Please change it.'); return; }
     if (!names.length) for (var i = 1; i <= 8; i++) names.push('Player ' + i);
     var t = blankTeam();
@@ -4186,7 +4192,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var o = { gk: null, ins: [], no: [], none: [] }, seen = {};
     (f.votes || []).forEach(function (v) { if (!P(v.pid)) return; seen[v.pid] = 1; if (v.choice === 'gk') o.gk = v.pid; else if (v.choice === 'in') o.ins.push(v.pid); else o.no.push(v.pid); });
     S.players.forEach(function (p) { if (!seen[p.id]) o.none.push(p.id); });
-    var bench = f.lineup && Array.isArray(f.lineup.bench) ? f.lineup.bench : null, spots = Math.max(1, (f.side === 7 ? 7 : 5) - 1);
+    var bench = f.lineup && Array.isArray(f.lineup.bench) ? f.lineup.bench : null, spots = Math.max(1, (sideOk(f.side) || 5) - 1);
     o.bench = o.ins.filter(function (id, i) { return bench ? bench.indexOf(id) >= 0 : i >= spots; });
     o.start = o.ins.filter(function (id) { return o.bench.indexOf(id) < 0; });
     return o;
@@ -4240,7 +4246,11 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         '<button type="button" class="no" data-vote="no" aria-pressed="' + (c === 'no') + '">I’m out</button></div>';
     } else html += '<p class="note">Choose your player below to answer.</p>';
     if (fxMsg) html += '<p class="msg">' + esc(fxMsg) + '</p>';
-    if (s.gk != null || s.start.length) {
+    if (s.start.length + (s.gk != null ? 1 : 0) > PITCH_DOTS) { // too many to read as dots on a little pitch: who's starting, as a list
+      html += '<div class="swap-rows"><div class="tag on">Starting</div><div class="chips">' + (s.gk != null ? '<span class="chip on">' + plink(s.gk, esc(nm(s.gk))) + ' (GK)</span>' : '') +
+        s.start.map(function (id) { return own ? '<button type="button" class="chip on tapchip" data-bench="' + id + '">' + esc(nm(id)) + '</button>' : '<span class="chip on">' + plink(id, esc(nm(id))) + '</span>'; }).join('') + '</div></div>';
+      if (own) html += '<p class="note">Tap a player to send them to the bench.</p>';
+    } else if (s.gk != null || s.start.length) {
       html += '<div class="pitchmap' + (own ? ' edit' : '') + '" data-fx="' + f.id + '"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width=".6" opacity=".28" vector-effect="non-scaling-stroke">' +
         '<rect x="3" y="3" width="94" height="94" rx="2"/><line x1="3" y1="50" x2="97" y2="50"/><ellipse cx="50" cy="50" rx="14" ry="10.5"/><rect x="30" y="85" width="40" height="12"/><rect x="30" y="3" width="40" height="12"/></g></svg>' +
         Object.keys(spots).map(function (id) { id = +id; return '<button type="button" class="dot' + (id === s.gk ? ' gk' : '') + (id === myPid ? ' me' : '') + '" data-dot="' + id + '" style="left:' + spots[id][0] + '%;top:' + spots[id][1] + '%"' + (own ? '' : ' tabindex="-1"') + '><i>' + esc(tag(id)) + '</i><span>' + esc(nm(id)) + '</span></button>'; }).join('') + '</div>';
@@ -4340,6 +4350,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     else if (act === 'endtour' && gafferHere() && sb) { sb.from('fixtures').update({ status: 'done' }).eq('id', f.id).then(function () { ping('changed'); pull(); }); }
     else if (vote && who !== null && gafferHere()) castVote(f, vote, +who);
     else if (vote && myPid != null) castVote(f, vote, null);
+    else if (b.getAttribute('data-bench') !== null && gafferHere()) { var s2 = fxSides(f), bid = +b.getAttribute('data-bench'); f.lineup = f.lineup || {}; f.lineup.bench = s2.bench.concat([bid]); renderFixture(); saveLineup(f); } // the list of starters (more than fit on the pitch drawing)
     else if (un !== null && gafferHere()) { var s = fxSides(f); f.lineup = f.lineup || {}; f.lineup.bench = s.bench.filter(function (id) { return id !== +un; }); renderFixture(); saveLineup(f); }
   }
   // gaffers drag players round the pitch; a tap without a drag sends that player to the bench
@@ -4456,15 +4467,15 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     $('pollTitle').textContent = f ? 'Edit poll' : 'New poll';
     $('pOpp').value = f ? f.opp : ''; $('pDate').value = when.getFullYear() + '-' + p2(when.getMonth() + 1) + '-' + p2(when.getDate()); $('pTime').value = p2(when.getHours()) + ':' + p2(when.getMinutes());
     $('pLoc').value = f ? f.location : (d0.location || ''); $('pCost').value = f ? f.cost : (d0.cost || '');
-    pSquad(f ? f.max_outfield : (FM.p.side === 5 && d0.max ? d0.max : null)); pKindShow(); fmtShow('p');
+    pSquad(f ? f.max_outfield : (d0.max && FM.p.side === (d0.side || 5) ? d0.max : null)); pKindShow(); fmtShow('p');
     $('pOppList').innerHTML = S.results.filter(function (r) { return !r.house; }).map(function (r) { return r.opp; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
     $('pCancel').hidden = !f; $('pMsg').textContent = ''; $('pSave').disabled = false; 
   }
   var pKind = 'game';
   function pSquad(want) { // the slider runs over what the team size allows
-    var lim = SIDE[FM.p.side], el = $('pMax'), t = '';
-    el.min = lim.minOut; el.max = lim.maxOut; el.value = Math.max(lim.minOut, Math.min(lim.maxOut, want == null ? lim.maxOut : want | 0));
-    for (var i = lim.minOut; i <= lim.maxOut; i++) t += '<span>' + i + '</span>';
+    var lim = sideLim(FM.p.side), el = $('pMax'), t = '', top = Math.min(lim.maxOut, Math.max(lim.defOut, want | 0)), n = want == null ? lim.defOut : want | 0;
+    el.min = lim.minOut; el.max = top; el.value = Math.max(lim.minOut, Math.min(top, n));
+    if (top - lim.minOut < 12) for (var i = lim.minOut; i <= top; i++) t += '<span>' + i + '</span>'; // (numbers under the slider only while they fit)
     $('pTicks').innerHTML = t; pMaxShow();
   }
   function pKindShow() {
@@ -4479,28 +4490,30 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     pKind = k; FM.p = fmtDefault(pKind, FM.p.side); pKindShow(); fmtShow('p'); pMaxShow();
   });
   fmtBind('p', function (what, side) {
-    if (what === 'side') { FM.p = fmtDefault(pKind, side); pSquad(null); }
+    if (what === 'side') { FM.p = fmtDefault(pKind, side); var d0 = S.poll || {}; pSquad(d0.max && side === (d0.side || 5) ? d0.max : null); }
     fmtShow('p'); pMaxShow();
   });
   function pMaxShow() {
     var n = +$('pMax').value, subs = Math.max(0, n - (FM.p.side - 1));
-    $('pMaxN').textContent = n;
+    $('pMaxN').textContent = n; $('pLess').disabled = n <= +$('pMax').min; $('pMore').disabled = n >= sideLim(FM.p.side).maxOut;
     $('pMaxNote').textContent = (n + 1) + ' in the squad: one keeper and ' + n + ' outfield, so ' + (subs ? subs + (subs === 1 ? ' sub.' : ' subs.') : 'no subs.');
   }
   $('pMax').addEventListener('input', pMaxShow);
+  $('pLess').addEventListener('click', function () { var el = $('pMax'); el.value = Math.max(+el.min, +el.value - 1); pMaxShow(); });
+  $('pMore').addEventListener('click', function () { var el = $('pMax'), n = +el.value + 1; if (n > sideLim(FM.p.side).maxOut) return; if (n > +el.max) pSquad(n); else { el.value = n; pMaxShow(); } }); // past the slider's end: it grows, up to 98 outfield
   $('pSave').addEventListener('click', async function () {
     if (!gafferHere() || !sb || !teamId) return;
     var opp = $('pOpp').value.trim(), dt = new Date($('pDate').value + 'T' + ($('pTime').value || '19:00'));
     if (!opp) { $('pMsg').textContent = pKind === 'tournament' ? 'Give the tournament a name.' : 'Enter who you’re playing.'; $('pOpp').focus(); return; }
-    var PF = fmtFix(FM.p), lim = SIDE[PF.side];
+    var PF = fmtFix(FM.p), lim = sideLim(PF.side);
     if (isNaN(dt.getTime())) { $('pMsg').textContent = 'Pick the date and kick-off time.'; return; }
-    var row = { opp: opp.slice(0, 60), ko_at: dt.getTime(), location: $('pLoc').value.trim().slice(0, 120), cost: $('pCost').value.trim().slice(0, 40), max_outfield: Math.max(lim.minOut, Math.min(lim.maxOut, +$('pMax').value | 0 || lim.maxOut)), side: PF.side, kind: pKind, fmt: { half: PF.half, sub: PF.sub, periods: PF.periods } };
+    var row = { opp: opp.slice(0, 60), ko_at: dt.getTime(), location: $('pLoc').value.trim().slice(0, 120), cost: $('pCost').value.trim().slice(0, 40), max_outfield: Math.max(lim.minOut, Math.min(lim.maxOut, +$('pMax').value | 0 || lim.defOut)), side: PF.side, kind: pKind, fmt: { half: PF.half, sub: PF.sub, periods: PF.periods } };
     $('pSave').disabled = true;
     try {
       if (fxEdit) await q(sb.from('fixtures').update(row).eq('id', fxEdit.id));
       else await q(sb.from('fixtures').insert(Object.assign({ team_id: teamId }, row)));
       fmtRemember(pKind, PF);
-      S.poll = { location: row.location, cost: row.cost, max: PF.side === 5 ? row.max_outfield : ((S.poll || {}).max || null), time: $('pTime').value || '19:00', dow: dt.getDay() }; // the defaults for the next poll
+      S.poll = { location: row.location, cost: row.cost, max: row.max_outfield, side: PF.side, time: $('pTime').value || '19:00', dow: dt.getDay() }; // the defaults for the next poll
       var isNew = !fxEdit;
       save(); ping('changed'); await pull(); go('games');
       if (isNew) notifyTeam('poll', row.kind === 'tournament' ? teamName() + ': ' + row.opp : teamName() + ' v ' + row.opp, (row.kind === 'tournament' ? 'New tournament on ' : 'New game on ') + whenText(row.ko_at) + '. Are you in?');
@@ -6663,10 +6676,14 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     });
     return t;
   }
-  // ---- game formats: 5-a-side or 7-a-side, how long, and whether there's a half time
-  var SIDE = { 5: { max: 8, minOut: 4, maxOut: 7 }, 7: { max: 10, minOut: 6, maxOut: 9 } };
+  // ---- game formats: any number a side from 2 to 99 (5-a-side to start), how long, and whether there's a half time.
+  // At most 99 from one team in a game, on the pitch and on the bench together (Ethan, October 2026). A new game still
+  // picks the side plus 3 to start with, as it always has; the gaffer can put more in.
+  function sideOk(v) { v = Math.round(+v); return v >= SIDE_MIN && v <= TEAM_MAX ? v : null; }
+  function sideLim(side) { side = sideOk(side) || 5; return { pick: Math.min(TEAM_MAX, side + 3), minOut: side - 1, defOut: Math.min(TEAM_MAX - 1, side + 2), maxOut: TEAM_MAX - 1 }; }
+  function sideKept(v) { var n = sideOk(v); return n && n !== 5 ? n : null; } // what a result keeps as its side: nothing when it's the usual 5
   function fmtFix(f) {
-    var side = +f.side === 7 ? 7 : 5, half = Math.max(1, Math.min(60, Math.round(+f.half) || 10)), sub = Math.max(1, Math.min(half, Math.round(+f.sub) || 5));
+    var side = sideOk(f.side) || 5, half = Math.max(1, Math.min(60, Math.round(+f.half) || 10)), sub = Math.max(1, Math.min(half, Math.round(+f.sub) || 5));
     return { side: side, half: half, sub: sub, periods: +f.periods === 1 ? 1 : 2 };
   }
   function fmtDefault(kind, side) { // what was used last time for this kind of game, or a sensible start
@@ -6675,10 +6692,11 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   }
   function fmtRemember(kind, f) { S.fmt = S.fmt || {}; S.fmt[(kind === 'tournament' ? 't' : 'g') + f.side] = { half: f.half, sub: f.sub, periods: f.periods }; S.fmt.side = f.side; }
   function fmtText(f) { return f.side + '-a-side, ' + (f.periods === 2 ? '2 × ' + f.half + ' min' : f.half + ' min, no half time'); }
-  var defSide = function () { return (S.fmt && S.fmt.side) === 7 || (!(S.fmt && S.fmt.side) && S.pitch >= 7) ? 7 : 5; };
+  var defSide = function () { return sideOk(S.fmt && S.fmt.side) || (S.pitch >= 7 ? 7 : 5); };
   var FM = {}; // the format being edited on the poll form ('p') and the new game screen ('g')
   function fmtCard(x) {
-    return '<h2>Format</h2><div class="toggle" role="group" aria-label="Team size"><button type="button" data-side="5">5-a-side</button><button type="button" data-side="7">7-a-side</button></div>' +
+    return '<h2>Format</h2><div class="toggle" role="group" aria-label="Team size">' + SIDE_QUICK.map(function (n) { return '<button type="button" data-side="' + n + '">' + n + '-a-side</button>'; }).join('') + '</div>' +
+      '<label class="field" for="' + x + 'Side">Players a side, keeper included<input id="' + x + 'Side" type="number" inputmode="numeric" min="' + SIDE_MIN + '" max="' + TEAM_MAX + '"></label>' +
       '<div class="two"><label class="field" for="' + x + 'Half"><span id="' + x + 'HalfLbl">Minutes each half</span><input id="' + x + 'Half" type="number" inputmode="numeric" min="1" max="60"></label>' +
       '<label class="field" for="' + x + 'Sub">Sub every (min)<input id="' + x + 'Sub" type="number" inputmode="numeric" min="1" max="60"></label></div>' +
       '<label class="check" for="' + x + 'Two"><input id="' + x + 'Two" type="checkbox"><span>Half time <small>(untick for one period straight through)</small></span></label>' +
@@ -6687,25 +6705,29 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   function fmtShow(x) {
     var f = FM[x], card = $(x + 'Fmt'); if (!f) return;
     Array.prototype.forEach.call(card.querySelectorAll('[data-side]'), function (b) { b.setAttribute('aria-pressed', +b.getAttribute('data-side') === f.side); });
+    if (document.activeElement !== $(x + 'Side')) $(x + 'Side').value = f.side;
     if (document.activeElement !== $(x + 'Half')) $(x + 'Half').value = f.half;
     if (document.activeElement !== $(x + 'Sub')) $(x + 'Sub').value = f.sub;
     $(x + 'Two').checked = f.periods === 2; $(x + 'HalfLbl').textContent = f.periods === 2 ? 'Minutes each half' : 'Game length (min)';
-    $(x + 'FmtNote').textContent = fmtText(f) + ', ' + (f.side - 1) + ' outfield and a keeper on the pitch. Squad of ' + f.side + ' to ' + SIDE[f.side].max + '.';
+    $(x + 'FmtNote').textContent = fmtText(f) + ', ' + (f.side - 1) + ' outfield and a keeper on the pitch. Up to ' + TEAM_MAX + ' in the squad for a game.';
   }
   function fmtBind(x, changed) {
     var card = $(x + 'Fmt'); card.innerHTML = fmtCard(x);
     card.addEventListener('click', function (e) { var sd = e.target.getAttribute('data-side'); if (sd === null || !FM[x] || +sd === FM[x].side) return; changed('side', +sd); });
+    $(x + 'Side').addEventListener('input', function (e) { var n = sideOk(e.target.value); if (n && FM[x] && n !== FM[x].side && String(n) === e.target.value.trim()) changed('side', n); });
+    $(x + 'Side').addEventListener('blur', function (e) { var v = Math.round(+e.target.value); if (FM[x] && v >= 1 && !sideOk(v)) { var n = Math.max(SIDE_MIN, Math.min(TEAM_MAX, v)); if (n !== FM[x].side) changed('side', n); } fmtShow(x); });
     [x + 'Half', x + 'Sub'].forEach(function (id) { $(id).addEventListener('input', function () { var f = FM[x]; if (!f) return; var h = +$(x + 'Half').value, sb2 = +$(x + 'Sub').value; if (h >= 1) f.half = Math.min(60, Math.round(h)); if (sb2 >= 1) f.sub = Math.round(sb2); f.sub = Math.max(1, Math.min(f.half, f.sub)); changed('len'); }); });
     [x + 'Half', x + 'Sub'].forEach(function (id) { $(id).addEventListener('blur', function () { fmtShow(x); }); });
     $(x + 'Two').addEventListener('change', function (e) { if (FM[x]) { FM[x].periods = e.target.checked ? 2 : 1; changed('len'); } });
   }
   var D = null;
-  var MAXP = function () { return SIDE[D && D.fmt ? D.fmt.side : 5].max; };
+  var MAXP = function () { return TEAM_MAX; }; // the most from the team in one game
+  var PICKP = function () { return sideLim(D && D.fmt ? D.fmt.side : 5).pick; }; // how many a new game puts in to start with
   function playing() { return S.players.filter(function (p) { return D.sel[p.id] !== 'out'; }).length; }
   function newDraft() {
     D = { keeper: P(S.lastKeeper) ? S.lastKeeper : null, sel: {}, manualBench: false, fmt: fmtDefault('game', defSide()), tour: null, kind: 'opp', house: null };
     FM.g = D.fmt;
-    S.players.forEach(function (p, i) { D.sel[p.id] = i < MAXP() ? 'start' : 'out'; });
+    S.players.forEach(function (p, i) { D.sel[p.id] = i < PICKP() ? 'start' : 'out'; });
     if (D.keeper != null && D.sel[D.keeper] === 'out') D.keeper = null;
     autoPick(); $('opp').value = ''; $('friendly').checked = false; $('oppErr').hidden = true; OF.list = []; renderOppFind(); renderOppLink();
     var seen = {}, names = [];
@@ -6748,7 +6770,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     });
     $('lineup').innerHTML = html;
     var c = draftOk(), msg, bad = false;
-    if (D.warn) { msg = MAXP() + ' players is the most for one ' + D.fmt.side + '-a-side game. Set someone to Out first.'; bad = c.have !== c.need; }
+    if (D.warn) { msg = MAXP() + ' players is the most from one team in a game. Set someone to Out first.'; bad = c.have !== c.need; }
     else if (!c.total) { msg = 'Pick at least one player.'; bad = true; }
     else if (c.need === 0 && c.have === 0) msg = c.total + ' playing, so everyone is on the pitch all game.';
     else if (c.have === c.need) msg = c.total + ' playing: ' + (c.total - c.need) + ' on the pitch, ' + c.need + ' on the bench.';
@@ -6824,8 +6846,8 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     $('hList').innerHTML = html;
     $('hAddA').textContent = 'Add to ' + n.a; $('hAddB').textContent = 'Add to ' + n.b;
     $('hHalfLbl').textContent = $('hTwo') && $('hTwo').checked ? 'Minutes each half' : 'Game length (min)';
-    var ok = sides.a.length >= 2 && sides.b.length >= 2;
-    $('hMsg').textContent = ok ? n.a + ' ' + sides.a.length + ' v ' + sides.b.length + ' ' + n.b + '.' : 'Each side needs at least 2 players (' + sides.a.length + ' v ' + sides.b.length + ' so far).';
+    var big = sides.a.length > TEAM_MAX ? n.a : sides.b.length > TEAM_MAX ? n.b : null, ok = sides.a.length >= 2 && sides.b.length >= 2 && !big;
+    $('hMsg').textContent = big ? big + ' has more than ' + TEAM_MAX + ', the most for one side. Move some players to the other side or Out.' : ok ? n.a + ' ' + sides.a.length + ' v ' + sides.b.length + ' ' + n.b + '.' : 'Each side needs at least 2 players (' + sides.a.length + ' v ' + sides.b.length + ' so far).';
     $('hMsg').className = 'msg' + (ok ? '' : ' bad');
     $('hKick').disabled = !ok;
   }
@@ -6834,7 +6856,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     D.house.guests.push({ id: guestId(), name: name, side: side }); el.value = ''; renderHouseList(); el.focus();
   }
   function houseKick() {
-    var h = D.house, n = houseNames(h), sides = houseSides(h); if (sides.a.length < 2 || sides.b.length < 2) return;
+    var h = D.house, n = houseNames(h), sides = houseSides(h); if (sides.a.length < 2 || sides.b.length < 2 || sides.a.length > TEAM_MAX || sides.b.length > TEAM_MAX) return;
     var half = Math.max(1, Math.min(60, Math.round(+$('hHalf').value) || h.half || 15)), periods = $('hTwo').checked ? 2 : 1, ids = sides.a.concat(sides.b), side = {};
     sides.a.forEach(function (id) { side[id] = 'a'; }); sides.b.forEach(function (id) { side[id] = 'b'; });
     var guests = h.guests.filter(function (g) { return g.side === 'a' || g.side === 'b'; }).map(function (g) { return { id: g.id, name: g.name }; });
@@ -6962,6 +6984,8 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (frOn()) { FR.msg = 'Your last friendly hasn’t finished. Go to it (Your friendly is on, below) and finish it first.'; FR.bad = true; renderFrMsg(); return; }
     var a = (d.a || '').trim().replace(/\s+/g, ' ') || HOUSE_A, b = (d.b || '').trim().replace(/\s+/g, ' ') || HOUSE_B; if (a.toLowerCase() === b.toLowerCase()) b += ' 2';
     if (rude(a, true) || rude(b, true)) { FR.msg = 'Pick other names for the sides.'; FR.bad = true; renderFrMsg(); return; }
+    var nA = d.people.filter(function (p) { return p.side !== 'b'; }).length, nB = d.people.length - nA;
+    if (nA > TEAM_MAX || nB > TEAM_MAX) { FR.msg = (nA > TEAM_MAX ? a : b) + ' has more than ' + TEAM_MAX + ', the most for one side. Move some players to the other side or take some off.'; FR.bad = true; renderFrMsg(); return; }
     var half = Math.max(1, Math.min(60, Math.round(d.half) || 15)), periods = d.two ? 2 : 1, code = A.friendly, map = {}, ask = [];
     d.people.forEach(function (p) { if (p.pid && code) map[p.k] = p.pid; else ask.push(p.self ? { k: p.k, self: true } : p.u ? { k: p.k, u: p.u, n: p.name || p.u } : { k: p.k, n: p.n || p.name }); });
     FR.busy = true; FR.msg = 'Setting up the friendly…'; FR.bad = false; renderFrMsg();
@@ -7216,7 +7240,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (what === 'side') { // a different team size: carry over what was used last time for it, and re-pick who starts
       var nf = fmtDefault(D.tour ? 'tournament' : 'game', side); D.fmt.side = nf.side; D.fmt.half = nf.half; D.fmt.sub = nf.sub; D.fmt.periods = nf.periods;
       if (D.fx || D.tour) { var n = 0; S.players.forEach(function (p) { if (D.sel[p.id] !== 'out') { n++; if (n > MAXP()) D.sel[p.id] = 'out'; } }); } // from a poll: keep who said yes
-      else S.players.forEach(function (p, i) { D.sel[p.id] = i < MAXP() ? 'start' : 'out'; });
+      else S.players.forEach(function (p, i) { D.sel[p.id] = i < PICKP() ? 'start' : 'out'; });
       if (D.keeper != null && D.sel[D.keeper] === 'out') D.keeper = null;
       D.manualBench = false; autoPick();
     }
@@ -7988,9 +8012,13 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       changes.push({ h: m.segs[i].h, from: m.segs[i].from, on: sw.on.map(nm), off: sw.off.map(nm) });
     }
     var acks = Object.keys(watchSeen).sort(function (a, b) { return watchSeen[b] - watchSeen[a] || (a < b ? -1 : 1); }).slice(0, 80); // presses from the watch this phone has dealt with, so it can stop repeating them
-    return { live: true, gid: m.gid, acks: acks, due: subDue(m) >= 0, team: usOf(m), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
+    var out = { live: true, gid: m.gid, acks: acks, due: subDue(m) >= 0, team: usOf(m), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
       color: /^#[0-9a-f]{6}$/i.test(S.color || '') ? S.color : DEFAULT_COLOR, // (the watch's Goal button wears the kit)
       players: pickOrder(m).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0, gk: id === m.segs[cb].gk }; }) };
+    // A message to the watch can't be much over 64 KB. A big squad's changes (up to 99 a side) can come near it, so the
+    // furthest-off changes are left out until it fits; the next ones are always sent, and the rest follow as the game goes on.
+    while (out.changes.length > 3 && JSON.stringify(out).length > WATCH_BYTES) out.changes.pop();
+    return out;
   }
   function watchSend() {
     if (!Watch || role !== 'owner') return; // only the phone running the game speaks to the watch; while this app is still finding out who it is, it says nothing
@@ -8226,7 +8254,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     else all.forEach(function (e) { if (e.hl || !e.on) return; e.on.forEach(function (id) { if (per[id]) per[id][e.us ? 'gf' : 'ga']++; }); });
     var ev = all.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; if (e.on) o.on = e.on; if (e.lk) o.lk = true; } return o; });
     var lu = m.segs.filter(function (s) { return s.to > s.from; }).map(function (s) { return { h: s.h, f: s.from, t: s.to, on: (s.gk != null ? [s.gk] : []).concat(s.on) }; });
-    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.pitch === 7 ? 7 : null, tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now(), house: m.house ? JSON.parse(JSON.stringify(m.house)) : null, link: m.link || null });
+    S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.house ? null : sideKept(m.pitch), tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now(), house: m.house ? JSON.parse(JSON.stringify(m.house)) : null, link: m.link || null });
     if (!m.house) S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
     if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
     var played = m.fx ? RV.list.filter(function (c) { return c.fixture === m.fx; })[0] : null; // a game against another team on the app: tell them our score
@@ -8681,7 +8709,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     renderTabs(); if (S.view === 'rivals' && !RV.form && !RV.homeEdit) renderRivals();
   }
   function rvTerms(t) { return [whenText(t.ko_at), t.location || 'place to be agreed', t.side + '-a-side', t.periods === 2 ? '2 × ' + t.half + ' min' : t.half + ' min, no half time', 'up to ' + t.subs + (t.subs === 1 ? ' sub' : ' subs')].join(' · '); }
-  function rvDefaults(side) { var f = fmtDefault('game', side); return { side: side, half: f.half, periods: f.periods, subs: side === 7 ? 3 : 3 }; }
+  function rvDefaults(side) { var f = fmtDefault('game', side); return { side: f.side, half: f.half, periods: f.periods, subs: Math.min(3, TEAM_MAX - f.side) }; }
   function renderRivals() {
     var own = gafferHere(), h = RV.home, html = '';
     if (!sb) html = '<p class="note">This needs the team to be connected.</p>';
@@ -8726,9 +8754,10 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       (f.id ? '<p class="note">' + (f.kind === 'elo' ? 'Elo match' : 'Friendly') + '. Change whatever you like and send it back.</p>' : '<div class="toggle" role="group" aria-label="Kind of game">' + tg('data-rvkind', 'friendly', 'Friendly', f.kind === 'friendly') + tg('data-rvkind', 'elo', 'Elo match', f.kind === 'elo') + '</div><p class="note">' + (f.kind === 'elo' ? 'Counts towards both teams’ Elo once both have reported the same score.' : 'Just a game. Ratings don’t move.') + '</p>') +
       '<div class="two"><label class="field" for="rvDate">Date<input id="rvDate" type="date" value="' + day + '"></label><label class="field" for="rvTime">Kick-off<input id="rvTime" type="time" value="' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + '"></label></div>' +
       '<label class="field" for="rvLoc">Where<input id="rvLoc" type="text" maxlength="120" autocomplete="off" value="' + esc(t.location || '') + '"></label>' +
-      '<div class="toggle" role="group" aria-label="Team size">' + tg('data-rvside', 5, '5-a-side', t.side === 5) + tg('data-rvside', 7, '7-a-side', t.side === 7) + '</div>' +
+      '<div class="toggle" role="group" aria-label="Team size">' + SIDE_QUICK.map(function (n) { return tg('data-rvside', n, n + '-a-side', t.side === n); }).join('') + '</div>' +
+      '<label class="field" for="rvSide">Players a side, keeper included<input id="rvSide" type="number" inputmode="numeric" min="' + SIDE_MIN + '" max="' + TEAM_MAX + '" value="' + t.side + '"></label>' +
       '<div class="toggle" role="group" aria-label="Halves">' + tg('data-rvper', 2, 'Two halves', t.periods === 2) + tg('data-rvper', 1, 'No half time', t.periods === 1) + '</div>' +
-      '<div class="two"><label class="field" for="rvHalf">' + (t.periods === 2 ? 'Minutes each half' : 'Minutes') + '<input id="rvHalf" type="number" inputmode="numeric" min="1" max="60" value="' + t.half + '"></label><label class="field" for="rvSubs">Most subs each<input id="rvSubs" type="number" inputmode="numeric" min="0" max="7" value="' + t.subs + '"></label></div>' +
+      '<div class="two"><label class="field" for="rvHalf">' + (t.periods === 2 ? 'Minutes each half' : 'Minutes') + '<input id="rvHalf" type="number" inputmode="numeric" min="1" max="60" value="' + t.half + '"></label><label class="field" for="rvSubs">Most subs each<input id="rvSubs" type="number" inputmode="numeric" min="0" max="' + (TEAM_MAX - t.side) + '" value="' + t.subs + '"></label></div>' +
       '<label class="field" for="rvNote">Message (optional)<input id="rvNote" type="text" maxlength="200" autocomplete="off" value="' + esc(t.note || '') + '"></label>' +
       '<div class="actions"><button class="plain primary" type="button" data-rv="send">' + (f.id ? 'Send it back' : 'Send the challenge') + '</button><button class="plain" type="button" data-rv="cancel">Cancel</button></div></section>';
   }
@@ -8736,7 +8765,8 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var f = RV.form; if (!f || !$('rvDate')) return;
     var when = new Date($('rvDate').value + 'T' + ($('rvTime').value || '19:30')).getTime(); if (isFinite(when)) f.terms.ko_at = when;
     f.terms.location = $('rvLoc').value.trim(); f.terms.note = $('rvNote').value.trim();
-    var hv = Math.round(+$('rvHalf').value), sv = Math.round(+$('rvSubs').value); if (hv >= 1 && hv <= 60) f.terms.half = hv; if (sv >= 0 && sv <= 7) f.terms.subs = sv;
+    var hv = Math.round(+$('rvHalf').value), sv = Math.round(+$('rvSubs').value), sd = sideOk($('rvSide').value); if (hv >= 1 && hv <= 60) f.terms.half = hv;
+    if (sd) f.terms.side = sd; if (sv >= 0) f.terms.subs = Math.min(sv, TEAM_MAX - f.terms.side); // (at most 99 from a team: the side and its subs)
   }
   async function rvNotify(id) { if (sb.functions) { try { await sb.functions.invoke('team-notify', { body: { code: A.active, kind: 'challenge', challenge: id } }); } catch (e) {} } }
   $('rivalsOpen').addEventListener('click', function () { RV.form = null; RV.homeEdit = false; RV.msg = ''; go('rivals'); });
@@ -9749,7 +9779,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     S.players.push(p); save(); renderOptions();
     var el = $('name-' + p.id); if (el) { el.focus(); el.select(); }
   });
-  [['setHalf', 'half', 60], ['setSub', 'sub', 60], ['setPitch', 'pitch', 15]].forEach(function (c) {
+  [['setHalf', 'half', 60], ['setSub', 'sub', 60], ['setPitch', 'pitch', 99]].forEach(function (c) {
     $(c[0]).addEventListener('change', function (e) {
       var v = Math.round(+e.target.value);
       if (!(v >= 1)) v = S[c[1]]; if (v > c[2]) v = c[2];
