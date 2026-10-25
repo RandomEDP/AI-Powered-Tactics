@@ -32,6 +32,10 @@ import UniformTypeIdentifiers
 ///   beatEdit({ items: [{ url }], music, loop, segs, fx, len, outroAt, outro, file })   a beat edit cut to one of Gaffer's own
 ///                                                  tracks, tall for Instagram, exactly as JS planned it (beatPlan in
 ///                                                  index.html) -> { path, size }; "progress" { stage: "fetch" | "beat" | "card", p }
+///   socialVideo({ url, outro, file, job })        a post made tall (1080×1920) for Instagram, TikTok and the rest: the
+///                                                  video across the frame over a blurred copy of itself, Gaffer's mark
+///                                                  top right from the first frame, then the end card with the App Store
+///                                                  badge -> { path, size }; "progress" { stage: "fetch" | "tall" | "card", p, job }
 ///   bgStart({ title, subtitle }) -> { started }    iOS's own progress card (iOS 26 and later) while highlights are cut, so
 ///                                                  the cut carries on with Gaffer put away (ContinuedWork.swift); started
 ///                                                  is false on an older iOS or if iOS says no. bgUpdate({ title?, subtitle, p })
@@ -56,6 +60,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         CAPPluginMethod(name: "upload", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "relabel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "beatEdit", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "socialVideo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cancel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "bgStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "bgUpdate", returnType: CAPPluginReturnPromise),
@@ -774,6 +779,94 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         }
     }
 
+    // MARK: - A post, tall for social media (anyone's phone)
+
+    /// One post's video made ready for Instagram, TikTok and the rest (Ethan, October 2026: "a video in portrait including a
+    /// gaffer logo and download App Store thing"): 1080×1920, the video across the width over a blurred copy of itself
+    /// (a tall video just fills it), Gaffer's mark top right from the very first frame (no intro, so nobody skips it), its
+    /// own sound, then the end card with Gaffer's icon and "Download on the App Store".
+    @objc public func socialVideo(_ call: CAPPluginCall) {
+        guard let link = call.getString("url"), !link.isEmpty else { call.reject("There's no video to make it from"); return }
+        let outro = call.options["outro"] as? [String: Any]
+        let name = (call.getString("file") ?? "gaffer-post.mp4").replacingOccurrences(of: "/", with: "-")
+        let tag = call.getString("job") ?? ""
+        var spare: UIBackgroundTaskIdentifier = .invalid
+        let begin = { spare = UIApplication.shared.beginBackgroundTask(withName: "Making a video to share") { UIApplication.shared.endBackgroundTask(spare) } }
+        if Thread.isMainThread { begin() } else { DispatchQueue.main.sync(execute: begin) }
+        let finished = { DispatchQueue.main.async { if spare != .invalid { UIApplication.shared.endBackgroundTask(spare); spare = .invalid } } }
+        queue.async {
+            defer { finished(); self.stopNow = nil; self.stopForget(tag) }
+            self.stopNow = { self.stopAsked(tag) }
+            var job: URL?
+            do {
+                try self.checkStop()
+                let dir = try WorkFolders.fresh("social", in: self.ensureWorkDir())
+                job = dir
+                var local = URL(fileURLWithPath: link)
+                if link.hasPrefix("http") {
+                    guard let remote = URL(string: link) else { throw CutError(message: "That post's video address isn't right.") }
+                    local = dir.appendingPathComponent("post.mp4")
+                    try self.fetch(remote, to: local) { p in self.notifyListeners("progress", data: ["stage": "fetch", "i": 0, "n": 1, "p": p, "job": tag]) }
+                }
+                let source = AVURLAsset(url: local)
+                guard source.tracks(withMediaType: .video).first != nil else { throw CutError(message: ReelCutterPlugin.unreadable) }
+                let tall = dir.appendingPathComponent("tall.mp4")
+                try self.tallPass(source, to: tall) { p in self.notifyListeners("progress", data: ["stage": "tall", "i": 0, "n": 1, "p": p, "job": tag]) }
+                try self.checkStop()
+                let made = AVURLAsset(url: tall)
+                let length = CMTimeGetSeconds(made.duration)
+                guard length.isFinite, length > 0.5 else { throw CutError(message: ReelCutterPlugin.unreadable) }
+                let out = dir.appendingPathComponent(name.hasSuffix(".mp4") ? name : name + ".mp4")
+                try self.export(segments: [Segment(asset: made, start: 0, dur: length, caption: "", voiced: true)], watermark: "Gaffer", outro: outro, to: out,
+                                preset: AVAssetExportPresetHighestQuality) { p in
+                    self.notifyListeners("progress", data: ["stage": "card", "i": 0, "n": 1, "p": p, "job": tag])
+                }
+                self.shrink(out, bitRate: 8_000_000)
+                WorkFolders.tidy(dir, keeping: [out])
+                call.resolve(["path": out.path, "size": self.fileSize(out)])
+            } catch {
+                if let job = job { try? FileManager.default.removeItem(at: job) }
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
+    /// The video (at most a minute of it) drawn tall, with its own sound.
+    private func tallPass(_ source: AVAsset, to out: URL, progress: @escaping (Double) -> Void) throws {
+        guard let track = source.tracks(withMediaType: .video).first else { throw CutError(message: ReelCutterPlugin.unreadable) }
+        let total = CMTimeGetSeconds(source.duration)
+        guard total.isFinite, total > 0.5 else { throw CutError(message: "That video is too short to share") }
+        let composition = AVMutableComposition()
+        guard let video = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+            throw CutError(message: "Couldn't set up the video")
+        }
+        let range = CMTimeRange(start: .zero, duration: CMTime(seconds: min(total, 60), preferredTimescale: 600))
+        try video.insertTimeRange(range, of: track, at: .zero)
+        video.preferredTransform = track.preferredTransform
+        if let sound = source.tracks(withMediaType: .audio).first, let audio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
+            try? audio.insertTimeRange(range, of: sound, at: .zero)
+        }
+        let frame = CGRect(x: 0, y: 0, width: 1080, height: 1920)
+        let still = BeatFrame(zoom: 1, dx: 0, dy: 0, flash: 0, blur: 0, mono: false)
+        let videoComposition = AVMutableVideoComposition(asset: composition) { request in
+            request.finish(with: ReelCutterPlugin.tallDraw(request.sourceImage, look: still, in: frame), context: nil)
+        }
+        videoComposition.renderSize = frame.size
+        videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+        videoComposition.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
+        videoComposition.colorTransferFunction = AVVideoTransferFunction_ITU_R_709_2
+        videoComposition.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
+        try? FileManager.default.removeItem(at: out)
+        guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+            throw CutError(message: "This phone can't export that video")
+        }
+        session.videoComposition = videoComposition
+        session.outputURL = out
+        session.outputFileType = .mp4
+        session.shouldOptimizeForNetworkUse = true
+        try run(session, progress: progress)
+    }
+
     /// The edit itself: each stretch of each clip put where the plan says and squeezed or stretched to fit (so every cut
     /// is on the beat), the music laid under it, and every frame drawn tall with the plan's zooms, shakes and flashes.
     private func beatPass(_ plan: BeatPlan, clips: [AVURLAsset], music: AVURLAsset, loop: (from: Double, to: Double, times: Int)? = nil, to out: URL, progress: @escaping (Double) -> Void) throws {
@@ -838,9 +931,9 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         try run(session, progress: progress)
     }
 
-    /// One frame of a beat edit: the clip across the width, zoomed and shaken as planned, over a blurred, darker copy of
-    /// itself filling the tall frame; black and white or with the colour turned up; then any blur and flash.
-    static func beatDraw(_ source: CIImage, look: BeatFrame, in frame: CGRect) -> CIImage {
+    /// The picture across a tall frame (zoomed and moved as asked; a tall video fills it) over a blurred, darker copy of
+    /// itself filling the frame. A beat edit adds its effects on top; a post shared to social media uses it as it is.
+    static func tallDraw(_ source: CIImage, look: BeatFrame, in frame: CGRect) -> CIImage {
         let picture = source.transformed(by: CGAffineTransform(translationX: -source.extent.minX, y: -source.extent.minY))
         let w = picture.extent.width, h = picture.extent.height
         guard w > 1, h > 1, w.isFinite, h.isFinite else { return CIImage(color: CIColor.black).cropped(to: frame) }
@@ -853,7 +946,13 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         let x = (frame.width - w * s) / 2 + CGFloat(look.dx) * frame.width
         let y = (frame.height - h * s) / 2 + CGFloat(look.dy) * frame.width
         let front = picture.transformed(by: CGAffineTransform(scaleX: s, y: s)).transformed(by: CGAffineTransform(translationX: x, y: y))
-        var image = front.composited(over: back).cropped(to: frame)
+        return front.composited(over: back).cropped(to: frame)
+    }
+
+    /// One frame of a beat edit: the clip across the width, zoomed and shaken as planned, over a blurred, darker copy of
+    /// itself filling the tall frame; black and white or with the colour turned up; then any blur and flash.
+    static func beatDraw(_ source: CIImage, look: BeatFrame, in frame: CGRect) -> CIImage {
+        var image = tallDraw(source, look: look, in: frame)
         image = look.mono ? image.applyingFilter("CIPhotoEffectNoir")
             : image.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 1.18, kCIInputContrastKey: 1.08])
         image = image.applyingFilter("CIVignette", parameters: [kCIInputIntensityKey: 0.8, kCIInputRadiusKey: 1.4]).cropped(to: frame)

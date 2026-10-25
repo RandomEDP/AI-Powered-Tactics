@@ -676,8 +676,8 @@ html.bigtext .ighead { flex-direction: column; align-items: flex-start; gap: 10p
 .gwlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; } .gwlist li { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .gwlist li small { display: block; color: var(--muted); font-size: var(--t-sub); } .gwhead { margin-bottom: 12px; } #gwBody .hcard { margin-bottom: 12px; }
 .mhplay { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 255, 255, .22); font-size: var(--t-head); }
-#postPop, #postView { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
-#postPop[hidden], #postView[hidden] { display: none; }
+#postPop, #postView, #socPop { position: fixed; inset: 0; z-index: 48; background: rgba(0, 0, 0, .5); display: flex; align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); animation: fade .2s both; }
+#postPop[hidden], #postView[hidden], #socPop[hidden] { display: none; }
 #postPop .field input, #postPop .field textarea { background: var(--bg); }
 #postView .post { margin: 0; } #postView .planbox { padding: 12px; }
 .nplist { display: flex; flex-direction: column; max-height: 34vh; overflow-y: auto; } .nplist label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 2px; border-bottom: 1px solid var(--line); } .nplist input { width: 22px; height: 22px; flex: none; }
@@ -1184,6 +1184,14 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   <p class="note" id="npProg" role="status" hidden></p>
   <p class="msg bad" id="npMsg" hidden></p>
   <div class="actions"><button class="plain primary" id="npPost" type="button">Share</button><button class="link" id="npCancel" type="button">Cancel</button></div>
+</div></div>
+
+<div id="socPop" role="dialog" aria-labelledby="soTitle" hidden><div class="planbox">
+  <h2 id="soTitle">Share to social media</h2>
+  <p id="soLead"></p>
+  <p class="note" id="soProg" role="status" hidden></p>
+  <p class="msg bad" id="soMsg" hidden></p>
+  <div class="actions"><button class="plain primary" id="soMake" type="button">Make the video</button><button class="link" id="soClose" type="button">Not now</button></div>
 </div></div>
 
 <div id="mhPop" role="dialog" aria-labelledby="mhTitle" hidden><div class="mhbox">
@@ -3086,7 +3094,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       '<button type="button" data-pcm="' + esc(x.id) + '" aria-expanded="' + (CM.open === x.id) + '" aria-label="Comments">' + BUBBLE + '<span>' + (x.comments || 0) + '</span></button><small>' + esc(dayText(x.at)) + '</small></div>' +
       '<p class="cap' + (x.caption ? '' : ' empty') + '">' + (x.caption ? '<b>' + esc(x.username) + '</b> ' + esc(x.caption) : '') + '</p>' +
       ((x.tags || []).length ? '<p class="ptags">With ' + x.tags.map(function (t) { return '<button type="button" class="plink" data-plink="' + esc(t.username) + '">@' + esc(t.username) + '</button>'; }).join(', ') + '</p>' : '') +
-      (open ? '<div class="pmenu">' + (x.tagged_me && !x.mine ? '<button class="plain" type="button" data-puntag="' + esc(x.id) + '">Remove me from this post</button>' : '') + (x.mine ? '<button class="plain danger" type="button" data-pdel="' + esc(x.id) + '">' + (armed ? 'Tap again to delete it' : 'Delete this post') + '</button>'
+      (open ? '<div class="pmenu">' + (x.tagged_me && !x.mine ? '<button class="plain" type="button" data-puntag="' + esc(x.id) + '">Remove me from this post</button>' : '') + (x.mine ? (socialOk() ? '<button class="plain" type="button" data-psoc="' + esc(x.id) + '">Share to social media</button>' : '') + '<button class="plain danger" type="button" data-pdel="' + esc(x.id) + '">' + (armed ? 'Tap again to delete it' : 'Delete this post') + '</button>'
         : '<p class="note">Report this post? Gaffer looks at every report.</p><div class="chips">' + ['Not their clip', 'Offensive', 'Spam', 'Something else'].map(function (r) { return '<button class="pick alt" type="button" data-preport="' + esc(x.id) + '" data-why="' + esc(r) + '">' + esc(r) + '</button>'; }).join('') + '</div>') + '</div>' : '') +
       '<div class="pcm" data-pcmbox="' + esc(x.id) + '">' + cmHtml(x) + '</div></article>';
   }
@@ -3563,7 +3571,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   $('pvClose').addEventListener('click', function () { PV.post = null; $('postView').hidden = true; });
   $('postView').addEventListener('click', function (e) { if (e.target === $('postView')) { PV.post = null; $('postView').hidden = true; } });
   document.body.addEventListener('click', async function (e) {
-    var b = e.target.closest('[data-like],[data-pmore],[data-pdel],[data-preport],[data-openpost],[data-puntag]'); if (!b || !sb) return;
+    var b = e.target.closest('[data-like],[data-pmore],[data-pdel],[data-preport],[data-openpost],[data-puntag],[data-psoc]'); if (!b || !sb) return;
     if (!me) { A.after = 'feed'; go('account'); return; } // (All can be read signed out; liking and reporting need an account)
     var id;
     if ((id = b.getAttribute('data-openpost'))) { PV.post = [].concat(PF.posts || [], PF.tagged || []).filter(function (x) { return x.id === id; })[0] || null; FD.open = null; renderPV(); $('postView').hidden = !PV.post; return; }
@@ -3580,6 +3588,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       if (PF.tagged && PF.d && PF.d.me) PF.tagged = PF.tagged.filter(function (x) { return x.id !== id; });
       FD.open = null; if (S.view === 'profile') PF.msg = FD.msg; postsRedraw(); return;
     }
+    if ((id = b.getAttribute('data-psoc'))) { var sx = postsEverywhere(id)[0]; FD.open = null; postsRedraw(); if (sx) socialOpen({ id: sx.id, src: postSrc(sx), label: (sx.video && sx.video.label) || (sx.kind === 'reel' ? 'Player reel' : '') }); return; }
     if ((id = b.getAttribute('data-pmore'))) { FD.open = FD.open === id ? null : id; FD.arm = null; postsRedraw(); return; }
     if ((id = b.getAttribute('data-pdel'))) {
       if (FD.arm !== id) { FD.arm = id; postsRedraw(); setTimeout(function () { if (FD.arm === id) { FD.arm = null; postsRedraw(); } }, 3000); return; }
@@ -3753,6 +3762,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       if (NP.tags.length) { try { var tr = await q(sb.rpc('tag_post', { p_id: res.id, p_tags: NP.tags.map(function (t) { return t.username; }) })); if (tr.error) throw tr.error; } catch (err) { tagMsg = ' The tags didn’t go through, so nobody’s tagged.'; } }
       $('postPop').hidden = true; NP.busy = false; npProg(''); ownDrop(); FD.posts = null; FD.all = null; FD.msg = 'Shared.' + tagMsg;
       if (S.view === 'profile' && PF.d && PF.d.me) { PF.loaded = false; renderProfile(); } else go('feed');
+      socialOpen({ id: res.id, src: file || clipUrl({ path: key, store: 'r2' }), label: 'Own clip' });
     } catch (e) { OWNUP = null; NP.busy = false; npProg(''); npSay((e && e.message) || 'Couldn’t share it. Check your signal.'); renderOwn(); }
   }
   $('npPost').addEventListener('click', async function () {
@@ -3768,7 +3778,50 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       if (NP.tags.length) { try { var tr = await q(sb.rpc('tag_post', { p_id: res.id, p_tags: NP.tags.map(function (t) { return t.username; }) })); if (tr.error) throw tr.error; } catch (err) { tagMsg = ' The tags didn’t go through, so nobody’s tagged.'; } }
       $('postPop').hidden = true; NP.busy = false; FD.posts = null; FD.all = null; FD.msg = 'Shared.' + tagMsg;
       if (S.view === 'profile' && PF.d && PF.d.me) { PF.loaded = false; renderProfile(); } else go('feed');
+      socialOpen({ id: res.id, src: it.src, label: it.r ? it.r.team + ' · Player reel' : it.label });
     } catch (e) { NP.busy = false; $('npMsg').textContent = (e && e.message) || 'Couldn’t share it. Check your signal.'; $('npMsg').hidden = false; renderNP(); }
+  });
+
+  // ---- a post shared to social media (Ethan, October 2026: "a post to social media share button after posting something
+  // in the main feed ... a video in portrait including a gaffer logo and download App Store thing"). On the iPhone app,
+  // straight after posting, and from ⋯ on your own posts, the phone makes the post's video tall (1080×1920) with Gaffer's
+  // mark from the very first frame (no intro to skip past) and the end card with the App Store badge and
+  // gaffermanager.app (ReelCutter.socialVideo), then opens the share sheet. Nothing is uploaded.
+  var SO = { post: null, busy: false, path: null, job: '', prog: '', msg: '' };
+  function socialOk() { var rc = RCp(); return !!(rc && rc.socialVideo && rc.share); }
+  function socialOpen(p) { // p: { id, src, label }
+    if (!socialOk() || !p || !p.src) return;
+    if (!SO.busy) SO = { post: p, busy: false, path: null, job: '', prog: '', msg: '' };
+    $('socPop').hidden = false; socDraw();
+  }
+  function socDraw() {
+    $('soLead').textContent = SO.path ? 'It’s ready: tall for Instagram, TikTok and the rest, with Gaffer’s logo on it and where to get the app at the end.'
+      : 'Gaffer makes your post into a tall video for Instagram, TikTok and the rest, with Gaffer’s logo on it and where to get the app at the end.';
+    $('soProg').textContent = SO.prog; $('soProg').hidden = !SO.busy;
+    $('soMsg').textContent = SO.msg; $('soMsg').hidden = !SO.msg;
+    $('soMake').textContent = SO.path ? 'Share it' : SO.busy ? 'Making it…' : 'Make the video'; $('soMake').disabled = SO.busy;
+    $('soClose').textContent = SO.busy ? 'Stop' : SO.path ? 'Done' : 'Not now';
+  }
+  function socOutro(p) {
+    return { kicker: 'Posted on Gaffer', title: p.label || 'Small-sided football', sub: [MYP && MYP.username ? '@' + MYP.username : '', 'gaffermanager.app'].filter(Boolean).join(' · '),
+      color: null, ink: '#ffffff', crest: null, app: APP_NAME }; // (Gaffer's own purple, whatever the team's colours)
+  }
+  async function socMake() {
+    var rc = RCp(); if (!rc || SO.busy || !SO.post) return;
+    if (SO.path) { rateAfter(rc.share({ path: SO.path })); return; }
+    if (cutBusy()) { SO.msg = 'Highlights are being cut on this phone. Make it once they’re done.'; socDraw(); return; }
+    var p = SO.post; SO.busy = true; SO.msg = ''; SO.job = 'so-' + Date.now(); SO.prog = 'Getting your post…'; socDraw();
+    try {
+      var res = await rc.socialVideo({ url: p.src, outro: socOutro(p), file: 'gaffer-' + String(p.id || 'post').replace(/[^a-z0-9]/gi, '').slice(0, 8) + '.mp4', job: SO.job });
+      if (SO.post !== p) return;
+      SO.busy = false; SO.prog = ''; SO.path = res && res.path; if (!SO.path) SO.msg = 'Couldn’t make the video. Try again.'; socDraw();
+      if (SO.path) rateAfter(rc.share({ path: SO.path }));
+    } catch (e) { if (SO.post !== p) return; SO.busy = false; SO.prog = ''; SO.msg = (e && e.message) || 'Couldn’t make the video. Check your signal and try again.'; socDraw(); }
+  }
+  $('soMake').addEventListener('click', socMake);
+  $('soClose').addEventListener('click', function () {
+    if (SO.busy) { var rc = RCp(); try { rc.cancel({ job: SO.job }).catch(function () {}); } catch (e) {} }
+    SO = { post: null, busy: false, path: null, job: '', prog: '', msg: '' }; $('socPop').hidden = true;
   });
 
   // ---- looking at a team found in search or on a profile: squad, results, highlights. Never its code: to follow or join,
@@ -4740,7 +4793,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   // ---- a game's clips joined into one video, once, on a gaffer's phone, and kept for everyone (games cut before the cut
   // uploaded its reel, or whose reel didn't make it). The same reel the cut makes: shrunk, with and without commentary.
   var MK = { gid: null, busy: false, prog: '', msg: '', bad: false, part: '' }, MKTRIED = {}, MKPAUSED = {}; // (MKTRIED: games this phone has started on this time; MKPAUSED: how often each was stopped by Gaffer being put away)
-  function joinsBusy() { return !!(RB.busy || BE.busy || EX.busy || (GW.mk && GW.mk.busy)); } // (another reel being joined on this phone: the one video waits, so it doesn't hold that one up)
+  function joinsBusy() { return !!(RB.busy || BE.busy || EX.busy || SO.busy || (GW.mk && GW.mk.busy)); } // (another reel being joined on this phone: the one video waits, so it doesn't hold that one up)
   async function mhMake(r, quiet) {
     var rc = RCp(); if (!rc || MK.busy || !r || !gafferHere() || !sb || !teamId) return;
     var list = clips.filter(function (c) { return c.game_id === r.id; }).sort(function (a, b) { return a.seq - b.seq; }); if (!list.length) return;
@@ -5949,6 +6002,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var pct = Math.round((d.p || 0) * 100);
     if (NP.busy && NP.kind === 'own' && (d.stage === 'trim' || (d.stage === 'copy' && !cutBusy()))) { npProg(d.stage === 'trim' ? 'Getting your clip ready, ' + pct + '%…' : 'Reading the video, ' + pct + '%…'); return; }
     if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
+    if (SO.busy && d.job === SO.job) { SO.prog = d.stage === 'fetch' ? 'Getting your post, ' + pct + '%…' : d.stage === 'tall' ? 'Making it tall, ' + pct + '%…' : 'Adding the end card, ' + pct + '%…'; socDraw(); return; }
     var mkJob = d.job === 'mk'; // (the plugin says whose join it is; the game's one video can be waiting behind someone's reel, or the other way round)
     if (MK.busy && (mkJob || !('job' in d))) { MK.prog = d.stage === 'fetch' ? 'fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'joining, ' + pct + '%.'; mkTick(); }
     if (BE.busy && !mkJob) { BE.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : d.stage === 'card' ? 'Adding the end card, ' + pct + '%' : 'Cutting it to the beat, ' + pct + '%'; var bm = $('beProg'); if (bm) bm.textContent = BE.prog; }
