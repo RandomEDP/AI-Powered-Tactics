@@ -136,7 +136,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 | Class | What it does |
 |---|---|
-| `ReelCutterPlugin` | `beatEdit` (a beat edit, see Highlights; the plan is read by `BeatEdit.swift`), `pickVideo({slot})`, `trimVideo({path, start, dur, file})` (your own short clip for posting: up to 30 s, 720p, about 3 Mbit/s), `fetchVideo({url, key, size})` (a GoPro link's video, or an iPhone's shared the same way, downloaded in the background, `BackgroundDownloads.swift`), `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
+| `ReelCutterPlugin` | `beatEdit` (a beat edit, see Highlights; the plan is read by `BeatEdit.swift`), `pickVideo({slot})`, `trimVideo({path, start, dur, file})` (your own short clip for posting: up to 30 s, 720p, about 3 Mbit/s), `socialVideo` (a post made tall for social media), `fetchVideo({url, key, size})` (a GoPro link's video, or an iPhone's shared the same way, downloaded in the background, `BackgroundDownloads.swift`), `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
 | `WatchLinkPlugin` | The phone side of the watch link. It keeps a durable inbox of watch presses (UserDefaults `watchlink.inbox`), `push({state, seen})` and `pending()` |
 | `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
@@ -564,6 +564,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   All, the profile grid, likes, comments, tags, report. Deleting the post (or the account, `deleteMe`) also removes the
   file. A presigned upload can't cap the size, so a big file sent outside the app isn't stopped; the post still needs a
   file in your own folder and 30 seconds or less said. Tests: `ownclips.test.mjs`, `owndb.test.mjs`, `r2.test.mjs`.
+- **Share to social media** (Ethan, October 2026: "a post to social media share button after posting something in the main
+  feed ... a video in portrait including a gaffer logo and download App Store thing"): on the iPhone app, straight after a
+  post is shared, and from ⋯ on your own posts (`data-psoc`), `#socPop` (`SO`, `socialOpen`, `socMake`) offers Make the
+  video: the plugin's `socialVideo({url, outro, file, job})` makes it 1080×1920 (the video across the width over a blurred
+  copy, `tallDraw`, shared with the beat edit), Gaffer's mark top right from the first frame (no intro: ads that start
+  slowly get skipped) and the end card (`socOutro`: "Posted on Gaffer", the post, @username · gaffermanager.app, the App
+  Store badge), then the share sheet. Nothing is uploaded; Stop cancels it. Test: `socialshare.test.mjs`.
 - **Videos in the feed play like Instagram** (`AUTO`, `autoScan`, `feedPick`): each shows its first frame (`#t=0.1` on
   the address), muted and looping with no controls; an IntersectionObserver plays the top one at least 60% on screen and
   pauses the rest, so scrolling hands over to the next; leaving Home or the app stops it. One tap on the video that's
