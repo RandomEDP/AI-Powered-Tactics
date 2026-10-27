@@ -215,6 +215,19 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     `goalTapped()`/`pressGoal(at:)`, believed for two minutes), not from when the scorer was picked.
   - **Undo of a goal unlocks the score** straight away (`lockUntil = 0`), so the right goal can go in.
   - Tests: `matchday.test.mjs`, `tests/watch/main.swift` (27).
+- **Changing who's on now** (Ethan, 27 October 2026: "edit who's playing mid game really easily and then quickly recalculate
+  mins down below, while also showing mins currently playing"): under Right now the gaffer (or the runner) taps a name
+  (`data-now`, `nowTap`, sheet `#nowPick`, `renderNowPick`): someone on the pitch (who comes on for them? fewest minutes
+  first), someone on the bench (who comes off? most minutes first) or the keeper (who goes in goal for the rest of the game,
+  `keeperNow`). `swapNow` makes it from this minute (`nowAt`: `splitAt` the stretch, `m.ok` moved on like an injury, so
+  nothing waits for Subs done; before kick-off or at half time it changes who starts), keeps the new player on until the one
+  taken off was next due a rest (or half time), then `rebalance` reworks the later stretches towards everyone's planned
+  minutes (swaps of someone over their minutes for someone under, only where it's owed, never undoing the swap in the
+  stretch straight after). The notice says who ends on what (`planMsg`) and has Undo for two minutes (`swapUndo`, kept on
+  the phone only). Not while a change is due (Subs done first). The minutes table under the line-up (`#minsLive`,
+  `renderMinsLive` from `renderClock`, so it ticks) shows each player's minutes played so far (`playedMins`: a change
+  waiting for Subs done leaves the old line-up on) and by full time. Everyone sees the table; only the gaffer's phone taps.
+  The watch gets the new line-up and changes through the usual push; it has no swap of its own. Test: `nowswap.test.mjs`.
 - This is the most safety-critical code in the app. Any change needs `node tests/run.mjs watch link plugin match
   watchlink sync` to pass.
 
