@@ -415,6 +415,14 @@ html.bigtext :is(.pickpop .chips, .modal.sheet) .pick { flex-wrap: wrap; row-gap
 @media (prefers-reduced-motion: reduce) { .modal.sheet, .modal.sheet .picker { animation: none; } }
 
 /* ---- tables and lists */
+.minslive { margin-top: 12px; background: var(--surface); border-radius: var(--r-card); padding: 2px 14px; }
+.minslive td { padding: 9px 6px; vertical-align: middle; }
+.minslive tr:last-child td { border-bottom: 0; }
+.minslive .who::before { content: ''; display: inline-block; width: .55em; height: .55em; border-radius: 50%; margin-right: 8px; background: var(--on); vertical-align: .08em; }
+.minslive tr.off .who::before { background: var(--bib); }
+.minslive tr.gone .who { color: var(--muted); text-decoration: line-through; }
+.minslive tr.gone .who::before { background: var(--muted); }
+.minslive td.n b { font-weight: 700; }
 .scroll { overflow-x: auto; background: var(--surface); border-radius: var(--r-card); padding: 6px 14px; }
 table { width: 100%; border-collapse: collapse; font-size: var(--t-sub); }
 th { text-align: left; font-size: var(--t-foot); font-weight: 650; color: var(--muted); padding: 10px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -965,7 +973,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 .hcard .cliplist li { display: block; padding: 0; border: 0; }
 .cliplist button { width: 100%; text-align: left; border: 0; border-radius: 10px; background: var(--bg); padding: 10px 12px; font-size: var(--t-sub); font-weight: 600; }
 .cliplist button[aria-pressed="true"] { background: var(--on-soft); }
-.msg:empty, #subEdit:empty, #quickSwap:empty, #picker:empty, #outPicker:empty, #swapBody:empty { display: none; }
+.msg:empty, #subEdit:empty, #quickSwap:empty, #picker:empty, #outPicker:empty, #nowPick:empty, #minsLive:empty, #swapBody:empty { display: none; }
 .stage { max-height: 380px; }
 </style>
 </head>
@@ -1543,7 +1551,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 
   <div class="actions" id="liveRow" hidden><button class="plain primary" id="watchBtn" type="button" hidden>Watch the stream</button><button class="plain" id="streamBtn" type="button" hidden>Stream this game</button></div>
 
-  <div class="swap notice" id="notice" hidden><p class="msg" id="noticeText"></p><div class="actions own"><button class="plain" id="noticeOk" type="button">Got it</button></div></div>
+  <div class="swap notice" id="notice" hidden><p class="msg" id="noticeText"></p><div class="actions own"><button class="plain" id="noticeOk" type="button">Got it</button><button class="plain quiet" id="noticeUndo" type="button" hidden>Undo</button></div></div>
 
   <div class="swap" id="swapCard"><h2 id="swapTitle">Next change</h2><div id="swapBody"></div>
     <div class="actions own"><button class="plain" id="edBtn" type="button">Edit upcoming subs</button></div></div>
@@ -1562,6 +1570,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       <div class="tag off" id="benchTag">Bench</div><div class="chips" id="benchNow"></div>
       <div class="tag gone" id="goneTag" hidden>Out</div><div class="chips" id="goneNow" hidden></div>
     </div>
+    <p class="note" id="nowHint" hidden></p>
+    <div id="nowPick"></div>
+    <div id="minsLive"></div>
     <div class="actions own"><button class="plain" id="outBtn" type="button">Player injured or leaving</button></div>
     <div id="outPicker"></div>
   </section>
@@ -2520,14 +2531,18 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   };
   // Take player X out from minute `tm` of the current half onward. G = new keeper when X was in goal.
   // Each pitch spot X leaves is filled from that segment's bench by whoever has the fewest minutes, so X's time is shared round.
-  function applyOut(m, X, G, i, tm, R, added) {
-    var s = m.segs[i], j;
-    if (tm <= s.from) j = i;
-    else if (tm >= s.to) {
+  // Splits stretch i at minute `tm` of its half, so a change can start there; returns the stretch that starts at tm.
+  function splitAt(m, i, tm, added) {
+    var s = m.segs[i];
+    if (tm <= s.from) return i;
+    if (tm >= s.to) {
       if (added && (!m.segs[i + 1] || m.segs[i + 1].h !== s.h)) { var z = JSON.parse(JSON.stringify(s)); z.from = s.to; z.to = s.to; m.segs.splice(i + 1, 0, z); } // added time: a zero-length stretch so the change shows now
-      j = i + 1;
+      return i + 1;
     }
-    else { var tail = JSON.parse(JSON.stringify(s)); tail.from = tm; s.to = tm; m.segs.splice(i + 1, 0, tail); j = i + 1; }
+    var tail = JSON.parse(JSON.stringify(s)); tail.from = tm; s.to = tm; m.segs.splice(i + 1, 0, tail); return i + 1;
+  }
+  function applyOut(m, X, G, i, tm, R, added) {
+    var j = splitAt(m, i, tm, added);
     var gm = gameMins(m), extra = {}, before = m.segs[j] ? m.segs[j].on.slice() : [], cameOn = [];
     var score = function (id) { return (gm[id] || 0) + (extra[id] || 0); };
     for (var t = j; t < m.segs.length; t++) {
@@ -2550,6 +2565,84 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (m.keeper === X) m.keeper = G != null ? G : null;
     m.gone.push(X);
     return cameOn;
+  }
+  // Minutes each player has actually played so far, with the seconds as a fraction: every stretch played, and the one being
+  // played up to the clock. A change still waiting for Subs done leaves the old line-up on until it's made, as on the pitch.
+  function playedMins(m) {
+    if (m.phase === 'ft') return gameMins(m);
+    var r = {}, cb = curSeg(m), hNow = m.phase === 'h2' ? 1 : 0, live = m.phase === 'h1' || m.phase === 'h2', e = live ? elapsed(m) / 60000 : 0;
+    (m.squad || []).forEach(function (id) { r[id] = 0; });
+    if (m.phase === 'pre') return r;
+    m.segs.forEach(function (s, i) {
+      var d = s.h < hNow || (m.phase === 'ht' && s.h === 0) ? s.to - s.from : !live || s.h > hNow ? 0
+        : i < cb ? Math.max(0, Math.min(s.to, e) - s.from) : i === cb ? Math.max(0, Math.min(e, m.half) - s.from) : 0;
+      if (d > 0) onPitch(m, i).forEach(function (id) { r[id] = (r[id] || 0) + d; });
+    });
+    return r;
+  }
+  // Changing who's on right now (Ethan: "edit who's playing mid game really easily and then quickly recalculate mins").
+  // nowAt: the stretch a change made now starts in (this minute of the half; before kick-off or at half time, the stretch
+  // about to start), split off if it's partway through. The change is made, so it isn't one waiting for Subs done.
+  function nowAt(m) {
+    var i = curSeg(m), s = m.segs[i], live = m.phase === 'h1' || m.phase === 'h2';
+    var tm = live ? Math.max(s.from, Math.min(s.to, Math.floor(elapsed(m) / 60000))) : s.from;
+    var j = splitAt(m, i, tm, live && elapsed(m) >= halfMs(m));
+    if (live && m.ok != null) m.ok = Math.max(m.ok, clockSeg(m));
+    return j;
+  }
+  // After a change the plan didn't have, the stretches from `from` on are reworked so everyone ends as near as they can to
+  // the minutes they were planned (`target`): one swap at a time of someone over their minutes on the pitch for someone
+  // under them on the bench, the swap that evens things most each time (the earliest when it's a tie). Nothing else moves.
+  // A stretch is only swapped when it's owed: a change of a couple of minutes isn't paid back with a whole stretch.
+  function rebalance(m, from, target, keep) { // (keep: the swap just made, never undone in the stretch straight after)
+    var moved = [];
+    for (var n = 0; n < 60; n++) {
+      var gm = gameMins(m), best = null;
+      for (var u = from; u < m.segs.length; u++) {
+        var q = m.segs[u], d = q.to - q.from; if (d <= 0) continue;
+        q.on.forEach(function (P) {
+          var dP = (gm[P] || 0) - (target[P] || 0); if (dP <= 0) return;
+          q.bench.forEach(function (Q) {
+            var dQ = (gm[Q] || 0) - (target[Q] || 0); if (dQ >= 0) return;
+            var gain = dP - dQ - Math.abs(dP - d) - Math.abs(dQ + d);
+            if (keep && u === from && P === keep.on && Q === keep.off) return;
+            if (dP - d < -1 || dQ + d > 1) return; // (only minutes someone is really owed: nobody is pushed more than a minute past their plan)
+            if (gain > 0.01 && (!best || gain > best.gain + 0.01)) best = { u: u, off: P, on: Q, gain: gain };
+          });
+        });
+      }
+      if (!best) break;
+      var s = m.segs[best.u]; s.on[s.on.indexOf(best.off)] = best.on; s.bench[s.bench.indexOf(best.on)] = best.off;
+      moved.push(best);
+    }
+    return moved;
+  }
+  // Y comes on for X now. Y keeps X's place until X was next due a rest (or half time), so X doesn't come straight back on
+  // at the next change; after that the plan is reworked to even the minutes up. Returns null if it can't be made.
+  function swapNow(m, X, Y) {
+    if (!m || subDue(m) >= 0 || m.phase === 'ft' || m.house) return null;
+    var s0 = m.segs[curSeg(m)]; if (s0.on.indexOf(X) < 0 || s0.bench.indexOf(Y) < 0) return null;
+    var target = gameMins(m), j = nowAt(m), s = m.segs[j], u = j;
+    if (s.on.indexOf(X) < 0 || s.bench.indexOf(Y) < 0) return null;
+    for (; u < m.segs.length && m.segs[u].h === s.h; u++) {
+      var q = m.segs[u]; if (q.on.indexOf(X) < 0 || q.bench.indexOf(Y) < 0) break;
+      q.on[q.on.indexOf(X)] = Y; q.bench[q.bench.indexOf(Y)] = X;
+    }
+    return { j: j, target: target, moved: rebalance(m, u, target, { off: X, on: Y }) };
+  }
+  // G goes in goal instead of K for the rest of the game; K takes G's place in the plan (on the pitch or the bench).
+  function keeperNow(m, G) {
+    if (!m || subDue(m) >= 0 || m.phase === 'ft' || m.house) return null;
+    var s0 = m.segs[curSeg(m)], K = s0.gk; if (K == null || G === K || (s0.on.indexOf(G) < 0 && s0.bench.indexOf(G) < 0)) return null;
+    var target = gameMins(m), j = nowAt(m);
+    for (var t = j; t < m.segs.length; t++) {
+      var q = m.segs[t]; if (q.gk !== K) continue;
+      q.gk = G;
+      if (q.on.indexOf(G) >= 0) q.on[q.on.indexOf(G)] = K; else if (q.bench.indexOf(G) >= 0) q.bench[q.bench.indexOf(G)] = K;
+    }
+    if (m.keeper === K) m.keeper = G;
+    m.order = m.order.map(function (id) { return id === G ? K : id; });
+    return { j: j, target: target, moved: rebalance(m, j + 1, target) };
   }
 
   // ---- navigation
@@ -4647,7 +4740,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var m = S.match; $('abandonPop').hidden = true; if (!m || !canAbandon()) return;
     if (liveOn()) liveEnd(); // its stream ends with it
     linkDrop(m);
-    S.match = null; pick = null; outPick = null; ed = null; lockUntil = 0; lockNote = ''; lastBlock = -1; lastDue = -1; subAsk = false; save(); syncAlerts();
+    S.match = null; pick = null; outPick = null; ed = null; np = null; swapUndo = null; lockUntil = 0; lockNote = ''; lastBlock = -1; lastDue = -1; subAsk = false; save(); syncAlerts();
     if (abandonThen === 'setup' && canStart()) { if (frTeam()) friendlyOpen('home'); else go('setup'); } else go('home');
     $('lockMsg').textContent = S.view === 'home' ? 'Game abandoned. Nothing from it was saved.' : '';
     clearTimeout(lockT); lockT = setTimeout(function () { $('lockMsg').textContent = ''; }, 6000);
@@ -7360,6 +7453,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     $('go').disabled = m.phase === 'ft';
     $('endHalf').hidden = !live;
     if (!$('endHalf').classList.contains('armed')) $('endHalf').textContent = m.phase === 'h2' || one ? 'Full time' : 'Half time';
+    renderMinsLive();
   }
   function renderGame() {
     var m = S.match; if (!m) return;
@@ -7372,8 +7466,17 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     $('blocks').innerHTML = html;
     var hs = m.house; // a game among the squad: the two sides, no subs
     $('pitchTag').textContent = hs ? hs.a : 'Pitch'; $('benchTag').textContent = hs ? hs.b : 'Bench';
-    $('pitchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'a'; }) : onPitch(m, cb), 'on');
-    $('benchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'b'; }) : m.segs[cb].bench, 'off');
+    if (hs || !nowEditable(m)) {
+      $('pitchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'a'; }) : onPitch(m, cb), 'on');
+      $('benchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'b'; }) : m.segs[cb].bench, 'off');
+    } else { // the gaffer taps a name to change who's on (renderNowPick)
+      var cs = m.segs[cb], nowBtn = function (id, cls, ok) { return ok ? '<button class="chip tapchip ' + cls + '" type="button" data-now="' + id + '">' + esc(nm(id)) + (id === m.keeper ? ' (GK)' : '') + '</button>' : chips(m, [id], cls); };
+      $('pitchNow').innerHTML = onPitch(m, cb).map(function (id) { return nowBtn(id, 'on', id === cs.gk || cs.bench.length > 0); }).join('') || '<span class="note">Nobody</span>';
+      $('benchNow').innerHTML = cs.bench.map(function (id) { return nowBtn(id, 'off', cs.on.length > 0 || cs.gk != null); }).join('') || '<span class="note">Nobody</span>';
+    }
+    var hint = role === 'owner' && !hs && !m.solo && m.phase !== 'ft' && hasBench(m);
+    $('nowHint').hidden = !hint;
+    if (hint) $('nowHint').textContent = subDue(m) >= 0 ? 'A change is due. Tap Subs done first, then tap a name here to change who’s on.' : 'Tap a name to change who’s on' + (m.phase === 'pre' ? ' at kick-off' : m.phase === 'ht' ? ' for the second half' : ' now') + '. The rest of the plan is worked out again to keep minutes even.';
     $('swapCard').hidden = $('rotaSec').hidden = !!hs || !!m.solo; $('nowSec').hidden = !!m.solo; // (just me: no line-up at all)
     $('finNote').textContent = m.solo ? 'Finish game saves the result. It’s kept out of the team’s record.' : frGame(m) ? 'Finish game saves the result, goals and assists to each player’s own stats. It never counts for a team.' : 'Finish game saves the result, goals, assists and minutes to your stats.';
     $('goneTag').hidden = $('goneNow').hidden = !m.gone.length;
@@ -7411,7 +7514,8 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     $('rota').innerHTML = html;
     var gm = gameMins(m), ids = (m.squad || []).slice().sort(function (x, y) { return gm[y] - gm[x]; });
     $('minsNote').textContent = ids.length ? 'Minutes today: ' + ids.map(function (id) { return nm(id) + ' ' + gm[id] + (m.gone.indexOf(id) >= 0 ? ' (out)' : ''); }).join(', ') + '.' : '';
-    renderOut(); renderEdit(); renderQuick(); renderScore(); renderClock(); renderSubPop(); syncAlerts(); renderLiveRow();
+    $('noticeUndo').hidden = !undoOk(m);
+    renderOut(); renderEdit(); renderQuick(); renderNowPick(); renderScore(); renderClock(); renderSubPop(); syncAlerts(); renderLiveRow();
   }
   $('swapBody').addEventListener('click', function (e) { if (e.target.id === 'subsDoneBtn') subsDone(); });
   // Before kick-off, a sheet says who starts on the bench (until Got it or kick-off; once a game)
@@ -7526,6 +7630,89 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     renderEdit();
   });
 
+  // ---- who's on, changed right now (Ethan: "edit who's playing mid game really easily and then quickly recalculate mins
+  // down below, while also showing mins currently playing"). Tap a name under Right now: someone on the pitch (who comes on
+  // for them?), someone on the bench (who comes off?) or the keeper (who goes in goal?). swapNow/keeperNow make it from this
+  // minute and rework the rest of the plan; the minutes table under the line-up shows what each player has played so far,
+  // ticking, and what they'll end on.
+  var np = null, swapUndo = null;
+  function nowEditable(m) { return !!m && role === 'owner' && !m.house && !m.solo && m.phase !== 'ft' && subDue(m) < 0; }
+  function renderNowPick() {
+    var m = S.match, el = $('nowPick'); if (!m) return;
+    var s = m.segs[curSeg(m)];
+    if (!np || !nowEditable(m) || (np.kind === 'on' ? s.bench : np.kind === 'gk' ? [s.gk] : s.on).indexOf(np.id) < 0) { np = null; el.innerHTML = ''; el.className = ''; return; }
+    var pm = playedMins(m), cands, title;
+    var mins = function (id) { return fmt2((pm[id] || 0) * 60000); };
+    if (np.kind === 'off') { title = 'Who comes on for ' + nm(np.id) + '?'; cands = s.bench.slice().sort(function (a, b) { return (pm[a] || 0) - (pm[b] || 0); }); }
+    else if (np.kind === 'on') { title = 'Who comes off for ' + nm(np.id) + '?'; cands = s.on.slice().sort(function (a, b) { return (pm[b] || 0) - (pm[a] || 0); }); }
+    else { title = 'Who goes in goal instead of ' + nm(np.id) + '?'; cands = s.on.concat(s.bench); }
+    var when = m.phase === 'pre' ? 'From kick-off.' : m.phase === 'ht' ? 'From the start of the second half.' : 'From now.';
+    when += np.kind === 'gk' ? '' : ' Minutes played so far are next to each name.';
+    var html = '<div class="picker out" role="dialog"><div class="phead"><strong>' + esc(title) + '</strong><button class="link" type="button" data-cancel="1">Cancel</button></div>' +
+      '<p class="note">' + (np.kind === 'gk' ? when.replace(/\.$/, '') + ' to the end of the game.' : when) + ' The rest of the plan is worked out again to keep minutes even.</p><div class="chips">' +
+      cands.map(function (id, n) {
+        var sub = np.kind === 'gk' ? (s.on.indexOf(id) >= 0 ? 'on the pitch' : 'from the bench') : mins(id);
+        return '<button class="pick' + (n === 0 && np.kind !== 'gk' ? ' best' : '') + '" type="button" data-np="' + id + '">' + esc(nm(id)) + ' <small>' + sub + '</small></button>';
+      }).join('') + (cands.length ? '' : '<span class="note">Nobody can swap with them right now.</span>') + '</div></div>';
+    el.innerHTML = html; el.className = 'modal sheet';
+  }
+  function planMsg(m, r) { // what the reworked plan means for minutes by full time
+    var gm = gameMins(m), moved = Object.keys(r.target).filter(function (id) { return gm[id] !== r.target[id]; });
+    if (!moved.length) return 'The plan below is worked out again and everyone still ends on the minutes they were planned.';
+    return 'The plan below is worked out again. By full time ' + listAnd(moved.map(function (id) { return nm(+id) + ' plays ' + gm[id] + ' (was ' + r.target[id] + ')'; })) + '.';
+  }
+  function undoOk(m) {
+    var u = swapUndo;
+    return !!(u && m && m.notice && u.gid === m.gid && u.phase === m.phase && Date.now() - u.at < 120000 && u.after === JSON.stringify(m.segs));
+  }
+  function nowApply(c) {
+    var m = S.match, k = np; if (!m || !k) return;
+    var undo = { gid: m.gid, phase: m.phase, at: Date.now(), segs: JSON.stringify(m.segs), ok: m.ok, keeper: m.keeper, order: m.order.slice(), notice: m.notice };
+    var r, first;
+    if (k.kind === 'gk') { r = keeperNow(m, c); first = nm(c) + ' goes in goal instead of ' + nm(k.id) + (m.phase === 'pre' ? ' from kick-off.' : m.phase === 'ht' ? ' for the second half.' : ' now.'); }
+    else {
+      var X = k.kind === 'off' ? k.id : c, Y = k.kind === 'off' ? c : k.id;
+      r = swapNow(m, X, Y);
+      first = m.phase === 'pre' ? nm(Y) + ' starts instead of ' + nm(X) + '.' : m.phase === 'ht' ? nm(Y) + ' starts the second half instead of ' + nm(X) + '.' : nm(Y) + ' is on for ' + nm(X) + ' now.';
+    }
+    np = null;
+    if (!r) { renderGame(); return; }
+    m.notice = first + ' ' + planMsg(m, r);
+    undo.after = JSON.stringify(m.segs); swapUndo = undo;
+    lastBlock = curSeg(m); lastDue = subDue(m); lastSoon = subSoon(m);
+    save(); renderGame();
+  }
+  function nowTap(e) {
+    var b = e.target.closest('button[data-now]'), m = S.match; if (!b || !nowEditable(m)) return;
+    var id = +b.getAttribute('data-now'), s = m.segs[curSeg(m)];
+    np = { kind: id === s.gk ? 'gk' : s.bench.indexOf(id) >= 0 ? 'on' : 'off', id: id }; renderNowPick();
+  }
+  $('pitchNow').addEventListener('click', nowTap);
+  $('benchNow').addEventListener('click', nowTap);
+  $('nowPick').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!np) return;
+    if (e.target === $('nowPick') || (b && b.getAttribute('data-cancel'))) { np = null; renderNowPick(); return; }
+    var c = b ? b.getAttribute('data-np') : null; if (c !== null) nowApply(+c);
+  });
+  $('noticeUndo').addEventListener('click', function () {
+    var m = S.match, u = swapUndo; if (!undoOk(m)) { renderGame(); return; }
+    m.segs = JSON.parse(u.segs); m.ok = u.ok; m.keeper = u.keeper; m.order = u.order;
+    if (u.notice) m.notice = u.notice; else delete m.notice;
+    swapUndo = null; lastBlock = curSeg(m); lastDue = subDue(m); lastSoon = subSoon(m);
+    save(); renderGame();
+  });
+  function renderMinsLive() { // every player's minutes so far (ticking) and what they'll end on as the plan stands
+    var m = S.match, el = $('minsLive'); if (!m) return;
+    if (m.house || m.solo || !(m.squad || []).length || !m.segs[0]) { el.innerHTML = ''; return; }
+    var cb = curSeg(m), s = m.segs[cb], pm = playedMins(m), gm = gameMins(m), seen = {};
+    var by = function (dir) { return function (a, b) { return dir * ((pm[a] || 0) - (pm[b] || 0)); }; };
+    var rows = [].concat(s.gk != null ? [[s.gk, 'on']] : [], s.on.slice().sort(by(-1)).map(function (id) { return [id, 'on']; }), s.bench.slice().sort(by(1)).map(function (id) { return [id, 'off']; }));
+    rows.forEach(function (r) { seen[r[0]] = 1; });
+    m.squad.forEach(function (id) { if (!seen[id]) rows.push([id, 'gone']); });
+    el.innerHTML = '<table class="minslive" aria-label="Minutes"><thead><tr><th>Minutes</th><th class="n">Played</th><th class="n">By full time</th></tr></thead><tbody>' +
+      rows.map(function (r) { var id = r[0]; return '<tr class="' + r[1] + '"><td class="who">' + esc(nm(id)) + (id === s.gk ? ' (GK)' : '') + '</td><td class="n"><b>' + fmt2((pm[id] || 0) * 60000) + '</b></td><td class="n">' + (gm[id] || 0) + '</td></tr>'; }).join('') + '</tbody></table>';
+  }
+
   // ---- player injured or leaving
   function renderOut() {
     var m = S.match; if (!m) return;
@@ -7601,7 +7788,8 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   sheetPull($('quickSwap'), function () { qs = null; renderQuick(); });
   sheetPull($('subEdit'), function () { ed = null; renderEdit(); });
   sheetPull($('outPicker'), function () { outPick = null; renderOut(); });
-  $('noticeOk').addEventListener('click', function () { var m = S.match; if (!m) return; delete m.notice; save(); renderGame(); });
+  sheetPull($('nowPick'), function () { np = null; renderNowPick(); });
+  $('noticeOk').addEventListener('click', function () { var m = S.match; if (!m) return; delete m.notice; swapUndo = null; save(); renderGame(); });
 
   // ---- score
   // Who to offer first when a goal goes in: outfield players on the pitch, most prolific first (goals for the scorer, assists for the pass),
