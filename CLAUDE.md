@@ -788,6 +788,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   shows the game's highlights with a welcome (`guestCard`): get the app (`config.js` `appStore`, empty until the App Store
   page is live), make an account, join or start a team. The link uses the 6-character follow code, never the organiser code.
 - Test: `house.test.mjs`. Guests' names are covered on the privacy page.
+- **Players a side, with subs** (Ethan, 28 October 2026: "it auto maxes out the team size, it doesn't allow subs"): the
+  house setup and the friendly screen have "Players a side" (blank: everyone on all game, as before) and "Subs every
+  (min)" (`sideFields`, `h.per`/`h.sub`, `FR.d.per`/`.sub`). With a number, `sideSegs`/`sideSched` give each side its own
+  bench, taking turns round the side (the last added sit first), and the game runs on the usual changes and Subs done
+  (`m.sub`, `m.pitch` = those on at once). Nobody changes sides: the quick swap, an injury (`subCands`, `applyOut`) and the
+  rota keep to one side; Edit upcoming subs and the tap-to-change on Right now stay off in these games. Goals for/against
+  count only for who was on. Test: `sidesubs.test.mjs`.
 
 ### Scorers for both sides in a friendly (`0050_friendly_scorers.sql`; Ethan, 21 October 2026)
 - "When playing a friendly game you should be able to select who scored for both teams." In a game among the squad and a

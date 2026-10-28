@@ -2546,10 +2546,16 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var gm = gameMins(m), extra = {}, before = m.segs[j] ? m.segs[j].on.slice() : [], cameOn = [];
     var score = function (id) { return (gm[id] || 0) + (extra[id] || 0); };
     for (var t = j; t < m.segs.length; t++) {
-      var q = m.segs[t], d = q.to - q.from;
+      var q = m.segs[t], d = q.to - q.from, xOn = q.on.indexOf(X) >= 0;
       if (q.gk === X) q.gk = G != null ? G : null;
       q.on = q.on.filter(function (id) { return id !== X && id !== G; });
       q.bench = q.bench.filter(function (id) { return id !== X && id !== G; });
+      if (m.house) { // two sides: X's place goes to someone from X's own side's bench, if it has one
+        var own = q.bench.filter(function (id) { return sideOf(m, id) === sideOf(m, X); }).sort(function (a, b) { return score(a) - score(b); });
+        var in1 = !xOn ? null : t === j && R != null && own.indexOf(R) >= 0 ? R : own[0];
+        if (in1 != null) { q.bench.splice(q.bench.indexOf(in1), 1); q.on.push(in1); extra[in1] = (extra[in1] || 0) + d; }
+        continue;
+      }
       var spots = m.pitch - (q.gk != null ? 1 : 0);
       if (t === j && R != null && q.on.length < spots && q.bench.indexOf(R) >= 0) {
         q.bench.splice(q.bench.indexOf(R), 1); q.on.push(R); extra[R] = (extra[R] || 0) + d;
@@ -6968,6 +6974,36 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     return top + 1;
   }
   function houseNames(h) { var a = (h.a || '').trim() || HOUSE_A, b = (h.b || '').trim() || HOUSE_B; if (a.toLowerCase() === b.toLowerCase()) b += ' 2'; return { a: a, b: b }; }
+  // Players a side on the pitch, in a game among the squad or a friendly (Ethan: "you should be able to set the game size and
+  // overflow go into subs"). Blank is everyone on all game, as before. With a number, each side keeps that many on and the
+  // rest of that side wait on its own bench, taking turns: every `sub` minutes the next ones come on, round the side, so
+  // everyone sits about the same. Nobody changes sides. The changes are made with Subs done, as in any game.
+  function sidePer(v) { var n = Math.round(+v); return v !== '' && v != null && n >= SIDE_MIN && n <= TEAM_MAX ? n : null; }
+  function sideSubMin(v, half) { var n = Math.round(+v); return Math.max(1, Math.min(half, n >= 1 ? n : 5)); }
+  function sideSched(order, side, per, B) { // each stretch's bench; the last names added to a side sit first
+    var out = []; for (var b = 0; b < B; b++) out.push([]);
+    ['a', 'b'].forEach(function (sd) {
+      var ids = order.filter(function (id) { return side[id] === sd; }).reverse(), n = ids.length, k = per ? n - per : 0;
+      for (var b = 0; b < B && k > 0; b++) for (var i = 0; i < k; i++) out[b].push(ids[(b * k + i) % n]);
+    });
+    return out;
+  }
+  function sideSegs(order, side, per, half, sub, periods) { // the stretches, how long each is, and how many are on at once
+    var n = { a: 0, b: 0 }; order.forEach(function (id) { if (side[id] === 'a' || side[id] === 'b') n[side[id]]++; });
+    var bench = !!per && (n.a > per || n.b > per), len = bench ? sub : half, B = Math.ceil(half / len) * (periods === 1 ? 1 : 2);
+    return { segs: mkSegs(sideSched(order, side, bench ? per : null, B), order, null, half, len, periods), sub: len, pitch: bench ? Math.min(per, n.a) + Math.min(per, n.b) : order.length };
+  }
+  function sideSay(per, nA, nB, a, b, sub) { // what the setup screen says about it
+    if (!per) return '';
+    var extra = [[a, nA], [b, nB]].filter(function (x) { return x[1] > per; }).map(function (x) { return (x[1] - per) + ' on the ' + x[0] + ' bench'; });
+    var short = [[a, nA], [b, nB]].filter(function (x) { return x[1] && x[1] < per; }).map(function (x) { return x[0] + ' only has ' + x[1] + '.'; });
+    return ' ' + per + ' a side on the pitch' + (extra.length ? ': ' + listAnd(extra) + ', and the subs come on every ' + sub + ' minutes so everyone plays about the same.' : ', so nobody sits out.') + (short.length ? ' ' + short.join(' ') : '');
+  }
+  function sideFields(pre, per, sub) {
+    return '<p class="note">Leave Players a side blank and everyone plays all game. Put a number in and anyone over it on a side starts on the bench, and the subs take turns so everyone plays about the same.</p>' +
+      '<div class="two"><label class="field" for="' + pre + 'Per">Players a side<input id="' + pre + 'Per" type="number" min="' + SIDE_MIN + '" max="' + TEAM_MAX + '" inputmode="numeric" placeholder="Everyone" value="' + (per || '') + '"></label>' +
+      '<label class="field" for="' + pre + 'Sub">Subs every (min)<input id="' + pre + 'Sub" type="number" min="1" max="60" inputmode="numeric" value="' + (sub || 5) + '"></label></div>';
+  }
   function houseSides(h) { // who's on each side, squad first, then guests
     var out = { a: [], b: [] };
     S.players.forEach(function (p) { var s = h.side[p.id]; if (s === 'a' || s === 'b') out[s].push(p.id); });
@@ -6983,6 +7019,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       '<h3>Guests</h3><p class="note">Playing with people from outside the squad? Add them by name. After the game you can send them a link to watch the highlights.</p>' +
       '<label class="field" for="hGuest">Guest’s name<input id="hGuest" type="text" maxlength="30" autocomplete="off" autocapitalize="words" placeholder="First name is fine"></label>' +
       '<div class="actions"><button class="plain" id="hAddA" type="button"></button><button class="plain" id="hAddB" type="button"></button></div>' +
+      '<h3>Players on the pitch</h3>' + sideFields('h', h.per, h.sub) +
       '<div class="two"><label class="field" for="hHalf"><span id="hHalfLbl"></span><input id="hHalf" type="number" min="1" max="60" inputmode="numeric" value="' + h.half + '"></label>' +
       '<label class="check" for="hTwo"><input id="hTwo" type="checkbox"' + (h.two ? ' checked' : '') + '><span>Two halves</span></label></div>' +
       '<p class="msg" id="hMsg"></p><div class="actions"><button class="plain" id="hShuffle" type="button">Shuffle the sides</button><button class="plain primary" id="hKick" type="button">Go to kick-off</button></div></section>';
@@ -7001,7 +7038,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     $('hAddA').textContent = 'Add to ' + n.a; $('hAddB').textContent = 'Add to ' + n.b;
     $('hHalfLbl').textContent = $('hTwo') && $('hTwo').checked ? 'Minutes each half' : 'Game length (min)';
     var big = sides.a.length > TEAM_MAX ? n.a : sides.b.length > TEAM_MAX ? n.b : null, ok = sides.a.length >= 2 && sides.b.length >= 2 && !big;
-    $('hMsg').textContent = big ? big + ' has more than ' + TEAM_MAX + ', the most for one side. Move some players to the other side or Out.' : ok ? n.a + ' ' + sides.a.length + ' v ' + sides.b.length + ' ' + n.b + '.' : 'Each side needs at least 2 players (' + sides.a.length + ' v ' + sides.b.length + ' so far).';
+    $('hMsg').textContent = big ? big + ' has more than ' + TEAM_MAX + ', the most for one side. Move some players to the other side or Out.' : ok ? n.a + ' ' + sides.a.length + ' v ' + sides.b.length + ' ' + n.b + '.' + sideSay(sidePer(h.per), sides.a.length, sides.b.length, n.a, n.b, sideSubMin(h.sub, h.half || 15)) : 'Each side needs at least 2 players (' + sides.a.length + ' v ' + sides.b.length + ' so far).';
     $('hMsg').className = 'msg' + (ok ? '' : ' bad');
     $('hKick').disabled = !ok;
   }
@@ -7015,8 +7052,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     sides.a.forEach(function (id) { side[id] = 'a'; }); sides.b.forEach(function (id) { side[id] = 'b'; });
     var guests = h.guests.filter(function (g) { return g.side === 'a' || g.side === 'b'; }).map(function (g) { return { id: g.id, name: g.name }; });
     if (!canStart()) return; runBegin();
-    S.match = { opp: n.b, friendly: true, house: { a: n.a, b: n.b, side: side, guests: guests }, order: ids, keeper: null, segs: mkSegs([], ids, null, half, half, periods),
-                squad: ids.slice(), gone: [], half: half, sub: half, pitch: ids.length, periods: periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
+    var ss = sideSegs(ids, side, sidePer(h.per), half, sideSubMin(h.sub, half), periods);
+    S.match = { opp: n.b, friendly: true, house: { a: n.a, b: n.b, side: side, guests: guests }, order: ids, keeper: null, segs: ss.segs,
+                squad: ids.slice(), gone: [], half: half, sub: ss.sub, pitch: ss.pitch, periods: periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
     if (me) S.match.by = me.id;
     D = null; lastBlock = -1; pick = null; save(); go('game');
   }
@@ -7073,6 +7111,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       '<label class="field" for="frGuest">A guest who isn’t on Gaffer yet<input id="frGuest" type="text" maxlength="30" autocomplete="off" autocapitalize="words" placeholder="First name is fine"></label>' +
       '<div class="actions"><button class="plain" id="frAddG" type="button">Add the guest</button></div>' +
       '<div id="frPastBox"></div><p class="note">After the game you can send everyone a link to their highlights. Guests get Gaffer from it, and once they make an account the game goes on their profile.</p></section>' +
+      '<section><h2>Players on the pitch</h2>' + sideFields('fr', d.per, d.sub) + '</section>' +
       '<section><h2>How long</h2><div class="two"><label class="field" for="frHalf"><span id="frHalfLbl">' + (d.two ? 'Minutes each half' : 'Game length (min)') + '</span><input id="frHalf" type="number" min="1" max="60" inputmode="numeric" value="' + d.half + '"></label>' +
       '<label class="check" for="frTwo"><input id="frTwo" type="checkbox"' + (d.two ? ' checked' : '') + '><span>Two halves</span></label></div></section>' +
       '<p class="msg" id="frMsg" role="status"></p><div class="actions"><button class="plain primary" id="frKick" type="button">Go to kick-off</button></div>' + frMore();
@@ -7098,7 +7137,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         '<span class="seg">' + [['a', cut(a)], ['b', cut(b)]].map(function (o) { return '<button type="button" data-frside="' + o[0] + '" data-i="' + i + '" class="' + ((p.side || 'a') === o[0] ? 'is' : '') + '" aria-pressed="' + ((p.side || 'a') === o[0]) + '">' + esc(o[1]) + '</button>'; }).join('') + '</span></div>';
     }).join('');
     var na = d.people.filter(function (p) { return p.side !== 'b'; }).length, nb = d.people.length - na;
-    $('frCount').textContent = a + ' ' + na + ' v ' + nb + ' ' + b + (nb ? '.' : '. Nobody on ' + b + ' is fine: their goals are just counted.');
+    $('frCount').textContent = a + ' ' + na + ' v ' + nb + ' ' + b + (nb ? '.' : '. Nobody on ' + b + ' is fine: their goals are just counted.') + sideSay(sidePer(d.per), na, nb, a, b, sideSubMin(d.sub, d.half || 15));
   }
   function renderFrChips() {
     var d = frDraft(), chip = function (p, attr) { return frHas(d, p) ? '' : '<button class="pick" type="button" ' + attr + '>+ ' + esc(p.name || p.u || p.n) + (p.u ? ' <small>@' + esc(p.u) + '</small>' : '') + '</button>'; };
@@ -7162,8 +7201,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     Object.keys(names).forEach(function (id) { id = +id; if (!P(id)) S.players.push({ id: id, name: names[id] }); });
     S.players.forEach(function (p) { if (p.id >= S.nextId) S.nextId = p.id + 1; });
     var order = ids.filter(function (id) { return side[id] === 'a'; }).concat(ids.filter(function (id) { return side[id] === 'b'; }));
-    S.match = { opp: b, friendly: true, house: { a: a, b: b, side: side, guests: [], fr: true }, order: order, keeper: null, segs: mkSegs([], order, null, half, half, periods),
-                squad: order.slice(), gone: [], half: half, sub: half, pitch: order.length, periods: periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
+    var ss = sideSegs(order, side, sidePer(d.per), half, sideSubMin(d.sub, half), periods);
+    S.match = { opp: b, friendly: true, house: { a: a, b: b, side: side, guests: [], fr: true }, order: order, keeper: null, segs: ss.segs,
+                squad: order.slice(), gone: [], half: half, sub: ss.sub, pitch: ss.pitch, periods: periods, events: [], phase: 'pre', running: false, base: 0, t0: 0, gid: uuid() };
     d.people.forEach(function (p) { var v = map[p.k], id = v && typeof v === 'object' ? v.pid : v; if (id && !p.self) { p.pid = id; p.k = 'p:' + id; } }); // (the same people next time, with no signal needed)
     d.people = d.people.filter(function (p, i, all) { return all.findIndex(function (x) { return x.k === p.k; }) === i; }); frKeep();
     FR.msg = missing.length ? listAnd(missing) + (missing.length === 1 ? ' isn’t' : ' aren’t') + ' on Gaffer any more, so ' + (missing.length === 1 ? 'isn’t' : 'aren’t') + ' in the game.' : ''; FR.bad = !!missing.length;
@@ -7207,7 +7247,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var d = frDraft(), t = e.target;
     if (t.id === 'frA') { d.a = t.value; frKeep(); renderFrList(); }
     else if (t.id === 'frB') { d.b = t.value; frKeep(); renderFrList(); }
-    else if (t.id === 'frHalf') { var v = Math.round(+t.value); if (v >= 1) { d.half = Math.min(60, v); frKeep(); } }
+    else if (t.id === 'frHalf') { var v = Math.round(+t.value); if (v >= 1) { d.half = Math.min(60, v); frKeep(); renderFrList(); } }
+    else if (t.id === 'frPer') { d.per = sidePer(t.value); frKeep(); renderFrList(); }
+    else if (t.id === 'frSub') { var u = Math.round(+t.value); if (u >= 1) { d.sub = Math.min(60, u); frKeep(); renderFrList(); } }
     else if (t.id === 'frFind') { FR.q = t.value; frFind(); }
   });
   $('v-friendly').addEventListener('change', function (e) {
@@ -7260,7 +7302,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (!D || !D.house) return;
     if (e.target.id === 'hA') { D.house.a = e.target.value; renderHouseList(); }
     else if (e.target.id === 'hB') { D.house.b = e.target.value; renderHouseList(); }
-    else if (e.target.id === 'hHalf') { var v = Math.round(+e.target.value); if (v >= 1) D.house.half = Math.min(60, v); }
+    else if (e.target.id === 'hHalf') { var v = Math.round(+e.target.value); if (v >= 1) { D.house.half = Math.min(60, v); renderHouseList(); } }
+    else if (e.target.id === 'hPer') { D.house.per = sidePer(e.target.value); renderHouseList(); }
+    else if (e.target.id === 'hSub') { var u = Math.round(+e.target.value); if (u >= 1) { D.house.sub = Math.min(60, u); renderHouseList(); } }
   });
   $('houseBox').addEventListener('change', function (e) { if (D && D.house && e.target.id === 'hTwo') { D.house.two = e.target.checked; renderHouseList(); } });
   $('houseBox').addEventListener('keydown', function (e) { if (e.target.id === 'hGuest' && e.key === 'Enter') { e.preventDefault(); houseAdd('a'); } });
@@ -7464,11 +7508,13 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       html += '<span style="flex:' + (m.segs[i].to - m.segs[i].from) + '" class="' + ((m.phase === 'ft' || i < cb) ? 'done' : (i === cb && m.phase !== 'pre' && m.phase !== 'ht') ? 'now' : '') + '"></span>';
     }
     $('blocks').innerHTML = html;
-    var hs = m.house; // a game among the squad: the two sides, no subs
+    var hs = m.house; // a game among the squad: the two sides, each with its own bench when there are more than the number a side
+    var sideNow = function (sd) { var on = onPitch(m, cb).filter(function (id) { return sideOf(m, id) === sd; }), off = m.segs[cb].bench.filter(function (id) { return sideOf(m, id) === sd; });
+      return chips(m, on, 'on') + off.map(function (id) { return '<span class="chip off">' + esc(nm(id)) + ' <small>bench</small></span>'; }).join(''); };
     $('pitchTag').textContent = hs ? hs.a : 'Pitch'; $('benchTag').textContent = hs ? hs.b : 'Bench';
     if (hs || !nowEditable(m)) {
-      $('pitchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'a'; }) : onPitch(m, cb), 'on');
-      $('benchNow').innerHTML = chips(m, hs ? onPitch(m, cb).filter(function (id) { return sideOf(m, id) === 'b'; }) : m.segs[cb].bench, 'off');
+      $('pitchNow').innerHTML = hs ? sideNow('a') : chips(m, onPitch(m, cb), 'on');
+      $('benchNow').innerHTML = hs ? sideNow('b') : chips(m, m.segs[cb].bench, 'off');
     } else { // the gaffer taps a name to change who's on (renderNowPick)
       var cs = m.segs[cb], nowBtn = function (id, cls, ok) { return ok ? '<button class="chip tapchip ' + cls + '" type="button" data-now="' + id + '">' + esc(nm(id)) + (id === m.keeper ? ' (GK)' : '') + '</button>' : chips(m, [id], cls); };
       $('pitchNow').innerHTML = onPitch(m, cb).map(function (id) { return nowBtn(id, 'on', id === cs.gk || cs.bench.length > 0); }).join('') || '<span class="note">Nobody</span>';
@@ -7477,7 +7523,8 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var hint = role === 'owner' && !hs && !m.solo && m.phase !== 'ft' && hasBench(m);
     $('nowHint').hidden = !hint;
     if (hint) $('nowHint').textContent = subDue(m) >= 0 ? 'A change is due. Tap Subs done first, then tap a name here to change who’s on.' : 'Tap a name to change who’s on' + (m.phase === 'pre' ? ' at kick-off' : m.phase === 'ht' ? ' for the second half' : ' now') + '. The rest of the plan is worked out again to keep minutes even.';
-    $('swapCard').hidden = $('rotaSec').hidden = !!hs || !!m.solo; $('nowSec').hidden = !!m.solo; // (just me: no line-up at all)
+    $('swapCard').hidden = $('rotaSec').hidden = (!!hs && !hasBench(m)) || !!m.solo; $('nowSec').hidden = !!m.solo; // (just me: no line-up at all)
+    $('edBtn').parentNode.hidden = !!hs; // (the two sides' subs are changed from the Next change card, one side at a time)
     $('finNote').textContent = m.solo ? 'Finish game saves the result. It’s kept out of the team’s record.' : frGame(m) ? 'Finish game saves the result, goals and assists to each player’s own stats. It never counts for a team.' : 'Finish game saves the result, goals, assists and minutes to your stats.';
     $('goneTag').hidden = $('goneNow').hidden = !m.gone.length;
     $('goneNow').innerHTML = m.gone.map(function (id) { return '<span class="chip gone">' + esc(nm(id)) + '</span>'; }).join('');
@@ -7509,7 +7556,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     html = '';
     for (i = 0; i < n; i++) {
       html += '<tr class="' + (m.phase === 'ft' || i < cb ? 'past' : i === cb ? 'now' : '') + '"><td class="t">' + (m.segs[i].h ? '2nd' : '1st') + '</td><td class="t">' + m.segs[i].from + ':00</td><td>' +
-              (m.segs[i].bench.map(function (id) { return esc(nm(id)); }).join(', ') || 'Nobody') + '</td></tr>';
+              (m.segs[i].bench.map(function (id) { return esc(nm(id) + (hs ? ' (' + (sideOf(m, id) === 'b' ? hs.b : hs.a) + ')' : '')); }).join(', ') || 'Nobody') + '</td></tr>';
     }
     $('rota').innerHTML = html;
     var gm = gameMins(m), ids = (m.squad || []).slice().sort(function (x, y) { return gm[y] - gm[x]; });
@@ -7520,7 +7567,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   $('swapBody').addEventListener('click', function (e) { if (e.target.id === 'subsDoneBtn') subsDone(); });
   // Before kick-off, a sheet says who starts on the bench (until Got it or kick-off; once a game)
   function renderBench(m) {
-    var b = m && m.segs[0] ? m.segs[0].bench : [], show = !!m && role === 'owner' && m.phase === 'pre' && !m.benchSeen && !m.house && !m.solo && b.length > 0 && S.view === 'game';
+    var b = m && m.segs[0] ? m.segs[0].bench : [], show = !!m && role === 'owner' && m.phase === 'pre' && !m.benchSeen && !m.solo && b.length > 0 && S.view === 'game';
     $('benchSheet').hidden = !show; if (!show) return;
     $('benchNames').innerHTML = chips(m, b, 'off');
     var t = nextChange(m, 0), gk = m.segs[0].gk;
@@ -7556,7 +7603,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var s = qs ? m.segs[qs.t] : null, prev = qs ? m.segs[qs.t - 1] : null;
     if (!qs || role !== 'owner' || !s || qs.t < edFirst(m) || (qs.kind === 'on' ? s.on : s.bench).indexOf(qs.id) < 0) { qs = null; el.innerHTML = ''; el.className = ''; return; }
     var onNow = function (id) { return !prev || prev.on.indexOf(id) >= 0; };
-    var cands = qs.kind === 'on' ? s.bench.slice() : s.on.slice(), html;
+    var cands = (qs.kind === 'on' ? s.bench.slice() : s.on.slice()).filter(function (id) { return !m.house || sideOf(m, id) === sideOf(m, qs.id); }), html; // (two sides: only someone from the same side)
     html = '<div class="picker ed" role="dialog"><div class="phead"><strong>' + (qs.kind === 'on' ? 'Who comes on instead of ' : 'Who goes off instead of ') + esc(nm(qs.id)) + '?</strong><button class="link" type="button" data-cancel="1">Cancel</button></div>' +
       '<p class="note">From ' + segName(s) + '. The app swaps them back later where it can, so minutes still add up.</p><div class="chips">' +
       cands.map(function (id) {
@@ -7703,7 +7750,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   });
   function renderMinsLive() { // every player's minutes so far (ticking) and what they'll end on as the plan stands
     var m = S.match, el = $('minsLive'); if (!m) return;
-    if (m.house || m.solo || !(m.squad || []).length || !m.segs[0]) { el.innerHTML = ''; return; }
+    if ((m.house && !hasBench(m)) || m.solo || !(m.squad || []).length || !m.segs[0]) { el.innerHTML = ''; return; }
     var cb = curSeg(m), s = m.segs[cb], pm = playedMins(m), gm = gameMins(m), seen = {};
     var by = function (dir) { return function (a, b) { return dir * ((pm[a] || 0) - (pm[b] || 0)); }; };
     var rows = [].concat(s.gk != null ? [[s.gk, 'on']] : [], s.on.slice().sort(by(-1)).map(function (id) { return [id, 'on']; }), s.bench.slice().sort(by(1)).map(function (id) { return [id, 'off']; }));
@@ -7744,7 +7791,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (s.gk === X && G == null) vacancy = false;
     if (!vacancy) return [];
     var gm = gameMins(m);
-    return s.bench.filter(function (id) { return id !== X && id !== G; }).sort(function (a, b) { return (gm[a] || 0) - (gm[b] || 0); });
+    return s.bench.filter(function (id) { return id !== X && id !== G && (!m.house || sideOf(m, id) === sideOf(m, X)); }).sort(function (a, b) { return (gm[a] || 0) - (gm[b] || 0); });
   }
   function afterWho(x, g) {
     var m = S.match;
@@ -8541,7 +8588,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     var m = S.match; if (!m) return;
     var gm = gameMins(m), t = tally(m), per = {}, all = linkFinal(m); // (a linked game: with the other team's goals, as the score has them)
     Object.keys(gm).forEach(function (k) { if (P(+k)) per[k] = { mins: gm[k], g: t.g[k] || 0, a: t.a[k] || 0, gf: 0, ga: 0 }; });
-    if (m.house) m.events.forEach(function (e) { if (e.hl) return; Object.keys(per).forEach(function (k) { per[k][(sideOf(m, +k) === 'a') === !!e.us ? 'gf' : 'ga']++; }); }); // for and against by side
+    if (m.house) m.events.forEach(function (e) { if (e.hl) return; Object.keys(per).forEach(function (k) { if (!e.on || e.on.indexOf(+k) >= 0) per[k][(sideOf(m, +k) === 'a') === !!e.us ? 'gf' : 'ga']++; }); }); // for and against by side (only while on the pitch)
     else all.forEach(function (e) { if (e.hl || !e.on) return; e.on.forEach(function (id) { if (per[id]) per[id][e.us ? 'gf' : 'ga']++; }); });
     var ev = all.map(function (e) { var o = { min: e.min, at: e.at }; if (e.x) o.x = e.x; if (e.hl) { o.hl = true; if (e.k) o.k = e.k; if (e.p != null) o.p = e.p; } else { o.us = !!e.us; if (e.p != null) o.p = e.p; if (e.a != null) o.a = e.a; if (e.on) o.on = e.on; if (e.lk) o.lk = true; } return o; });
     var lu = m.segs.filter(function (s) { return s.to > s.from; }).map(function (s) { return { h: s.h, f: s.from, t: s.to, on: (s.gk != null ? [s.gk] : []).concat(s.on) }; });
