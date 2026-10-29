@@ -20,7 +20,10 @@
 // { code, kind: "link", link: <id> }: the other team's gaffers are told.
 // Anyone signed in whose app sees that last week's Goal of the Week has been decided calls it with { kind: "gotw", week }:
 // everyone in the teams that had a goal up that week, and everyone who voted, is told who won, once however many ask.
-// The wording of those eight is written here, not by the caller.
+// Anyone in the team whose answer to a poll (or a gaffer whose change to it) has just freed a spot calls it with
+// { code, kind: "movedup", fixture: <id> }: whoever moved up off that poll's waitlist in the last 10 minutes is told
+// they're in, once each.
+// The wording of those nine is written here, not by the caller.
 // Needs these secrets (Edge Functions > Secrets):
 //   APNS_KEY_P8   the contents of an Apple Push Notifications key (.p8)
 //   APNS_KEY_ID   that key's ID
@@ -70,7 +73,7 @@ async function fcmSignIn() {
 }
 
 const DROID_KINDS = ["kickoff", "goal", "poll", "nudge", "highlights", "chat", "gotw"];
-const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge", "join", "live", "report", "link", "gotw"];
+const KINDS = ["kickoff", "poll", "highlights", "nudge", "claimed", "chat", "goal", "challenge", "join", "live", "report", "link", "gotw", "movedup"];
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
 Deno.serve(async (req: Request) => {
@@ -79,7 +82,7 @@ Deno.serve(async (req: Request) => {
     const input = await req.json();
     const kind = KINDS.includes(input.kind) ? input.kind : "kickoff";
     let title = clean(input.title, 80), text = clean(input.body, 180);
-    if (!["claimed", "chat", "challenge", "join", "live", "report", "link", "gotw"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
+    if (!["claimed", "chat", "challenge", "join", "live", "report", "link", "gotw", "movedup"].includes(kind) && (!title || !text)) return json({ error: "Nothing to send" }, 400);
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: who } = await db.auth.getUser(token);
@@ -232,6 +235,24 @@ Deno.serve(async (req: Request) => {
       if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
       const to = (gaffers || []).map((g) => g.user_id as string);
       return json({ sent: await send(to, team.code, "join", clean(team.name, 80), `${clean(ask.name, 40)} wants to join the squad. Open Gaffer to let them in or turn them down.`) });
+    }
+
+    if (kind === "movedup") { // a spot came free on a poll: whoever moved up off its waitlist, once each, by the poll's own wording
+      const { data: me } = await db.from("players").select("pid").eq("team_id", team.id).eq("user_id", who.user.id).maybeSingle();
+      if (!isGaffer && !me) return json({ error: "Only someone in the team can do that" }, 403);
+      const { data: f } = await db.from("fixtures").select("id,opp,ko_at,kind").eq("id", String(input.fixture || "")).eq("team_id", team.id).maybeSingle();
+      if (!f) return json({ error: "No such poll" }, 404);
+      const since = new Date(Date.now() - 600000).toISOString();
+      const { data: up } = await db.from("fixture_votes").select("pid").eq("fixture_id", f.id).eq("choice", "in").gte("moved_at", since).is("told_at", null);
+      const pids = (up || []).map((v) => v.pid as number);
+      if (!pids.length) return json({ sent: 0, reason: "nothing" });
+      await db.from("fixture_votes").update({ told_at: new Date().toISOString() }).eq("fixture_id", f.id).in("pid", pids);
+      if (!p8 || !keyId || !teamId) return json({ sent: 0, reason: "not_configured" });
+      const { data: ps } = await db.from("players").select("user_id").eq("team_id", team.id).in("pid", pids).not("user_id", "is", null);
+      const when = new Date(Number(f.ko_at || 0)).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+      const game = f.kind === "tournament" ? clean(f.opp, 60) : `${clean(team.short || team.name, 40)} v ${clean(f.opp, 50) || "TBC"}`;
+      return json({ sent: await send((ps || []).map((p) => p.user_id as string), team.code, "poll", `You're in: ${game}`,
+        `A spot came free, so you've moved up off the waitlist. ${when}. Can't make it now? Say you're out in Gaffer.`) });
     }
 
     if (kind === "live") {

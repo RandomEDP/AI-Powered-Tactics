@@ -4347,14 +4347,17 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   function whenText(ms) { var d = new Date(ms); return DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] + ', ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
   var nextFx = function () { return fixtures[0] || null; };
   function fxSides(f) { // who answered what, in the order they answered
-    var o = { gk: null, ins: [], no: [], none: [] }, seen = {};
-    (f.votes || []).forEach(function (v) { if (!P(v.pid)) return; seen[v.pid] = 1; if (v.choice === 'gk') o.gk = v.pid; else if (v.choice === 'in') o.ins.push(v.pid); else o.no.push(v.pid); });
+    var o = { gk: null, ins: [], wait: [], no: [], none: [] }, seen = {}; // wait: the waitlist, first to join first
+    (f.votes || []).forEach(function (v) { if (!P(v.pid)) return; seen[v.pid] = 1; if (v.choice === 'gk') o.gk = v.pid; else if (v.choice === 'in') o.ins.push(v.pid); else if (v.choice === 'wait') o.wait.push(v.pid); else o.no.push(v.pid); });
     S.players.forEach(function (p) { if (!seen[p.id]) o.none.push(p.id); });
     var bench = f.lineup && Array.isArray(f.lineup.bench) ? f.lineup.bench : null, spots = Math.max(1, (sideOk(f.side) || 5) - 1);
     o.bench = o.ins.filter(function (id, i) { return bench ? bench.indexOf(id) >= 0 : i >= spots; });
     o.start = o.ins.filter(function (id) { return o.bench.indexOf(id) < 0; });
     return o;
   }
+  function fxLeft(left, s) { return left ? left + (left === 1 ? ' space left' : ' spaces left') : 'full' + (s.wait.length ? ', ' + s.wait.length + ' on the waitlist' : ''); }
+  function waitText(s) { var n = s.wait.indexOf(myPid) + 1; return n === 1 ? 'You’re first on the waitlist.' : n ? 'You’re ' + ordinal(n) + ' on the waitlist.' : 'You’re on the waitlist.'; }
+  function ordinal(n) { var t = n % 100, u = n % 10; return n + (t > 10 && t < 14 ? 'th' : u === 1 ? 'st' : u === 2 ? 'nd' : u === 3 ? 'rd' : 'th'); }
   function fxSpots(f, sides) { // where each starter stands: the gaffer's placing if there is one, else by base position
     var pos = (f.lineup && f.lineup.pos) || {}, out = {}, rows = { fwd: [], mix: [], def: [] }, Y = { fwd: 20, mix: 43, def: 66 };
     sides.start.forEach(function (id) { var k = posOf(id); rows[k === 'fwd' || k === 'def' ? k : 'mix'].push(id); });
@@ -4386,23 +4389,25 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
     if (home) { // the team screen only points at the game; answering and the line-up live on the Games screen
       var ch = mine && mine.choice, more = fixtures.length - 1;
       card.innerHTML = (ask ? '<span class="fxtag">Are you in?</span>' : '') + (tour ? '<span class="fxtag tour">Tournament</span>' : '') + '<h2>' + (tour ? 'Next up: ' : 'Next game: v ') + esc(f.opp || 'TBC') + '</h2>' +
-        '<p class="fxsub">' + esc(whenText(f.ko_at)) + ' · ' + (left ? left + (left === 1 ? ' space left' : ' spaces left') : 'full') + '</p>' +
-        '<p class="note">' + (myPid == null ? 'Choose your player below, then say if you’re in.' : ch === 'in' ? 'You’re in.' : ch === 'gk' ? 'You’re in goal.' : ch === 'no' ? 'You’re out.' : 'You haven’t answered yet.') +
+        '<p class="fxsub">' + esc(whenText(f.ko_at)) + ' · ' + fxLeft(left, s) + '</p>' +
+        '<p class="note">' + (myPid == null ? 'Choose your player below, then say if you’re in.' : ch === 'in' ? 'You’re in.' : ch === 'gk' ? 'You’re in goal.' : ch === 'wait' ? waitText(s) : ch === 'no' ? 'You’re out.' : full ? 'It’s full, but you can join the waitlist.' : 'You haven’t answered yet.') +
         (own && s.none.length ? ' ' + s.none.length + ' still to answer.' : '') + (more > 0 ? ' ' + more + ' more ' + (more === 1 ? 'game' : 'games') + ' lined up.' : '') + '</p>' +
         '<div class="actions"><button class="plain primary" type="button" data-fx="all">' + (ask ? 'Say if you’re in' : 'Open the game') + ' &rsaquo;</button></div>';
       card.hidden = false; return;
     }
     html += (ask ? '<span class="fxtag">Are you in?</span>' : '') + (tour ? '<span class="fxtag tour">Tournament</span>' : '') + '<h2>' + (tour ? (f === fixtures[0] ? 'Next up: ' : '') : f === fixtures[0] ? 'Next game: v ' : 'v ') + esc(f.opp || 'TBC') + '</h2>' +
-      '<p class="fxsub">' + esc(whenText(f.ko_at)) + ' · ' + (left ? left + (left === 1 ? ' space left' : ' spaces left') : 'full') + '</p>' +
+      '<p class="fxsub">' + esc(whenText(f.ko_at)) + ' · ' + fxLeft(left, s) + '</p>' +
       '<p class="note">' + [f.location ? esc(f.location) : '', f.cost ? esc(f.cost) : '', fmtText(ff) + (tour ? ' games' : '')].filter(Boolean).join(', ') + '</p>' +
       (played.length ? '<ul class="tgames">' + played.map(function (r) { return '<li><span>v ' + esc(r.opp) + '</span><b>' + r.us + '–' + r.them + '</b></li>'; }).join('') + '</ul>' : '') +
       '<p class="note"><b>' + s.ins.length + ' of ' + f.max_outfield + '</b> outfield' + (full ? ' (full)' : '') + ', keeper: <b>' + (s.gk != null ? plink(s.gk, esc(nm(s.gk))) : 'needed') + '</b></p>';
     if (myPid != null) {
-      var c = mine && mine.choice, dis = function (k) { return (k === 'gk' && s.gk != null && s.gk !== myPid) || (k === 'in' && full && c !== 'in') ? ' disabled' : ''; };
-      html += '<div class="vote"><button type="button" data-vote="in" aria-pressed="' + (c === 'in') + '"' + dis('in') + '>I’m in</button>' +
+      var c = mine && mine.choice, dis = function (k) { return k === 'gk' && s.gk != null && s.gk !== myPid ? ' disabled' : ''; };
+      html += '<div class="vote">' + (full && c !== 'in' ? '<button type="button" data-vote="wait" aria-pressed="' + (c === 'wait') + '">' + (c === 'wait' ? 'On the waitlist' : 'Join the waitlist') + '</button>' // full: wait for a spot instead
+        : '<button type="button" data-vote="in" aria-pressed="' + (c === 'in') + '">I’m in</button>') +
         '<button type="button" data-vote="gk" aria-pressed="' + (c === 'gk') + '"' + dis('gk') + '>In goal</button>' +
         '<button type="button" class="no" data-vote="no" aria-pressed="' + (c === 'no') + '">I’m out</button></div>';
     } else html += '<p class="note">Choose your player below to answer.</p>';
+    if (myPid != null && full && c !== 'in') html += '<p class="note">' + (c === 'wait' ? waitText(s) + ' If a spot comes free you move up by yourself, and Gaffer tells you.' : 'The outfield spots are all taken. Join the waitlist and you move up by yourself if someone drops out.') + '</p>';
     if (fxMsg) html += '<p class="msg">' + esc(fxMsg) + '</p>';
     if (s.start.length + (s.gk != null ? 1 : 0) > PITCH_DOTS) { // too many to read as dots on a little pitch: who's starting, as a list
       html += '<div class="swap-rows"><div class="tag on">Starting</div><div class="chips">' + (s.gk != null ? '<span class="chip on">' + plink(s.gk, esc(nm(s.gk))) + ' (GK)</span>' : '') +
@@ -4415,6 +4420,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       if (own) html += '<p class="note">Drag a player to move them. Tap one to send them to the bench.</p>';
     }
     if (s.bench.length) html += '<div class="swap-rows"><div class="tag off">Bench</div><div class="chips">' + s.bench.map(function (id) { return own ? '<button type="button" class="chip off tapchip" data-unbench="' + id + '">' + esc(nm(id)) + '</button>' : '<span class="chip off">' + esc(nm(id)) + '</span>'; }).join('') + '</div></div>';
+    if (s.wait.length) html += '<p class="note fxwait">Waitlist: ' + s.wait.map(function (id, i) { return (i + 1) + '. ' + plink(id, esc(nm(id))); }).join(', ') + '</p>';
     if (s.no.length) html += '<p class="note">Can’t make it: ' + names(s.no) + '</p>';
     if (s.none.length) html += '<p class="note">No answer yet: ' + names(s.none) + '</p>';
     if (own) {
@@ -4423,7 +4429,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
         (s.none.length ? '<button class="plain" type="button" data-fx="nudge"' + (Date.now() < nudgeWait ? ' disabled' : '') + '>Nudge the squad</button>' : '') + '</div>';
       if (fxAnswer === f.id) html += '<div class="plist">' + S.players.map(function (p) {
         var v = (f.votes || []).filter(function (x) { return x.pid === p.id; })[0], ch = v && v.choice;
-        return '<div class="lrow fxrow"><span class="who">' + esc(nm(p.id)) + '</span><span class="seg">' + [['in', 'In'], ['gk', 'GK'], ['no', 'Out']].map(function (o) { return '<button type="button" data-for="' + p.id + '" data-vote="' + o[0] + '" class="' + (ch === o[0] ? 'is' : '') + '">' + o[1] + '</button>'; }).join('') + '</span></div>';
+        return '<div class="lrow fxrow"><span class="who">' + esc(nm(p.id)) + '</span><span class="seg">' + [['in', 'In'], ['gk', 'GK']].concat(full || ch === 'wait' ? [['wait', 'Wait']] : [], [['no', 'Out']]).map(function (o) { return '<button type="button" data-for="' + p.id + '" data-vote="' + o[0] + '" class="' + (ch === o[0] ? 'is' : '') + '">' + o[1] + '</button>'; }).join('') + '</span></div>';
       }).join('') + '</div>';
     }
     html += '<div class="actions"><button class="plain" type="button" data-fx="cal">Add to calendar</button></div>';
@@ -4473,7 +4479,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       : res.people ? 'Nobody who still needs to answer has notifications on.' : 'Nobody left to answer has claimed their player yet, so there’s nobody to nudge.');
     if (!res) nudgeWait = 0;
   }
-  var VOTE_MSG = { gk_taken: 'Someone is already down as keeper.', full: 'The outfield spots are all taken.', closed: 'This poll has closed.', not_player: 'Choose your player first.', missing: 'This poll no longer exists.' };
+  var VOTE_MSG = { gk_taken: 'Someone is already down as keeper.', full: 'The outfield spots are all taken. Join the waitlist instead.', closed: 'This poll has closed.', not_player: 'Choose your player first.', missing: 'This poll no longer exists.' };
   var askFn = null;
   function ask(text, yes, fn) { $('askText').textContent = text; $('askYes').textContent = yes; askFn = fn; $('askPop').hidden = false; }
   $('askYes').addEventListener('click', function () { $('askPop').hidden = true; var fn = askFn; askFn = null; if (fn) fn(); });
@@ -4481,14 +4487,20 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
   async function castVote(f, choice, pid) {
     try {
       var res = await q(sb.rpc('vote_fixture', { p_fixture: f.id, p_choice: choice, p_pid: pid == null ? null : pid }));
-      if (res.data !== 'ok') fxSay(VOTE_MSG[res.data] || 'That didn’t save. Try again.');
+      if (res.data === 'waiting') fxSay(pid == null ? 'You’re on the waitlist. If a spot comes free you move up by yourself, and Gaffer tells you.' : nm(pid) + ' is on the waitlist.');
+      else if (res.data !== 'ok') fxSay(VOTE_MSG[res.data] || 'That didn’t save. Try again.');
       else if (pid == null && choice !== 'no') { // offer the calendar once per game
         var asked = {}; try { asked = JSON.parse(localStorage.getItem(TKEY + A.active + ':calAsked')) || {}; } catch (e) {}
         if (!asked[f.id]) { asked[f.id] = 1; try { localStorage.setItem(TKEY + A.active + ':calAsked', JSON.stringify(asked)); } catch (e) {}
           ask('You’re in for ' + (f.kind === 'tournament' ? f.opp : 'v ' + (f.opp || 'TBC')) + ', ' + whenText(f.ko_at) + '. Add it to your calendar?', 'Add to calendar', function () { addToCalendar(f); }); }
       }
+      if (res.data === 'ok') movedUp(f.id); // that answer may have freed a spot: whoever moved up off the waitlist is told
       ping('changed'); pull();
     } catch (e) { fxSay('Couldn’t save your answer. Check your signal and try again.'); }
+  }
+  function movedUp(id) { // the server works out who (if anyone) moved up, and tells each of them once
+    if (!sb || !sb.functions || !A.active || !me) return;
+    try { sb.functions.invoke('team-notify', { body: { code: A.active, kind: 'movedup', fixture: id } }).catch(function () {}); } catch (e) {}
   }
   async function saveLineup(f) {
     try { await q(sb.from('fixtures').update({ lineup: f.lineup }).eq('id', f.id)); ping('changed'); } catch (e) { fxSay('Couldn’t save the line-up. Check your signal.'); }
@@ -4673,6 +4685,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       fmtRemember(pKind, PF);
       S.poll = { location: row.location, cost: row.cost, max: row.max_outfield, side: PF.side, time: $('pTime').value || '19:00', dow: dt.getDay() }; // the defaults for the next poll
       var isNew = !fxEdit;
+      if (!isNew) movedUp(fxEdit.id); // more outfield spots: the waitlist moves up
       save(); ping('changed'); await pull(); go('games');
       if (isNew) notifyTeam('poll', row.kind === 'tournament' ? teamName() + ': ' + row.opp : teamName() + ' v ' + row.opp, (row.kind === 'tournament' ? 'New tournament on ' : 'New game on ') + whenText(row.ko_at) + '. Are you in?');
     } catch (e) { $('pSave').disabled = false; $('pMsg').textContent = 'Couldn’t save the poll. Check your signal and try again.'; }
