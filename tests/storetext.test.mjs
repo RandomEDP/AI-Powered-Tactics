@@ -14,6 +14,7 @@ check(!/wrist/i.test(text.subtitle), 'the subtitle doesn\'t lead with the watch'
 check(problems({ ...text, subtitle: 'x'.repeat(31) }).some((p) => /31 characters; Apple allows 30/.test(p)), 'a subtitle over 30 characters is caught');
 check(problems({ ...text, description: 'Film it on a GoPro' }).some((p) => /iPhone works too/.test(p)), 'GoPro without iPhone is caught');
 check(problems({ ...text, description: 'See github.com/x' }).some((p) => /GitHub/.test(p)), 'a GitHub link is caught');
+check(problems({ ...text, whats_new: 'Now for every 5-a-side team' }).some((p) => /whats_new.*small-sided/.test(p)), 'What\'s New calling it a 5-a-side app is caught');
 check(problems({ ...text, subtitle: 'The 5-a-side app' }).some((p) => /small-sided/.test(p)), 'calling it a 5-a-side app is caught');
 check(problems({ ...text, keywords: 'a, b' }).length && problems({ ...text, keywords: 'a,a' }).length, 'wasted or repeated keywords are caught');
 
@@ -70,6 +71,8 @@ const sent = await run(api, text, { send: true });
 check(authOk, 'every request is signed with the key');
 eq(db['appStoreVersionLocalizations/vl2'].a.description, text.description, 'the version being got ready gets the new description');
 eq(db['appStoreVersionLocalizations/vl2'].a.keywords, text.keywords, 'and keywords');
+eq(db['appStoreVersionLocalizations/vl2'].a.whatsNew, text.whats_new, 'and the What\'s New text');
+check(db['appStoreVersionLocalizations/vl1'].a.whatsNew == null, 'the version waiting for review keeps its What\'s New');
 eq(db['appInfoLocalizations/il2'].a.name, text.name, 'the editable app information gets the new name');
 eq(db['appInfoLocalizations/il2'].a.subtitle, text.subtitle, 'and subtitle');
 eq(db['appStoreVersionLocalizations/vl1'].a.description, old.description, 'the version waiting for review keeps its description');
