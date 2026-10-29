@@ -1,11 +1,11 @@
-// Puts Gaffer's App Store text (store/text/*.txt) into App Store Connect through Apple's API, so it can be changed
+// Puts Gaffer's App Store text (store/text/*.txt, What's New included) into App Store Connect through Apple's API, so it can be changed
 // from GitHub Actions without a Mac ("Update App Store text" in .github/workflows/store-text.yml).
 //   node scripts/asc-text.mjs check          the text fits Apple's limits and Ethan's rules (no Apple account needed)
 //   node scripts/asc-text.mjs show           what App Store Connect has now, and what would change
 //   node scripts/asc-text.mjs send           send it
 // Needs ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 in the environment for show and send.
 //
-// Apple only takes the description, keywords, name and subtitle on a version that can still be edited (getting ready
+// Apple only takes the description, keywords, What's New, name and subtitle on a version that can still be edited (getting ready
 // to send, or turned down); while one is waiting for review or live they're locked. The promotional text can be
 // changed at any time, so on a locked version only that is sent, and the output says so.
 import crypto from 'node:crypto';
@@ -24,6 +24,7 @@ export const FIELDS = {
   description: ['description', 4000, 'version'],
   keywords: ['keywords', 100, 'version'],
   promotional_text: ['promotionalText', 170, 'version'],
+  whats_new: ['whatsNew', 4000, 'version'],
 };
 
 export function readText(dir = TEXT_DIR) {
@@ -52,7 +53,7 @@ export function problems(text) {
       for (const line of v.split('\n')) if (/gopro/i.test(line) && !/iphone/i.test(line)) bad.push(`${file}.txt mentions GoPro without saying an iPhone works too: ${line.slice(0, 80)}`);
     }
   }
-  for (const file of ['name', 'subtitle', 'description', 'promotional_text']) {
+  for (const file of ['name', 'subtitle', 'description', 'promotional_text', 'whats_new']) {
     if (text[file] && /5[- ]?a[- ]?side|five[- ]a[- ]side/i.test(text[file])) bad.push(`${file}.txt calls Gaffer a 5-a-side app; say small-sided football`);
   }
   if (text.keywords) {

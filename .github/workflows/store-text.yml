@@ -1,4 +1,4 @@
-# Puts the App Store text in store/text (name, subtitle, description, keywords, promotional text) into App Store
+# Puts the App Store text in store/text (name, subtitle, description, keywords, promotional text, What's New) into App Store
 # Connect, and with "Pictures too" the App Store pictures in store/6 iPhone (6.9 inch), using the same App Store Connect
 # key as the TestFlight builds (ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8).
 # Run by hand only. Leave "Send it" unticked first to see what would change.
