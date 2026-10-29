@@ -590,7 +590,9 @@
     const handlers = [];
     const ch = {
       on(type, filter, cb) { handlers.push({ event: filter.event, cb }); return ch; },
-      subscribe() { bc.addEventListener('message', (m) => { if (m.data.topic === name) handlers.filter((h) => h.event === m.data.event).forEach((h) => h.cb({ payload: m.data.payload })); }); return ch; },
+      subscribe(cb) { bc.addEventListener('message', (m) => { if (m.data.topic === name) handlers.filter((h) => h.event === m.data.event).forEach((h) => h.cb({ payload: m.data.payload })); });
+        if (typeof cb === 'function') { (window.__rtJoins = window.__rtJoins || []).push(cb); setTimeout(() => cb('SUBSCRIBED'), 0); } // (window.__rtJoins: a test says "joined again", as after the connection dropped)
+        return ch; },
       send(msg) { bc.postMessage({ topic: name, event: msg.event, payload: msg.payload }); return Promise.resolve('ok'); }
     };
     return ch;

@@ -45,7 +45,7 @@ export async function world() {
   let held = null, release = () => {}; // live updates between phones can be held back for a moment, to make two things happen "at once"
   let worldT = T0 + 1500; // every phone in a world keeps the same time, as real phones do
   const advance = async (ms, skip) => { for (let left = ms; left > 0; left -= 250) for (const c of clocks) if (c !== skip) await c.runFor(Math.min(250, left)); worldT += ms; };
-  const phone = async ({ db = false, native = false, android = false, firebase = false, clock = true, label = 'phone', storage = null, viewport = { width: 390, height: 844 }, scale = 1, config = null } = {}) => {
+  const phone = async ({ db = false, native = false, android = false, firebase = false, push = false, clock = true, label = 'phone', storage = null, viewport = { width: 390, height: 844 }, scale = 1, config = null } = {}) => {
     const at = worldT - 1500;
     const ctx = await browser.newContext({ viewport, deviceScaleFactor: scale, storageState: storage || undefined, serviceWorkers: 'block', timezoneId: 'Europe/London', locale: 'en-GB' }); // (a bigger screen and scale: the App Store pictures, store/make.mjs)
     made.push(ctx);
@@ -72,6 +72,15 @@ export async function world() {
       const LN = { getPending: async () => ({ notifications: T.pending.slice() }), cancel: async () => { T.pending.length = 0; }, checkPermissions: async () => ({ display: 'granted' }), requestPermissions: async () => ({ display: 'granted' }),
         schedule: async ({ notifications }) => { notifications.forEach((n) => { T.pending.push(n); T.notes.push({ title: n.title, body: n.body, at: +n.schedule.at }); }); } };
       window.Capacitor = { isNativePlatform: () => true, Plugins: { WatchLink: WL, LocalNotifications: LN, Haptics: { impact: async () => {}, notification: async (o) => { T.haptics.push(o.type); } }, KeepAwake: { keepAwake: async () => {}, allowSleep: async () => {} } } };
+    });
+    // `push: true` (with native): Apple's notifications, allowed. __pushIn(data) is one arriving with Gaffer open, __tap(data) one tapped.
+    if (native && push) await ctx.addInitScript(() => {
+      const on = {}; window.__t.apns = on;
+      window.Capacitor.Plugins.PushNotifications = { addListener: async (n, f) => { (on[n] = on[n] || []).push(f); return { remove() {} }; },
+        checkPermissions: async () => ({ receive: 'granted' }), requestPermissions: async () => ({ receive: 'granted' }),
+        register: async () => { setTimeout(() => (on.registration || []).forEach((f) => f({ value: 'apns-' + 'a'.repeat(64) })), 10); } };
+      window.__pushIn = (data) => (on.pushNotificationReceived || []).forEach((f) => f({ data }));
+      window.__tap = (data) => (on.pushNotificationActionPerformed || []).forEach((f) => f({ actionId: 'tap', notification: { data } }));
     });
     if (android) await ctx.addInitScript((fb) => {
       const T = window.__t = { asked: [], haptics: [], push: { perm: 'prompt', calls: [], channels: [], on: {} } };
