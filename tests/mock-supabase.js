@@ -29,6 +29,14 @@
   };
   const teamOf = (d, table, row) => table === 'teams' ? row.id : (row.team_id || (d.games.find((g) => g.id === row.game_id) || {}).team_id);
   const ok = (data) => Promise.resolve({ data, error: null });
+  const fixtureFill = (d, f) => { // (0051) free outfield spots go to the waitlist, first come first served; each moves to the end of who's in
+    if ((f.status || 'open') !== 'open') return;
+    let free = f.max_outfield - d.fixture_votes.filter((v) => v.fixture_id === f.id && v.choice === 'in').length;
+    d.fixture_votes.filter((v) => v.fixture_id === f.id && v.choice === 'wait').forEach((w) => {
+      if (free-- <= 0) return;
+      d.fixture_votes = d.fixture_votes.filter((v) => v !== w).concat([Object.assign({}, w, { choice: 'in', moved: true })]);
+    });
+  };
   const fail = (message, code) => Promise.resolve({ data: null, error: { message, code } });
   const heard = []; window.__rtRecv = (m) => heard.forEach((cb) => cb({ data: m }));
   const bc = REMOTE ? { postMessage: (m) => { if (!window.__offline) window.__rtSend(m); }, addEventListener: (n, cb) => heard.push(cb) } : new BroadcastChannel('__mockrt');
@@ -469,12 +477,17 @@
       if ((f.status || 'open') !== 'open') return ok('closed');
       const p = a.p_pid != null && isOrg(d, f.team_id) ? d.players.find((x) => x.team_id === f.team_id && x.pid === a.p_pid) : d.players.find((x) => x.team_id === f.team_id && x.user_id === uid());
       if (!p) return ok('not_player');
+      if (!['gk', 'in', 'no', 'wait'].includes(a.p_choice)) return ok('invalid');
       const others = d.fixture_votes.filter((v) => v.fixture_id === f.id && v.pid !== p.pid);
+      const mine = d.fixture_votes.find((v) => v.fixture_id === f.id && v.pid === p.pid), was = mine && mine.choice;
       if (a.p_choice === 'gk' && others.some((v) => v.choice === 'gk')) return ok('gk_taken');
-      if (a.p_choice === 'in' && others.filter((v) => v.choice === 'in').length >= f.max_outfield) return ok('full');
-      const mine = d.fixture_votes.find((v) => v.fixture_id === f.id && v.pid === p.pid);
-      if (mine) { if (mine.choice !== a.p_choice) { d.fixture_votes = others.concat([{ fixture_id: f.id, pid: p.pid, choice: a.p_choice }]); } } else d.fixture_votes.push({ fixture_id: f.id, pid: p.pid, choice: a.p_choice });
-      store(d); return ok('ok');
+      let choice = a.p_choice; // as 0051: a free spot goes to whoever is already waiting first
+      if ((choice === 'in' || choice === 'wait') && others.filter((v) => v.choice === 'in').length < f.max_outfield && (was === 'in' || was === 'wait' || !others.some((v) => v.choice === 'wait'))) choice = 'in';
+      else if (choice === 'in') return ok('full');
+      else if (choice === 'wait' && was === 'in') return ok('ok');
+      if (was !== choice) d.fixture_votes = others.concat([{ fixture_id: f.id, pid: p.pid, choice }]);
+      if (was === 'in' && choice !== 'in') fixtureFill(d, f);
+      store(d); return ok(choice === 'wait' ? 'waiting' : 'ok');
     }
     if (name === 'queue_goal') {
       const t = d.teams.find((x) => x.code === a.p_code); if (!t || !t.followers_can_score) return ok(false);
@@ -545,7 +558,7 @@
       const rows = d[table], allowed = (r) => isOrg(d, teamOf(d, table, r)) || runs(d, table, r);
       if (op === 'select') return ok(rows.filter((r) => allowed(r) && filters.every((f) => f(r))));
       if (op === 'delete') { d[table] = rows.filter((r) => !(allowed(r) && filters.every((f) => f(r)))); store(d); return ok(null); }
-      if (op === 'update') { rows.forEach((r) => { if (allowed(r) && filters.every((f) => f(r))) Object.assign(r, body); }); store(d); return ok(null); }
+      if (op === 'update') { rows.forEach((r) => { if (allowed(r) && filters.every((f) => f(r))) { const more = table === 'fixtures' && body.max_outfield > r.max_outfield; Object.assign(r, body); if (more) fixtureFill(d, r); } }); store(d); return ok(null); }
       const list = Array.isArray(body) ? body : [body];
       for (const r of list) {
         if (!allowed(r)) return fail('new row violates row-level security policy for table "' + table + '"', '42501');

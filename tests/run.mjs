@@ -23,7 +23,7 @@ const want = (name) => !only.length || only.some((o) => name.includes(o));
 // not listed counts as 5). Every shard works this out the same way, so between them they run everything exactly once.
 const shardArg = (process.argv.find((a) => a.startsWith('--shard=')) || '--shard=1/1').slice(8).split('/').map(Number);
 const [shardK, shardN] = shardArg.length === 2 && shardArg[1] >= 1 && shardArg[0] >= 1 && shardArg[0] <= shardArg[1] ? shardArg : [1, 1];
-const COST = { 'link.test.mjs': 172, 'teamsize.test.mjs': 40, 'walk:video': 100, 'walk:polls': 47, 'gotw.test.mjs': 38, 'watchlink.test.mjs': 37, 'livecam.test.mjs': 35, 'match.test.mjs': 35, 'sync.test.mjs': 35, 'nowswap.test.mjs': 30,
+const COST = { 'link.test.mjs': 172, 'teamsize.test.mjs': 40, 'walk:video': 100, 'walk:polls': 47, 'gotw.test.mjs': 38, 'watchlink.test.mjs': 37, 'livecam.test.mjs': 35, 'match.test.mjs': 35, 'sync.test.mjs': 35, 'nowswap.test.mjs': 30, 'waitlist.test.mjs': 6,
   'signin.test.mjs': 32, 'walk:chat': 31, 'walk:modes': 28, swift: 27, 'ads.test.mjs': 25, 'matchday.test.mjs': 23, 'reels.test.mjs': 22, 'walk:kickoff': 21, 'walk:rivals': 21,
   'friendly.test.mjs': 13, 'linked.test.mjs': 13, 'people.test.mjs': 13, 'voices.test.mjs': 13, 'walk:players': 13, 'live.test.mjs': 11, 'android.test.mjs': 10, 'beat.test.mjs': 10,
   'bigtext.test.mjs': 10, 'hltag.test.mjs': 10, 'house.test.mjs': 10, 'walk:board': 10, 'walk:push': 10, 'walk:games': 9, 'contract.test.mjs': 8, 'cuttiming.test.mjs': 8, 'posts.test.mjs': 8 };

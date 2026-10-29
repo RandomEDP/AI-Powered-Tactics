@@ -24,6 +24,7 @@ function from(table) {
     select() { if (op !== 'select') back = true; return b; },
     update(o) { op = 'update'; body = o; return b; }, upsert(o) { op = 'upsert'; body = o; return b; }, delete() { op = 'delete'; return b; },
     eq(c, v) { where.push((r) => r[c] === v); return b; }, in(c, v) { where.push((r) => v.includes(r[c])); return b; },
+    gte(c, v) { where.push((r) => r[c] != null && r[c] >= v); return b; },
     is(c, v) { where.push((r) => (r[c] ?? null) === v); return b; }, not(c, o, v) { where.push((r) => (r[c] ?? null) !== v); return b; },
     maybeSingle() { return run().then((x) => ({ data: x.data ? x.data[0] || null : null, error: null })); },
     then(res, rej) { return run().then(res, rej); },
@@ -215,6 +216,23 @@ APNS.length = 0;
 eq([(await kick('tok-chaplin')).status, APNS.length], [403, 0], 'another player still can\'t');
 eq([(await notify('tok-jake', { code: 'SOPFC1', kind: 'poll', title: 'Poll', body: 'In?' })).status, APNS.length], [403, 0], 'and running the game doesn\'t let him send the gaffers\' other kinds');
 eq([(await notify('tok-rival', { code: 'SOPFC1', kind: 'kickoff', title: 'x', body: 'y' })).status, APNS.length], [403, 0], 'nor anyone outside the team');
+APNS.length = 0; reset();
+
+// ---------- team-notify: a spot came free on a poll, so whoever moved up off the waitlist is told they're in, once (0051)
+APNS.length = 0;
+const nowIso = new Date().toISOString(), oldIso = new Date(Date.now() - 3600000).toISOString();
+DB.fixtures = [{ id: 'fx1', team_id: 't-sop', opp: 'Dog & Bone', ko_at: Date.UTC(2026, 10, 3, 19, 0), kind: 'game' }];
+DB.fixture_votes = [{ fixture_id: 'fx1', pid: 1, choice: 'in', moved_at: nowIso, told_at: null }, { fixture_id: 'fx1', pid: 2, choice: 'in', moved_at: oldIso, told_at: null },
+  { fixture_id: 'fx1', pid: 3, choice: 'wait', moved_at: null, told_at: null }];
+const up = (who, fixture = 'fx1') => notify(who, { code: 'SOPFC1', kind: 'movedup', fixture });
+eq([(await up('tok-rival')).status, APNS.length], [403, 0], 'someone outside the team can\'t set it off');
+eq([(await up('tok-chaplin', 'nope')).status, APNS.length], [404, 0], 'nor for a poll that isn\'t there');
+r = await up('tok-chaplin');
+eq([r.sent, APNS.map((a) => a.to), APNS[0] && APNS[0].payload.kind, APNS[0] && APNS[0].payload.aps.alert.title, APNS[0] && /moved up off the waitlist/.test(APNS[0].payload.aps.alert.body)],
+  [1, ['phone-jake'], 'poll', "You're in: SOP FC v Dog & Bone", true], 'Chaplin dropping out tells only Jake, who has just moved up (worded by the server; tapping it opens the games)');
+eq([typeof DB.fixture_votes[0].told_at, DB.fixture_votes[1].told_at], ['string', null], 'Jake is marked as told; an old move up is left alone');
+APNS.length = 0;
+eq([(await up('tok-ethan')).reason, APNS.length], ['nothing', 0], 'asking again tells nobody twice');
 APNS.length = 0; reset();
 
 // ---------- team-notify: a report tells Gaffer's moderators straight away (Apple's 1.2: reports looked at within a day)

@@ -52,7 +52,7 @@ await D.goto(BASE); await wait(300); await D.fill('#joinCode', code); await D.cl
 await D.click('#joinList [data-pid="9"]'); await D.fill('#jLast', 'Khan'); await D.click('#joinList [data-pos="mix"]'); await D.fill('#jEmail', 'ali@example.com'); await D.fill('#jUser', 'ali_k'); await D.fill('#jPass', 'longenough1'); await D.check('#jTerms'); await D.click('#joinList [data-do="up"]'); await wait(500);
 await D.click('#pendCard [data-go="account"]'); await D.fill('#aEmail', 'ali@example.com'); await D.fill('#aPass', 'longenough1'); await D.click('#aSignIn'); await wait(800);
 console.log('player sees on home:', (await fx(D)).slice(0, 160)); await shot(D, 'home-compact'); await D.click('#fxCard [data-fx="all"]'); await wait(300); console.log('button ->', await view(D));
-console.log('player buttons: in disabled', await D.isDisabled('#gamesTrack .fxc [data-vote="in"]'), '| gk disabled', await D.isDisabled('#gamesTrack .fxc [data-vote="gk"]'), '| gaffer tools:', await D.isVisible('#gamesTrack .fxc [data-fx="start"]').catch(() => false));
+console.log('player buttons: full, so', JSON.stringify(await D.textContent('#gamesTrack .fxc [data-vote="wait"]')), '| no I\'m in', !(await D.isVisible('#gamesTrack .fxc [data-vote="in"]')), '| gk disabled', await D.isDisabled('#gamesTrack .fxc [data-vote="gk"]'), '| gaffer tools:', await D.isVisible('#gamesTrack .fxc [data-fx="start"]').catch(() => false));
 await D.click('#gamesTrack .fxc [data-vote="no"]'); await wait(500); console.log('after "can\'t make it":', (await fx(D)).match(/Can’t make it: [^N]*/)?.[0]);
 await shot(D, 'home-poll-player');
 

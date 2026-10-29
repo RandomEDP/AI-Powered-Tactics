@@ -119,7 +119,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed; `0046` lets squad players run a game they started; `0047` unlocks a watched ad straight away; `0048` is any team size, 2 to 99 a side; `0049` is your own short clips; `0050` is the other side's scorers in friendlies). New ones are numbered on from 0051 |
+| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed; `0046` lets squad players run a game they started; `0047` unlocks a watched ad straight away; `0048` is any team size, 2 to 99 a side; `0049` is your own short clips; `0050` is the other side's scorers in friendlies; `0051` is a full poll's waitlist). New ones are numbered on from 0052 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2, and your own short clips with `own: true`), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `gopro-link` (what's in a GoPro share link, for the highlights; an iPhone video comes from Photos), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests (four shards) with the build check alongside, and the TestFlight upload after the tests (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -235,8 +235,8 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - They are sent by the `team-notify` edge function using an APNs JWT. Secrets: `APNS_KEY_P8`, `APNS_KEY_ID`,
   `APPLE_TEAM_ID`.
 - **Kinds:** kickoff, goal, poll, highlights, nudge (only to players who haven't answered the poll), claimed, chat,
-  challenge, join, live, report (to Gaffer's moderators, see "Looking after what people share").
-  - The function writes the wording for claimed, chat, challenge, join and live itself; the others come from the caller.
+  challenge, join, live, report (to Gaffer's moderators, see "Looking after what people share"), movedup (off a poll's waitlist).
+  - The function writes the wording for claimed, chat, challenge, join, live and movedup itself; the others come from the caller.
 - **Sound:** the payload uses `whistle.wav` (a synthesised referee's pea whistle bundled in the app) for everything
   except chat, which uses `default`. Phones on builds without the file fall back to the default sound.
   - Lock-screen game alerts (`syncAlerts`, LocalNotifications) also use `whistle.wav`.
@@ -773,6 +773,19 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `WATCH_BYTES` (48,000 characters) by dropping the furthest-off changes (its limit is about 64 KB). The tactics board
   stays 5 or 7-a-side. Tests: `teamsize.test.mjs`, `teamsizedb.test.mjs`.
 
+### A full poll's waitlist (`0051_poll_waitlist.sql`; Ethan, 29 October 2026: "if the squad is full you should be able to join the waitlist")
+- Once a poll's outfield spots are all taken, a player who hasn't said they're in gets **Join the waitlist** (`data-vote="wait"`)
+  instead of a greyed-out I'm in; the answer is `fixture_votes.choice = 'wait'` and `vote_fixture` says `waiting`. The poll
+  shows "full, N on the waitlist" (`fxLeft`), "Waitlist: 1. …" in order (`fxSides` `.wait`, by `voted_at`) and the player
+  their place (`waitText`). The gaffer's Answer for a player has Wait while it's full.
+- **Moving up is the database's job:** triggers on `fixture_votes` (an `in` changing to anything else) and `fixtures`
+  (`max_outfield` raised, or opened again) run `private.fixture_fill`, which turns the first waiting into `in` (to the end of
+  who's in, so the starters don't change) and sets `moved_at`. Someone new asking for a spot that's free while others wait
+  joins the end of the waitlist. `in` on a full poll is still `full` (older apps), `wait` with a spot free is `in`.
+- After any answer (or a gaffer's poll edit) the app calls `team-notify` kind `movedup` (`movedUp`), from any team member;
+  the server tells whoever moved up in the last 10 minutes and isn't `told_at` yet, "You're in: …", sent as kind `poll`.
+- Tests: `waitlist.test.mjs` (a gaffer on the iPhone, a player on Android), `waitlistdb.test.mjs`, `stream.test.mjs` (kind `movedup`).
+
 ### Games among the squad, with guests (`0020_games_among_the_squad.sql`)
 - New game → "Among ourselves" (`#gKind`, `D.kind = 'house'`, `renderHouse`): two named sides (Bibs and Shirts to start),
   any size, at least 2 a side, no fixed keeper and no subs plan. Squad players are set to a side or Out; guests are added
@@ -1091,7 +1104,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Edge functions:** all are deployed with **verify_jwt = true**, except `ad-reward` (false, see below). Deploy with the Supabase MCP
   `deploy_edge_function`, or with the CLI:
   `supabase functions deploy team-notify --project-ref kvefpqigpqprxfelesrb`.
-  - Deployed now: `team-notify` v29 (a player running the game they started sends kickoff and goal; kind `live` from any team member, sent once; kind `report` tells the moderators, comments included; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
+  - Deployed now: `team-notify` v30 (kind `movedup` tells a player who moved up off a poll's waitlist; a player running the game they started sends kickoff and goal; kind `live` from any team member, sent once; kind `report` tells the moderators, comments included; kind `link` for linked games; kind `gotw` for Goal of the Week; Android phones through Firebase; same as the repo), `live-stream` v5,
     `reel-voice` v18 (two voices: the free one read straight, East London Steve locked once on sale; samples), `team-pass` v4 (team pot and voices), `clip-store` v7 (players may upload/remove in their own `players/<pid>/` folder, and anyone their own short clips in `users/<account>/`; puts a tiny test file in R2 first and says R2's own reason if it refuses), `ad-reward` v1 (verify_jwt = false: Google calls it, and it checks Google's signature itself), `gopro-link` v3 (what's in a GoPro share link, both kinds of id, 4K for the Gaffer tier; an iPhone video comes from Photos), `game-started` v9 (old). Setting secrets bumps every version number without changing the code.
   - Keep the repo copy identical to what's deployed. If you change one locally, deploy it, and don't leave local edits
     you haven't deployed.
