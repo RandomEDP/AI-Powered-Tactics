@@ -101,5 +101,14 @@ const html = (await import('fs')).readFileSync(new URL('../index.html', import.m
 const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
 const lop = css.split('\n').filter((l) => /padding:[^;]*max\([^)]*safe-area-inset-left[^;]*;/.test(l) && !/safe-area-inset-right/.test(l.match(/padding:[^;]*;/)[0]));
 eq(lop, [], 'no padding uses the left inset for both sides');
+// ---------- the build: an app made with an iOS SDK before 27.1 runs on a Duo as an iPhone-sized window in the middle (build 355,
+// Ethan's Duo), so none of the above ever shows. Both iPhone builds (the check and TestFlight) use Xcode 27.1 and stop on an older SDK.
+const yml = (await import('fs')).readFileSync(new URL('../.github/workflows/ios.yml', import.meta.url), 'utf8');
+const block = (j) => { const i = yml.indexOf(`\n  ${j}:\n`), m = yml.slice(i + 1).search(/\n  [a-z][a-z-]*:\n/); return m < 0 ? yml.slice(i) : yml.slice(i, i + 1 + m); };
+for (const j of ['ios', 'testflight']) {
+  const b = block(j);
+  check(/runs-on: xcode-27\b/.test(b) && /Xcode_27\.1\.app/.test(b) && !/latest-stable/.test(b), `the ${j} job builds with Xcode 27.1, not whatever Xcode is newest on the machine`);
+  check(/27\.1 or later/.test(b), `and the ${j} job stops if the iOS SDK is older than 27.1`);
+}
 check(!A.errs.length, 'no errors: ' + A.errs.join(' | '));
 await w.close(); done();

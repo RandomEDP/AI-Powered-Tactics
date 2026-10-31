@@ -67,7 +67,7 @@ jobs:
   # Checks the app compiles, alongside the tests rather than after them (it doesn't depend on them).
   ios:
     if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.testflight) }}
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -77,10 +77,15 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Use the newest Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+      # Xcode 27.1 (the iOS 27.1 SDK) is the first with iPhone Duo: an app built with anything older runs on a Duo as an
+      # iPhone-sized window in the middle of the screen (Ethan saw it on build 355), so Gaffer's own Duo layout never
+      # switches on. It's only on GitHub's xcode-27 image so far; the build stops if the SDK is older.
+      - name: Use Xcode 27.1
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.1.app || { echo "Xcode 27.1 isn't on this machine:"; ls -d /Applications/Xcode*.app; exit 1; }
+          xcodebuild -version
+          SDK=$(xcrun --sdk iphoneos --show-sdk-version); echo "iOS SDK $SDK"
+          node -e 'const [a,b]=process.argv[1].split(".").map(Number); if (a < 27 || (a === 27 && (b||0) < 1)) { console.error("The iOS SDK must be 27.1 or later for iPhone Duo"); process.exit(1); }' "$SDK"
 
       - name: Install
         run: npm ci
@@ -100,7 +105,7 @@ jobs:
   testflight:
     needs: tests
     if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.testflight && (needs.tests.result == 'success' || inputs.force) }}
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -110,10 +115,15 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Use the newest Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+      # Xcode 27.1 (the iOS 27.1 SDK) is the first with iPhone Duo: an app built with anything older runs on a Duo as an
+      # iPhone-sized window in the middle of the screen (Ethan saw it on build 355), so Gaffer's own Duo layout never
+      # switches on. It's only on GitHub's xcode-27 image so far; the build stops if the SDK is older.
+      - name: Use Xcode 27.1
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.1.app || { echo "Xcode 27.1 isn't on this machine:"; ls -d /Applications/Xcode*.app; exit 1; }
+          xcodebuild -version
+          SDK=$(xcrun --sdk iphoneos --show-sdk-version); echo "iOS SDK $SDK"
+          node -e 'const [a,b]=process.argv[1].split(".").map(Number); if (a < 27 || (a === 27 && (b||0) < 1)) { console.error("The iOS SDK must be 27.1 or later for iPhone Duo"); process.exit(1); }' "$SDK"
 
       - name: Install
         run: npm ci
