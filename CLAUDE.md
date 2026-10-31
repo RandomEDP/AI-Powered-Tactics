@@ -1002,6 +1002,16 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   Series 9 / Ultra 2 and later). Goal for us wears the kit: the phone sends `color` in the watch state, `MatchState.kit`
   and `kitIsLight` (tested in `tests/watch/main.swift`, 26). The clock is `@ScaledMetric`.
 - Test: `design.test.mjs` (and the ⋯ menu in `people.test.mjs`).
+- **iPhone Duo** (Ethan, 31 October 2026: "optimise it for iPhone Duo"; Apple's guide is `designing-for-iphone-duo.md` in the
+  apple-design skill). Laid out by the screen's size, never the phone's name (`duoLayout`, `window.gafferLayout`, on every
+  resize). `html.rail`: a screen short for its width (Duo's outer screen, about 466×678, or anything on its side) puts the tab bar
+  down the side, as iOS does there, on the side with the bigger safe-area inset (the camera's; `html.railL` for the left), and
+  the chat box, the cut's bar and the small title bar move clear of it. `html.wide`: room for two columns of 300 points (Duo's
+  inner screen) puts Home's posts, Highlights' game cards and Games two across (a grid) and the Team page's cards in two
+  newspaper columns (`columns: 2`), with the gap down the middle of the screen where the fold is (`--gut`, wider from
+  `viewport-segment` where WebKit gives it); never with `bigtext`. Other screens stay one 520-point column. Left and right safe
+  areas are always padded separately. The app is still portrait-only (Duo's inner screen ignores that anyway); no native
+  Duo APIs yet (they're in the beta iOS 27.1 SDK). Test: `duo.test.mjs` (pictures with an output folder).
 
 ### Rewarded ads (the free tier; `0035_rewarded_ads.sql`, `ad-reward`; Ethan: "just a 30 second ad to see your own highlight reel")
 - **One banner** (Ethan: "have ads showing below while it's creating"): on the free tier, a banner ad (`banSync`,
