@@ -56,7 +56,7 @@
 html { font-size: 17px; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
   scroll-padding-top: calc(56px + env(safe-area-inset-top, 0px)); scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); } /* (anything scrolled into view, like a box being typed in, clears the title bar and the tab bar) */
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: var(--t-body); line-height: 1.45; font-optical-sizing: auto;
-  padding-inline: 16px; padding-block: 16px 48px; -webkit-font-smoothing: antialiased; }
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 48px; /* (left and right on their own: on iPhone Duo the camera and the system's controls are down one side only) */ -webkit-font-smoothing: antialiased; }
 img { max-width: 100%; }
 .app { max-width: 520px; margin-inline: auto; }
 .view { display: flex; flex-direction: column; gap: 24px; }
@@ -328,7 +328,7 @@ html.frteam #mChat, html.frteam #mBoard, html.frteam #mInsights, html.frteam #mS
 /* match mode's dock: the four things you log, fixed along the bottom, frosted like iOS's own bars */
 #v-game:not([hidden]) { padding-bottom: calc(var(--dock-h, 150px) + 20px); } /* (the dock's own height, measured, so it never hides the end of the page whatever the text size) */
 .dock { position: fixed; z-index: 15; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 552px; margin-inline: auto;
-  padding: 10px max(16px, env(safe-area-inset-left, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--glass); border-top: 1px solid var(--line);
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: var(--glass); border-top: 1px solid var(--line);
   -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6); }
 @media (prefers-reduced-transparency: reduce) { .dock { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 .dock[hidden] { display: none; }
@@ -349,7 +349,7 @@ html.bigtext .dkrow .dk:not(.dk-undo) svg { display: none; } /* (at the big text
 .evsec .events:empty { display: none; }
 /* the bench before kick-off: a sheet over the dock (whose buttons wait for kick-off anyway), clear of the Kick off button */
 .benchsheet { position: fixed; z-index: 16; left: 0; right: 0; bottom: 0; max-width: 552px; margin-inline: auto; background: var(--surface); border-radius: var(--r-panel) var(--r-panel) 0 0;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, .22); padding: 22px max(18px, env(safe-area-inset-left, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 10px; animation: sheet .3s cubic-bezier(.2, .9, .2, 1) both; }
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, .22); padding: 22px max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 10px; animation: sheet .3s cubic-bezier(.2, .9, .2, 1) both; }
 .benchsheet[hidden] { display: none; }
 .benchsheet h2 { font-size: var(--t-title); }
 .benchsheet .chip { font-size: var(--t-head); padding: 8px 16px; }
@@ -975,6 +975,41 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 .cliplist button[aria-pressed="true"] { background: var(--on-soft); }
 .msg:empty, #subEdit:empty, #quickSwap:empty, #picker:empty, #outPicker:empty, #nowPick:empty, #minsLive:empty, #swapBody:empty { display: none; }
 .stage { max-height: 380px; }
+/* ---- iPhone Duo, and any short, wide or big screen (Ethan, October 2026). duoLayout() at the top of the script sets the classes.
+   html.rail: the screen is short for its width (Duo's outer screen, or anything on its side), so, as iOS does there, the tab bar
+   goes down the side, on the side the camera and the system's controls are on (html.railL for the left), and the content keeps
+   the whole height. html.wide: there's room for two columns (Duo's inner screen): the lists of cards (Home, the Team page,
+   Highlights, Games) go two across, with the gap between the columns down the middle of the screen, where the fold is.
+   Never at the larger text sizes (bigtext), which keep one column. */
+:root { --railw: 0px; --gut: 32px; }
+html.rail { --railw: 92px; }
+html.rail #tabs { top: 0; bottom: 0; left: auto; right: 0; display: flex; flex-direction: column; justify-content: center;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) 0; }
+html.rail.railL #tabs { right: auto; left: 0; padding-right: 0; padding-left: max(10px, env(safe-area-inset-left, 0px)); }
+html.rail #tabs .tabrow { grid-template-columns: 74px; grid-auto-flow: row; gap: 2px; max-width: none; max-height: 100%; overflow-y: auto; scrollbar-width: none; margin: 0; border-radius: 30px; }
+html.rail #tabs .tabrow::-webkit-scrollbar { display: none; }
+html.rail #tabs button { min-height: 58px; }
+html.rail #tabs #tabMsg { position: fixed; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: 16px; right: calc(16px + var(--railw) + env(safe-area-inset-right, 0px)); margin: 0 auto; width: max-content; max-width: calc(100% - 32px - var(--railw)); }
+html.rail.railL #tabs #tabMsg { right: 16px; left: calc(16px + var(--railw) + env(safe-area-inset-left, 0px)); }
+html.rail body.tabbed { padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px)); padding-right: calc(var(--railw) + env(safe-area-inset-right, 0px)); }
+html.rail.railL body.tabbed { padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-left: calc(var(--railw) + env(safe-area-inset-left, 0px)); }
+html.rail body.tabbed #topbar { right: var(--railw); } html.rail.railL body.tabbed #topbar { right: 0; left: var(--railw); }
+html.rail body.tabbed :is(#cutBar, .chatform) { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); right: calc(var(--railw) + env(safe-area-inset-right, 0px)); }
+html.rail.railL body.tabbed :is(#cutBar, .chatform) { right: max(12px, env(safe-area-inset-right, 0px)); left: calc(var(--railw) + env(safe-area-inset-left, 0px)); }
+html.rail body.tabbed.cutbarred { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+/* the same room both sides on a wide screen, so the middle of the content is the middle of the screen */
+html.rail.wide body.tabbed { padding-left: calc(var(--railw) + env(safe-area-inset-left, 0px)); padding-right: calc(var(--railw) + env(safe-area-inset-right, 0px)); }
+@media (horizontal-viewport-segments: 2) { html.wide { --gut: max(32px, calc(env(viewport-segment-left 1 0, 0px) - env(viewport-segment-right 0 0, 0px) + 24px)); } }
+html.wide .app:has(> :is(#v-feed, #v-home, #v-highlights, #v-games):not([hidden])) { max-width: 1100px; }
+html.wide :is(#fdBody, #hlList, #gamesTrack) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--gut); align-items: start; }
+html.wide #fdBody { row-gap: 0; }
+html.wide #hlList { row-gap: 24px; } html.wide #gamesTrack { row-gap: 14px; }
+html.wide #fdBody > :not(.post, .feedcard), html.wide #hlList > :not(.hcard), html.wide #gamesTrack > :not(.fxc) { grid-column: 1 / -1; }
+/* the Team page's cards are all sizes, so they flow down one column and on down the next, like a newspaper, under the header */
+html.wide #v-home { display: block; columns: 2; column-gap: var(--gut); }
+html.wide #v-home > * { break-inside: avoid; margin: 0 0 24px; }
+html.wide #v-home > .hero { column-span: all; }
+@media (min-width: 960px) { html.wide #homeMenu button:not(.primary) { flex-basis: calc(25% - 7.5px); } }
 </style>
 </head>
 <body>
@@ -1768,9 +1803,25 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
       document.documentElement.appendChild(p); px = parseFloat(getComputedStyle(p).fontSize) || 17; p.remove(); }
     document.documentElement.style.fontSize = Math.max(15, Math.min(26, px)) + 'px';
     document.documentElement.classList.toggle('bigtext', px >= 21); // (Settings, Accessibility, Larger Text: the CSS makes room where the standard layout runs out)
+
+    if (window.gafferLayout) window.gafferLayout(); // (two columns or one goes with it)
   }
   window.gafferTextSize = textSize;
   textSize(); document.addEventListener('visibilitychange', function () { if (!document.hidden) textSize(); });
+  // iPhone Duo, and any short, wide or big screen (see the CSS by html.rail): the tab bar down the side where the screen is short
+  // for its width, two columns where there's room. Worked out from the screen's size, never from which phone it is, and again
+  // each time it changes (opening and closing a Duo, Split View). window.gafferLayout() for the tests.
+  function duoLayout() {
+    var d = document.documentElement, w = window.innerWidth, h = window.innerHeight;
+    var rail = w >= 420 && (w > h || (w / h >= 0.6 && h < 760));
+    var pr = document.createElement('div'); pr.style.cssText = 'position:fixed;visibility:hidden;padding:0 env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px)';
+    d.appendChild(pr); var cs = getComputedStyle(pr), L = parseFloat(cs.paddingLeft) || 0, R = parseFloat(cs.paddingRight) || 0; pr.remove();
+    var wide = !d.classList.contains('bigtext') && w - (rail ? 2 * 92 + L + R : 32) >= 640; // (two columns of at least 300 points, and the gap)
+    d.classList.toggle('rail', rail); d.classList.toggle('railL', rail && L > R); d.classList.toggle('wide', wide); // (the side with the camera and the system's controls on it)
+    return { rail: rail, left: rail && L > R, wide: wide };
+  }
+  window.gafferLayout = duoLayout;
+  duoLayout(); window.addEventListener('resize', duoLayout);
   // The game screen leaves room under it for the dock, which grows with the text size
   var dk = document.getElementById('dock');
   if (dk && window.ResizeObserver) new ResizeObserver(function () { if (dk.offsetHeight) document.documentElement.style.setProperty('--dock-h', dk.offsetHeight + 'px'); }).observe(dk);
