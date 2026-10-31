@@ -1011,7 +1011,9 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   newspaper columns (`columns: 2`), with the gap down the middle of the screen where the fold is (`--gut`, wider from
   `viewport-segment` where WebKit gives it); never with `bigtext`. Other screens stay one 520-point column. Left and right safe
   areas are always padded separately. The app is still portrait-only (Duo's inner screen ignores that anyway); no native
-  Duo APIs yet (they're in the beta iOS 27.1 SDK). Test: `duo.test.mjs` (pictures with an output folder).
+  Duo APIs yet. **It needs the iOS 27.1 SDK**: build 355 (Xcode 26.3) ran on Ethan's Duo as an iPhone-sized window in
+  the middle of a black screen (compatibility mode), so the iPhone builds in `ios.yml` run on GitHub's `xcode-27` image
+  with `/Applications/Xcode_27.1.app` and stop on an older SDK. Test: `duo.test.mjs` (pictures with an output folder).
 
 ### Rewarded ads (the free tier; `0035_rewarded_ads.sql`, `ad-reward`; Ethan: "just a 30 second ad to see your own highlight reel")
 - **One banner** (Ethan: "have ads showing below while it's creating"): on the free tier, a banner ad (`banSync`,
