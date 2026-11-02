@@ -39,9 +39,10 @@ import UniformTypeIdentifiers
 ///   bgStart({ title, subtitle }) -> { started }    iOS's own progress card (iOS 26 and later) while highlights are cut, so
 ///                                                  the cut carries on with Gaffer put away (ContinuedWork.swift); started
 ///                                                  is false on an older iOS or if iOS says no. bgUpdate({ title?, subtitle, p })
-///                                                  keeps it up to date and bgEnd({ ok }) takes it away. Stopped from the
-///                                                  card: the cut stops at its next clip or export and a "bg" event
-///                                                  { state: "stopped" } is sent
+///                                                  keeps it up to date and bgEnd({ ok }) takes it away. If the card
+///                                                  goes first (its stop button, or iOS taking it back), a "bg" event
+///                                                  { state: "ended" } is sent and the cut carries on; it's stopped
+///                                                  with cancel({ job: "cut" })
 ///   cleanup()                                      deletes the working files
 /// While working it emits "progress" events: { stage: "copy" | "cut" | "reel", i, n, p }.
 @objc(ReelCutterPlugin)
@@ -361,8 +362,8 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         if Thread.isMainThread { begin() } else { DispatchQueue.main.sync(execute: begin) } // (a little time to finish if the phone is locked mid-cut)
         let finished = { DispatchQueue.main.async { if spare != .invalid { UIApplication.shared.endBackgroundTask(spare); spare = .invalid } } }
         queue.async {
-            self.stopForget("cut") // (a stop from an earlier cut's card doesn't carry over)
-            self.stopNow = { self.stopAsked("cut") } // (stopped from iOS's progress card: bgStart)
+            self.stopForget("cut") // (a stop from an earlier cut doesn't carry over; JS checks its own Stop again once the cut returns)
+            self.stopNow = { self.stopAsked("cut") } // (Stop on the cut screen: cancel({job: "cut"}))
             defer { finished(); self.stopNow = nil; self.stopForget("cut") }
             do {
                 let dir = try self.ensureWorkDir()
@@ -549,10 +550,8 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     private var stopNow: (() -> Bool)?
     @objc public func bgStart(_ call: CAPPluginCall) {
         let title = call.getString("title") ?? "Cutting highlights", subtitle = call.getString("subtitle") ?? ""
-        ContinuedWork.shared.onStop = { [weak self] in
-            guard let self = self else { return }
-            self.stopLock.lock(); self.stopJobs.insert("cut"); self.stopLock.unlock()
-            self.notifyListeners("bg", data: ["state": "stopped"])
+        ContinuedWork.shared.onEnded = { [weak self] in // (the cut carries on: only Gaffer's own Stop, cancel({job: "cut"}), stops it)
+            self?.notifyListeners("bg", data: ["state": "ended"])
         }
         DispatchQueue.main.async {
             let started = ContinuedWork.shared.start(prefix: (Bundle.main.bundleIdentifier ?? "") + ".work", title: title, subtitle: subtitle)
