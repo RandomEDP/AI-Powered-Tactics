@@ -16,8 +16,11 @@ const native = () => { // the native ReelCutter and Google's AdMob, as the web a
     bgUpdate: async (o) => { window.__rc.push(['bgUpdate', o]); }, bgEnd: async (o) => { window.__rc.push(['bgEnd', o]); },
     pickVideo: async (o) => ({ path: '/phone/game' + o.slot + '.mov', duration: 5400 }),
     readable: async () => ({ bad: [] }),
-    cut: async (o) => { window.__rc.push(['cut', o]); if (window.__prog) window.__prog({ stage: 'cut', i: 0, n: o.clips.length, p: 0.5 }); await window.__hold;
-      if (window.__stopped) { window.__bgSay({ state: 'stopped' }); throw new Error('Stopped. Nothing was made.'); } // (stopped from the card mid-cut)
+    cancel: async (o) => { window.__rc.push(['cancel', o]); if (o.job === 'cut') window.__cancelled = true; },
+    cut: async (o) => { window.__rc.push(['cut', o]); window.__cancelled = false; if (window.__prog) window.__prog({ stage: 'cut', i: 0, n: o.clips.length, p: 0.5 });
+      if (window.__cardGone) window.__bgSay({ state: 'ended' }); // (iOS took its card back mid-cut, or its stop was pressed: iOS doesn't say which)
+      await window.__hold;
+      if (window.__cancelled) throw new Error('Stopped. Nothing was made.'); // (Stop on the cut screen)
       return { clips: o.clips.map((c) => ({ file: c.file, path: '/phone/' + c.file })), reel: { path: '/phone/' + o.reelFile } }; },
     share: async () => ({}), cleanup: async () => ({}),
   };
@@ -102,24 +105,50 @@ check(!(await A.page.evaluate(() => window.__ad.slice(-1)[0] && window.__ad.slic
 await A.click('#v-cut .back'); await A.run(500);
 eq(await bar(), null, 'once seen, the bar goes');
 
-// ---------- stopped from iOS's card, mid-cut
-if ((await A.view()) !== 'highlights') { await A.click('#tabs [data-tab="highlights"]'); await A.run(500); }
-await A.page.evaluate(() => { window.__stopped = true; window.__hold = Promise.resolve(); window.__rc.length = 0; });
-await A.click('#hlList [data-hlm^="edit:"]'); await A.run(200); await A.click('#hlSheet .hlsheet [data-cut]'); await A.run(600);
-for (let i = 0; i < 6 && !(await A.visible('#cutBody [data-cutdo="go"]')); i++) {
-  if (await A.visible('#cutBody [data-cutdo="here"]')) { await A.page.evaluate(() => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => 200, set: () => {} }); }); await A.click('#cutBody [data-cutdo="here"]'); }
-  else if (await A.page.$('#cutBody [data-cutdo="next"]')) await A.click('#cutBody [data-cutdo="next"]');
-  else if (await A.page.$('#cutBody [data-cutdo="vid"]')) await A.click('#cutBody [data-cutdo="vid"]'); else break;
-  await A.run(400);
-}
+// ---------- iOS's card goes mid-cut (Ethan, November 2026: "Stopped from the progress card, so the highlights weren't
+// saved", which he hadn't pressed). iOS can't say whether its stop was pressed or it took the card back, so the cut carries on.
+const toGo = async () => {
+  for (let i = 0; i < 6 && !(await A.visible('#cutBody [data-cutdo="go"]')); i++) {
+    if (await A.visible('#cutBody [data-cutdo="here"]')) { await A.page.evaluate(() => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => 200, set: () => {} }); }); await A.click('#cutBody [data-cutdo="here"]'); }
+    else if (await A.page.$('#cutBody [data-cutdo="next"]')) await A.click('#cutBody [data-cutdo="next"]');
+    else if (await A.page.$('#cutBody [data-cutdo="vid"]')) await A.click('#cutBody [data-cutdo="vid"]'); else break;
+    await A.run(400);
+  }
+};
+const cutAgain = async () => {
+  if ((await A.view()) !== 'highlights') { await A.click('#tabs [data-tab="highlights"]'); await A.run(500); }
+  await A.click('#hlList [data-hlm^="edit:"]'); await A.run(200); await A.click('#hlSheet .hlsheet [data-cut]'); await A.run(600);
+  await toGo();
+  await A.click('#cutBody [data-cutdo="go"]'); await A.run(500); if (await A.visible('#adAskPop')) { await A.click('#adAskYes'); await A.run(31000); }
+  await A.run(1000);
+};
+await A.page.evaluate(() => { window.__cardGone = true; window.__hold = new Promise((r) => { window.__go = r; }); window.__rc.length = 0; });
 const clipsBefore = w.db().clips.length;
-await A.click('#cutBody [data-cutdo="go"]'); await A.run(500); if (await A.visible('#adAskPop')) { await A.click('#adAskYes'); await A.run(31000); }
-await A.run(2000);
-check(/Stopped. Nothing was made./.test(await A.text('#cutBody')), 'stopping it from the card stops the cut, and says nothing was made');
-eq([await bg('bgEnd'), w.db().clips.length], [[], clipsBefore], 'the card had already gone (iOS took it away), and the highlights are as they were');
+await cutAgain();
+check(/^Cutting clip 1 of/.test(await A.text('#cutProg')), 'the card going doesn\'t stop the cut');
+check(!/Stopped/.test(await A.text('#cutBody')), 'and it doesn\'t say it was stopped');
+check(/iOS has taken its progress card away.*nothing has been lost/.test(await A.text('#cutBody')), 'it says to keep Gaffer open from now on, and that nothing was lost');
+await shot('cut-card-gone');
+await A.page.evaluate(() => window.__go()); await A.run(4000);
+check(/now in Highlights for the whole team/.test(await A.text('#cutBody')), 'the cut finishes and saves the highlights');
+check(w.db().clips.length >= 1 && w.db().clips.length === clipsBefore, 'every clip went up (the game\'s clips, cut again)');
+eq(await bg('cancel'), [], 'nothing asked the cut to stop');
+await A.click('#cutBody [data-cutdo="finish"]'); await A.run(600);
+
+// ---------- Stop on the cut screen: two taps, and nothing is saved
+await A.page.evaluate(() => { window.__cardGone = false; window.__hold = new Promise((r) => { window.__go = r; }); window.__rc.length = 0; });
+await cutAgain();
+await A.click('#cutStop'); await A.run(300);
+eq(await A.text('#cutStop'), 'Tap again to stop', 'Stop asks once');
+eq(await bg('cancel'), [], 'and one tap stops nothing');
+await A.click('#cutStop'); await A.run(300);
+eq(await bg('cancel'), [{ job: 'cut' }], 'the second tap stops the cut on the phone');
+await A.page.evaluate(() => window.__go()); await A.run(2000);
+check(/Stopped, so the highlights weren’t saved/.test(await A.text('#cutBody')), 'it says it was stopped and nothing was saved');
+eq([await bg('bgEnd'), w.db().clips.length], [[{ ok: false }], clipsBefore], 'the card goes, and the highlights are as they were');
 
 // ---------- an older iOS: no card, and it says to keep Gaffer open
-await A.page.evaluate(() => { window.__stopped = false; window.__oldIos = true; window.__hold = new Promise((r) => { window.__go = r; }); });
+await A.page.evaluate(() => { window.__oldIos = true; window.__hold = new Promise((r) => { window.__go = r; }); });
 await A.click('#cutBody [data-cutdo="retry"]'); await A.run(400);
 for (let i = 0; i < 6 && !(await A.visible('#cutBody [data-cutdo="go"]')); i++) {
   if (await A.visible('#cutBody [data-cutdo="here"]')) { await A.page.evaluate(() => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => 200, set: () => {} }); }); await A.click('#cutBody [data-cutdo="here"]'); }

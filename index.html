@@ -6204,8 +6204,11 @@ html.wide #v-home > .hero { column-span: all; }
   function cutSay() { var el = $('cutProg'); if (el && CUT) el.textContent = CUT.prog; cutBarDraw(); if (CUT && CUT.bg && cutBusy()) { var rc = RCp(); try { rc.bgUpdate({ subtitle: CUT.prog, p: CUT.frac || 0 }).catch(function () {}); } catch (e) {} } }
   // iOS's own progress card (iOS 26 and later; Ethan chose it over a Gaffer-made Live Activity, October 2026): while it's up,
   // iOS lets the cut carry on with Gaffer put away, showing how far it's got on the Lock Screen and at the top of the screen,
-  // with a button to stop it (cutBgSaid). On an older iOS nothing shows, and the cut pauses once Gaffer is put away, as before.
-  var BG_STOPPED = 'Stopped from the progress card, so the highlights weren’t saved. Cut them again when you’re ready.';
+  // On an older iOS nothing shows, and the cut pauses once Gaffer is put away, as before. If the card goes before the cut is
+  // done, the cut carries on (cutBgSaid): iOS can't tell Gaffer whether someone pressed the card's stop or iOS took the card
+  // back, and Ethan lost a whole cut to the second (November 2026, SOP FC 23–7 Dog Squad, after it had all been cut). Only
+  // Stop on the cut screen (two taps, cutStop) stops it.
+  var CUT_STOPPED = 'Stopped, so the highlights weren’t saved. Cut them again when you’re ready.';
   function cutBg(on, ok) {
     var rc = RCp(); if (!rc || !CUT) return;
     if (on) {
@@ -6213,7 +6216,13 @@ html.wide #v-home > .hero { column-span: all; }
       try { rc.bgStart({ title: r ? 'Highlights v ' + r.opp : 'Cutting highlights', subtitle: CUT.prog || 'Starting…' }).then(function (x) { if (CUT === mine && x && x.started && cutBusy()) { CUT.bg = true; renderCut(); } }, function () {}); } catch (e) {}
     } else if (CUT.bg) { CUT.bg = false; try { rc.bgEnd({ ok: !!ok }).catch(function () {}); } catch (e) {} }
   }
-  function cutBgSaid(d) { if (d && d.state === 'stopped' && cutBusy()) { CUT.bgStop = true; CUT.bg = false; } } // (the cut itself stops at its next clip; the uploads stop here)
+  function cutBgSaid(d) { if (d && (d.state === 'ended' || d.state === 'stopped') && cutBusy()) { CUT.bg = false; CUT.bgGone = true; if (S.view === 'cut') renderCut(); } } // (the cut carries on)
+  function cutStop() { // Stop on the cut screen: the first tap asks, the second stops it (at its next clip, or before the next upload)
+    if (!cutBusy() || CUT.stop) return;
+    if (!CUT.stopAsk) { CUT.stopAsk = true; renderCut(); var mine = CUT; setTimeout(function () { if (CUT === mine && mine.stopAsk && !mine.stop) { mine.stopAsk = false; if (S.view === 'cut') renderCut(); } }, 4000); return; }
+    CUT.stop = true; CUT.prog = 'Stopping…'; cutSay(); renderCut();
+    var rc = RCp(); try { if (rc && rc.cancel) rc.cancel({ job: 'cut' }).catch(function () {}); } catch (e) {}
+  }
   var CUTBAR = { msg: '', t: 0 };
   function cutBarSay(msg) { CUTBAR.msg = msg; clearTimeout(CUTBAR.t); CUTBAR.t = setTimeout(function () { CUTBAR.msg = ''; cutBarDraw(); }, 5000); cutBarDraw(); }
   function cutBarDraw() {
@@ -6461,8 +6470,8 @@ html.wide #v-home > .hero { column-span: all; }
         '<div class="actions"><button class="plain" type="button" data-cutdo="cams">Back to the cameras</button><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
     }
     else if (CUT.stage === 'work') html += (CUT.msg ? '' : '<p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>' + // (stopped by a problem: no spinner)
-      '<p class="note">A full game usually takes a minute or two. You can use the rest of Gaffer while it cuts: a bar at the bottom shows how it’s going. ' + (CUT.bg ? 'You can switch to other apps too: iOS shows how it’s going on the Lock Screen and at the top of the screen.' : 'Keep Gaffer open until it’s done, as iOS pauses the cutting once Gaffer is put away.') + '</p>' +
-      '<div class="actions"><button class="plain" type="button" data-cutdo="away">Use Gaffer while it cuts</button></div>');
+      '<p class="note">A full game usually takes a minute or two. You can use the rest of Gaffer while it cuts: a bar at the bottom shows how it’s going. ' + (CUT.bg ? 'You can switch to other apps too: iOS shows how it’s going on the Lock Screen and at the top of the screen.' : CUT.bgGone ? 'iOS has taken its progress card away, so the cutting carries on only while Gaffer is open. Keep Gaffer open until it’s done; nothing has been lost.' : 'Keep Gaffer open until it’s done, as iOS pauses the cutting once Gaffer is put away.') + '</p>' +
+      '<div class="actions"><button class="plain" type="button" data-cutdo="away">Use Gaffer while it cuts</button>' + (CUT.stop ? '' : '<button class="plain danger" type="button" data-cutdo="stop" id="cutStop">' + (CUT.stopAsk ? 'Tap again to stop' : 'Stop') + '</button>') + '</div>');
     else if (CUT.stage === 'done') html += '<p class="msg">' + CUT.n + (CUT.n === 1 ? ' clip is' : ' clips are') + ' now in Highlights for the whole team' + (CUT.voiced === true ? ', with commentary' : '') + '.</p>' + (CUT.voiced && CUT.voiced !== true ? '<p class="msg bad">The commentary couldn’t be added: ' + esc(CUT.voiced) + ' The clips were cut without it.</p>' : '') +
       (CUT.storeNote ? '<p class="note">' + esc(CUT.storeNote) + '</p>' : '') + (CUT.reelErr ? '<p class="msg bad">The full reel couldn’t be joined: ' + esc(CUT.reelErr) + ' The clips are all in Highlights; cut again to try the reel once more.</p>' : '') +
       '<div class="actions">' + (CUT.reel ? '<button class="plain primary" type="button" data-cutdo="share">Share the full reel</button>' : '') + '<button class="plain" type="button" data-cutdo="finish">Done</button></div>' +
@@ -6809,7 +6818,7 @@ html.wide #v-home > .hero { column-span: all; }
       var cutAd = adWanted(); // (the free tier: an ad plays while the phone cuts, which takes minutes anyway)
       if (cutAd && !(await adAsk('Watch an ad while your highlights are cut', 'While your highlights are cut, watch a 30-second ad. Cutting takes a few minutes anyway, so it won’t hold you up.'))) { cutKeep(); renderCut(); return; }
       if (cutAd && !AD.busy) { AD.busy = true; adRun('make', null, { local: true }).then(function (x) { AD.busy = false; banSync(); if (x === 'nofill') noAdPop('Google hasn’t got an ad for you right now, so there’s no ad this time. Your highlights are still being cut.'); }, function () { AD.busy = false; banSync(); }); } // (the cut carries on whatever happens to the ad)
-      CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; CUT.frac = 0; CUT.bgStop = false; renderCut();
+      CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; CUT.frac = 0; CUT.stop = false; CUT.stopAsk = false; CUT.bgGone = false; renderCut();
       cutBg(true); // (iOS's own progress card, so the cut carries on in other apps)
       try {
         var b0 = camBase(r, live[0], false, false); if (b0 != null) r.sync = Math.max(0, Math.round(b0)); save(); clearTimeout(wt); await syncAll(); // the game must be in the database before clips can be attached to it
@@ -6829,11 +6838,12 @@ html.wide #v-home > .hero { column-span: all; }
             else CUT.voiced = (vd && vd.error) || (vr && vr.error && vr.error.message) || 'the voice service didn’t answer.';
           } catch (ve) { CUT.voiced = 'the voice service couldn’t be reached.'; }
         }
-        if (CUT.bgStop) throw new Error(BG_STOPPED); // (stopped from the progress card while the commentary was recorded)
+        if (CUT.stop) throw new Error(CUT_STOPPED); // (stopped while the commentary was recorded)
         var bugs = CUT.bug !== false; CUT.storeNote = null;
         var res = await rc.cut({ path: list[0].path, watermark: 'Gaffer', reelFile: said ? 'reelv.mp4' : 'reel.mp4', reelCleanFile: said ? 'reel.mp4' : null, introVoice: said ? said[0] : null, outroVoice: said ? said[said.length - 1] : null, look: bugs ? lookFor(r) : null,
           clips: list.map(function (c, i) { var lk = clipLook(r, c); return { path: c.path, start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: p2(i + 1) + '.mp4', voice: said ? said[i + 1] : null, voiceAt: Math.max(0, c.t - c.start) + 0.7, bug: bugs ? lk.bug : null, lower: lk.lower }; }),
           outro: endCard(r), quality: sharp4k() ? '4k' : null });
+        if (CUT.stop) throw new Error(CUT_STOPPED); // (Stop pressed as the cut finished)
         var rows = [], keyOf = function (made) { return teamId + '/' + folderOf(r) + '/' + made.file; }, links = {}, r2 = !!CFG.clipsUrl;
         // the whole reel goes up too, to play at the top of the game in Highlights (without commentary, and with it if there is any)
         var reelParts = res.reelClean ? [{ file: 'reel.mp4', path: res.reelClean.path }, { file: 'reelv.mp4', path: res.reel.path, v: true }] : res.reel ? [{ file: 'reel.mp4', path: res.reel.path }] : [];
@@ -6861,7 +6871,7 @@ html.wide #v-home > .hero { column-span: all; }
           return { key: to, r2: false };
         };
         for (var i = 0; i < res.clips.length; i++) {
-          if (CUT.bgStop) throw new Error(BG_STOPPED);
+          if (CUT.stop) throw new Error(CUT_STOPPED);
           CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; CUT.frac = 0.9 + 0.08 * i / res.clips.length; cutSay();
           var a = await up(res.clips[i]), v = res.clips[i].voiced ? await up(res.clips[i].voiced) : null;
           if (a.r2 && v && !v.r2) { try { await q(sb.storage.from('clips').upload(a.key, await (await fetch(window.Capacitor.convertFileSrc(res.clips[i].path))).blob(), { contentType: 'video/mp4', upsert: true })); } catch (e) {} a.r2 = false; } // (both copies of a clip in one place)
@@ -6896,10 +6906,11 @@ html.wide #v-home > .hero { column-span: all; }
         ping('changed'); await pull();
         CUT.stage = 'done'; CUT.n = rows.length; CUT.reel = res.reel ? res.reel.path : null; CUT.reelErr = res.reel ? null : res.reelError || null;
         notifyTeam('highlights', scoreLine(r, r.us, r.them), 'The highlights are ready to watch.');
-      } catch (err) { CUT.msg = (err && err.message) || 'Something went wrong while cutting.'; }
+      } catch (err) { CUT.msg = CUT.stop ? CUT_STOPPED : (err && err.message) || 'Something went wrong while cutting.'; }
       cutBg(false, CUT.stage === 'done');
       renderCut();
     } else if (act === 'away') { go(reelBack || 'highlights'); }
+    else if (act === 'stop') cutStop();
     else if (act === 'retry') { CUT.stage = CUT.cams.some(function (k) { return k.src; }) ? 'sync' : 'cams'; CUT.msg = ''; renderCut(); }
     else if (act === 'share') { try { var shared = await rc.share({ path: CUT.reel }); if (shared && shared.completed) rateAsk(); } catch (err) { CUT.msg = (err && err.message) || 'Couldn’t open the share sheet.'; renderCut(); } }
     else if (act === 'finish') { try { await rc.cleanup(); } catch (err) {} CUT = null; go('highlights'); }

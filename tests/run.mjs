@@ -87,6 +87,11 @@ else {
     if (build.status !== 0) note('reel work folders', false, 'does not compile\n' + build.stderr);
     else { const r = spawnSync(path.join(tmp, 'folders'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout); note('reel work folders', r.status === 0, lastLine(r.stdout)); }
   }
+  if (swiftHere && (want('continued') || want('cutaway'))) { // iOS's progress card for a cut: always moving on, and its ending never stops the cut
+    const build = spawnSync('swiftc', [path.join(ROOT, 'plugins/reel-cutter/ios/Sources/ReelCutterPlugin/ContinuedWork.swift'), path.join(HERE, 'continued/main.swift'), '-o', path.join(tmp, 'continued')], { encoding: 'utf8' });
+    if (build.status !== 0) note('progress card', false, 'does not compile\n' + build.stderr);
+    else { const r = spawnSync(path.join(tmp, 'continued'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout); note('progress card', r.status === 0, lastLine(r.stdout)); }
+  }
   if (swiftHere && (want('voice') || want('reels'))) { // your own commentary over a reel: the game's sound dips while you talk, and your words land where you said them
     const build = spawnSync('swiftc', [path.join(ROOT, 'plugins/reel-cutter/ios/Sources/ReelCutterPlugin/VoiceSpans.swift'), path.join(HERE, 'voice/main.swift'), '-o', path.join(tmp, 'voicecheck')], { encoding: 'utf8' });
     if (build.status !== 0) note('your own commentary', false, 'does not compile\n' + build.stderr);
