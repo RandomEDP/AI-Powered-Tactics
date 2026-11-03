@@ -421,7 +421,7 @@ await A.click('#mhClose'); await A.run(200);
 
 // ---------- Edit footage (Ethan's rework): cut again, remove goals, change stats, and delete them all
 await A.click('#hlList .hcard:first-child [data-hlm^="edit:"]'); await A.run(200);
-eq(await A.page.$$eval('#hlSheet .hlsheet .pick', (b) => b.map((x) => x.textContent)), ['Delete all these highlights', 'Cut again from a video', 'Remove goals', 'Change stats'], 'Edit footage has delete (first, in red, as Apple puts it), cut again, remove goals and change stats');
+eq(await A.page.$$eval('#hlSheet .hlsheet .pick', (b) => b.map((x) => x.textContent)), ['Delete all these highlights', 'Cut again from a video', 'Re-cut one goal', 'Remove goals', 'Change stats'], 'Edit footage has delete (first, in red, as Apple puts it), cut again, re-cut one goal, remove goals and change stats');
 await A.run(400); await shot(A, 'edit-footage-sheet');
 await A.click('#hlSheet .hlsheet [data-hlm^="remove:"]'); await A.run(200);
 const before = rows().filter((c) => c.game_id === gameId).length, reelWas = (w.db().games[0].reel || {}).path;
@@ -438,7 +438,7 @@ const pe = await A.page.$eval('#hlList [data-hlm^="pedit:"]', (b) => b.getAttrib
 const pclips = () => rows().filter((c) => (c.pids || []).includes(+pe)).length, pbefore = pclips(), allBefore = rows().length;
 eq([await A.visible('#hlList [data-hlm="pmake:' + pe + '"]'), await A.visible('#hlList [data-hlm="pedit:' + pe + '"]')], [true, true], 'a player\'s card: Make a highlight and, for gaffers, Edit footage');
 await A.click('#hlList [data-hlm="pedit:' + pe + '"]'); await A.run(200);
-eq([await A.text('#hlSheet #hlsT'), await A.page.$$eval('#hlSheet .hlsheet .hlsopts .pick', (b) => b.map((x) => x.textContent))], ['Edit footage', ['Cut again from a video', 'Remove goals', 'Change stats']],
+eq([await A.text('#hlSheet #hlsT'), await A.page.$$eval('#hlSheet .hlsheet .hlsopts .pick', (b) => b.map((x) => x.textContent))], ['Edit footage', ['Cut again from a video', 'Re-cut one goal', 'Remove goals', 'Change stats']],
   'Edit footage on a player\'s card: cut again, remove goals, change stats');
 await A.run(400); await shot(A, 'player-edit-footage-sheet');
 await A.click('#hlSheet .hlsheet [data-hlm="premove:' + pe + '"]'); await A.run(200);

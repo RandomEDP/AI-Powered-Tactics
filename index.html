@@ -5282,12 +5282,15 @@ html.wide #v-home > .hero { column-span: all; }
     else if (HLM.kind === 'edit') body = head('Edit footage', game) + '<div class="hlsopts">' +
       btn('data-hldel="' + gi + '"' + (HLDEL.busy ? ' disabled' : ''), HLDEL.i === gi && Date.now() < HLDEL.until ? 'Tap again to delete them all' : 'Delete all these highlights', 'danger') +
       (cutOk ? btn('data-cut="' + gi + '"', 'Cut again from a video') : '') +
+      (cutOk && vids.some(function (c) { return typeof c.at === 'number'; }) ? btn('data-hlm="recut:' + gi + '"', 'Re-cut one goal') : '') +
       btn('data-hlm="remove:' + gi + '"', 'Remove goals') +
       (fixGoals(r).length ? btn('data-fixg="' + gi + '"', 'Change stats') : '') + '</div>';
     else if (HLM.kind === 'remove') body = head('Remove goals', 'Take a goal or moment out of this game’s highlights. Its stats stay; the game’s one video is made again without it.') +
       '<ol class="hlrm">' + vids.slice().sort(function (a, b) { return (a.seq || 0) - (b.seq || 0); }).map(function (c) { var key = c.game_id + ':' + c.seq, armed = HLRM.key === key && Date.now() < HLRM.until;
         return '<li><span>' + esc(String(c.label || 'Highlight').replace(/\s{2,}/g, ' · ')) + '</span><button class="plain danger" type="button" data-hlrm="' + esc(key) + '"' + (HLRM.busy ? ' disabled' : '') + '>' + (armed ? 'Tap again' : 'Remove') + '</button></li>'; }).join('') + '</ol>' +
       (HLRM.msg && HLRM.i === gi ? '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status">' + esc(HLRM.msg) + '</p>' : '');
+    else if (HLM.kind === 'recut') body = head('Re-cut one goal', 'Cut just one goal or moment again from the video, say if it came out early or late. The rest of this game’s highlights stay as they are.') +
+      recutList(vids);
     else if (HLM.kind === 'stats') {
       var per = r.per || {}, ids = Object.keys(per).map(Number).filter(function (k) { return isFinite(k) && per[k] && (per[k].mins || per[k].g || per[k].a); }).sort(function (a, b) { return ((per[b].g || 0) - (per[a].g || 0)) || ((per[b].a || 0) - (per[a].a || 0)) || ((per[b].mins || 0) - (per[a].mins || 0)); });
       var ms = momentsOf(r);
@@ -5306,22 +5309,113 @@ html.wide #v-home > .hero { column-span: all; }
     var games = S.results.map(function (r, i) { return { r: r, i: i }; }).filter(function (g) { return gameIds.indexOf(g.r.id) >= 0; }).reverse(); // (the games they've clips in, newest first)
     var gname = function (r) { return esc(scoreText({ house: r.house, team: teamShort(), opp: r.opp, us: r.us, them: r.them })) + (dayOf(r) ? '<small>' + esc(dayOf(r)) + '</small>' : ''); };
     var cutGames = games.filter(function (g) { return own && NATIVE && g.r.koAt && momentsOf(g.r).length; }), fixed = games.filter(function (g) { return own && fixGoals(g.r).length; });
-    var pr = preelOf(pid), body = '';
+    var pr = preelOf(pid), body = '', recutVids = vids.filter(function (c) { return typeof c.at === 'number' && cutGames.some(function (g) { return g.r.id === c.game_id; }); });
     if (HLM.kind === 'pmake') body = head('Make a highlight', who + '. Made on this phone, ready to share.') + '<div class="hlsopts">' +
       btn('data-preel="' + pid + '"', pr ? 'New highlight reel' : 'Highlight reel') + '<p class="note">Pick the clips you want in, with AI commentary or your own.' + (canKeepReel(pid) ? ' It goes on ' + ofWho + ' card too.' : '') + '</p>' +
       btn('data-pbeat="' + pid + '"', 'Beat highlight (Experimental)') + '<p class="note">Cut to the beat of one of Gaffer’s own tracks, tall for Reels and TikTok.</p></div>';
     else if (HLM.kind === 'pedit') body = head('Edit footage', who + ', ' + vids.length + (vids.length === 1 ? ' clip' : ' clips') + ' from ' + games.length + (games.length === 1 ? ' game' : ' games')) + '<div class="hlsopts">' +
       (cutGames.length ? btn(cutGames.length === 1 ? 'data-cut="' + cutGames[0].i + '"' : 'data-hlm="pcut:' + pid + '"', 'Cut again from a video') : '') +
+      (recutVids.length ? btn('data-hlm="precut:' + pid + '"', 'Re-cut one goal') : '') +
       btn('data-hlm="premove:' + pid + '"', 'Remove goals') +
       (fixed.length ? btn(fixed.length === 1 ? 'data-fixg="' + fixed[0].i + '"' : 'data-hlm="pstats:' + pid + '"', 'Change stats') : '') + '</div>';
     else if (HLM.kind === 'pcut' || HLM.kind === 'pstats') { var pick = HLM.kind === 'pcut' ? cutGames : fixed;
       body = head(HLM.kind === 'pcut' ? 'Cut again from a video' : 'Change stats', 'Which game?') + '<div class="hlsopts">' +
         pick.map(function (g) { return btn((HLM.kind === 'pcut' ? 'data-cut="' : 'data-fixg="') + g.i + '"', gname(g.r), 'pgame'); }).join('') + '</div>'; }
+    else if (HLM.kind === 'precut') body = head('Re-cut one goal', 'Cut just one of ' + ofWho + ' goals or moments again from its game’s video, say if it came out early or late. The rest of that game’s highlights stay as they are.') + recutList(recutVids);
     else if (HLM.kind === 'premove') body = head('Remove goals', 'Take one of ' + ofWho + ' goals or moments out of its game’s highlights, for everyone. Its stats stay; the game’s one video is made again without it.') +
       '<ol class="hlrm">' + vids.map(function (c) { var key = c.game_id + ':' + c.seq, armed = HLRM.key === key && Date.now() < HLRM.until;
         return '<li><span>' + esc(String(c.title || c.label || 'Highlight').replace(/\s{2,}/g, ' · ')) + '</span><button class="plain danger" type="button" data-hlrm="' + esc(key) + '"' + (HLRM.busy ? ' disabled' : '') + '>' + (armed ? 'Tap again' : 'Remove') + '</button></li>'; }).join('') + '</ol>' +
       (HLRM.msg ? '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status">' + esc(HLRM.msg) + '</p>' : '');
     return '<div class="pickpop hlsheet" data-hlmx="1"><div class="picker" role="dialog" aria-labelledby="hlsT">' + body + '</div></div>';
+  }
+  // Re-cut one goal (Ethan, November 2026: "there should be a way to just recut one goal if needed, not the whole thing"):
+  // the cut screen for just that clip. Its video is chosen and the moment marked as usual, only that clip is cut and
+  // uploaded under a new name, its row points at it, and the game's one video is joined again with it.
+  function recutList(vids) {
+    return '<ol class="hlrm">' + vids.filter(function (c) { return typeof c.at === 'number'; }).sort(function (a, b) { return (a.at || 0) - (b.at || 0); }).map(function (c) {
+      return '<li><span>' + esc(String(c.title || c.label || 'Highlight').replace(/\s{2,}/g, ' · ')) + '</span><button class="plain" type="button" data-recut="' + esc(c.game_id + ':' + c.seq) + '"' + (cutBusy() ? ' disabled' : '') + '>Re-cut</button></li>'; }).join('') + '</ol>' +
+      (cutBusy() ? '<p class="note">Highlights are being cut already. Re-cut a goal once that’s finished.</p>' : '');
+  }
+  function recutOpen(key) {
+    var c = clips.filter(function (x) { return x.game_id + ':' + x.seq === key; })[0], gi = c ? S.results.map(function (x) { return x.id; }).indexOf(c.game_id) : -1;
+    if (!c || gi < 0 || typeof c.at !== 'number' || cutBusy()) return;
+    CUT = cutStart(gi); CUT.only = { seq: c.seq, at: c.at, label: String(c.label || 'Highlight').replace(/\s{2,}/g, ' · ') }; CUT.voice = !!c.vpath; // (with commentary if the old clip had it)
+    go('cut');
+  }
+  function recutPick(r, plan) { // the clip in the plan that is the one being re-cut: it starts on the same moment, or has it in
+    var at = CUT.only.at;
+    return plan.filter(function (c) { return c.at === at; })[0] || plan.filter(function (c) { return (c.items || []).some(function (x) { return x.e && x.e.at === at; }); })[0] || null;
+  }
+  async function cutUp(made, to, link) { // a file the cut made, from the phone to the team's storage: R2 with its upload link, else the old storage
+    var rcu = RCp();
+    if (link && rcu && rcu.upload) { var ur = null; try { ur = await rcu.upload({ path: made.path, url: link, contentType: 'video/mp4' }); } catch (e) {} if (ur && ur.ok) return { key: to, r2: true }; } // (iOS's background uploads: they carry on if the app is put away)
+    var blob = await (await fetch(window.Capacitor.convertFileSrc(made.path))).blob();
+    blob = blob.slice(0, blob.size, 'video/mp4'); // the phone hands the file over untyped, and storage only accepts video
+    if (link) {
+      var put = null; try { put = await fetch(link, { method: 'PUT', body: blob, headers: { 'Content-Type': 'video/mp4' } }); } catch (e) {}
+      if (put && put.ok) return { key: to, r2: true };
+      if (CUT) CUT.storeNote = 'The new clip storage didn’t take them' + (put ? ' (it answered ' + put.status + ')' : '') + ', so they were saved to the old storage. They’ll move across by themselves once it does.';
+    }
+    await q(sb.storage.from('clips').upload(to, blob, { contentType: 'video/mp4', upsert: true })); // (the old storage: R2 not set up, or it said no)
+    return { key: to, r2: false };
+  }
+  async function recutRun(r, rc, c, aiYes) { // cut one clip again and put it in place of the old one
+    var only = CUT.only, mine = CUT;
+    CUT.stage = 'work'; CUT.msg = ''; CUT.prog = 'Starting…'; CUT.frac = 0; CUT.stop = false; CUT.stopAsk = false; CUT.bgGone = false; CUT.rejoin = false; CUT.storeNote = null; renderCut();
+    cutBg(true);
+    try {
+      if (!r.id) throw new Error('Couldn’t find this game in the database. Check your signal and try again.');
+      var said = null; CUT.voiced = null;
+      if (CUT.voice && hasGaffer() && !aiYes) CUT.voiced = AI_NO;
+      else if (CUT.voice && hasGaffer()) {
+        CUT.prog = 'Recording the commentary…'; CUT.frac = 0.02; cutSay();
+        try {
+          var vp = voUse(), vr = await sb.functions.invoke('reel-voice', { body: { code: A.active, lines: [spokenLine(commentaryFor(r, { at: c.at, dur: c.end - c.start }, swears()) || '')], voice: vp.voice, style: vp.style } }), vd = vr && vr.data;
+          if (vd && Array.isArray(vd.audio) && vd.audio[0]) { said = vd.audio[0]; CUT.voiced = true; }
+          else CUT.voiced = (vd && vd.error) || (vr && vr.error && vr.error.message) || 'the voice service didn’t answer.';
+        } catch (ve) { CUT.voiced = 'the voice service couldn’t be reached.'; }
+      }
+      if (CUT.stop) throw new Error(CUT_STOPPED);
+      var bugs = CUT.bug !== false, lk = clipLook(r, c), base = p2(only.seq + 1) + '-' + Date.now().toString(36); // (a new name, so no phone keeps playing the old file)
+      var res = await rc.cut({ path: c.path, watermark: 'Gaffer', look: bugs ? lookFor(r) : null, outro: endCard(r), quality: sharp4k() ? '4k' : null,
+        clips: [{ path: c.path, start: c.start, dur: c.end - c.start, caption: c.labels.join('\n'), file: base + '.mp4', voice: said, voiceAt: Math.max(0, c.t - c.start) + 0.7, bug: bugs ? lk.bug : null, lower: lk.lower }] });
+      if (CUT.stop) throw new Error(CUT_STOPPED);
+      var made = res && res.clips && res.clips[0]; if (!made) throw new Error('The clip couldn’t be cut. Try again.');
+      CUT.prog = 'Uploading the clip'; CUT.frac = 0.9; cutSay();
+      var keyOf = function (m) { return teamId + '/' + folderOf(r) + '/' + m.file; }, links = {}, keys = [keyOf(made)].concat(made.voiced ? [keyOf(made.voiced)] : []), r2 = !!CFG.clipsUrl;
+      if (r2) {
+        var got = await clipCall('upload', { paths: keys });
+        if (got && got.urls) keys.forEach(function (k, j) { links[k] = got.urls[j]; });
+        else if (got && got.reason === 'not_configured') r2 = false;
+        else throw new Error('Couldn’t get ready to upload the clip: ' + ((got && got.error) || 'no answer from Gaffer’s server.'));
+      }
+      var a = await cutUp(made, keys[0], r2 ? links[keys[0]] : null), v = made.voiced ? await cutUp(made.voiced, keys[1], r2 ? links[keys[1]] : null) : null;
+      if (a.r2 && v && !v.r2) { await q(sb.storage.from('clips').upload(a.key, (await (await fetch(window.Capacitor.convertFileSrc(made.path))).blob()).slice(0, Infinity, 'video/mp4'), { contentType: 'video/mp4', upsert: true })); a.r2 = false; } // (both copies of a clip in one place)
+      if (CUT.stop) throw new Error(CUT_STOPPED);
+      var old = clips.filter(function (x) { return x.game_id === r.id && x.seq === only.seq; })[0];
+      var row = { path: a.key, vpath: v ? v.key : null, store: a.r2 ? 'r2' : null, label: c.labels.join(' / ').slice(0, 200), at: c.at || null, dur: c.end - c.start, pids: c.pids, reel_at: null };
+      if (old) await q(sb.from('clips').update(row).eq('game_id', r.id).eq('seq', only.seq));
+      else await q(sb.from('clips').insert(Object.assign({ team_id: teamId, game_id: r.id, seq: only.seq }, row))); // (taken out meanwhile: it goes back in)
+      var paths = [], inR2 = [], gone = function (store, p) { if (p && p !== row.path && p !== row.vpath) (store === 'r2' ? inR2 : paths).push(p); };
+      if (old) { gone(old.store, old.path); gone(old.store, old.vpath); }
+      var hadReel = !!(r.reel && r.reel.path);
+      if (hadReel) { // (the game's one video had the old clip in: it's joined again, under a new name)
+        gone(r.reel.store, r.reel.path); gone(r.reel.store, r.reel.vpath);
+        try { await q(sb.from('games').update({ reel: null }).eq('id', r.id)); r.reel = null; } catch (e) {}
+        try { await q(sb.from('clips').update({ reel_at: null }).eq('game_id', r.id)); } catch (e) {}
+        MKVER[r.id] = Date.now().toString(36); MKTRIED[r.id] = true;
+      }
+      clips = clips.filter(function (x) { return x !== old; }).concat([Object.assign({ team_id: teamId, game_id: r.id, seq: only.seq }, row)]);
+      clips.forEach(function (x) { if (x.game_id === r.id) x.reel_at = null; }); clipsKeep();
+      try { if (paths.length) await q(sb.storage.from('clips').remove(paths)); } catch (e) {}
+      try { if (inR2.length) await clipCall('remove', { paths: inR2 }); } catch (e) {} // (a file left behind is never shown: the rows are what list them)
+      ping('changed'); await pull();
+      CUT.stage = 'done'; CUT.n = 1; CUT.reel = null; CUT.rejoin = hadReel;
+      var now = S.results.filter(function (x) { return x.id === r.id; })[0] || r;
+      if (hadReel && RCp()) setTimeout(function () { mhMake(now, true); }, 300);
+    } catch (err) { if (CUT === mine) CUT.msg = CUT.stop ? CUT_STOPPED : (err && err.message) || 'Something went wrong while cutting.'; }
+    cutBg(false, CUT && CUT.stage === 'done');
+    renderCut();
   }
   async function hlRemoveClip(r, gi, key) { // one goal or moment out of the game's highlights: its row and files go, and the game's one video is made again
     var c = clips.filter(function (x) { return x.game_id + ':' + x.seq === key; })[0];
@@ -6134,6 +6228,8 @@ html.wide #v-home > .hero { column-span: all; }
     var hm = e.target.closest('[data-hlm]'); // a game's sheet: Make a highlight, Edit footage, Remove goals, Stats
     if (hm) { var hv = hm.getAttribute('data-hlm').split(':'), pk = hv[0].charAt(0) === 'p'; HLM = { i: pk ? -1 : +hv[1], kind: hv[0], pid: pk ? +hv[1] : null }; HLRM.msg = ''; if (hv[0] !== 'edit') HLDEL.msg = ''; renderHighlights(); return; }
     if (e.target.hasAttribute && e.target.hasAttribute('data-hlmx')) { HLM.i = -1; HLM.pid = null; renderHighlights(); return; } // (Cancel, Done, or a tap outside it)
+    var rcb = e.target.closest('[data-recut]');
+    if (rcb) { if (!rcb.disabled) { var rck = rcb.getAttribute('data-recut'); hlSheetShut(); HLM.i = -1; HLM.pid = null; recutOpen(rck); } return; }
     var rm = e.target.closest('[data-hlrm]');
     if (rm) { if (rm.disabled) return; var rk = rm.getAttribute('data-hlrm'), rgi = HLM.pid != null ? S.results.map(function (x) { return x.id; }).indexOf(rk.slice(0, rk.lastIndexOf(':'))) : HLM.i, rr = S.results[rgi]; // (from a player's sheet: the clip's own game)
       if (HLRM.key === rk && Date.now() < HLRM.until) hlRemoveClip(rr, rgi, rk);
@@ -6426,7 +6522,7 @@ html.wide #v-home > .hero { column-span: all; }
     if (S.view !== 'cut') return; // (away from the cut screen only the bar is redrawn: a pull mid-cut never pulls you back)
     var r = CUT && S.results[CUT.idx]; if (!r) { go('highlights'); return; }
     if (CUT.stage === 'done' || (CUT.stage === 'work' && CUT.msg)) CUT.seen = true; // (the bar's "ready" or "stopped" has been read)
-    var html = '<p class="msg">' + esc(scoreLine(r, r.us, r.them)) + '</p>', live = CUT.cams.filter(function (k) { return k.src; }), busy = CUT.prog ? '<p class="msg busy" id="cutProg">' + esc(CUT.prog) + '</p>' : '<p class="msg busy" id="cutProg"></p>';
+    var one = CUT.only, html = '<p class="msg">' + esc(scoreLine(r, r.us, r.them)) + '</p>' + (one ? '<p class="note recutfor" id="cutOne">Re-cutting one clip: <b>' + esc(one.label) + '</b>. The rest of the game’s highlights stay as they are.</p>' : ''), live = CUT.cams.filter(function (k) { return k.src; }), busy = CUT.prog ? '<p class="msg busy" id="cutProg">' + esc(CUT.prog) + '</p>' : '<p class="msg busy" id="cutProg"></p>';
     if (CUT.stage === 'cams') {
       html += '<section><h2>Where were the cameras?</h2><p class="note">Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.</p>' + camPitch(r) +
         '<p class="note">Goals come from the camera nearest the goal they went in. Saves come from the one nearest ' + esc(usOf(r)) + '’s goal, and other highlights from the one nearest ' + esc(r.opp) + '’s goal.</p>';
@@ -6443,8 +6539,15 @@ html.wide #v-home > .hero { column-span: all; }
         '<p class="note">The cutting happens on this phone, and only the finished clips are uploaded.</p></section>';
     } else if (CUT.stage === 'sync') {
       var many = live.length > 1, plan = cutPlan(r, CUT.cams, CUT.swap), n = plan.length, pre = r.pre != null ? r.pre : PRE;
-      var lk = camById(CUT.lc), k = lk && lk.src ? lk : live[0], rows = cutRows(r, k), sel = rows.filter(function (x) { return x.key === CUT.sel; })[0] || rows[0];
-      html += '<section><h2>Line up the video</h2><p class="note">Mark kick-off' + (rows.some(function (x) { return x.key === 'h2'; }) ? ', the second-half kick-off' : '') +
+      var lk = camById(CUT.lc), k = lk && lk.src ? lk : live[0], rows = cutRows(r, k), sel;
+      if (one) { // (re-cutting one clip: only its moments, and the kick-offs for the match clock)
+        var oc = recutPick(r, plan), oats = oc ? (oc.items || []).map(function (x) { return x.e && x.e.at; }) : [one.at];
+        rows = rows.filter(function (x) { return x.key === 'ko' || x.key === 'h2' || oats.indexOf(x.at) >= 0; });
+        if (!CUT.sel) CUT.sel = 'e:' + one.at;
+      }
+      sel = rows.filter(function (x) { return x.key === CUT.sel; })[0] || rows[0];
+      html += one ? '<section><h2>Find the moment in the video</h2><p class="note">Play or drag the video to <b>' + esc(one.label) + '</b> (for a goal, when the ball hits the net) and tap <b>It happens here</b>. The new clip starts ' + pre + ' seconds before it. Marking kick-off' + (rows.some(function (x) { return x.key === 'h2'; }) ? ' or the second-half kick-off' : '') + ' too keeps the match clock right.</p>'
+        : '<section><h2>Line up the video</h2><p class="note">Mark kick-off' + (rows.some(function (x) { return x.key === 'h2'; }) ? ', the second-half kick-off' : '') +
         ' and two or three goals. For each: pick it below, play or drag the video to the moment (for a goal, when the ball hits the net), and tap <b>It happens here</b>. Gaffer works out every other moment from them; each clip starts ' + pre + ' seconds before its moment.</p>';
       if (many) html += '<div class="actions camtabs">' + live.map(function (x) { return '<button class="plain" type="button" data-cutdo="lc" data-cam="' + x.id + '" aria-pressed="' + (x === k) + '">Camera ' + camNo(x) + '</button>'; }).join('') + '</div>';
       var file = sel.two ? k.src2 : k.src, seek = sel.t != null ? Math.max(0, sel.t - (sel.key === 'ko' || sel.key === 'h2' ? 5 : 12)) : 0;
@@ -6466,12 +6569,15 @@ html.wide #v-home > .hero { column-span: all; }
         voiceBox('cut');
       html += lookPreview(r, plan);
       var from = many ? live.map(function (k) { var c = plan.filter(function (x) { return x.cam === camNo(k); }).length; return c + ' from camera ' + camNo(k); }).join(', ') : '';
-      html += '<p class="note" id="cutCount">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut' + (from ? ' (' + from + ')' : '') + ', plus one joined reel that ends on the full-time card, to share.</p>' +
-        '<div class="actions"><button class="plain" type="button" data-cutdo="cams">Back to the cameras</button><button class="plain primary" type="button" data-cutdo="go">Cut the highlights</button></div></section>';
+      html += (one ? '<p class="note" id="cutCount">Only this clip will be cut again. The game’s one video is then joined again with the new clip in it.</p>'
+        : '<p class="note" id="cutCount">' + n + (n === 1 ? ' clip' : ' clips') + ' will be cut' + (from ? ' (' + from + ')' : '') + ', plus one joined reel that ends on the full-time card, to share.</p>') +
+        '<div class="actions"><button class="plain" type="button" data-cutdo="cams">Back to the cameras</button><button class="plain primary" type="button" data-cutdo="go">' + (one ? 'Re-cut this clip' : 'Cut the highlights') + '</button></div></section>';
     }
     else if (CUT.stage === 'work') html += (CUT.msg ? '' : '<p class="msg busy" id="cutProg">' + esc(CUT.prog || 'Starting…') + '</p>' + // (stopped by a problem: no spinner)
-      '<p class="note">A full game usually takes a minute or two. You can use the rest of Gaffer while it cuts: a bar at the bottom shows how it’s going. ' + (CUT.bg ? 'You can switch to other apps too: iOS shows how it’s going on the Lock Screen and at the top of the screen.' : CUT.bgGone ? 'iOS has taken its progress card away, so the cutting carries on only while Gaffer is open. Keep Gaffer open until it’s done; nothing has been lost.' : 'Keep Gaffer open until it’s done, as iOS pauses the cutting once Gaffer is put away.') + '</p>' +
+      '<p class="note">' + (one ? 'One clip only takes a moment.' : 'A full game usually takes a minute or two.') + ' You can use the rest of Gaffer while it cuts: a bar at the bottom shows how it’s going. ' + (CUT.bg ? 'You can switch to other apps too: iOS shows how it’s going on the Lock Screen and at the top of the screen.' : CUT.bgGone ? 'iOS has taken its progress card away, so the cutting carries on only while Gaffer is open. Keep Gaffer open until it’s done; nothing has been lost.' : 'Keep Gaffer open until it’s done, as iOS pauses the cutting once Gaffer is put away.') + '</p>' +
       '<div class="actions"><button class="plain" type="button" data-cutdo="away">Use Gaffer while it cuts</button>' + (CUT.stop ? '' : '<button class="plain danger" type="button" data-cutdo="stop" id="cutStop">' + (CUT.stopAsk ? 'Tap again to stop' : 'Stop') + '</button>') + '</div>');
+    else if (CUT.stage === 'done' && one) html += '<p class="msg">The clip has been cut again and is in Highlights for the whole team' + (CUT.voiced === true ? ', with commentary' : '') + '.' + (CUT.rejoin ? ' The game’s one video is being joined again with it.' : '') + '</p>' + (CUT.voiced && CUT.voiced !== true ? '<p class="msg bad">The commentary couldn’t be added: ' + esc(CUT.voiced) + ' The clip was cut without it.</p>' : '') +
+      (CUT.storeNote ? '<p class="note">' + esc(CUT.storeNote) + '</p>' : '') + '<div class="actions"><button class="plain primary" type="button" data-cutdo="finish">Done</button></div>';
     else if (CUT.stage === 'done') html += '<p class="msg">' + CUT.n + (CUT.n === 1 ? ' clip is' : ' clips are') + ' now in Highlights for the whole team' + (CUT.voiced === true ? ', with commentary' : '') + '.</p>' + (CUT.voiced && CUT.voiced !== true ? '<p class="msg bad">The commentary couldn’t be added: ' + esc(CUT.voiced) + ' The clips were cut without it.</p>' : '') +
       (CUT.storeNote ? '<p class="note">' + esc(CUT.storeNote) + '</p>' : '') + (CUT.reelErr ? '<p class="msg bad">The full reel couldn’t be joined: ' + esc(CUT.reelErr) + ' The clips are all in Highlights; cut again to try the reel once more.</p>' : '') +
       '<div class="actions">' + (CUT.reel ? '<button class="plain primary" type="button" data-cutdo="share">Share the full reel</button>' : '') + '<button class="plain" type="button" data-cutdo="finish">Done</button></div>' +
@@ -6789,7 +6895,7 @@ html.wide #v-home > .hero { column-span: all; }
       hk.marks = hk.marks || {}; hk.marks[key] = Math.round(at * 10) / 10; CUT.msg = '';
       CUT.moved = row.label + ': marked at ' + mmss(at) + '.' + (before && Math.abs(before.t - at) > 60 ? ' That’s ' + Math.round(Math.abs(before.t - at) / 60) + ' min from where the other marks put it: check it’s the right moment.' : '');
       var after = cutRows(r, hk), idx = after.map(function (x) { return x.key; }).indexOf(key), next = after.slice(idx + 1).filter(function (x) { return !x.marked; })[0];
-      CUT.sel = next ? next.key : key; renderCut();
+      CUT.sel = next && !CUT.only ? next.key : key; renderCut(); // (re-cutting one clip: stay on it)
     }
     else if (act === 'go') {
       var live = CUT.cams.filter(function (k) { return k.src; }), many = live.length > 1, bad = null;
@@ -6804,6 +6910,7 @@ html.wide #v-home > .hero { column-span: all; }
       var vlock = CUT.voice && hasGaffer() ? voLocked() : [];
       if (vlock.length) { cutKeep(); CUT.msg = voLockMsg(vlock); renderCut(); return; }
       var list = cutPlan(r, CUT.cams, CUT.swap);
+      if (CUT.only) { var oneClip = recutPick(r, list); list = oneClip ? [oneClip] : []; if (!oneClip) { cutKeep(); CUT.msg = 'That moment isn’t in ' + (many ? 'any of the videos' : 'the video') + ' as it’s lined up. Mark it with It happens here, or choose the video it’s in.'; renderCut(); return; } }
       if (!list.length) { CUT.msg = live.every(function (k) { return k.no2; }) && momentsOf(r).some(function (x) { return typeof x.e.at === 'number'; }) ? 'There’s nothing to cut: every moment was in the second half, and there’s no footage of it.' : 'No timed moments were logged in this game.'; renderCut(); return; }
       // Can every video still be opened? Found out now, before any commentary is recorded (iOS can stop Gaffer reading a
       // video from Photos some time after it was chosen, and a damaged recording can't be read at all).
@@ -6815,6 +6922,7 @@ html.wide #v-home > .hero { column-span: all; }
         renderCut(); return;
       }
       var aiYes = !(CUT.voice && hasGaffer()) || await aiAsk(); // (asked before the cut starts, not halfway through)
+      if (CUT.only) { await recutRun(r, rc, list[0], aiYes); return; } // (one clip takes a moment: no ad, and nothing else is touched)
       var cutAd = adWanted(); // (the free tier: an ad plays while the phone cuts, which takes minutes anyway)
       if (cutAd && !(await adAsk('Watch an ad while your highlights are cut', 'While your highlights are cut, watch a 30-second ad. Cutting takes a few minutes anyway, so it won’t hold you up.'))) { cutKeep(); renderCut(); return; }
       if (cutAd && !AD.busy) { AD.busy = true; adRun('make', null, { local: true }).then(function (x) { AD.busy = false; banSync(); if (x === 'nofill') noAdPop('Google hasn’t got an ad for you right now, so there’s no ad this time. Your highlights are still being cut.'); }, function () { AD.busy = false; banSync(); }); } // (the cut carries on whatever happens to the ad)
@@ -6856,20 +6964,7 @@ html.wide #v-home > .hero { column-span: all; }
           else if (got && got.reason === 'not_configured') r2 = false; // (not set up: the old storage, as before)
           else throw new Error('Couldn’t get ready to upload the clips: ' + ((got && got.error) || 'no answer from Gaffer’s server.'));
         }
-        var up = async function (made) { // a clip file from the phone to the team's storage
-          var rcu = RCp(), to0 = keyOf(made);
-          if (r2 && links[to0] && rcu && rcu.upload) { var ur = null; try { ur = await rcu.upload({ path: made.path, url: links[to0], contentType: 'video/mp4' }); } catch (e) {} if (ur && ur.ok) return { key: to0, r2: true }; } // (iOS's background uploads: they carry on if the app is put away)
-          var blob = await (await fetch(window.Capacitor.convertFileSrc(made.path))).blob();
-          blob = blob.slice(0, blob.size, 'video/mp4'); // the phone hands the file over untyped, and storage only accepts video
-          var to = keyOf(made);
-          if (r2 && links[to]) {
-            var put = null; try { put = await fetch(links[to], { method: 'PUT', body: blob, headers: { 'Content-Type': 'video/mp4' } }); } catch (e) {}
-            if (put && put.ok) return { key: to, r2: true };
-            CUT.storeNote = 'The new clip storage didn’t take them' + (put ? ' (it answered ' + put.status + ')' : '') + ', so they were saved to the old storage. They’ll move across by themselves once it does.';
-          }
-          await q(sb.storage.from('clips').upload(to, blob, { contentType: 'video/mp4', upsert: true })); // (the old storage: R2 not set up, or it said no)
-          return { key: to, r2: false };
-        };
+        var up = function (made) { var to = keyOf(made); return cutUp(made, to, r2 ? links[to] : null); }; // a clip file from the phone to the team's storage
         for (var i = 0; i < res.clips.length; i++) {
           if (CUT.stop) throw new Error(CUT_STOPPED);
           CUT.prog = 'Uploading clip ' + (i + 1) + ' of ' + res.clips.length; CUT.frac = 0.9 + 0.08 * i / res.clips.length; cutSay();
