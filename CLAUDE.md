@@ -441,6 +441,12 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   with Change stats for gaffers). Tests: `reels`, `cuttiming`, `beat`, `hltag`.
 - **Delete these highlights** (Edit footage, two taps) deletes the game's `clips` rows and files (both copies) and its
   reel, to cut again from scratch.
+- **Re-cut one goal** (Edit footage, on a game's card or a player's; Ethan, November 2026: "just recut one goal if needed,
+  not the whole thing"): lists the clips (`recutList`, `data-recut`); picking one opens the cut screen for just it
+  (`recutOpen`, `CUT.only {seq, at, label}`): the line-up shows only kick-off(s) and that moment, `recutPick` finds its clip
+  in `cutPlan`, and `recutRun` cuts that one clip (no reel, no ad), uploads it as `<nn>-<stamp>.mp4` (`cutUp`, shared with
+  the full cut), updates its row, removes the old files, and the game's one video is joined again (`MKVER`, `mhMake`).
+  Commentary is on if the old clip had it. Test: `recut.test.mjs`.
 - **Reels for everyone** (iPhone app, anyone in the team): Make a highlight → Highlight reel on a game card and "Make a
   reel" on each player's card (Highlights → By player: untick clips, preview, Goals only; gaffers and claimed players can
   add an AI voice; a game cut with commentary offers its own, `#rbSaid`). Both are joined on that phone by
