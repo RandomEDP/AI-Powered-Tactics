@@ -1,8 +1,7 @@
 // Lining up the video on iPhone Duo's inner screen (Ethan, 3 November 2026, a screenshot of Cut highlights on his open Duo:
-// "This page needs work better on the duo"): the video was small in a narrow column with the list of moments running on under
-// it, so every mark meant scrolling between the two. On a wide screen the video and It happens here stay put on the left and the
-// moments (and everything after them) are on the right, with the gap down the middle where the fold is. An ordinary iPhone and
-// the outer screen keep the one column.
+// "This page needs work better on the duo", then "the biggest possible view window"): the video was small in a narrow column.
+// On a big screen it now runs the screen's width, as tall as fits with It happens here under it, and picking a moment further
+// down the list brings the video back into view. An ordinary iPhone is as before.
 import { world, suite } from './lib.mjs';
 const { check, eq, done } = suite('phones: lining up the video on iPhone Duo');
 const w = await world();
@@ -48,27 +47,26 @@ const look = () => p.evaluate(() => {
 let L = await look();
 check(L.marks.t > L.v.t + L.v.h && Math.abs(L.marks.l - L.v.l) < 30 && !L.over, `an ordinary iPhone keeps the moments under the video (${JSON.stringify(L)})`);
 
-// ---------- Duo open on its side
-await size(932, 678); await p.evaluate(() => window.scrollTo(0, 0)); await A.run(150); L = await look(); if (out) await p.screenshot({ path: `${out}/duo-open-lineup.png` });
-check(L.v.r <= L.vw / 2 && L.marks.l >= L.vw / 2, `open, the video is on the left and the moments on the right (${JSON.stringify(L)})`);
-check(Math.abs((L.v.r + 12 + L.marks.l) / 2 - L.vw / 2) <= 24, `with the gap between them down the middle, where the fold is (video ends ${L.v.r}, moments start ${L.marks.l}, middle ${L.vw / 2})`);
-check(L.v.w > 340 && L.v.h > 190, `the video is bigger than in the one narrow column (${L.v.w}×${L.v.h})`);
-check(L.here.b < L.vh, 'It happens here is on screen without scrolling');
-check(L.go.l >= L.vw / 2 && !L.over, 'Cut the highlights and the rest follow the moments on the right, nothing off the side');
-// scrolled down the list, the video and its button are still there
-await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await A.run(200); L = await look();
-check(L.v.t >= 0 && L.here.b <= L.vh, `scrolled to the bottom, the video and It happens here stay in view (video top ${L.v.t}, button bottom ${L.here.b} of ${L.vh})`);
-// marking still works from there
+// ---------- Duo open on its side: the video as big as the screen allows
+await size(932, 678); await p.evaluate(() => window.scrollTo(0, 0)); await A.run(150); L = await look();
+check(L.v.w >= L.vw - 80, `open, the video runs the width of the screen (${L.v.w} of ${L.vw})`);
+check(L.v.h >= 440, `and is as tall as fits with It happens here under it (${L.v.w}×${L.v.h})`);
+check(L.marks.t > L.v.t + L.v.h && !L.over, 'the moments are listed under it, nothing off the side');
+// picking a moment further down the list brings the whole video and its button back into view
+await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await A.run(150);
+await p.evaluate(() => [...document.querySelectorAll('#cutBody .marks [data-cutdo="sel"]')].pop().click()); await A.run(300); L = await look();
+if (out) await p.screenshot({ path: `${out}/duo-open-lineup.png` });
+check(L.v.t >= 40 && L.here.b <= L.vh, `picking a moment shows the whole video with It happens here under it (video top ${L.v.t}, button bottom ${L.here.b} of ${L.vh})`);
 await p.evaluate(() => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => 200, set: () => {} }); });
-await A.click('#cutBody [data-cutdo="here"]'); await A.run(200); if (out) await p.screenshot({ path: `${out}/duo-open-lineup-scrolled.png` });
+await A.click('#cutBody [data-cutdo="here"]'); await A.run(200);
 check(/Marked at 03:20/.test(await A.text('#cutBody .marks')), 'tapping It happens here marks the moment as before');
 await p.evaluate(() => window.scrollTo(0, 0));
 
 // ---------- at the biggest text size, and on the outer screen: one column again
 await p.evaluate(() => window.gafferTextSize(26)); await A.run(100); L = await look();
-check(L.marks.t > L.v.t + L.v.h, 'at the biggest text size the moments go back under the video');
+check(L.marks.t > L.v.t + L.v.h && !L.over, 'at the biggest text size it still fits');
 await p.evaluate(() => window.gafferTextSize(17)); await A.run(100);
 await size(466, 678); L = await look();
-check(L.marks.t > L.v.t + L.v.h && !L.over, 'closed (the outer screen), one column with the moments under the video');
+check(L.marks.t > L.v.t + L.v.h && !L.over && L.v.r <= L.vw, 'closed (the outer screen), the video and the moments under it fit too');
 check(!A.errs.length, 'no errors: ' + A.errs.join(' | '));
 await w.close(); done();
