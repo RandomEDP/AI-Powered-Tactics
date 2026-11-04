@@ -1017,11 +1017,11 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   the chat box, the cut's bar and the small title bar move clear of it. `html.wide`: room for two columns of 300 points (Duo's
   inner screen) puts Home's posts, Highlights' game cards and Games two across (a grid) and the Team page's cards in two
   newspaper columns (`columns: 2`), with the gap down the middle of the screen where the fold is (`--gut`, wider from
-  `viewport-segment` where WebKit gives it); never with `bigtext`. Other screens stay one 520-point column, except Cut highlights' line-up (Ethan, 3 November 2026: "the biggest possible view window"): on a wide or rail screen the video runs the full width, as tall as fits with It happens here under it (`.cutsplit`), and picking a moment brings it back into view (`cutShow`). Left and right safe
+  `viewport-segment` where WebKit gives it); never with `bigtext`. Other screens stay one 520-point column, except Cut highlights' line-up (Ethan, 3 November 2026: "the biggest possible view window"): on a wide or rail screen the video runs the full width, as tall as fits with It happens here under it (`.cutsplit`), and picking a moment brings it back into view (`cutShow`). The game screen on a wide screen (Ethan, 4 November 2026: "use all the screen space ... two side phones") is two halves: `.gpane` (the clock, the score and the dock, which stops being fixed there) on the left, kept in view (sticky), and the next change, what's happened, Right now, the rota and Finish game on the right; `#v-game`'s gaps go on each item (`row-gap: 0`), as a row gap would be added under every row the left half spans. Narrow screens, the outer screen and `bigtext` keep the dock along the bottom. Left and right safe
   areas are always padded separately. The app is still portrait-only (Duo's inner screen ignores that anyway); no native
   Duo APIs yet. **It needs the iOS 27.1 SDK**: build 355 (Xcode 26.3) ran on Ethan's Duo as an iPhone-sized window in
   the middle of a black screen (compatibility mode), so the iPhone builds in `ios.yml` run on GitHub's `xcode-27` image
-  with `/Applications/Xcode_27.1.app` and stop on an older SDK. Tests: `duo.test.mjs`, `duocut.test.mjs` (pictures with an output folder).
+  with `/Applications/Xcode_27.1.app` and stop on an older SDK. Tests: `duo.test.mjs`, `duocut.test.mjs`, `duogame.test.mjs` (pictures with an output folder).
 
 ### Rewarded ads (the free tier; `0035_rewarded_ads.sql`, `ad-reward`; Ethan: "just a 30 second ad to see your own highlight reel")
 - **One banner** (Ethan: "have ads showing below while it's creating"): on the free tier, a banner ad (`banSync`,
