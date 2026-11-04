@@ -18,6 +18,7 @@ const cutter = () => { // the native ReelCutter, as the web app sees it
     upload: async (o) => { window.__rc.push(['upload', o]); const r = await fetch(o.url, { method: 'PUT', body: 'video', headers: { 'Content-Type': o.contentType || 'video/mp4' } }); return { status: r.status, ok: r.ok }; },
     relabel: async (o) => { window.__rc.push(['relabel', o]); if (window.__fixHold) await window.__fixHold; return { path: '/phone/fix/' + o.file, size: 900, ...(o.voice ? { voiced: { path: '/phone/fix/' + o.file.replace('.mp4', 'v.mp4'), size: 900 } } : {}) }; },
     joinReel: async (o) => { window.__rc.push(['join', o]); if (window.__hold) await window.__hold; if (document.hidden) throw new Error('The operation was interrupted'); if (cb) { cb({ stage: 'fetch', i: 0, n: o.items.length, p: 0 }); cb({ stage: 'reel', p: 0.5 }); } return { path: '/phone/' + o.file, size: 1000, marks: o.items.map((x, i) => i * 14.04) }; },
+    saveVideo: async (o) => { window.__rc.push(['save', o]); if (window.__saveHold) await window.__saveHold; return { path: '/phone/' + o.file, size: 1000 }; },
     share: async (o) => { window.__rc.push(['share', o.path]); return {}; }, cleanup: async () => ({}),
     cancel: async (o) => { window.__rc.push(['cancel', o]); return {}; },
   };
@@ -139,13 +140,20 @@ eq([tail(g1.reel && g1.reel.path), tail(g1.reel && g1.reel.vpath), g1.reel && g1
 eq([await mhsrc(A), await A.text('#mhMsg')], ['reelv.mp4', 'It’s one video now, for everyone in the team.'], 'and the player switches to the one video');
 eq((await calls(A, 'upload')).map((o) => tail(o.url).replace(/\?.*$/, '')), ['reel.mp4', 'reelv.mp4'], 'sent through iOS\'s background uploads, which carry on with the app put away or closed');
 await shot(A, 'match-one-video');
-// Save or share: the one video, fetched to the phone, then the share sheet
-await A.click('#mhTools [data-mhsave]'); await A.run(1000);
-const ex = (await calls(A, 'join')).pop();
-eq([ex.items.map((x) => tail(x.url)), !!ex.outro, (await calls(A, 'share')).pop()], [['reelv.mp4'], false, '/phone/' + ex.file], 'Save or share gets the one video onto the phone and opens the share sheet');
-const jn = (await calls(A, 'join')).length, sh = (await calls(A, 'share')).length;
+// Save or share: the one video, downloaded to the phone as it is (never joined and exported again, which took Ethan's
+// 7-minute game ages), then the share sheet
+const jn0 = (await calls(A, 'join')).length;
+await A.page.evaluate(() => { window.__saveHold = new Promise((r) => { window.__saveGo = r; }); });
 await A.click('#mhTools [data-mhsave]'); await A.run(300);
-eq([(await calls(A, 'join')).length - jn, (await calls(A, 'share')).length - sh], [0, 1], 'a second tap shares the same file again, without fetching it twice');
+const ex = (await calls(A, 'save')).pop();
+await A.page.evaluate((job) => window.__rcb({ stage: 'save', i: 0, n: 1, p: 0.42, job }), ex.job); await A.run(100);
+eq([await A.text('#mhTools [data-mhsave]'), await A.text('#mhMsg')], ['Getting it ready, 42%', 'Getting the video onto your phone, 42%…'], 'it says how far the download has got');
+await A.page.evaluate(() => window.__saveGo()); await A.run(500);
+eq([tail(ex.url), (await calls(A, 'join')).length - jn0, (await calls(A, 'share')).pop(), await A.text('#mhTools [data-mhsave]')], ['reelv.mp4', 0, '/phone/' + ex.file, 'Save or share'],
+  'Save or share downloads the one video as it is (nothing joined or re-encoded) and opens the share sheet');
+const sv = (await calls(A, 'save')).length, sh = (await calls(A, 'share')).length;
+await A.click('#mhTools [data-mhsave]'); await A.run(300);
+eq([(await calls(A, 'save')).length - sv, (await calls(A, 'share')).length - sh], [0, 1], 'a second tap shares the same file again, without fetching it twice');
 await A.click('#mhClose'); await A.run(200);
 
 // ---------- put away mid-way: the joining stops, and carries on by itself when Gaffer is back
@@ -205,6 +213,8 @@ eq(tail(w.db().games[0].reel && w.db().games[0].reel.path), 'reel.mp4', 'and it 
 // ---------- the plugin: every join works in a folder of its own (tests/folders/main.swift checks WorkFolders itself)
 { const fs = await import('fs'); const src = fs.readFileSync(new URL('../plugins/reel-cutter/ios/Sources/ReelCutterPlugin/ReelCutterPlugin.swift', import.meta.url), 'utf8');
   const join = src.slice(src.indexOf('@objc public func joinReel'), src.indexOf('@objc public func relabel'));
+  const save = src.slice(src.indexOf('@objc public func saveVideo'), src.indexOf('@objc public func relabel'));
+  check(/saveQueue\.async/.test(save) && /self\.fetch\(/.test(save) && !/export\(/.test(save) && /CAPPluginMethod\(name: "saveVideo"/.test(src), 'saveVideo only downloads the finished video, on its own queue, so it never waits behind a cut or a join');
   check(/WorkFolders\.fresh\("reel"/.test(join) && !/removeItem\(at: dir\)/.test(join), 'joinReel never clears a folder another join\'s video is waiting in (the copy with commentary deleted the one without it)');
   check(/"job": tag/.test(join), 'and says whose progress it is'); }
 
