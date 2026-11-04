@@ -136,7 +136,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 | Class | What it does |
 |---|---|
-| `ReelCutterPlugin` | `beatEdit` (a beat edit, see Highlights; the plan is read by `BeatEdit.swift`), `pickVideo({slot})`, `trimVideo({path, start, dur, file})` (your own short clip for posting: up to 30 s, 720p, about 3 Mbit/s), `socialVideo` (a post made tall for social media), `fetchVideo({url, key, size})` (a GoPro link's video, or an iPhone's shared the same way, downloaded in the background, `BackgroundDownloads.swift`), `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
+| `ReelCutterPlugin` | `saveVideo({url, file, job})` (a finished video downloaded as it is, for Save or share), `beatEdit` (a beat edit, see Highlights; the plan is read by `BeatEdit.swift`), `pickVideo({slot})`, `trimVideo({path, start, dur, file})` (your own short clip for posting: up to 30 s, 720p, about 3 Mbit/s), `socialVideo` (a post made tall for social media), `fetchVideo({url, key, size})` (a GoPro link's video, or an iPhone's shared the same way, downloaded in the background, `BackgroundDownloads.swift`), `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
 | `WatchLinkPlugin` | The phone side of the watch link. It keeps a durable inbox of watch presses (UserDefaults `watchlink.inbox`), `push({state, seen})` and `pending()` |
 | `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
@@ -401,8 +401,10 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   card and `shrink: true` (the plugin shrinks it like the cut's reel), without commentary and with it if any clip has
   it, uploads both to the game's folder (`clip-store` upload links, or the old storage), writes `games.reel` and each
   clip's `reel_at`, and switches the player to it. Until then the clips play one after another (a follower is told the
-  gaffer's phone will make it). **Save or share** in the player (`mhExport`, `EX`): the one video fetched onto the phone
-  (`joinReel` of the reel's address, no extra card), or the clips joined, then the share sheet; a second tap reuses it.
+  gaffer's phone will make it). **Save or share** in the player (`mhExport`, `EX`): the one video downloaded onto the phone
+  as it is (the plugin's `saveVideo({url, file, job})`, on its own queue with "save" progress, shown as a percentage), or,
+  with no one video, the clips joined (`joinReel`), then the share sheet; a second tap reuses it. It used to send the one
+  video through `joinReel`, which exported all 7 minutes again and queued behind other joins (Ethan, November 2026).
   On the web it opens the reel's address. Test: `reels.test.mjs`.
 - **It all carries on in the background** (Ethan: "really annoying to wait and just watch a progress bar"; his first try
   failed with "Load failed" when the 6-minute video went up from the web view). Opening Highlights on a gaffer's iPhone
