@@ -5181,19 +5181,22 @@ html.wide #v-home > .hero { column-span: all; }
     }, 800);
   });
   // Save or share the whole match's highlights: the one video (fetched to this phone), or the clips joined here
-  var EX = { busy: false, path: null, gid: null };
+  // A game with its one video only needs that file downloaded (saveVideo): no joining or re-encoding, and not queued behind
+  // a cut or a join (it used to go through joinReel, which exported the whole 7-minute video again: Ethan, November 2026).
+  var EX = { busy: false, path: null, gid: null, job: '', p: -1, msg: '', bad: false };
   async function mhExport() {
     if (!MH) return; var r = MH.r, rc = RCp();
     if (!rc) { if (MH.reel) window.open(clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }), '_blank'); else { MK.msg = 'Open the iPhone app to save these highlights.'; mhDraw(); } return; }
     if (EX.busy) return;
     if (EX.path && EX.gid === r.id + ':' + sayOn) { rateAfter(rc.share({ path: EX.path })); return; }
-    EX = { busy: true, path: null, gid: r.id + ':' + sayOn }; MK.msg = 'Getting the video ready to save…'; MK.bad = false; mhDraw();
+    EX = { busy: true, path: null, gid: r.id + ':' + sayOn, job: 'ex-' + Date.now(), p: -1, msg: 'Getting the video onto your phone…', bad: false }; mhDraw();
     try {
-      var items = MH.reel ? [{ url: clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }) }] : MH.list.map(function (c) { return { url: clipSrc(c, sayOn) }; });
-      var res = await rc.joinReel(MH.reel ? { items: items, file: folderOf(r) + '-highlights.mp4' } : { items: items, file: folderOf(r) + '-highlights.mp4', outro: endCard(r) });
-      EX.path = res && res.path; MK.msg = '';
+      var file = folderOf(r) + '-highlights.mp4', res;
+      if (MH.reel && rc.saveVideo) res = await rc.saveVideo({ url: clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }), file: file, job: EX.job });
+      else res = await rc.joinReel(MH.reel ? { items: [{ url: clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }) }], file: file, job: EX.job } : { items: MH.list.map(function (c) { return { url: clipSrc(c, sayOn) }; }), file: file, outro: endCard(r), job: EX.job });
+      EX.path = res && res.path; EX.msg = '';
       if (EX.path) rateAfter(rc.share({ path: EX.path }));
-    } catch (e) { MK.msg = 'Couldn’t get it ready: ' + ((e && e.message) || 'something went wrong.'); MK.bad = true; }
+    } catch (e) { EX.msg = 'Couldn’t get it ready: ' + ((e && e.message) || 'something went wrong.'); EX.bad = true; }
     EX.busy = false; mhDraw();
   }
   function mhSrc() {
@@ -5215,11 +5218,11 @@ html.wide #v-home > .hero { column-span: all; }
     $('mhTicks').innerHTML = $('mhTicks').hidden ? '' : list.map(function (c, i) { return '<button type="button" class="' + (/goal/i.test(c.title || c.label || '') ? 'g' : 'h') + (i === cur ? ' on' : '') + '" data-mhi="' + i + '" data-mht="' + c.reel_at + '" style="left:' + Math.min(100, Math.max(0, c.reel_at / dur * 100)).toFixed(2) + '%" aria-label="' + esc(c.title || c.label || 'Moment') + '"></button>'; }).join('');
     $('mhNow').textContent = 'Moment ' + (cur + 1) + ' of ' + list.length + ' · ' + mhTime(mhLength(MH.list)) + ' in all';
     var voiced = MH.reel ? !!MH.r.reel.vpath : MH.list.some(function (c) { return c.vpath; });
-    $('mhTools').innerHTML = '<button class="plain primary" type="button" data-mhsave="1"' + (EX.busy ? ' disabled' : '') + '>' + (EX.busy ? 'Getting it ready…' : 'Save or share') + '</button>' +
+    $('mhTools').innerHTML = '<button class="plain primary" type="button" data-mhsave="1"' + (EX.busy ? ' disabled' : '') + '>' + (EX.busy ? 'Getting it ready' + (EX.p >= 0 ? ', ' + EX.p + '%' : '…') : 'Save or share') + '</button>' +
       (voiced ? '<button class="plain saybtn" type="button" data-mhsay="1" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '');
-    var mine = MK.gid === MH.r.id, say = mine && MK.busy ? 'Making this one video for everyone' + MK.part + ': ' + MK.prog + ' You don’t need to wait: it carries on while you use Gaffer, and the upload finishes even if you close the app. The clips play one after another until then.'
+    var ex = EX.msg && String(EX.gid).indexOf(MH.r.id + ':') === 0, mine = MK.gid === MH.r.id, say = ex ? EX.msg : mine && MK.busy ? 'Making this one video for everyone' + MK.part + ': ' + MK.prog + ' You don’t need to wait: it carries on while you use Gaffer, and the upload finishes even if you close the app. The clips play one after another until then.'
       : mine && MK.msg ? MK.msg : !MH.reel && !gafferHere() ? 'Playing the clips one after another. Your gaffer’s phone makes them one video next time they open this.' : '';
-    $('mhMsg').hidden = !say; $('mhMsg').textContent = say; $('mhMsg').classList.toggle('bad', mine && MK.bad);
+    $('mhMsg').hidden = !say; $('mhMsg').textContent = say; $('mhMsg').classList.toggle('bad', ex ? EX.bad : mine && MK.bad);
   }
   function mhClose() { MH = null; var v = $('mhVideo'); try { v.pause(); } catch (e) {} v.removeAttribute('src'); try { v.load(); } catch (e) {} $('mhPop').hidden = true; }
   $('mhVideo').addEventListener('error', function () { if (MH && !MH.retried) { MH.retried = true; refetch(); } }); // (a clip made again on another phone: its old file has gone, so re-read the team once and play the new one)
@@ -6287,6 +6290,7 @@ html.wide #v-home > .hero { column-span: all; }
     if (NP.busy && NP.kind === 'own' && (d.stage === 'trim' || (d.stage === 'copy' && !cutBusy()))) { npProg(d.stage === 'trim' ? 'Getting your clip ready, ' + pct + '%…' : 'Reading the video, ' + pct + '%…'); return; }
     if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
     if (SO.busy && d.job === SO.job) { SO.prog = d.stage === 'fetch' ? 'Getting your post, ' + pct + '%…' : d.stage === 'tall' ? 'Making it tall, ' + pct + '%…' : 'Adding the end card, ' + pct + '%…'; socDraw(); return; }
+    if (EX.busy && d.job === EX.job) { var ep = d.stage === 'save' || d.stage === 'fetch' && (d.n || 1) === 1 ? pct : -1; if (ep !== EX.p) { EX.p = ep; EX.msg = ep >= 0 ? 'Getting the video onto your phone, ' + ep + '%…' : 'Getting the video ready to save…'; if (MH) mhDraw(); } return; }
     var mkJob = d.job === 'mk'; // (the plugin says whose join it is; the game's one video can be waiting behind someone's reel, or the other way round)
     if (MK.busy && (mkJob || !('job' in d))) { MK.prog = d.stage === 'fetch' ? 'fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'joining, ' + pct + '%.'; mkTick(); }
     if (BE.busy && !mkJob) { BE.prog = d.stage === 'fetch' ? 'Fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : d.stage === 'card' ? 'Adding the end card, ' + pct + '%' : 'Cutting it to the beat, ' + pct + '%'; var bm = $('beProg'); if (bm) bm.textContent = BE.prog; }

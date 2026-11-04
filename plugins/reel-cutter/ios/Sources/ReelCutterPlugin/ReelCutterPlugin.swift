@@ -23,6 +23,9 @@ import UniformTypeIdentifiers
 ///   share({ path })                                the share sheet (save to Photos, send to a chat)
 ///   shareText({ text, url })                       the share sheet for a message with a link
 ///   joinReel({ items: [{ url, voice?, voiceAt? }], outro, file })   a reel from clips already made -> { path, size, marks }
+///   saveVideo({ url, file, job })                  a finished video (a game's one video) fetched onto the phone as it is,
+///                                                  for Save or share: no joining or re-encoding, and never queued behind
+///                                                  a cut or a join -> { path, size }; "progress" { stage: "save", p, job }
 ///   relabel({ url, lower, look?, voice?, voiceAt?, file })   a goal put right after the clips were made: that one clip
 ///                                                  again, its bar along the bottom drawn over with the right names
 ///                                                  (lower.over is the old bar), and with a new commentary line if one
@@ -56,6 +59,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         CAPPluginMethod(name: "cut", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "joinReel", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "saveVideo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "shareText", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readable", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "upload", returnType: CAPPluginReturnPromise),
@@ -73,6 +77,8 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     private var pickSlot = 1
     private var copyObservation: NSKeyValueObservation?
     private let queue = DispatchQueue(label: "reelcutter.work", qos: .userInitiated)
+    /// Save or share's plain downloads: their own queue, so a finished video isn't kept waiting behind a cut or a join.
+    private let saveQueue = DispatchQueue(label: "reelcutter.save", qos: .userInitiated)
     /// Videos used where they are in Photos, by path. iOS only lets the app read such a file while Photos' own handle on it
     /// (this asset) is kept: let go of it and opening the path again finds no video in it. Only touched on `queue`.
     private var picked: [String: AVURLAsset] = [:]
@@ -645,6 +651,38 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         }
     }
 
+    /// A finished video fetched onto the phone exactly as it is (Save or share on a game's one video). It used to go through
+    /// joinReel, which downloaded the whole match's video and then exported all of it again frame by frame: minutes of
+    /// "Getting it ready…" for a 7-minute video (Ethan, November 2026, SOP FC 23–7 Dog Squad), and longer still when it
+    /// waited behind the one video being made on the same queue. A download is all it needs.
+    @objc public func saveVideo(_ call: CAPPluginCall) {
+        guard let link = call.getString("url"), link.hasPrefix("http"), let remote = URL(string: link) else { call.reject("That video's address isn't right."); return }
+        let name = (call.getString("file") ?? "highlights.mp4").replacingOccurrences(of: "/", with: "-")
+        let tag = call.getString("job") ?? ""
+        var spare: UIBackgroundTaskIdentifier = .invalid
+        let begin = { spare = UIApplication.shared.beginBackgroundTask(withName: "Saving a video") { UIApplication.shared.endBackgroundTask(spare) } }
+        if Thread.isMainThread { begin() } else { DispatchQueue.main.sync(execute: begin) }
+        let finished = { DispatchQueue.main.async { if spare != .invalid { UIApplication.shared.endBackgroundTask(spare); spare = .invalid } } }
+        saveQueue.async {
+            defer { finished() }
+            var job: URL?
+            do {
+                let dir = try WorkFolders.fresh("save", in: self.ensureWorkDir())
+                job = dir
+                let out = dir.appendingPathComponent(name.hasSuffix(".mp4") ? name : name + ".mp4")
+                var last = -1
+                try self.fetch(remote, to: out, wait: 1800) { p in
+                    let pct = Int(p * 100); if pct == last { return }; last = pct // (once a percent, not for every packet)
+                    self.notifyListeners("progress", data: ["stage": "save", "i": 0, "n": 1, "p": p, "job": tag])
+                }
+                call.resolve(["path": out.path, "size": self.fileSize(out)])
+            } catch {
+                if let job = job { try? FileManager.default.removeItem(at: job) }
+                call.reject(error.localizedDescription)
+            }
+        }
+    }
+
     /// One clip made again after a goal was put right (who scored or set it up): the finished clip, fetched from its
     /// address, with the new bar along the bottom drawn over the old one at the same moment, so nothing else about it
     /// changes and the rest of the game's clips are left alone. With a commentary line, a second copy has it spoken over.
@@ -986,7 +1024,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     }
 
     /// Downloads a file, waiting for it (this runs on the cutting queue, never the main thread).
-    private func fetch(_ remote: URL, to local: URL, progress: @escaping (Double) -> Void) throws {
+    private func fetch(_ remote: URL, to local: URL, wait: Double = 300, progress: @escaping (Double) -> Void) throws {
         let done = DispatchSemaphore(value: 0)
         var failure: Error?
         let task = URLSession.shared.downloadTask(with: remote) { file, response, error in
@@ -997,7 +1035,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         }
         let watch = task.progress.observe(\.fractionCompleted) { value, _ in progress(value.fractionCompleted) }
         task.resume()
-        if done.wait(timeout: .now() + 300) == .timedOut { task.cancel(); watch.invalidate(); throw CutError(message: "Fetching the clips took too long. Check your signal and try again.") }
+        if done.wait(timeout: .now() + wait) == .timedOut { task.cancel(); watch.invalidate(); throw CutError(message: "It took too long to download. Check your signal and try again.") }
         watch.invalidate()
         if let failure = failure { throw failure }
     }
