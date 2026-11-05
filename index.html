@@ -811,6 +811,11 @@ html.bigtext .ighead { flex-direction: column; align-items: flex-start; gap: 10p
 .cutprev { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 10px 12px; margin: 12px 0; }
 .cutprev h3 { margin: 0 0 4px; font-size: var(--t-body); }
 .cutprev video { display: block; width: 100%; max-height: 240px; border-radius: 8px; background: #000; margin-top: 8px; }
+/* The video above a list of moments stays at the top while the list scrolls (Ethan, 5 November 2026), clear of the small title bar. */
+.cutpin { position: sticky; z-index: 4; top: calc(env(safe-area-inset-top, 0px) + 52px); background: var(--bg); margin: -10px -12px 0; padding: 10px 12px 8px; border-radius: var(--r-ctl) var(--r-ctl) 0 0; }
+.cutpin > .note:first-child { margin-top: 0; }
+.reelp > video { position: sticky; z-index: 4; top: calc(env(safe-area-inset-top, 0px) + 56px); }
+.mhpin { position: sticky; z-index: 2; top: 0; background: #000; padding: calc(10px + env(safe-area-inset-top, 0px)) 0 8px; margin-top: calc(-10px - env(safe-area-inset-top, 0px)); }
 .camnow { border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 10px 12px; margin: 10px 0; background: var(--bg); }
 .camnow p { margin: 0 0 8px; }
 .camnow .actions { margin-top: 0; }
@@ -1009,7 +1014,7 @@ html.wide #fdBody > :not(.post, .feedcard), html.wide #hlList > :not(.hcard), ht
 /* Lining up the video on a big screen (Ethan, on his Duo: "the biggest possible view window"): the video as wide as the screen
    allows, as tall as fits with Marking above it and It happens here under it, and the moments listed under that. */
 html.wide .app:has(> #v-cut:not([hidden]) .cutsplit) { max-width: none; }
-html:is(.wide, .rail) .cutprev video { aspect-ratio: 16 / 9; height: auto; max-height: calc(100svh - 176px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+html:is(.wide, .rail) .cutprev video { aspect-ratio: 16 / 9; height: auto; max-height: max(200px, calc(100svh - 330px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); } /* (as big as leaves a few moments in view under it, as it stays at the top) */
 /* The game screen on a big screen (Ethan, on his open Duo: "we should use all the screen space ... two side phones"): the clock,
    the score and the buttons to log with on the left, kept in view; the changes, what's happened, who's on and the rota on the right. */
 html.wide .app:has(> #v-game:not([hidden])) { max-width: 1100px; }
@@ -1253,9 +1258,9 @@ html.wide #v-home > .hero { column-span: all; }
 </div></div>
 
 <div id="mhPop" role="dialog" aria-labelledby="mhTitle" hidden><div class="mhbox">
-  <div class="mhbar"><div><b id="mhTitle">Match highlights</b><small id="mhNow"></small></div><button class="plain" id="mhClose" type="button">Close</button></div>
+  <div class="mhpin"><div class="mhbar"><div><b id="mhTitle">Match highlights</b><small id="mhNow"></small></div><button class="plain" id="mhClose" type="button">Close</button></div>
   <video id="mhVideo" controls playsinline preload="auto"></video>
-  <div class="mhticks" id="mhTicks" aria-label="Moments in the video" hidden></div>
+  <div class="mhticks" id="mhTicks" aria-label="Moments in the video" hidden></div></div>
   <div class="mhtools" id="mhTools"></div>
   <p class="mhmsg" id="mhMsg" role="status" hidden></p>
   <ol class="cliplist" id="mhList"></ol>
@@ -6575,10 +6580,10 @@ html.wide #v-home > .hero { column-span: all; }
         ' and two or three goals. For each: pick it below, play or drag the video to the moment (for a goal, when the ball hits the net), and tap <b>It happens here</b>. Gaffer works out every other moment from them; each clip starts ' + pre + ' seconds before its moment.</p>';
       if (many) html += '<div class="actions camtabs">' + live.map(function (x) { return '<button class="plain" type="button" data-cutdo="lc" data-cam="' + x.id + '" aria-pressed="' + (x === k) + '">Camera ' + camNo(x) + '</button>'; }).join('') + '</div>';
       var file = sel.two ? k.src2 : k.src, seek = sel.t != null ? Math.max(0, sel.t - (sel.key === 'ko' || sel.key === 'h2' ? 5 : 12)) : 0;
-      html += '<div class="cutsplit"><div class="cutprev"><p class="note" id="cutSel">' + (many ? 'Camera ' + camNo(k) + ': marking' : 'Marking') + ' <b>' + esc(sel.label) + '</b>' + (sel.two ? ', in the second-half video' : '') + '</p>' +
+      html += '<div class="cutsplit"><div class="cutprev"><div class="cutpin"><p class="note" id="cutSel">' + (many ? 'Camera ' + camNo(k) + ': marking' : 'Marking') + ' <b>' + esc(sel.label) + '</b>' + (sel.two ? ', in the second-half video' : '') + '</p>' +
         '<video id="cutPrev" playsinline controls preload="metadata" data-seek="' + seek.toFixed(1) + '" data-cam="' + k.id + '" data-key="' + esc(sel.key) + '" src="' + esc(fileSrc(file.path)) + '"></video>' +
         '<div class="actions"><button class="plain primary" type="button" data-cutdo="here">It happens here</button></div>' +
-        (CUT.moved ? '<p class="msg" role="status" id="cutMoved">' + esc(CUT.moved) + '</p>' : '') +
+        (CUT.moved ? '<p class="msg" role="status" id="cutMoved">' + esc(CUT.moved) + '</p>' : '') + '</div>' + // (.cutpin: the video stays at the top while the moments scroll under it)
         '<ol class="marks">' + rows.map(function (x) {
           return '<li' + (x === sel ? ' class="on"' : '') + '><button class="plain" type="button" data-cutdo="sel" data-key="' + esc(x.key) + '"><b>' + esc(x.label) + '</b><span>' +
             (x.t == null ? 'Not known yet' : (x.marked ? 'Marked at ' : 'About ') + mmss(x.t) + (x.two ? ' (second video)' : '')) + '</span></button>' +
