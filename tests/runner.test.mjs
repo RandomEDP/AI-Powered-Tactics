@@ -106,4 +106,26 @@ eq(w.db().live_matches[0] && w.db().live_matches[0].state.by, jakeId, 'Jake star
 await J.click('#abandonBtn'); await J.click('#abandonYes'); await J.run(2000);
 eq([w.db().live_matches.length, w.db().games.length, await J.page.evaluate(() => document.body.className.includes('ro'))], [0, 0, true], 'and abandons it: nothing saved, and his phone goes back to following');
 
+// ---------- a player starts the game from the gaffer's poll (Ethan, 8 November 2026: "make sure everyone can start a game
+// not just the gaffer"): Start this game was only on the gaffer's phone, and a player's full time couldn't close the poll
+await home(A); await A.click('#tabs [data-tab="games"]'); await A.click('#gamesNew'); await A.page.fill('#pOpp', 'Wanderers'); await A.page.fill('#pDate', '2026-10-14'); await A.page.fill('#pTime', '19:30'); await A.click('#pSave'); await A.run(800);
+{ const d = w.db(), f = d.fixtures[0]; d.fixture_votes = [1, 3, 4, 5, 6].map((pid) => ({ fixture_id: f.id, pid, choice: pid === 1 ? 'gk' : 'in' })); w.setDb(d); }
+await w.run(3000); await home(J); await J.click('#tabs [data-tab="games"]'); await J.run(500);
+await J.click('#v-games [data-vote="in"]'); await J.run(1500); if (await J.visible('#askPop')) await J.click('#askNo'); // (Jake says he's in; the others already have)
+const fxId = w.db().fixtures[0].id;
+check(await J.visible('#v-games [data-fx="start"]'), 'Jake sees Start this game on the poll');
+eq(await J.page.$$eval('#v-games [data-fx="edit"], #v-games [data-fx="nudge"], #v-games [data-fx="answer"]', (b) => b.length), 0, 'but not the gaffer\'s poll buttons');
+await J.click('#v-games [data-fx="start"]'); await J.run(500);
+eq([await J.view(), await J.page.inputValue('#opp')], ['setup', 'Wanderers'], 'it opens New game with the poll filled in');
+await J.click('#startGame'); await J.click('#kick'); await J.run(1500);
+live = w.db().live_matches[0];
+eq([live && live.state.by, live && live.state.fx], [jakeId, fxId], 'his phone runs it, started from the poll');
+await J.click('#benchOk'); await J.click('#go'); await J.run(1500);
+await J.run(15 * 60000); await J.tap('#endHalf'); await J.tap('#endHalf'); await J.run(500);
+await J.tap('#go'); await J.run(15 * 60000); await J.tap('#endHalf'); await J.tap('#endHalf'); await J.run(500);
+await J.tap('#finish'); await J.tap('#finish'); await J.run(3000);
+eq([w.db().fixtures[0].status, w.db().games.length, w.db().live_matches.length], ['done', 1, 0], 'full time on his phone closes the poll and saves the game');
+await w.run(2000); await home(J); await J.click('#tabs [data-tab="games"]'); await J.run(300);
+eq(await J.page.$$eval('#v-games [data-fx="start"]', (b) => b.length), 0, 'and the poll\'s gone from Home');
+
 await done(A, J, C);
