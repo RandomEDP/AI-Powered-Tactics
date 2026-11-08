@@ -79,6 +79,40 @@ await d.as(jake, `delete from public.live_matches where team_id = '${sop.id}'`).
 check(denied(await d.fails(d.as(jake, `insert into public.live_matches (team_id, state, updated_by) values ('${sop.id}', ${state(jake.id)}, 'x') on conflict (team_id) do update set state = excluded.state`))), 'a player can\'t take over or replace a game a gaffer started');
 eq((await live()).by, ethan.id, 'nor abandon it');
 
+// ---------- a game started from a poll or a challenge (0052, Ethan, 8 November 2026): the player running it closes the
+// poll at full time and reports the challenge's score, as a gaffer's phone does
+await d.as(ethan, `delete from public.live_matches where team_id = '${sop.id}'`);
+const future = Date.now() + 7 * 86400000, fx1 = '00000000-0000-4000-8000-0000000000f1';
+await d.as(ethan, `insert into public.fixtures (id, team_id, opp, ko_at, max_outfield) values ('${fx1}', '${sop.id}', 'Wanderers', ${future}, 5)`);
+const fxState = (by, fx) => `'${JSON.stringify({ phase: 'ft', by, fx, events: [], gid: 'g9' })}'::jsonb`;
+const status = async (id) => (await d.admin(`select status from public.fixtures where id = $1`, [id]))[0].status;
+eq([await d.rpc(jake, 'poll_played', { p_code: sop.code, p_id: fx1 }), await status(fx1)], ['not_allowed', 'open'], 'a player not running its game can\'t close a poll');
+await d.as(jake, `insert into public.live_matches (team_id, state, updated_by) values ('${sop.id}', ${fxState(jake.id, '00000000-0000-4000-8000-0000000000f9')}, 'x')`);
+eq([await d.rpc(jake, 'poll_played', { p_code: sop.code, p_id: fx1 }), await status(fx1)], ['not_allowed', 'open'], 'nor while running a game from another poll');
+await d.as(jake, `update public.live_matches set state = ${fxState(jake.id, fx1)} where team_id = '${sop.id}'`);
+eq([await d.rpc(chaplin, 'poll_played', { p_code: sop.code, p_id: fx1 }), await status(fx1)], ['not_allowed', 'open'], 'nor can another player while Jake runs it');
+eq([await d.rpc(sam, 'poll_played', { p_code: sop.code, p_id: fx1 }), await status(fx1)], ['not_allowed', 'open'], 'nor someone outside the squad');
+eq([await d.rpc(jake, 'poll_played', { p_code: sop.code, p_id: fx1 }), await status(fx1)], ['ok', 'done'], 'the player running the game started from it closes the poll at full time');
+await d.admin(`update public.fixtures set status = 'open' where id = $1`, [fx1]);
+eq([await d.rpc(ethan, 'poll_played', { p_code: sop.code, p_id: fx1 }), await status(fx1)], ['ok', 'done'], 'and a gaffer still can');
+await d.as(jake, `delete from public.live_matches where team_id = '${sop.id}'`);
+
+// a challenge against another team: its poll comes with it, and Jake runs the game
+const rival = await d.user('rival@example.com');
+const ath = await d.rpc(rival, 'create_team', { p_name: 'Athletico Pathetico', p_short: 'ATH', p_color: '#aa0000', p_crest: null, p_settings: {}, p_players: ['Ant', 'Baz', 'Col', 'Daz', 'Ed'].map((name, i) => ({ pid: i + 1, name })) });
+await d.rpc(rival, 'set_home', { p_code: ath.code, p_name: 'Goals Dagenham', p_lat: 51.5466, p_lng: 0.1483 });
+const terms = { side: 5, half: 20, periods: 2, subs: 3, ko_at: future, location: 'Goals Dagenham' };
+const ch = await d.rpc(ethan, 'challenge_send', { p_code: sop.code, p_to: ath.id, p_kind: 'friendly', p_terms: terms });
+await d.rpc(rival, 'challenge_reply', { p_code: ath.code, p_id: ch, p_action: 'accept' });
+const chFx = (await d.admin(`select from_fixture from public.challenges where id = $1`, [ch]))[0].from_fixture;
+eq(await d.rpc(jake, 'challenge_result', { p_code: sop.code, p_id: ch, p_us: 2, p_them: 1 }), 'not_gaffer', 'a player not running its game can\'t report a challenge\'s score');
+await d.as(jake, `insert into public.live_matches (team_id, state, updated_by) values ('${sop.id}', ${fxState(jake.id, chFx)}, 'x')`);
+eq(await d.rpc(chaplin, 'challenge_result', { p_code: sop.code, p_id: ch, p_us: 9, p_them: 0 }), 'not_gaffer', 'nor another player');
+eq(await d.rpc(jake, 'challenge_result', { p_code: sop.code, p_id: ch, p_us: 2, p_them: 1 }), 'waiting', 'the player running the game from it reports the score');
+eq(await d.rpc(rival, 'challenge_result', { p_code: ath.code, p_id: ch, p_us: 1, p_them: 2 }), 'played', 'and once the other side agrees it\'s settled');
+eq(await d.rpc(jake, 'challenge_result', { p_code: ath.code, p_id: ch, p_us: 5, p_them: 0 }), 'not_gaffer', 'he can\'t report for the other team');
+await d.as(jake, `delete from public.live_matches where team_id = '${sop.id}'`);
+
 // someone else's friendlies team (teams.personal) is theirs alone
 await d.admin(`update public.teams set personal = true where id = $1`, [sop.id]);
 await d.as(ethan, `delete from public.live_matches where team_id = '${sop.id}'`);

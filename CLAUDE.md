@@ -119,7 +119,7 @@ gh workflow run ios.yml -R RandomEDP/AI-Powered-Tactics --ref main -f testflight
 | `ios/App/Watch/` | Apple Watch app (SwiftUI). `MatchLogic.swift` is the pure, Codable "WatchBrain" with all the decisions; `ContentView.swift`, `MatchModel.swift` and `WatchApp.swift` are the UI and the WatchConnectivity glue; `HighlightIntent.swift` is the "Mark a highlight" App Intent (Action button, Siri, Shortcuts) |
 | `plugins/reel-cutter/` | Local Capacitor plugin package (Swift). Several plugin classes live in it, listed in the next table |
 | `music/`, `scripts/make-music.py` | The beat edits' three tracks (Gaffer's own, synthesised by the script; `BEATS` in `index.html` holds their tempo, drop and end-card bars). Copied into the app by `build-web.mjs` |
-| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed; `0046` lets squad players run a game they started; `0047` unlocks a watched ad straight away; `0048` is any team size, 2 to 99 a side; `0049` is your own short clips; `0050` is the other side's scorers in friendlies; `0051` is a full poll's waitlist). New ones are numbered on from 0052 |
+| `supabase/migrations/` | `0001` … `0041` are applied to the live project (`0036` is Goal of the Week; `0037` lets the ad unlock a reel before it's made; `0038` is when the ball goes in, for beat edits; `0039` is comments on posts; `0040` is friendly games, applied as `0039a`/`0039b` through the MCP; `0041` is the App Clip's `friendly_preview`; `0042` is the Highlights tab's Just me; `0043` is the no-ad unlock; `0044` is the Goal of the Week prize; `0045` is Home's All feed; `0046` lets squad players run a game they started; `0047` unlocks a watched ad straight away; `0048` is any team size, 2 to 99 a side; `0049` is your own short clips; `0050` is the other side's scorers in friendlies; `0051` is a full poll's waitlist; `0052` lets the player running a game close its poll and report a challenge's score). New ones are numbered on from 0053 |
 | `supabase/functions/` | `team-notify` (all push notifications), `reel-voice` (AI commentary), `live-stream` (live streaming through Cloudflare), `clip-store` (highlight clips in Cloudflare R2, and your own short clips with `own: true`), `ad-reward` (AdMob's signed call when a rewarded ad was watched; the one deployed with verify_jwt = false), `gopro-link` (what's in a GoPro share link, for the highlights; an iPhone video comes from Photos), `game-started` (old kick-off-only push, kept for old builds; the current app doesn't call it) |
 | `supabase/seed_sons_of_pitches.sql` | One-off import of the original team (already run) |
 | `.github/workflows/ios.yml` | Tests (four shards) with the build check alongside, and the TestFlight upload after the tests (`-f testflight=true`; `-f force=true` builds even if tests fail, for emergencies only) |
@@ -768,7 +768,14 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 - **Abandon game** (`#abandonBtn` under Finish game, and New game with a game going): `#abandonPop` warns that everything
   from the game is deleted, nothing goes to stats and no highlights can be made; Abandon and delete it (`abandonGame`)
   clears the live game. Gaffers, or the player running the game they started (`canAbandon()`). Not on the watch.
-- Tests: `runner.test.mjs` (a player runs a whole game, the gaffer deletes it, abandoning), `rundb.test.mjs`, `stream.test.mjs`.
+- **From a poll** (`0052_players_start_from_polls.sql`; Ethan, 8 November 2026: "make sure everyone can start a game not just
+  the gaffer"): the Games screen's poll card has Start this game for anyone who `canStart()` (Edit poll, Answer for a player
+  and Nudge stay the gaffers'). At full time the poll is closed through `poll_played(code, id)` and a challenge's score sent
+  with `challenge_result`; both let the gaffers or the player whose live game (`by`) was started from that poll (`fx`,
+  `private.runs_fixture`). Before, a player's game left its poll open.
+- Not on Android (players' app, no game screen) and not for someone who hasn't picked their name in the squad (the locked
+  New game says so).
+- Tests: `runner.test.mjs` (a player runs a whole game, the gaffer deletes it, abandoning, starting from a poll), `rundb.test.mjs`, `stream.test.mjs`.
 
 ### Any number a side, at most 99 from a team (`0048_any_team_size.sql`; Ethan, 21 October 2026)
 - The format card (new game, polls; `fmtCard`) has 5, 7 and 11-a-side to tap (`SIDE_QUICK`) and "Players a side" (`#gSide`,

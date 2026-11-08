@@ -4517,6 +4517,7 @@ html.wide #v-home > .hero { column-span: all; }
     if (s.wait.length) html += '<p class="note fxwait">Waitlist: ' + s.wait.map(function (id, i) { return (i + 1) + '. ' + plink(id, esc(nm(id))); }).join(', ') + '</p>';
     if (s.no.length) html += '<p class="note">Can’t make it: ' + names(s.no) + '</p>';
     if (s.none.length) html += '<p class="note">No answer yet: ' + names(s.none) + '</p>';
+    if (!own && canStart()) html += '<div class="actions"><button class="plain primary" type="button" data-fx="start">' + (tour ? (played.length ? 'Start the next game' : 'Start the first game') : 'Start this game') + '</button></div>'; // (anyone in the squad can run it)
     if (own) {
       html += '<div class="actions"><button class="plain primary" type="button" data-fx="start">' + (tour ? (played.length ? 'Start the next game' : 'Start the first game') : 'Start this game') + '</button>' + (tour && played.length ? '<button class="plain" type="button" data-fx="endtour">Finish tournament</button>' : '') + '<button class="plain" type="button" data-fx="edit">Edit poll</button>' +
         '<button class="plain" type="button" data-fx="answer" aria-expanded="' + (fxAnswer === f.id) + '">Answer for a player</button>' +
@@ -4610,7 +4611,7 @@ html.wide #v-home > .hero { column-span: all; }
     else if (act === 'answer') { fxAnswer = fxAnswer === f.id ? null : f.id; renderFixture(); }
     else if (act === 'cal') addToCalendar(f);
     else if (act === 'nudge' && gafferHere()) nudge(f);
-    else if (act === 'start') startFromPoll(f);
+    else if (act === 'start' && canStart()) startFromPoll(f);
     else if (act === 'endtour' && gafferHere() && sb) { sb.from('fixtures').update({ status: 'done' }).eq('id', f.id).then(function () { ping('changed'); pull(); }); }
     else if (vote && who !== null && gafferHere()) castVote(f, vote, +who);
     else if (vote && myPid != null) castVote(f, vote, null);
@@ -8821,7 +8822,7 @@ html.wide #v-home > .hero { column-span: all; }
     var lu = m.segs.filter(function (s) { return s.to > s.from; }).map(function (s) { return { h: s.h, f: s.from, t: s.to, on: (s.gk != null ? [s.gk] : []).concat(s.on) }; });
     S.results.push({ opp: m.opp, us: t.us, them: t.them, per: per, friendly: !!m.friendly, koAt: m.koAt || null, htAt: m.htAt || null, h2At: m.h2At || null, ftAt: m.ftAt || null, half: m.half, periods: m.periods === 1 ? 1 : null, side: m.house ? null : sideKept(m.pitch), tour: m.tour || null, tourName: m.tourName || null, ev: ev, lu: lu, at: Date.now(), house: m.house ? JSON.parse(JSON.stringify(m.house)) : null, link: m.link || null, guests: !m.house && m.guests && m.guests.length ? m.guests.slice() : null });
     if (!m.house) S.lastKeeper = (m.squad && m.segs[0] && m.segs[0].gk != null) ? m.segs[0].gk : m.keeper;
-    if (m.fx && sb) sb.from('fixtures').update({ status: 'done' }).eq('id', m.fx).then(function () { ping('changed'); pull(); });
+    if (m.fx && sb) sb.rpc('poll_played', { p_code: A.active, p_id: m.fx }).then(function () { ping('changed'); pull(); }, function () {}); // (the gaffers, or the player who ran it)
     var played = m.fx ? RV.list.filter(function (c) { return c.fixture === m.fx; })[0] : null; // a game against another team on the app: tell them our score
     if (played && sb) sb.rpc('challenge_result', { p_code: A.active, p_id: played.id, p_us: t.us, p_them: t.them }).then(function () { rivalsPull(); }, function () {});
     if (RUNNER && me) S.results[S.results.length - 1].runBy = me.id; // (run from a player's phone: theirs to save)
