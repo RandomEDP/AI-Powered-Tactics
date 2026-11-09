@@ -935,6 +935,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 .gnav button { min-width: 44px; min-height: 44px; border: 0; border-radius: 999px; background: var(--fill); font-weight: 700; }
 .say { background: var(--bg); border-radius: var(--r-ctl); padding: 10px 14px; font-size: var(--t-sub); font-style: italic; }
 .saybtn { align-self: flex-start; }
+.vtools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } .vtools:empty { display: none; }
 .squad .sqrow { display: flex; align-items: baseline; justify-content: space-between; font-weight: 650; }
 .squad .sqrow b { font-size: var(--t-title); font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
 .squad .sqstep { display: flex; align-items: center; gap: 10px; }
@@ -4961,11 +4962,54 @@ html.wide #v-home > .hero { column-span: all; }
   // video as a second sound, so "Commentary on" plays the other copy instead of speaking over it.
   var sayOn = true; try { sayOn = localStorage.getItem('apt-say') !== '0'; } catch (e) {}
   function clipSrc(c, voiced) { return clipUrl(voiced && c.vpath ? { path: c.vpath, store: c.store } : c); }
+  // ---- share one highlight on its own (Ethan, November 2026: "a way to share a specific highlight of a game easily and
+  // quickly"). Under every clip list, every game's reel and in the whole-match player: one tap downloads that moment's clip
+  // as it is (score box, the bar along the bottom and Gaffer's mark already on it; with commentary when it's on) and opens
+  // the share sheet. Nothing is made or uploaded, and a second tap on the same clip reuses the download. Off the iPhone app
+  // it opens the clip to save. The clip played is the one picked in the list (data-src on the row aria-pressed, else the first).
+  var CS = { busy: false, src: '', path: null, job: '', p: -1, msg: '' };
+  function clipShareBtn(src, label, what) { // (src given: that clip; else the clip picked in this player's list)
+    var app = !!(RCp() && RCp().share), busy = CS.busy && (!src || CS.src === src);
+    return '<button class="plain tint" type="button" data-clipshare="' + (what || 'clip') + '"' + (src ? ' data-src="' + esc(src) + '" data-label="' + esc(label || '') + '"' : '') + (busy ? ' disabled' : '') + '>' +
+      (busy ? 'Getting it ready' + (CS.p >= 0 ? ', ' + CS.p + '%' : '…') : (app ? 'Share this ' : 'Save this ') + (what || 'clip')) + '</button>';
+  }
+  function clipShareSay() { // (the buttons on screen, while one is being got ready, and if it went wrong)
+    Array.prototype.forEach.call(document.querySelectorAll('[data-clipshare]'), function (b) {
+      var w = b.getAttribute('data-clipshare'), app = !!(RCp() && RCp().share), mine = CS.busy && (!b.getAttribute('data-src') || b.getAttribute('data-src') === CS.src);
+      b.disabled = mine; b.textContent = mine ? 'Getting it ready' + (CS.p >= 0 ? ', ' + CS.p + '%' : '…') : CS.msg && b === CS.btn ? CS.msg : (app ? 'Share this ' : 'Save this ') + w;
+    });
+  }
+  function clipPicked(b) { // the clip a share button means: its own, or the one picked in its player's list
+    if (b.getAttribute('data-src')) return { src: b.getAttribute('data-src'), label: b.getAttribute('data-label') || '' };
+    var box = b.closest('.vplayer'); if (!box) return null;
+    var row = box.querySelector('[data-src][aria-pressed="true"]') || box.querySelector('[data-src]');
+    return row ? { src: row.getAttribute('data-src'), label: row.getAttribute('data-label') || row.textContent || '' } : null;
+  }
+  async function clipShare(c, btn) {
+    if (!c || !c.src) return;
+    var rc = RCp();
+    if (!rc || !rc.share) { window.open(c.src, '_blank'); return; } // (the website and Android: the clip opens, to save or share from there)
+    if (CS.busy) return;
+    if (CS.path && CS.src === c.src) { rateAfter(rc.share({ path: CS.path })); return; }
+    CS = { busy: true, src: c.src, path: null, job: 'cs-' + Date.now(), p: -1, msg: '', btn: btn }; clipShareSay();
+    try {
+      var file = 'gaffer-' + (String(c.label || 'highlight').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'highlight') + '.mp4';
+      var res = rc.saveVideo ? await rc.saveVideo({ url: c.src, file: file, job: CS.job }) : await rc.joinReel({ items: [{ url: c.src }], file: file, job: CS.job });
+      CS.busy = false; CS.path = res && res.path;
+      if (!CS.path) CS.msg = 'Couldn’t get the clip. Tap to try again.';
+      clipShareSay();
+      if (CS.path) rateAfter(rc.share({ path: CS.path }));
+    } catch (e) { CS.busy = false; CS.msg = 'Couldn’t get the clip. Check your signal and tap to try again.'; clipShareSay(); }
+  }
+  document.addEventListener('click', function (e) { // (before each screen's own handler, so nothing else takes the tap)
+    var b = e.target.closest ? e.target.closest('[data-clipshare]') : null; if (!b) return;
+    e.stopPropagation(); if (!b.disabled) clipShare(clipPicked(b), b);
+  }, true);
   function clipPlayer(list) { // one video that plays a list of clips back to back
     var voiced = list.some(function (c) { return c.vpath; }), on = voiced && sayOn;
     return '<div class="vplayer"><video controls playsinline preload="metadata" src="' + esc(clipSrc(list[0], on)) + '"></video>' +
-      (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') +
-      '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipSrc(c, on)) + '" data-g="' + esc(c.game_id || '') + '" data-at="' + (c.at || '') + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
+      '<div class="vtools">' + clipShareBtn() + (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') + '</div>' +
+      '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipSrc(c, on)) + '" data-label="' + esc(c.title || c.label || '') + '" data-g="' + esc(c.game_id || '') + '" data-at="' + (c.at || '') + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
   // ---- the whole match's highlights, full screen (Ethan: a big obvious button, with how long they last). Plays the reel
   // the cut uploaded when there is one; otherwise every clip, back to back, as one.
@@ -5237,7 +5281,9 @@ html.wide #v-home > .hero { column-span: all; }
     $('mhTicks').innerHTML = $('mhTicks').hidden ? '' : list.map(function (c, i) { return '<button type="button" class="' + (/goal/i.test(c.title || c.label || '') ? 'g' : 'h') + (i === cur ? ' on' : '') + '" data-mhi="' + i + '" data-mht="' + c.reel_at + '" style="left:' + Math.min(100, Math.max(0, c.reel_at / dur * 100)).toFixed(2) + '%" aria-label="' + esc(c.title || c.label || 'Moment') + '"></button>'; }).join('');
     $('mhNow').textContent = 'Moment ' + (cur + 1) + ' of ' + list.length + ' · ' + mhTime(mhLength(MH.list)) + ' in all';
     var voiced = MH.reel ? !!MH.r.reel.vpath : MH.list.some(function (c) { return c.vpath; });
+    var now = list[cur];
     $('mhTools').innerHTML = '<button class="plain primary" type="button" data-mhsave="1"' + (EX.busy ? ' disabled' : '') + '>' + (EX.busy ? 'Getting it ready' + (EX.p >= 0 ? ', ' + EX.p + '%' : '…') : 'Save or share') + '</button>' +
+      (now ? clipShareBtn(clipSrc(now, sayOn), now.title || now.label || '', 'moment') : '') +
       (voiced ? '<button class="plain saybtn" type="button" data-mhsay="1" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '');
     var ex = EX.msg && String(EX.gid).indexOf(MH.r.id + ':') === 0, mine = MK.gid === MH.r.id, say = ex ? EX.msg : mine && MK.busy ? 'Making this one video for everyone' + MK.part + ': ' + MK.prog + ' You don’t need to wait: it carries on while you use Gaffer, and the upload finishes even if you close the app. The clips play one after another until then.'
       : mine && MK.msg ? MK.msg : !MH.reel && !gafferHere() ? 'Playing the clips one after another. Your gaffer’s phone makes them one video next time they open this.' : '';
@@ -5267,9 +5313,9 @@ html.wide #v-home > .hero { column-span: all; }
   function reelPlayer(r, list) {
     var rl = r.reel, voiced = !!rl.vpath, on = voiced && sayOn;
     return '<div class="vplayer reelp"><video controls playsinline preload="metadata" src="' + esc(clipUrl({ path: on ? rl.vpath : rl.path, store: rl.store })) + '"></video>' +
-      (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') +
-      '<p class="note">The full reel. Tap a moment to skip to it.</p><ol class="cliplist">' + list.filter(function (c) { return typeof c.reel_at === 'number'; }).sort(function (a, b) { return a.reel_at - b.reel_at; })
-        .map(function (c) { return '<li><button type="button" data-seek="' + c.reel_at + '" aria-pressed="false">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
+      '<div class="vtools">' + clipShareBtn() + (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') + '</div>' +
+      '<p class="note">The full reel. Tap a moment to skip to it, or share the one playing on its own.</p><ol class="cliplist">' + list.filter(function (c) { return typeof c.reel_at === 'number'; }).sort(function (a, b) { return a.reel_at - b.reel_at; })
+        .map(function (c) { return '<li><button type="button" data-seek="' + c.reel_at + '" data-src="' + esc(clipSrc(c, on)) + '" data-label="' + esc(c.title || c.label || '') + '" aria-pressed="false">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
   // A player's reel kept on their card: the same player as a game's reel, its moments underneath to skip to.
   function preelOf(pid) { return preels.filter(function (x) { return x.pid === pid && x.path; })[0] || null; }
@@ -6309,6 +6355,7 @@ html.wide #v-home > .hero { column-span: all; }
     if (NP.busy && NP.kind === 'own' && (d.stage === 'trim' || (d.stage === 'copy' && !cutBusy()))) { npProg(d.stage === 'trim' ? 'Getting your clip ready, ' + pct + '%…' : 'Reading the video, ' + pct + '%…'); return; }
     if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
     if (SO.busy && d.job === SO.job) { SO.prog = d.stage === 'fetch' ? 'Getting your post, ' + pct + '%…' : d.stage === 'tall' ? 'Making it tall, ' + pct + '%…' : 'Adding the end card, ' + pct + '%…'; socDraw(); return; }
+    if (CS.busy && d.job === CS.job) { var cp = d.stage === 'save' || d.stage === 'fetch' ? pct : -1; if (cp !== CS.p) { CS.p = cp; clipShareSay(); } return; }
     if (EX.busy && d.job === EX.job) { var ep = d.stage === 'save' || d.stage === 'fetch' && (d.n || 1) === 1 ? pct : -1; if (ep !== EX.p) { EX.p = ep; EX.msg = ep >= 0 ? 'Getting the video onto your phone, ' + ep + '%…' : 'Getting the video ready to save…'; if (MH) mhDraw(); } return; }
     var mkJob = d.job === 'mk'; // (the plugin says whose join it is; the game's one video can be waiting behind someone's reel, or the other way round)
     if (MK.busy && (mkJob || !('job' in d))) { MK.prog = d.stage === 'fetch' ? 'fetching clip ' + ((d.i || 0) + 1) + ' of ' + (d.n || 1) + '…' : 'joining, ' + pct + '%.'; mkTick(); }

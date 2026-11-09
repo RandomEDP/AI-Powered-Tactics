@@ -441,6 +441,13 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   the game's one video and joins it again from the rest under a new name, `MKVER`) and Change stats (Fix a goal). With no
   footage: Cut from video (gaffers, iPhone) and **Stats** (the game's moments and each player's minutes, goals and assists,
   with Change stats for gaffers). Tests: `reels`, `cuttiming`, `beat`, `hltag`.
+- **Share one highlight** (Ethan, November 2026: "a way to share a specific highlight of a game easily and quickly"):
+  under every clip list (`clipPlayer`: Highlights, By player, Just me, feed game cards, profiles' pins, a team's page) and
+  every game's reel (`reelPlayer`, the moment skipped to) is **Share this clip**, and the whole-match player has **Share
+  this moment** (the one playing). One tap: the plugin's `saveVideo` downloads that clip as it is (score box, bar and mark
+  already on it; the commentary copy while Commentary is on), then the share sheet; a second tap reuses it. Nothing is made
+  or uploaded. One document capture-phase listener (`[data-clipshare]`, `clipShare`, `CS`, `clipPicked`) handles every
+  screen. Off the iPhone app it's **Save this clip** and opens the clip. Test: `shareclip.test.mjs`.
 - **Delete these highlights** (Edit footage, two taps) deletes the game's `clips` rows and files (both copies) and its
   reel, to cut again from scratch.
 - **Re-cut one goal** (Edit footage, on a game's card or a player's; Ethan, November 2026: "just recut one goal if needed,
