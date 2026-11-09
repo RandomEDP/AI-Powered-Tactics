@@ -1,0 +1,152 @@
+// Turning the phone (Ethan, 9 November 2026: an error on his phone after turning it). Gaffer is portrait-only on a plain
+// iPhone, but a video played full screen turns with the phone and the page underneath is resized while it's on its side,
+// and iPhone Duo's open screen turns whatever the app says. So every screen a gaffer and a player use is looked at upright,
+// turned on its side (both an iPhone's and Duo's), and upright again: nothing overlaps, runs off the screen or is cut off,
+// no page error, and back upright it's laid out exactly as it was before.
+// node tests/rotate.test.mjs <dir> saves a picture of each screen on its side.
+import { world, suite } from './lib.mjs';
+import { problems, unreachable } from './layout.mjs';
+const { check, eq, done } = suite('phones: turning the phone');
+const w = await world();
+const out = process.argv[2];
+const VIEW = { width: 390, height: 844 }, SIDES = [{ width: 844, height: 390 }, { width: 667, height: 375 }, { width: 678, height: 466 }, { width: 1000, height: 760 }];
+
+const cutter = () => { // the iPhone's ReelCutter, so the gaffer can cut some highlights
+  window.Capacitor.Plugins.ReelCutter = {
+    addListener: () => ({ remove() {} }),
+    pickVideo: async (o) => ({ path: '/phone/game' + o.slot + '.mov', duration: 5400 }),
+    cut: async (o) => ({ clips: o.clips.map((c) => ({ file: c.file, path: '/phone/' + c.file })), reel: { path: '/phone/' + o.reelFile, marks: o.clips.map((c, i) => i * 14.04) } }),
+    upload: async (o) => { const r = await fetch(o.url, { method: 'PUT', body: 'video', headers: { 'Content-Type': 'video/mp4' } }); return { status: r.status, ok: r.ok }; },
+    joinReel: async (o) => ({ path: '/phone/' + o.file, size: 1000, marks: o.items.map((x, i) => i * 14.04) }),
+    share: async () => ({}), cleanup: async () => ({}),
+  };
+  window.Capacitor.Plugins.VoiceOver = { addListener: () => ({ remove() {} }), permission: async () => ({ state: 'granted' }), prepare: async () => ({ ok: true }), start: async () => ({ at: Date.now() }),
+    level: async () => ({ level: 0.5 }), stop: async () => ({ path: '/phone/take.m4a', dur: 20, spans: [] }), discard: async () => ({}), mix: async (o) => ({ path: '/phone/' + o.file }), settings: async () => ({}) };
+  window.Capacitor.convertFileSrc = (path) => location.origin + '/_capacitor_file_' + path;
+};
+const tab = async (P, t) => { for (let i = 0; i < 3 && !(await P.visible('#tabs [data-tab="' + t + '"]')); i++) { await home(P); await P.run(300); } await P.tap('#tabs [data-tab="' + t + '"]'); await P.run(300); };
+const home = (P) => P.page.evaluate(() => { const b = document.querySelector('.view:not([hidden]) [data-go="home"]') || document.querySelector('.view:not([hidden]) .back'); if (b) b.click(); });
+
+const seen = [];
+const shape = (P) => P.page.evaluate(() => { const d = document.documentElement, v = document.querySelector('.view:not([hidden])');
+  return { cls: ['rail', 'railL', 'wide'].filter((c) => d.classList.contains(c)).join(' '), w: d.scrollWidth, view: v && v.id, top: Math.round((document.getElementById('tabs') || d).getBoundingClientRect().top) }; });
+const scan = async (P, what) => {
+  await P.run(300); await P.page.waitForTimeout(350); seen.push(what); // (and a moment of real time, for a sheet to finish sliding up)
+  const before = await shape(P), up = await problems(P), y = await P.page.evaluate(() => scrollY);
+  eq(up, [], what + ' (upright): nothing overlaps, runs off the screen or is cut off');
+  eq(await unreachable(P), [], what + ' (upright): every button can be reached');
+  if (out && up.length) await P.page.screenshot({ path: `${out}/${String(seen.length).padStart(2, '0')}-${what.replace(/[^a-z0-9]+/gi, '-')}-upright.png` });
+  for (const s of SIDES) {
+    await P.page.setViewportSize(s); await P.page.evaluate(() => dispatchEvent(new Event('resize'))); await P.run(400);
+    const p = await problems(P);
+    eq(p, [], `${what}, on its side (${s.width}×${s.height}): nothing overlaps, runs off the screen or is cut off`);
+    eq(await unreachable(P), [], `${what}, on its side (${s.width}×${s.height}): every button can be reached`);
+    if (out && s === SIDES[0]) { await P.page.waitForTimeout(300); await P.page.screenshot({ path: `${out}/${String(seen.length).padStart(2, '0')}-${what.replace(/[^a-z0-9]+/gi, '-')}.png` }); }
+  }
+  await P.page.setViewportSize(VIEW); await P.page.evaluate(() => dispatchEvent(new Event('resize'))); await P.run(400);
+  await P.page.evaluate((y) => scrollTo(0, y), y); await P.run(100);
+  eq(await shape(P), before, what + ': upright again, it is laid out as it was');
+  eq(await problems(P), [], what + ': upright again, nothing overlaps');
+};
+
+// ---------- the gaffer, on an iPhone 
+const A = await w.phone({ db: true, native: true, label: 'gaffer', viewport: VIEW });
+await A.ctx.addInitScript(cutter); await A.page.reload(); await A.run(500);
+await scan(A, 'welcome');
+await A.click('#createBtn'); await scan(A, 'create an account');
+await A.signUp('ethan@example.com'); await scan(A, 'start a team');
+await A.page.fill('#tName', 'Sons of Pitches FC'); await A.page.fill('#tShort', 'SOP FC'); await A.click('#tColors button[data-c="#4c2bb0"]');
+await A.page.fill('#tPlayers', 'Spice\nJake\nChaplin\nHarrison\nPuxley\nIssac\nReece\nEthan'); await A.click('#tCreate'); await A.run(600);
+await scan(A, 'the team code');
+const code = await A.text('#codeBig'); await A.click('#v-code [data-go="home"]'); await A.run(300);
+await A.click('#meCard [data-me="pick"]'); await A.run(300); await A.click('#joinList [data-pid="8"]'); await A.click('#joinList [data-pos="fwd"]'); await A.click('#joinList [data-do="claim"]'); await A.run(600);
+await scan(A, 'the Team page');
+await A.click('#mNew'); await A.page.fill('#opp', 'Athletico Pathetico'); await scan(A, 'new game');
+await A.click('#startGame'); await scan(A, 'the minutes planner');
+await A.click('#kick'); await A.run(300); await scan(A, 'the bench at kick-off');
+await A.click('#go'); await A.run(3000); await scan(A, 'match mode');
+// the buttons to log with are on screen without scrolling, whichever way up and on any screen (a phone on its side, 390 points
+// tall, used to get the two halves made for Duo's open screen, with Goal for us below the bottom until the right half was scrolled)
+for (const s of [VIEW, ...SIDES]) {
+  await A.page.setViewportSize(s); await A.page.evaluate(() => { dispatchEvent(new Event('resize')); scrollTo(0, 0); }); await A.run(300);
+  const g = await A.page.evaluate(() => { const b = document.getElementById('goalUs').getBoundingClientRect(), t = document.getElementById('goalThem').getBoundingClientRect(); return { top: Math.round(Math.min(b.top, t.top)), bottom: Math.round(Math.max(b.bottom, t.bottom)), vh: innerHeight, game: document.documentElement.classList.contains('gamewide') }; });
+  check(g.top >= 0 && g.bottom <= g.vh, `${s.width}×${s.height}: Goal for us and Goal against are on screen at the top of the game screen (${JSON.stringify(g)})`);
+}
+await A.page.setViewportSize(VIEW); await A.page.evaluate(() => dispatchEvent(new Event('resize'))); await A.run(300);
+const dk = await A.page.evaluate(() => { const d = document.getElementById('dock').getBoundingClientRect(), v = document.getElementById('v-game'); window.scrollTo(0, document.body.scrollHeight); const last = [...v.children].filter((e) => e.offsetParent && !e.closest('#dock') && getComputedStyle(e).position !== 'fixed').pop().getBoundingClientRect(); return { dock: Math.round(d.top), last: Math.round(last.bottom) }; });
+check(dk.last <= dk.dock, `scrolled to the end, the last of the game screen clears the dock, which is taller with big text (${JSON.stringify(dk)})`);
+await A.page.evaluate(() => window.scrollTo(0, 0));
+await A.click('#goalUs'); await A.run(500); await scan(A, 'who scored?');
+await A.click('#picker button[data-p="2"]'); await A.click('#picker button[data-p="3"]'); await A.run(300);
+await scan(A, 'match mode after a goal');
+await A.run(5 * 60000 - 35000); await scan(A, 'subs coming up');
+await A.run(40000); await scan(A, 'the subs pop-up');
+if (await A.visible('#subPopDone')) await A.click('#subPopDone');
+await A.click('#outBtn'); await A.run(400); await scan(A, 'player injured or leaving');
+await A.page.evaluate(() => document.getElementById('outPicker').dispatchEvent(new MouseEvent('click', { bubbles: true }))); await A.run(200);
+await A.tap('#pitchNow button[data-now]'); await A.run(400); await scan(A, 'who goes in goal / comes on now');
+await A.tap('#nowPick button[data-cancel]'); await A.run(200);
+await A.click('#finish'); await A.click('#finish'); await A.run(1500); await scan(A, 'full time');
+await home(A); await A.run(400); await scan(A, 'the Team page after a game');
+for (const [sel, what] of [['#mStats', 'stats'], ['#mInsights', 'insights'], ['#mOptions', 'settings'], ['#mBoard', 'the tactics board'], ['#mGotw', 'Goal of the Week']]) {
+  await home(A); await A.run(300); await A.tap(sel); await A.run(600); await scan(A, what);
+}
+// the highlights: cutting a game, and its card
+await tab(A, 'home'); await A.tap('#mHighlights'); await A.run(600); await scan(A, 'Highlights before cutting');
+await A.click('#hlList [data-cut]'); await A.run(400); await scan(A, 'cutting: where the cameras stood');
+await A.page.locator('#camSvg').scrollIntoViewIfNeeded(); const bx = await A.page.locator('#camSvg').boundingBox(); await A.page.mouse.click(bx.x + bx.width * 0.08, bx.y + bx.height * 0.6); await A.run(600);
+await A.click('#cutBody [data-cutdo="next"]'); await A.run(400); await scan(A, 'cutting: lining up the video');
+await A.page.evaluate(() => { Object.defineProperty(document.getElementById('cutPrev'), 'currentTime', { configurable: true, get: () => 200, set: () => {} }); });
+await A.click('#cutBody [data-cutdo="here"]');
+await A.click('#cutBody [data-cutdo="go"]'); await A.run(3000); await scan(A, 'cutting: done');
+await A.click('#cutBody [data-cutdo="finish"]'); await A.run(800); await scan(A, 'Highlights with a cut game');
+await A.click('#hlToggle [data-by="player"]'); await A.run(400); await scan(A, 'Highlights by player');
+await A.click('#hlToggle [data-by="game"]'); await A.run(400);
+await A.tap('#hlList .mhbtn'); await A.run(800); await scan(A, 'the whole match highlights');
+await A.page.evaluate(() => { const c = document.querySelector('#mhPop [data-mhclose], #mhPop .close, #mhPop [aria-label="Close"]'); if (c) c.click(); else document.getElementById('mhPop').hidden = true; }); await A.run(300);
+await A.tap('#hlList [data-hlm^="make:"]'); await A.run(400); await scan(A, 'make a highlight (the sheet)');
+await A.tap('#hlSheet [data-hlmx]'); await A.run(300);
+await A.tap('#hlList [data-hlm^="edit:"]'); await A.run(400); await scan(A, 'edit footage (the sheet)');
+await A.tap('#hlSheet [data-fixg]'); await A.run(400); await scan(A, 'fix a goal'); await A.page.evaluate(() => { document.getElementById('fixPop').hidden = true; });
+if (await A.visible('#hlSheet [data-hlmx]')) { await A.tap('#hlSheet [data-hlmx]'); await A.run(300); }
+await A.click('#hlToggle [data-by="player"]'); await A.run(400);
+if (await A.visible('#hlList [data-hlm^="pedit:"]')) { await A.tap('#hlList [data-hlm^="pedit:"]'); await A.run(400); await scan(A, 'a player\'s edit footage (the sheet)'); await A.tap('#hlSheet [data-hlmx]'); await A.run(300); }
+if (await A.visible('#hlList [data-hlm^="pmake:"]')) { await A.tap('#hlList [data-hlm^="pmake:"]'); await A.run(400); await scan(A, 'a player\'s make a highlight (the sheet)'); await A.tap('#hlSheet [data-preel]'); await A.run(500); await scan(A, 'make a reel');
+  await A.tap('#rbOwn'); await A.run(200); await scan(A, 'make a reel, with your own commentary'); await A.tap('#rbMake'); await A.run(800); await scan(A, 'your commentary');
+  await A.tap('#micGo'); await A.run(3600); await scan(A, 'your commentary, recording'); await A.tap('#micStop'); await A.run(400); await scan(A, 'your commentary, your take');
+  await A.tap('#micCancel'); await A.tap('#micCancel'); await A.run(300);
+  await A.page.evaluate(() => { document.getElementById('reelPop').hidden = true; }); }
+// the poll, chat, the feed, a profile, finding people
+await tab(A, 'games'); await A.click('#gamesNew'); await A.run(300); await scan(A, 'a new poll');
+await A.page.fill('#pOpp', 'Rovers'); await A.page.fill('#pDate', '2026-10-14'); await A.page.fill('#pTime', '19:30'); await A.click('#pSave'); await A.run(800);
+await tab(A, 'games'); await A.run(400); await scan(A, 'Games with a poll');
+await tab(A, 'home'); await A.tap('#mChat'); await A.run(400);
+await A.page.fill('#chatText', 'Who is driving Wednesday? I can take three in the car if anyone needs a lift'); await A.page.press('#chatText', 'Enter'); await A.run(600);
+await scan(A, 'chat');
+await tab(A, 'feed'); await A.run(800); await scan(A, 'Home (the feed)');
+await tab(A, 'profile'); await A.run(800); await scan(A, 'your profile');
+await tab(A, 'feed'); await A.run(400); await A.tap('#fdFind'); await A.run(600); await scan(A, 'find people');
+await tab(A, 'feed'); await A.run(400);
+if (await A.visible('#fdFriendly')) { await A.tap('#fdFriendly'); await A.run(600); await scan(A, 'play a friendly'); }
+await tab(A, 'home'); await A.run(300); await A.click('#mNew'); await A.run(300);
+if (await A.visible('#gKind')) { await A.tap('#gKind [data-kind="house"], #gKind button:last-child'); await A.run(400); await scan(A, 'a game among ourselves'); }
+
+// ---------- a player joining on their own iPhone 
+const J = await w.phone({ db: true, native: true, label: 'jake', viewport: VIEW });
+await J.page.fill('#joinCode', code); await J.click('#joinBtn'); await J.run(500);
+await scan(J, 'joining a team');
+await J.click('#joinList [data-pid="2"]'); await J.page.fill('#jLast', 'Smith'); await J.page.fill('#jNum', '7'); await J.click('#joinList [data-pos="fwd"]');
+await J.page.fill('#jEmail', 'jake@example.com'); await J.page.fill('#jUser', 'jake_s'); await J.page.fill('#jPass', 'longpassword'); await J.check('#jTerms'); await scan(J, 'joining: your details');
+await J.click('#joinList [data-do="up"]'); await J.run(800);
+await J.click('#pendCard [data-go="account"]'); await J.page.fill('#aEmail', 'jake@example.com'); await J.page.fill('#aPass', 'longpassword'); await J.click('#aSignIn'); await J.run(2000);
+if (await J.view() !== 'home') { await tab(J, 'home'); await J.run(500); }
+await scan(J, 'a player\'s Team page');
+await tab(J, 'games'); await J.run(400); await scan(J, 'a player\'s Games');
+await J.click('#gamesTrack [data-vote="in"]'); await J.run(1500); await scan(J, 'add to calendar?');
+await J.page.evaluate(() => { const n = document.getElementById('askNo'); if (n) n.click(); }); await J.run(300);
+await tab(J, 'home'); await J.tap('#mChat'); await J.run(1200); await scan(J, 'a player\'s chat');
+await tab(J, 'highlights'); await J.run(1200); await scan(J, 'a player\'s Highlights');
+await tab(J, 'profile'); await J.run(800); await scan(J, 'a player\'s profile');
+
+check(seen.length >= 40, `every screen was looked at (${seen.length})`);
+await done(A, J);
