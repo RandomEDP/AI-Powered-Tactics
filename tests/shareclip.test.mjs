@@ -27,7 +27,7 @@ await A.ctx.addInitScript(() => { // a stand-in for the iPhone's reel maker
     share: async (o) => { window.__rc.push(['share', o.path]); return { completed: false }; },
     saveVideo: async (o) => { window.__rc.push(['save', o]); const on = window.__rcOn.progress; if (on) on({ stage: 'save', p: 0.4, job: o.job });
       if (window.__hold) await window.__hold; if (window.__fail) throw new Error('The Internet connection appears to be offline.'); return { path: '/phone/save/' + o.file, size: 1000 }; },
-    joinReel: async (o) => { window.__rc.push(['join', o]); return { path: '/phone/' + o.file, size: 1000, marks: o.items.map((x, i) => i * 14) }; } };
+    joinReel: async (o) => { window.__rc.push(['join', o]); if (o.job === 'mk') await new Promise(() => {}); return { path: '/phone/' + o.file, size: 1000, marks: o.items.map((x, i) => i * 14) }; } };
 });
 await A.page.reload(); await A.run(1500);
 const rc = (k) => A.page.evaluate((x) => window.__rc.filter((c) => c[0] === x).map((c) => c[1]), k);
