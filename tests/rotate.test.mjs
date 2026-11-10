@@ -9,7 +9,7 @@ import { problems, unreachable } from './layout.mjs';
 const { check, eq, done } = suite('phones: turning the phone');
 const w = await world();
 const out = process.argv[2];
-const VIEW = { width: 390, height: 844 }, SIDES = [{ width: 844, height: 390 }, { width: 667, height: 375 }, { width: 678, height: 466 }, { width: 1000, height: 760 }];
+const VIEW = { width: 390, height: 844 }, SIDES = [{ width: 844, height: 390 }, { width: 667, height: 375 }, { width: 678, height: 466 }, { width: 932, height: 678 }, { width: 678, height: 932 }]; // (an iPhone on its side, a small one, Duo closed on its side, Duo open both ways)
 
 const cutter = () => { // the iPhone's ReelCutter, so the gaffer can cut some highlights
   window.Capacitor.Plugins.ReelCutter = {
