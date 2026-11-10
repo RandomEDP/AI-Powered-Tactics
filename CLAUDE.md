@@ -215,19 +215,27 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
     `goalTapped()`/`pressGoal(at:)`, believed for two minutes), not from when the scorer was picked.
   - **Undo of a goal unlocks the score** straight away (`lockUntil = 0`), so the right goal can go in.
   - Tests: `matchday.test.mjs`, `tests/watch/main.swift` (27).
-- **Changing who's on now** (Ethan, 27 October 2026: "edit who's playing mid game really easily and then quickly recalculate
-  mins down below, while also showing mins currently playing"): under Right now the gaffer (or the runner) taps a name
-  (`data-now`, `nowTap`, sheet `#nowPick`, `renderNowPick`): someone on the pitch (who comes on for them? fewest minutes
-  first), someone on the bench (who comes off? most minutes first) or the keeper (who goes in goal for the rest of the game,
-  `keeperNow`). `swapNow` makes it from this minute (`nowAt`: `splitAt` the stretch, `m.ok` moved on like an injury, so
-  nothing waits for Subs done; before kick-off or at half time it changes who starts), keeps the new player on until the one
-  taken off was next due a rest (or half time), then `rebalance` reworks the later stretches towards everyone's planned
-  minutes (swaps of someone over their minutes for someone under, only where it's owed, never undoing the swap in the
-  stretch straight after). The notice says who ends on what (`planMsg`) and has Undo for two minutes (`swapUndo`, kept on
-  the phone only). Not while a change is due (Subs done first). The minutes table under the line-up (`#minsLive`,
-  `renderMinsLive` from `renderClock`, so it ticks) shows each player's minutes played so far (`playedMins`: a change
-  waiting for Subs done leaves the old line-up on) and by full time. Everyone sees the table; only the gaffer's phone taps.
-  The watch gets the new line-up and changes through the usual push; it has no swap of its own. Test: `nowswap.test.mjs`.
+- **Changing who's on now: Change team** (Ethan, 27 October 2026: "edit who's playing mid game really easily and then
+  quickly recalculate mins down below, while also showing mins currently playing"; then 10 November 2026: "a clearer change
+  team button which brings up like a list of buttons of who's playing and highlight the 4 on field (keeper different
+  button)"): under Right now the gaffer (or the runner) taps **Change team** (`#teamBtn`, `teamOpen`, sheet `#nowPick`,
+  `renderNowPick`, state `np {gk, on, mode}`). The keeper is on a button of their own (`data-tgkopen`, `.gkp`; tapping it
+  asks who goes in goal, `data-tgk`, and the old keeper takes the new one's place in the list); everyone else is a button
+  with minutes played (`data-tp`), the ones on the pitch picked out in the kit colour (`.sel`). As many are picked out as
+  the stretch has outfield players (`s.on.length`: the side less the keeper, one fewer during a sin bin; never a fixed 4),
+  and Make the change (`#teamDone`) waits until the count is right (`#teamCount`: "Pick 1 more", "Take 1 off") and
+  something changed. The names under Right now are plain chips (no more tap-a-name). `teamNow(m, G, want)` makes it all
+  from this minute (`nowAt`: `splitAt` the stretch, `m.ok` moved on like an injury, so nothing waits for Subs done; before
+  kick-off or at half time it changes who starts): a new keeper to the end of the game (`gkFrom`, shared with
+  `keeperNow`), then each player brought on (fewest minutes first) keeps the place of one taken off (most minutes first)
+  until that one was next due a rest (or half time), then one `rebalance` reworks the later stretches towards everyone's
+  planned minutes (only where it's owed, never undoing a swap just made in the stretch straight after; `keep` takes a
+  list). The notice says who's on for who (`teamSaid`) and who ends on what (`planMsg`), with Undo for two minutes
+  (`swapUndo`, kept on the phone only). Not while a change is due (Subs done first; the button is greyed and `#nowHint`
+  says so). The minutes table under the line-up (`#minsLive`, `renderMinsLive` from `renderClock`, so it ticks) shows each
+  player's minutes played so far (`playedMins`: a change waiting for Subs done leaves the old line-up on) and by full
+  time. Everyone sees the table; only the gaffer's phone has Change team. The watch gets the new line-up and changes
+  through the usual push; it has no swap of its own. Test: `nowswap.test.mjs`.
 - **The sin bin** (Ethan, 10 November 2026: "a button for someone getting sin binned on our team. It's a 5 min sin bin where
   we only have 3 players"): Sin bin under Right now, beside Player injured or leaving (`#binBtn`, sheet `#binPick`, `binApply`) or on the watch (below the buttons
   page's grid, `SinBinList`, press `bin` with `p`) picks an outfield player on the pitch. `sinBin` takes them out of `on`
