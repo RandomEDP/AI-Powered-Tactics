@@ -2125,6 +2125,31 @@ html.wide #v-home > .hero { column-span: all; }
     }
   }
   window.addEventListener('online', function () { if (dirty) syncAll(); else refetch(); });
+  // ---- is this phone's copy of the team's clips up to date? (Ethan, November 2026: with no signal, Highlights said "No
+  // footage for this game yet" for games that had been cut.) Until the team has been read this time, or when the last read
+  // failed, a game with no clips here may well have some, so Highlights says the signal is the problem instead.
+  var NET = { code: null, ok: false, bad: '', slow: false, t: null };
+  function netReset(code) { clearTimeout(NET.t); NET = { code: code, ok: false, bad: '', slow: false, t: null }; }
+  function netStart(code) { // a read of the team has started: if it hasn't answered in 8 seconds, the signal is weak
+    if (NET.code !== code) netReset(code);
+    if (NET.ok || NET.t) return;
+    NET.t = setTimeout(function () { NET.t = null; if (NET.code === code && !NET.ok) { NET.slow = true; netDraw(); } }, 8000);
+  }
+  function netGot(code) {
+    if (NET.code !== code) netReset(code);
+    var was = !NET.ok || !!NET.bad; clearTimeout(NET.t); NET.t = null; NET.ok = true; NET.bad = ''; NET.slow = false;
+    if (was) { Array.prototype.forEach.call(document.querySelectorAll('video'), function (v) { if (v.error && v.getAttribute('src')) { try { v.load(); } catch (e) {} } }); netDraw(); } // (videos that failed with no signal get another go)
+  }
+  function netFail(code) { if (NET.code !== code) netReset(code); NET.bad = navigator.onLine === false ? 'none' : 'weak'; clearTimeout(NET.t); NET.t = null; netDraw(); }
+  function netNow() { // '' (up to date), 'wait' (still checking), 'weak' or 'none'
+    if (!sb || !A.active) return '';
+    if (navigator.onLine === false) return 'none';
+    if (NET.bad) return NET.bad;
+    return NET.ok ? '' : NET.slow ? 'weak' : 'wait';
+  }
+  function netDraw() { if (S.view === 'highlights') renderHighlights(); }
+  window.addEventListener('online', function () { if (HLS.msg) { HLS.at = 0; if (S.view === 'highlights') renderHighlights(); } }); // (Just me: try again now)
+  window.addEventListener('offline', function () { if (A.active) { NET.bad = 'none'; netDraw(); } });
 
   // ---- live updates: a broadcast channel per team says "something changed"; everyone else re-reads the team
   function ping(event, payload) { if (chan) chan.send({ type: 'broadcast', event: event, payload: Object.assign({ by: SESSION }, payload || {}) }).catch(function () {}); }
@@ -2135,6 +2160,7 @@ html.wide #v-home > .hero { column-span: all; }
   function catchUp() { refetch(); catchT.forEach(clearTimeout); catchT = [setTimeout(refetch, 3000), setTimeout(refetch, 8000)]; }
   async function pull() {
     var code = A.active; if (!sb || !code) return;
+    netStart(code);
     try {
       var res = await q(sb.rpc('get_team', { p_code: code })), d = res.data;
       if (A.active !== code) return;
@@ -2145,6 +2171,7 @@ html.wide #v-home > .hero { column-span: all; }
       if (S.view === 'home' || S.view === 'games') renderFixture();
       renderTabs(); tpLoad(); passLoad(); voLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
+      netGot(code);
       var org = !DROID && !!d.is_organiser;
       var runs = !org && !DROID && !!me && myPid != null && (d.live ? d.live.by === me.id : runFlag(code) === me.id), own = org || runs; // (a player running the game they started)
       if (!runs && RUNNER) RUNNER = false; // a gaffer has taken the game over, or finished it
@@ -2176,7 +2203,7 @@ html.wide #v-home > .hero { column-span: all; }
       pushSetup(); if (CH.code !== code) chatPull(); if (RV.code !== code || S.view === 'games') rivalsPull();
       joinPull(code, org); streamPull(); linksPull();
       if (org) sb.rpc('team_push', { p_code: code }).then(function (r) { if (A.active !== code || !r || !Array.isArray(r.data)) return; pushPids = {}; r.data.forEach(function (id) { pushPids[id] = 1; }); pushFor = code; if (S.view === 'home') renderHome(); }, function () {});
-    } catch (e) { setSync(navigator.onLine === false ? 'offline' : 'err'); }
+    } catch (e) { setSync(navigator.onLine === false ? 'offline' : 'err'); netFail(code); }
   }
   // Requests to join: a gaffer's list of those waiting, or this person's own request if they aren't in the team.
   function joinPull(code, org) {
@@ -2255,6 +2282,7 @@ html.wide #v-home > .hero { column-span: all; }
     if (A.active !== code && cutBusy()) { cutBarSay('Your highlights are still being cut. You can switch team once they’re done.'); return; } // (the cut uploads to, and saves, the team that's open)
     if (A.active !== code) closeTeam();
     A.active = code; adoptSig = null; // (drawn from this phone's copy below: the first pull draws it again)
+    if (NET.code !== code) netReset(code);
     var cache = loadCache(code), meta = teamMeta(code);
     S = Object.assign(blankTeam(), cache || { name: meta ? meta.name : '' });
     S.view = view || 'home';
@@ -4942,21 +4970,22 @@ html.wide #v-home > .hero { column-span: all; }
   function hlScopeNow() { if (DROID || guestGame) return 'team'; var s = HLS.here || HLS.scope; return s === 'me' || s === 'team' ? s : A.active && !frTeam() ? 'team' : 'me'; }
   function hlTeamList() { return A.teams.filter(function (t) { return !t.fr; }).concat(A.teams.filter(function (t) { return t.fr; })); } // your teams, then your friendly games (Ethan: one chip each, the friendlies last)
   async function hlMeLoad(force) {
-    if (!sb || !me || HLS.busy || (!force && HLS.list && Date.now() - HLS.at < 60000)) return;
-    HLS.busy = true; HLS.msg = '';
+    if (!sb || !me || HLS.busy || (!force && HLS.at && Date.now() - HLS.at < (HLS.list && !HLS.msg ? 60000 : 15000))) return; // (after a failure, not again for 15 seconds: drawing the error used to ask again straight away, for ever)
+    HLS.busy = true; HLS.msg = ''; HLS.slow = false; clearTimeout(HLS.t);
+    HLS.t = setTimeout(function () { if (HLS.busy) { HLS.slow = true; if (S.view === 'highlights') renderHighlights(); } }, 8000); // (no answer yet: the signal's weak)
     try { HLS.list = (await q(sb.rpc('my_clips'))).data || []; HLS.at = Date.now(); }
-    catch (e) { HLS.msg = 'Couldn’t load your highlights. Check your signal and try again.'; HLS.at = Date.now(); }
-    HLS.busy = false; if (S.view === 'highlights') renderHighlights();
+    catch (e) { HLS.msg = navigator.onLine === false ? 'No signal. Your highlights show up here once you’re back online.' : 'The signal’s too weak to get your highlights right now. Try again in a moment.'; HLS.at = Date.now(); }
+    clearTimeout(HLS.t); HLS.busy = false; HLS.slow = false; if (S.view === 'highlights') renderHighlights();
   }
   function hlMeFriendly(c) { return !!(c.personal || (c.house && c.house.fr)); }
   function renderMyHl() { // every clip you're in, newest game first, its moments in order
     if (!sb || !me) return '<div class="hcard"><h3>Your highlights</h3><p class="note">Sign in to see every clip you’re in, from every team you play for.</p><div class="actions"><button class="plain primary" type="button" data-go="account">Sign in</button></div></div>';
     hlMeLoad();
-    if (!HLS.list) return HLS.msg ? '<p class="msg bad" role="status">' + esc(HLS.msg) + '</p>' : '<p class="note" id="hlMeLoad">Getting your highlights…</p>';
+    if (!HLS.list) return HLS.msg ? '<p class="msg bad" role="status" id="hlMeMsg">' + esc(HLS.msg) + '</p>' : '<p class="note" id="hlMeLoad">' + (HLS.slow ? 'Weak signal. Still getting your highlights…' : 'Getting your highlights…') + '</p>';
     var all = HLS.list, fr = all.filter(hlMeFriendly).length, list = all.filter(function (c) { return HLS.fr || !hlMeFriendly(c); }), games = [], by = {};
     list.forEach(function (c) { var g = by[c.game_id]; if (!g) { g = by[c.game_id] = { c: c, clips: [] }; games.push(g); } g.clips.push(c); });
     games.sort(function (a, b) { return (b.c.when || 0) - (a.c.when || 0); });
-    var html = HLS.msg ? '<p class="msg bad" role="status">' + esc(HLS.msg) + '</p>' : '';
+    var html = HLS.msg ? '<p class="msg bad" role="status" id="hlMeMsg">' + esc(HLS.msg) + '</p>' : '';
     if (!games.length) return html + '<div class="hcard"><h3>No clips of you yet</h3><p class="note">' + (fr && !HLS.fr ? 'You’re in ' + fr + (fr === 1 ? ' clip' : ' clips') + ' from friendlies. Turn on Include friendlies to see ' + (fr === 1 ? 'it' : 'them') + '.' : 'Your goals, assists and highlights show up here once a game you played in has been cut, from every team you’re in.') + '</p></div>';
     html += '<p class="note" id="hlMeSum">' + list.length + (list.length === 1 ? ' clip' : ' clips') + ' of you from ' + games.length + (games.length === 1 ? ' game' : ' games') + (fr && !HLS.fr ? '. Friendlies are left out.' : '.') + '</p>' +
       (RCp() ? '<div class="actions hlacts" id="hlMeMake"><button class="plain tint" type="button" data-mereel="1">Make a highlight reel of me</button></div>' // (Ethan: one reel of you across games and teams)
@@ -4991,6 +5020,15 @@ html.wide #v-home > .hero { column-span: all; }
       return { e: e, text: text };
     });
   }
+  document.addEventListener('error', function (e) { // (media errors don't bubble, so caught on the way down)
+    var v = e.target; if (!v || v.tagName !== 'VIDEO' || !v.closest('.vplayer, #mhPop')) return;
+    var n = netNow(); if (navigator.onLine !== false && n !== 'none' && n !== 'weak') return; // (only when the signal is the reason)
+    var say = navigator.onLine === false || n === 'none' ? 'No signal, so this video can’t play. It plays once you’re back online.' : 'The signal’s too weak to play this video. Try again in a moment.';
+    var p = v.nextElementSibling && v.nextElementSibling.classList.contains('vnet') ? v.nextElementSibling : null;
+    if (!p) { p = document.createElement('p'); p.className = 'msg bad vnet'; p.setAttribute('role', 'status'); v.insertAdjacentElement('afterend', p); }
+    p.textContent = say;
+  }, true);
+  document.addEventListener('loadeddata', function (e) { var v = e.target; if (v && v.tagName === 'VIDEO' && v.nextElementSibling && v.nextElementSibling.classList.contains('vnet')) v.nextElementSibling.remove(); }, true);
   function novid(text, btn) { return '<div class="novid"><span>' + text + '</span>' + (btn || '') + '</div>'; }
   // Where a clip plays from: Cloudflare R2 (store 'r2', the bucket's public address in config.js), or the old Supabase bucket.
   var clipUrl = function (c) { var p = String(c.path).split('/').map(encodeURIComponent).join('/'); return c.store === 'r2' && CFG.clipsUrl ? String(CFG.clipsUrl).replace(/\/+$/, '') + '/' + p : (CFG.url || '') + '/storage/v1/object/public/clips/' + p; };
@@ -5644,6 +5682,15 @@ html.wide #v-home > .hero { column-span: all; }
       (clipLink() ? '<div class="actions"><a class="plain tint btnlink" id="guestClip" href="' + esc(clipLink()) + '">Get Gaffer with your highlights</a></div><p class="note">This opens Gaffer’s App Clip, with no download. Watch them there, then get the full app and they come with you.</p>' : '') +
       (fr ? '' : '<p class="note">Want your own stats and clips? Make an account, then join a team with its code, or start your own.</p>') + '<div class="actions">' + (me ? '' : '<button class="plain' + (fr ? ' primary' : '') + '" type="button" data-guest="account">Make an account</button>') + (fr ? '' : '<button class="plain" type="button" data-guest="welcome">Join or start a team</button>') + '<button class="link" type="button" data-guest="close">Close</button></div></div>';
   }
+  var NET_SAY = { // Highlights with no signal, or a weak one
+    none: 'No signal. These are the highlights saved on this phone. Any new ones show up once you’re back online.',
+    weak: 'Weak signal. Gaffer can’t reach the server right now, so these are the highlights saved on this phone. It keeps trying.' };
+  var NET_GAME = { wait: 'Checking for this game’s footage…',
+    none: 'No signal, so Gaffer can’t check for this game’s footage. If it’s been cut, it shows up here once you’re back online.',
+    weak: 'The signal’s too weak to check for this game’s footage. If it’s been cut, it shows up here once the signal gets through.' };
+  var NET_PLAYER = { wait: 'Checking for clips…', none: 'No signal, so Gaffer can’t check for clips. They show up here once you’re back online.',
+    weak: 'The signal’s too weak to check for clips. They show up here once it gets through.' };
+  var NET_SHORT = { wait: 'Checking…', none: 'No signal', weak: 'Weak signal' };
   function renderHighlights() {
     var sc = hlScopeNow();
     Array.prototype.forEach.call($('hlScope').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-scope') === sc); });
@@ -5658,12 +5705,12 @@ html.wide #v-home > .hero { column-span: all; }
     if (guestGame) { var gr = S.results.filter(function (x) { return x.id === guestGame; })[0]; if (gr && hlFocus !== gr) { hlFocus = gr; hlBy = 'game'; } }
     Array.prototype.forEach.call($('hlToggle').children, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-by') === hlBy); });
     $('hlGw').innerHTML = guestGame ? '' : gwStrip(); // (Goal of the Week, above the list)
-    var own = gafferHere(), html = guestCard(), sheet = '', games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
+    var own = gafferHere(), net = netNow(), html = (NET_SAY[net] ? '<p class="msg bad" role="status" id="hlNet">' + NET_SAY[net] + '</p>' : '') + guestCard(), sheet = '', games = S.results.map(function (r, i) { return { r: r, i: i }; }).reverse();
     if (!games.length) { $('hlList').__vk = null; $('hlList').innerHTML = html + '<div class="hcard"><h3>No games yet</h3><p class="note">Highlights appear here after your first finished game. Every goal, assist and save you log is kept as a moment.</p></div>'; return; }
     if (hlBy === 'game') {
       if (frTeam() && games.length) html += '<div class="hcard" id="frJump"><h3>Your friendly games</h3><ul class="frjump">' + games.map(function (g) { // (each one, straight to its highlights)
         var n = clips.filter(function (c) { return c.game_id === g.r.id; }).length;
-        return '<li><button class="link" type="button" data-hljump="' + g.i + '">' + esc(scoreText({ house: g.r.house, team: teamShort(), opp: g.r.opp, us: g.r.us, them: g.r.them })) + '<small>' + esc([dayOf(g.r), n ? n + (n === 1 ? ' clip' : ' clips') : 'No footage yet'].filter(Boolean).join(' · ')) + '</small></button></li>';
+        return '<li><button class="link" type="button" data-hljump="' + g.i + '">' + esc(scoreText({ house: g.r.house, team: teamShort(), opp: g.r.opp, us: g.r.us, them: g.r.them })) + '<small>' + esc([dayOf(g.r), n ? n + (n === 1 ? ' clip' : ' clips') : NET_SHORT[net] || 'No footage yet'].filter(Boolean).join(' · ')) + '</small></button></li>';
       }).join('') + '</ul></div>';
       games.forEach(function (g) {
         var r = g.r, ms = momentsOf(r), timed = r.koAt && ms.length, vids = clips.filter(function (c) { return c.game_id === r.id; });
@@ -5678,7 +5725,7 @@ html.wide #v-home > .hero { column-span: all; }
           (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') + (HLRM.msg && HLRM.i === g.i ? '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status" id="hlRmMsg">' + esc(HLRM.msg) + '</p>' : '');
         else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
-            : own ? (NATIVE ? 'No footage for this game yet. Cut it from your GoPro or iPhone footage.' : 'No footage for this game yet. Open the iPhone app to cut it from your GoPro or iPhone footage.') : 'No footage for this game yet. Ask your gaffer to cut it.') +
+            : NET_GAME[net] ? NET_GAME[net] : own ? (NATIVE ? 'No footage for this game yet. Cut it from your GoPro or iPhone footage.' : 'No footage for this game yet. Open the iPhone app to cut it from your GoPro or iPhone footage.') : 'No footage for this game yet. Ask your gaffer to cut it.') +
           '<div class="actions hlacts">' + (cutOk ? '<button class="plain primary" type="button" data-cut="' + g.i + '">Cut from video</button>' : '') + '<button class="plain" type="button" data-hlm="stats:' + g.i + '">Stats</button></div>' +
           (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '');
         if (HLM.i === g.i) sheet = hlSheet(r, g.i, vids, own, cutOk);
@@ -5708,7 +5755,7 @@ html.wide #v-home > .hero { column-span: all; }
           (RCp() || own ? '<div class="actions hlacts">' + (RCp() ? '<button class="plain tint" type="button" data-hlm="pmake:' + x.p.id + '">Make a highlight</button>' : '') + (own ? '<button class="plain" type="button" data-hlm="pedit:' + x.p.id + '">Edit footage</button>' : '') + '</div>' : '') + // (the same as a game's card: Ethan, October 2026)
           (hidBtn ? '<div class="actions">' + hidBtn + '</div>' : '');
         else if (x.list.length) html += '<ul>' + x.list.map(function (m) { return '<li class="wide"><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' +
-          novid('No clips for ' + esc(nm(x.p.id)) + ' yet. They appear here when a game’s highlights are cut.');
+          novid(NET_PLAYER[net] || 'No clips for ' + esc(nm(x.p.id)) + ' yet. They appear here when a game’s highlights are cut.');
         if (x.vids.length && HLM.pid === x.p.id) sheet = hlPSheet(x.p, x.vids, own);
         if (HLRM.msg && HLM.pid == null && HLRM.pid === x.p.id) html += '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status">' + esc(HLRM.msg) + '</p>'; // (Remove goals from this card, once its sheet has closed)
         if (mineNow) { var hid = clips.filter(function (c) { return (c.off || []).indexOf(myPid) >= 0; });

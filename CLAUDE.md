@@ -461,6 +461,14 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   already on it; the commentary copy while Commentary is on), then the share sheet; a second tap reuses it. Nothing is made
   or uploaded. One document capture-phase listener (`[data-clipshare]`, `clipShare`, `CS`, `clipPicked`) handles every
   screen. Off the iPhone app it's **Save this clip** and opens the clip. Test: `shareclip.test.mjs`.
+- **No signal or a weak one** (Ethan, November 2026: "when no signal it shows the highlights as no footage"): the phone's
+  saved clips only count as up to date once the team has been read this time (`NET`, `netStart`/`netGot`/`netFail`,
+  `netNow()`: '' / `wait` / `weak` / `none`; no answer in 8 s is weak). Until then, or when a read fails, Highlights shows
+  `#hlNet` ("No signal…" / "Weak signal…") over the saved clips, and a game or player with no clips says the signal is why
+  (`NET_GAME`, `NET_PLAYER`, `NET_SHORT`) instead of "No footage for this game yet". A video that won't load then gets a
+  `.vnet` line, and they're loaded again once the read gets through. Just me says the same, and after a failed `my_clips`
+  waits 15 s before asking again (drawing the error used to ask again at once, for ever). Test: `nosignal.test.mjs`
+  (`window.__slow` in the mock is a call that never answers).
 - **Delete these highlights** (Edit footage, two taps) deletes the game's `clips` rows and files (both copies) and its
   reel, to cut again from scratch.
 - **Re-cut one goal** (Edit footage, on a game's card or a player's; Ethan, November 2026: "just recut one goal if needed,
