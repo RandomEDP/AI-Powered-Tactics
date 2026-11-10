@@ -706,5 +706,42 @@ do {
     check(g.state?.asksOppScorer == false, "a league game (nobody sent for them): Goal against logs straight away")
 }
 
+do {
+    // ---------- 29. The sin bin (Ethan: "a button for someone getting sin binned on our team. It's a 5 min sin bin where we
+    // only have 3 players"). Pressed on the watch: shown at once, the player off the pitch, the countdown on the game clock,
+    // and it stays that way until the phone has taken the press in; then the phone's word stands.
+    var w = WatchBrain()
+    let two = "{\"live\":true,\"gid\":\"b\",\"phase\":\"h1\",\"running\":true,\"t0\":\(ms(at(0))),\"half\":15,\"team\":\"SOP FC\",\"opp\":\"Dog\",\"changes\":[],\"players\":[{\"id\":2,\"name\":\"Jake\",\"on\":true},{\"id\":5,\"name\":\"Puxley\",\"on\":true},{\"id\":6,\"name\":\"Issac\",\"on\":false},{\"id\":1,\"name\":\"Spice\",\"on\":true,\"gk\":true}]}"
+    _ = w.receive(json: two, sent: ms(at(10)), now: at(10))
+    check(w.state?.binPlayers.map { $0.id } == [2, 5], "the sin bin offers the outfield players on the pitch, never the keeper or the bench (\(w.state?.binPlayers.map { $0.id } ?? []))")
+    check(w.pressBin(player: 6, now: at(100)).send.isEmpty && w.pressBin(player: 1, now: at(100)).send.isEmpty, "nobody on the bench or in goal can be sent")
+    let o = w.pressBin(player: 5, now: at(150)) // 2:30
+    check(o.send.count == 1 && kind(o.send.first ?? "") == "bin" && field(o.send.first ?? "", "p") as? Int == 5 && field(o.send.first ?? "", "gid") as? String == "b", "the sin bin goes to the phone with who it is")
+    check(w.state?.players.first { $0.id == 5 }?.on == false && w.state?.bins.first?.id == 5, "Puxley is off the pitch on the watch at once")
+    check(w.state?.binLeft(w.state!.bins[0], at: at(150)) == 300 && w.state?.binLine(at: at(222)) == "Sin bin: Puxley back in 3:48", "five minutes on the game clock, counting down (\(w.state?.binLine(at: at(222)) ?? "-"))")
+    _ = w.receive(json: two, sent: ms(at(155)), now: at(155)) // an older picture from the phone, before it had the press
+    check(w.state?.bins.map { $0.id } == [5] && w.state?.players.first { $0.id == 5 }?.on == false, "an out-of-date phone doesn't undo it")
+    // the phone takes it in: its own word (and its own countdown) from now on
+    let theirs = two.replacingOccurrences(of: "\"name\":\"Puxley\",\"on\":true", with: "\"name\":\"Puxley\",\"on\":false").replacingOccurrences(of: "\"changes\":[]", with: "\"changes\":[{\"h\":0,\"from\":8,\"on\":[\"Puxley\"],\"off\":[],\"early\":30}],\"acks\":[\"\(id(o.send.first ?? ""))\"],\"bins\":[{\"id\":5,\"name\":\"Puxley\",\"h\":0,\"end\":450000}]")
+    _ = w.receive(json: theirs, sent: ms(at(160)), now: at(160))
+    check(w.presses.isEmpty && w.state?.bins.count == 1, "once the phone has it, nothing more is sent")
+    var up: [Int] = []
+    for s in 400...460 { if w.tick(now: at(Double(s))).binUp { up.append(s) } }
+    check(up == [450], "a tap when the five minutes are up, and only once (\(up))")
+    check(w.state?.binLine(at: at(455)) == "Sin bin: Puxley's time is up", "then it says their time is up")
+    check(w.state?.changeSoon(at: at(451)) == true && w.state?.changeSoon(at: at(449)) == false, "the change bringing them back at 8:00 can be made once the five minutes are up (7:30)")
+    // a sin bin 13 minutes in: what's left at half time is served in the second half
+    var x = WatchBrain()
+    _ = x.receive(json: two, sent: ms(at(10)), now: at(10))
+    _ = x.pressBin(player: 2, now: at(780))
+    check(x.state?.bins.first?.h == 1 && x.state?.bins.first?.end == 180_000, "13:00: two minutes this half, three carried into the second (\(x.state?.bins.first?.h ?? -1), \(x.state?.bins.first?.end ?? -1))")
+    check(x.state?.binLeft(x.state!.bins[0], at: at(840)) == 240, "with 4:00 to go at 14:00")
+    // the early window is sent with the change; an old phone sends none and it's 30 seconds as before
+    let early = "{\"live\":true,\"gid\":\"e\",\"phase\":\"h1\",\"running\":true,\"t0\":\(ms(at(0))),\"changes\":[{\"h\":0,\"from\":8,\"on\":[\"Jake\"],\"off\":[],\"early\":50}],\"players\":[]}"
+    var y = WatchBrain()
+    _ = y.receive(json: early, sent: ms(at(10)), now: at(10))
+    check(y.state?.changeSoon(at: at(431)) == true && y.state?.changeSoon(at: at(429)) == false, "back from the sin bin: Subs done from when the five minutes are up (50 s before the minute)")
+}
+
 print(failures == 0 ? "watch logic: all \(checks) checks passed" : "watch logic: \(failures) of \(checks) checks FAILED")
 exit(failures == 0 ? 0 : 1)

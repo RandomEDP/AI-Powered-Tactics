@@ -7,6 +7,7 @@ enum Step: Hashable {
     case oppScorer        // a friendly: who scored for the other side
     case oppAssist(Int)
     case highlight(Date)  // when Highlight was tapped: the moment the clip is cut around
+    case sinBin           // who's going to the sin bin
 }
 
 struct ContentView: View {
@@ -35,6 +36,8 @@ struct ContentView: View {
                         AssistList(state: state, us: false, scorer: scorer, path: $path)
                     case .highlight(let at):
                         HighlightList(state: state, at: at, path: $path)
+                    case .sinBin:
+                        SinBinList(state: state, path: $path)
                     }
                 }
             }
@@ -366,6 +369,16 @@ struct LogButtons: View {
         .tint(.gray)
         .disabled(!state.inPlay)
     }
+    /// The sin bin: one of ours off for five minutes with nobody on for them.
+    private var sinBin: some View {
+        Button {
+            path = [.sinBin]
+        } label: {
+            Label("Sin bin", systemImage: "timer").frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .disabled(!state.inPlay || state.due || state.binPlayers.isEmpty)
+    }
     private var notes: some View {
         Group {
             if model.locked {
@@ -391,6 +404,7 @@ struct LogButtons: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .font(.headline)
+                if state.inPlay { sinBin }
                 notes
             }
         } else {
@@ -398,7 +412,10 @@ struct LogButtons: View {
                 goalUs
                 goalThem
                 HighlightButton(state: state, path: $path)
-                if state.inPlay { whistle }
+                if state.inPlay {
+                    whistle
+                    sinBin
+                }
                 notes
             }
             .buttonStyle(.borderedProminent)
@@ -496,6 +513,13 @@ struct Glance: View {
                     .foregroundStyle(.orange)
                     .multilineTextAlignment(.center)
             }
+            if let binLine = state.binLine(at: now) { // who's in the sin bin, and how long they've got left
+                Text(binLine)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .monospacedDigit()
+                    .multilineTextAlignment(.center)
+            }
             if let nextLine = nextLine {
                 Text(nextLine)
                     .font(.footnote.weight(.semibold))
@@ -583,6 +607,29 @@ struct HighlightList: View {
             .foregroundStyle(.secondary)
         }
         .navigationTitle("Whose highlight?")
+    }
+}
+
+/// Who's going to the sin bin: the outfield players on the pitch. Five minutes, and nobody comes on for them.
+struct SinBinList: View {
+    let state: MatchState
+    @Binding var path: [Step]
+    @EnvironmentObject var model: MatchModel
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(state.binPlayers) { player in
+                    Button(player.name) {
+                        model.sinBin(player.id)
+                        path = []
+                    }
+                }
+            } footer: {
+                Text("Off for 5 minutes. Nobody comes on, so you play one short.")
+            }
+        }
+        .navigationTitle("Sin bin")
     }
 }
 

@@ -68,6 +68,8 @@ await A.click('#outBtn'); await A.run(400); await scan(A, 'player injured or lea
 await A.page.evaluate(() => document.getElementById('outPicker').dispatchEvent(new MouseEvent('click', { bubbles: true }))); await A.run(200);
 await A.tap('#pitchNow button[data-now]'); await A.run(400); await scan(A, 'who goes in goal / comes on now');
 await A.tap('#nowPick button[data-cancel]'); await A.run(200);
+await A.tap('#binBtn'); await A.run(400); await scan(A, 'who\'s in the sin bin?');
+await A.tap('#binPick button[data-bin]'); await A.run(400); await scan(A, 'the sin bin countdown');
 await A.click('#finish'); await A.click('#finish'); await A.run(1500); await scan(A, 'full time');
 await home(A); await A.run(400); await scan(A, 'the Team page after a game');
 for (const [sel, what] of [['#mStats', 'stats'], ['#mInsights', 'insights'], ['#mOptions', 'settings'], ['#mBoard', 'the tactics board'], ['#mGotw', 'Goal of the Week']]) {

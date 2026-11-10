@@ -342,6 +342,8 @@ html.bigtext .dkrow .dk:not(.dk-undo) svg { display: none; } /* (at the big text
 .dk-us, .dk-them { min-height: 58px; font-size: var(--t-body); overflow-wrap: anywhere; }
 .dk-us { background: var(--on); color: var(--on-ink); }
 .dk-hl, .dk-sv { background: var(--on-soft); color: var(--on); }
+.binline { position: relative; text-align: center; font-size: var(--t-sub); font-weight: 750; margin: 6px 0 0; color: var(--pitch-ink); font-variant-numeric: tabular-nums; } .binline .ycard, .binbtn .ycard { display: inline-block; width: .6em; height: .85em; border-radius: 2px; background: #f2c200; vertical-align: -.08em; margin-right: 6px; }
+.chip.binned { background: var(--fill); color: var(--ink); } .tag.bin { color: var(--ink); }
 .dock.locked .dk-us:disabled, .dock.locked .dk-them:disabled { opacity: 1; }
 .dock.locked .dk-us::after, .dock.locked .dk-them::after { content: ""; position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: currentColor; opacity: .55; transform-origin: left; animation: lockrun var(--lockms, 8s) linear forwards; }
 @keyframes lockrun { from { transform: scaleX(1); } to { transform: scaleX(0); } }
@@ -980,7 +982,7 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 .hcard .cliplist li { display: block; padding: 0; border: 0; }
 .cliplist button { width: 100%; text-align: left; border: 0; border-radius: 10px; background: var(--bg); padding: 10px 12px; font-size: var(--t-sub); font-weight: 600; }
 .cliplist button[aria-pressed="true"] { background: var(--on-soft); }
-.msg:empty, #subEdit:empty, #quickSwap:empty, #picker:empty, #outPicker:empty, #nowPick:empty, #minsLive:empty, #swapBody:empty { display: none; }
+.msg:empty, #subEdit:empty, #quickSwap:empty, #picker:empty, #outPicker:empty, #nowPick:empty, #binPick:empty, #minsLive:empty, #swapBody:empty { display: none; }
 .stage { max-height: 380px; }
 /* ---- iPhone Duo, and any short, wide or big screen (Ethan, October 2026). duoLayout() at the top of the script sets the classes.
    html.rail: the screen is short for its width (Duo's outer screen, or anything on its side), so, as iOS does there, the tab bar
@@ -1599,6 +1601,7 @@ html.wide #v-home > .hero { column-span: all; }
     </div>
     <div class="count" id="count">5:00</div>
     <div class="count-label" id="countLabel"></div>
+    <p class="binline" id="binLine" role="status" hidden></p>
     <div class="blocks" id="blocks"></div>
     <div class="controls own">
       <button class="go" id="go" type="button">Kick off</button>
@@ -1638,13 +1641,15 @@ html.wide #v-home > .hero { column-span: all; }
     <div class="swap-rows">
       <div class="tag on" id="pitchTag">Pitch</div><div class="chips" id="pitchNow"></div>
       <div class="tag off" id="benchTag">Bench</div><div class="chips" id="benchNow"></div>
+      <div class="tag bin" id="binTag" hidden>Sin bin</div><div class="chips" id="binNow" hidden></div>
       <div class="tag gone" id="goneTag" hidden>Out</div><div class="chips" id="goneNow" hidden></div>
     </div>
     <p class="note" id="nowHint" hidden></p>
     <div id="nowPick"></div>
     <div id="minsLive"></div>
-    <div class="actions own"><button class="plain" id="outBtn" type="button">Player injured or leaving</button></div>
+    <div class="actions own"><button class="plain binbtn" id="binBtn" type="button"><span class="ycard" aria-hidden="true"></span>Sin bin</button><button class="plain" id="outBtn" type="button">Player injured or leaving</button></div>
     <div id="outPicker"></div>
+    <div id="binPick"></div>
   </section>
 
   <section id="rotaSec">
@@ -2567,19 +2572,21 @@ html.wide #v-home > .hero { column-span: all; }
   function subSoon(m) {
     if (!m || m.ok == null || (m.phase !== 'h1' && m.phase !== 'h2') || subDue(m) >= 0) return -1;
     var c = curSeg(m), t = nextChange(m, c); if (t < 0 || m.segs[t].h !== m.segs[c].h) return -1;
-    var left = m.segs[t].from * 60000 - elapsed(m); return left > 0 && left <= SOON_MS ? t : -1;
+    var left = m.segs[t].from * 60000 - elapsed(m), bb = binBack(m, t); // (someone back from the sin bin: as soon as their five minutes are up)
+    return left > 0 && left <= (bb ? Math.max(SOON_MS, m.segs[t].from * 60000 - bb.em) : SOON_MS) ? t : -1;
   }
   function onPitch(m, i) { var s = m.segs[i]; return (s.gk != null ? [s.gk] : []).concat(s.on); }
   function swapAt(m, to) { // who changes when segment `to` starts
     var a = m.segs[to - 1], b = m.segs[to];
     if (!a || !b) return { off: [], on: [] };
-    return { off: a.on.filter(function (id) { return b.bench.indexOf(id) >= 0; }), on: b.on.filter(function (id) { return a.bench.indexOf(id) >= 0; }) };
+    return { off: a.on.filter(function (id) { return b.bench.indexOf(id) >= 0; }), on: b.on.filter(function (id) { return a.bench.indexOf(id) >= 0 || (a.on.indexOf(id) < 0 && a.gk !== id); }) }; // (or back from the sin bin)
   }
   function nextChange(m, i) { // first later segment where somebody actually swaps, or -1
     for (var t = i + 1; t < m.segs.length; t++) { var sw = swapAt(m, t); if (sw.off.length || sw.on.length) return t; }
     return -1;
   }
   function hasBench(m) { return m.segs.some(function (s) { return s.bench.length > 0; }); }
+  function hasChanges(m) { return hasBench(m) || !!(m.bins && m.bins.length); } // (coming back from the sin bin is a change too)
   function matchMin(m) {
     if (m.phase === 'pre') return 0;
     if (m.phase === 'ht') return m.half;
@@ -2651,7 +2658,7 @@ html.wide #v-home > .hero { column-span: all; }
         if (in1 != null) { q.bench.splice(q.bench.indexOf(in1), 1); q.on.push(in1); extra[in1] = (extra[in1] || 0) + d; }
         continue;
       }
-      var spots = m.pitch - (q.gk != null ? 1 : 0);
+      var spots = m.pitch - (q.gk != null ? 1 : 0) - binsIn(m, t).length; // (still one short while someone's in the sin bin)
       if (t === j && R != null && q.on.length < spots && q.bench.indexOf(R) >= 0) {
         q.bench.splice(q.bench.indexOf(R), 1); q.on.push(R); extra[R] = (extra[R] || 0) + d;
       }
@@ -2744,6 +2751,61 @@ html.wide #v-home > .hero { column-span: all; }
     if (m.keeper === K) m.keeper = G;
     m.order = m.order.map(function (id) { return id === G ? K : id; });
     return { j: j, target: target, moved: rebalance(m, j + 1, target) };
+  }
+
+  // ---- the sin bin (Ethan: "a button for someone getting sin binned on our team. It's a 5 min sin bin where we only have 3
+  // players"). One of ours goes off for five minutes of the game clock and nobody comes on for them: the team plays one short.
+  // In the plan the player is in neither `on` nor `bench` for those stretches (so nothing else can bring them on early, and
+  // they get no minutes for them), and anyone who'd have come on in their place sits out until it's over. Time left at half
+  // time carries into the second half. They come back as a change (On: them) at the first whole minute after the five
+  // minutes, which can be made as soon as the five minutes are up (`binBack`): Subs done, on the phone or the watch.
+  // m.bins: [{ p, h0, f0 (the stretch it starts), h1, f1 (the stretch they come back in; h1 9: not before full time),
+  //            eh, em (the half and the milliseconds on its clock when the five minutes are up), at }]
+  var BIN_MS = 5 * 60000;
+  var posLt = function (h, f, H, F) { return h < H || (h === H && f < F); };
+  function inBin(s, b) { return !posLt(s.h, s.from, b.h0, b.f0) && posLt(s.h, s.from, b.h1, b.f1); }
+  function binsIn(m, t) { var s = m.segs[t]; return s && m.bins ? m.bins.filter(function (b) { return inBin(s, b); }).map(function (b) { return b.p; }) : []; }
+  function binsNow(m) { // the sin bins still on: until the change that brings them back has been made
+    if (!m || !m.bins || !m.bins.length || m.phase === 'pre' || m.phase === 'ft') return [];
+    var s = m.segs[curSeg(m)]; return m.bins.filter(function (b) { return inBin(s, b); });
+  }
+  function binBack(m, t) { var s = m.segs[t]; return s && m.bins ? m.bins.filter(function (b) { return b.h1 === s.h && b.f1 === s.from && b.eh === s.h; })[0] || null : null; }
+  function binLeft(m, b) { // milliseconds of the sin bin still to go, on the game clock (it stands still at half time)
+    var live = m.phase === 'h1' || m.phase === 'h2', h = m.phase === 'h2' || m.phase === 'ft' ? 1 : m.phase === 'ht' ? 1 : 0, e = live ? elapsed(m) : 0;
+    if (m.phase === 'ft') return 0;
+    if (b.eh === h) return Math.max(0, b.em - e);
+    if (b.eh > h) return Math.max(0, halfMs(m) - e) + b.em;
+    return 0;
+  }
+  function sinBin(m, X) {
+    if (!m || (m.phase !== 'h1' && m.phase !== 'h2') || m.solo || subDue(m) >= 0) return null;
+    var c = curSeg(m), s0 = m.segs[c]; if (s0.on.indexOf(X) < 0) return null; // (an outfield player on the pitch)
+    var target = gameMins(m), e = elapsed(m), h = m.phase === 'h2' ? 1 : 0, H = halfMs(m), eh = h, em = e + BIN_MS;
+    if (em > H && h === 0 && m.periods !== 1) { eh = 1; em = e + BIN_MS - Math.max(e, H); } // (what's left at half time is served at the start of the second)
+    var j = nowAt(m), h1 = eh, f1 = Math.ceil(em / 60000 - 1e-9);
+    if (f1 >= m.half) { if (eh === 0 && m.periods !== 1) { h1 = 1; f1 = 0; } else { h1 = 9; f1 = 0; } } // (back for the second half; or not before full time)
+    if (h1 !== 9) for (var k = 0; k < m.segs.length; k++) { var q0 = m.segs[k]; if (q0.h === h1 && q0.from < f1 && q0.to > f1) { splitAt(m, k, f1); break; } }
+    var b = { p: X, h0: m.segs[j].h, f0: m.segs[j].from, h1: h1, f1: f1, eh: eh, em: Math.round(em), at: Date.now() };
+    m.bins = (m.bins || []).concat([b]);
+    var side = sideOf(m, X), mine = function (id) { return !m.house || sideOf(m, id) === side; }, gm = gameMins(m), back = -1;
+    for (var t = j; t < m.segs.length; t++) {
+      var q = m.segs[t]; if (!inBin(q, b)) { if (back < 0 && t > j) back = t; continue; }
+      // One fewer of X's side on the pitch than planned: X if X was due on, else whoever came on in X's place sits out instead
+      var count = function () { return q.on.filter(mine).length; }, cap = count() - 1;
+      q.on = q.on.filter(function (id) { return id !== X; }); q.bench = q.bench.filter(function (id) { return id !== X; });
+      var prev = t > j ? m.segs[t - 1].on : s0.on;
+      while (count() > cap) {
+        var c2 = q.on.filter(function (id) { return mine(id) && prev.indexOf(id) < 0; });
+        if (!c2.length) c2 = q.on.filter(mine);
+        if (!c2.length) break;
+        c2.sort(function (a, z) { return (gm[z] || 0) - (gm[a] || 0); });
+        q.on.splice(q.on.indexOf(c2[0]), 1); q.bench.push(c2[0]);
+      }
+    }
+    // Anyone who sat out for X gets the time back later where it's owed; X doesn't (the five minutes are theirs to lose).
+    var after = gameMins(m), want = {}; Object.keys(target).forEach(function (id) { want[id] = +id === X ? after[id] : target[id]; });
+    var moved = back >= 0 ? rebalance(m, back, want) : [];
+    return { j: j, bin: b, target: target, moved: moved };
   }
 
   // ---- navigation
@@ -7752,7 +7814,7 @@ html.wide #v-home > .hero { column-span: all; }
   });
 
   // ---- game
-  var lastBlock = -1, pick = null, outPick = null, lastDue = -1, subAsk = false, lastSoon = -1;
+  var lastBlock = -1, pick = null, outPick = null, lastDue = -1, subAsk = false, lastSoon = -1, lastBinUp = 0;
   // The clock ticks four times a second: only what has really changed is written, as rewriting the screen that often
   // makes scrolling judder on an iPhone (Ethan's brother found it). The same for the live view's score each second.
   function putT(el, t) { if (el && el.textContent !== t) el.textContent = t; }
@@ -7775,7 +7837,7 @@ html.wide #v-home > .hero { column-span: all; }
     if ($('go').disabled !== (m.phase === 'ft')) $('go').disabled = m.phase === 'ft';
     if ($('endHalf').hidden !== !live) $('endHalf').hidden = !live;
     if (!$('endHalf').classList.contains('armed')) putT($('endHalf'), m.phase === 'h2' || one ? 'Full time' : 'Half time');
-    renderMinsLive();
+    renderMinsLive(); renderBins();
   }
   function renderGame() {
     var m = S.match; if (!m) return;
@@ -7801,10 +7863,11 @@ html.wide #v-home > .hero { column-span: all; }
     var hint = role === 'owner' && !hs && !m.solo && m.phase !== 'ft' && hasBench(m);
     $('nowHint').hidden = !hint;
     if (hint) $('nowHint').textContent = subDue(m) >= 0 ? 'A change is due. Tap Subs done first, then tap a name here to change who’s on.' : 'Tap a name to change who’s on' + (m.phase === 'pre' ? ' at kick-off' : m.phase === 'ht' ? ' for the second half' : ' now') + '. The rest of the plan is worked out again to keep minutes even.';
-    $('swapCard').hidden = $('rotaSec').hidden = (!!hs && !hasBench(m)) || !!m.solo; $('nowSec').hidden = !!m.solo; // (just me: no line-up at all)
+    $('swapCard').hidden = $('rotaSec').hidden = (!!hs && !hasChanges(m)) || !!m.solo; $('nowSec').hidden = !!m.solo; // (just me: no line-up at all)
     $('edBtn').parentNode.hidden = !!hs; // (the two sides' subs are changed from the Next change card, one side at a time)
     $('finNote').textContent = m.solo ? 'Finish game saves the result. It’s kept out of the team’s record.' : frGame(m) ? 'Finish game saves the result, goals and assists to each player’s own stats. It never counts for a team.' : 'Finish game saves the result, goals, assists and minutes to your stats.';
     $('goneTag').hidden = $('goneNow').hidden = !m.gone.length;
+    renderBins(); renderBinPick();
     $('goneNow').innerHTML = m.gone.map(function (id) { return '<span class="chip gone">' + esc(nm(id)) + '</span>'; }).join('');
     $('nowTitle').textContent = hs ? 'The sides' : m.phase === 'pre' ? 'Starting line-up' : m.phase === 'ht' ? 'Second half line-up' : 'Right now';
     $('notice').hidden = !m.notice; $('noticeText').textContent = m.notice || '';
@@ -7812,11 +7875,12 @@ html.wide #v-home > .hero { column-span: all; }
     var title, body, t, sw;
     if (m.phase === 'ht') { t = cb; sw = swapAt(m, t); if (!sw.off.length && !sw.on.length) t = -1; }
     else { t = m.phase === 'ft' ? -1 : nextChange(m, cb); if (t >= 0) sw = swapAt(m, t); }
-    if (!hasBench(m)) { title = 'No changes'; body = '<p class="note">Nobody is on the bench, so there are no subs to make.</p>'; }
+    if (!hasChanges(m)) { title = 'No changes'; body = '<p class="note">Nobody is on the bench, so there are no subs to make.</p>'; }
     else if (t < 0) { title = m.phase === 'ht' ? 'No change at half time' : 'No more changes'; body = '<p class="note">' + (m.phase === 'ht' ? 'The same line-up starts the second half.' : 'This line-up finishes the game.') + '</p>'; }
     else {
       var dueNow = subDue(m) === t, soonNow = !dueNow && subSoon(m) === t;
       title = m.phase === 'ht' ? 'Change now, for the second half' : dueNow ? 'Make this change now' : soonNow ? 'Subs coming up at ' + m.segs[t].from + ':00' : m.segs[t].h !== m.segs[cb].h ? 'Next change at half time' : 'Next change at ' + m.segs[t].from + ':00';
+      var bbk = binBack(m, t); if (bbk && m.phase !== 'ht') title = dueNow || (soonNow && binLeft(m, bbk) <= 0) ? 'Sin bin over: back on now' : 'Back from the sin bin at ' + m.segs[t].from + ':00';
       var tap = function (list, cls) { // the gaffer can tap a name to change who it is
         if (role !== 'owner') return chips(m, list, cls);
         return list.map(function (id) { return '<button class="chip tapchip ' + cls + '" type="button" data-q="' + cls + '" data-id="' + id + '" data-t="' + t + '">' + esc(nm(id)) + '</button>'; }).join('') || '<span class="note">Nobody</span>';
@@ -7825,10 +7889,10 @@ html.wide #v-home > .hero { column-span: all; }
              '</div><div class="tag on">On</div><div class="chips">' + tap(sw.on, 'on') + '</div></div>' +
              (role === 'owner' ? '<p class="note">Tap a name to swap in someone else.</p>' : '') +
              (dueNow ? (role === 'owner' ? '<div class="actions"><button class="plain primary" type="button" id="subsDoneBtn">Subs done</button></div><p class="note">The line-up below stays as it is until you tap this.</p>' : '<p class="note">Waiting for the gaffer to make the change.</p>')
-               : soonNow && role === 'owner' ? '<div class="actions"><button class="plain primary" type="button" id="subsDoneBtn">Subs done</button></div><p class="note">Called a bit early? Tap this once they’ve swapped and the change happens now.</p>' : '');
+               : soonNow && role === 'owner' ? '<div class="actions"><button class="plain primary" type="button" id="subsDoneBtn">Subs done</button></div><p class="note">' + (bbk && binLeft(m, bbk) <= 0 ? 'The five minutes are up. Tap this once they’re back on.' : 'Called a bit early? Tap this once they’ve swapped and the change happens now.') + '</p>' : '');
     }
     $('swapTitle').textContent = title; $('swapBody').innerHTML = body;
-    $('swapCard').classList.toggle('soon', t >= 0 && hasBench(m) && subSoon(m) === t);
+    $('swapCard').classList.toggle('soon', t >= 0 && hasChanges(m) && subSoon(m) === t);
     renderBench(m);
 
     html = '';
@@ -7992,7 +8056,7 @@ html.wide #v-home > .hero { column-span: all; }
   }
   function nowApply(c) {
     var m = S.match, k = np; if (!m || !k) return;
-    var undo = { gid: m.gid, phase: m.phase, at: Date.now(), segs: JSON.stringify(m.segs), ok: m.ok, keeper: m.keeper, order: m.order.slice(), notice: m.notice };
+    var undo = { gid: m.gid, phase: m.phase, at: Date.now(), segs: JSON.stringify(m.segs), ok: m.ok, keeper: m.keeper, order: m.order.slice(), notice: m.notice, bins: JSON.stringify(m.bins || []) };
     var r, first;
     if (k.kind === 'gk') { r = keeperNow(m, c); first = nm(c) + ' goes in goal instead of ' + nm(k.id) + (m.phase === 'pre' ? ' from kick-off.' : m.phase === 'ht' ? ' for the second half.' : ' now.'); }
     else {
@@ -8021,7 +8085,7 @@ html.wide #v-home > .hero { column-span: all; }
   });
   $('noticeUndo').addEventListener('click', function () {
     var m = S.match, u = swapUndo; if (!undoOk(m)) { renderGame(); return; }
-    m.segs = JSON.parse(u.segs); m.ok = u.ok; m.keeper = u.keeper; m.order = u.order;
+    m.segs = JSON.parse(u.segs); m.ok = u.ok; m.keeper = u.keeper; m.order = u.order; if (u.bins) m.bins = JSON.parse(u.bins);
     if (u.notice) m.notice = u.notice; else delete m.notice;
     swapUndo = null; lastBlock = curSeg(m); lastDue = subDue(m); lastSoon = subSoon(m);
     save(); renderGame();
@@ -8033,6 +8097,7 @@ html.wide #v-home > .hero { column-span: all; }
     var by = function (dir) { return function (a, b) { return dir * ((pm[a] || 0) - (pm[b] || 0)); }; };
     var rows = [].concat(s.gk != null ? [[s.gk, 'on']] : [], s.on.slice().sort(by(-1)).map(function (id) { return [id, 'on']; }), s.bench.slice().sort(by(1)).map(function (id) { return [id, 'off']; }));
     rows.forEach(function (r) { seen[r[0]] = 1; });
+    binsNow(m).forEach(function (b) { if (!seen[b.p]) { seen[b.p] = 1; rows.push([b.p, 'off']); } }); // (in the sin bin)
     m.squad.forEach(function (id) { if (!seen[id]) rows.push([id, 'gone']); });
     putH(el, '<table class="minslive" aria-label="Minutes"><thead><tr><th>Minutes</th><th class="n">Played</th><th class="n">By full time</th></tr></thead><tbody>' +
       rows.map(function (r) { var id = r[0]; return '<tr class="' + r[1] + '"><td class="who">' + esc(nm(id)) + (id === s.gk ? ' (GK)' : '') + '</td><td class="n"><b>' + fmt2((pm[id] || 0) * 60000) + '</b></td><td class="n">' + (gm[id] || 0) + '</td></tr>'; }).join('') + '</tbody></table>');
@@ -8115,6 +8180,55 @@ html.wide #v-home > .hero { column-span: all; }
   sheetPull($('outPicker'), function () { outPick = null; renderOut(); });
   sheetPull($('nowPick'), function () { np = null; renderNowPick(); });
   $('noticeOk').addEventListener('click', function () { var m = S.match; if (!m) return; delete m.notice; swapUndo = null; save(); renderGame(); });
+
+  // ---- the sin bin on the game screen: the button in the dock, the sheet to pick who, and the countdown (sinBin, above)
+  var bp = null;
+  function binWho(m) { // who can be sent to the sin bin now: the outfield players on the pitch
+    var s = m.segs[curSeg(m)]; return s ? s.on.slice() : [];
+  }
+  function binOk(m) { return !!m && role === 'owner' && (m.phase === 'h1' || m.phase === 'h2') && !m.solo && subDue(m) < 0 && binWho(m).length > 0; }
+  function binSaid(m, b) { var l = binLeft(m, b); return l > 0 ? nm(b.p) + ' back in ' + fmt(l) : b.h1 === 9 ? nm(b.p) + ' until full time' : nm(b.p) + '’s time is up'; }
+  function renderBins() {
+    var m = S.match; if (!m) return;
+    var on = binsNow(m), line = $('binLine');
+    if (line.hidden !== !on.length) line.hidden = !on.length;
+    putH(line, on.length ? '<span class="ycard" aria-hidden="true"></span>Sin bin: ' + esc(on.map(function (b) { return binSaid(m, b); }).join(', ')) : '');
+    if ($('binTag').hidden !== !on.length) $('binTag').hidden = $('binNow').hidden = !on.length;
+    putH($('binNow'), on.map(function (b) { var l = binLeft(m, b); return '<span class="chip binned">' + esc(nm(b.p)) + ' <small>' + (l > 0 ? fmt(l) : b.h1 === 9 ? 'to full time' : 'time’s up') + '</small></span>'; }).join(''));
+    var ok = binOk(m); if ($('binBtn').disabled !== !ok) $('binBtn').disabled = !ok;
+  }
+  function renderBinPick() {
+    var m = S.match, el = $('binPick'); if (!m) return;
+    if (!bp || !binOk(m)) { bp = null; putH(el, ''); el.className = ''; return; }
+    var hs = m.house, who = binWho(m);
+    putH(el, '<div class="picker out" role="dialog"><div class="phead"><strong>Who’s in the sin bin?</strong><button class="link" type="button" data-cancel="1">Cancel</button></div>' +
+      '<p class="note">They go off for 5 minutes and nobody comes on for them, so you play one short. When the time’s up they come back on.</p><div class="chips">' +
+      who.map(function (id) { return '<button class="pick" type="button" data-bin="' + id + '">' + esc(nm(id)) + (hs ? ' <small>' + esc(sideOf(m, id) === 'b' ? hs.b : hs.a) + '</small>' : '') + '</button>'; }).join('') + '</div></div>');
+    el.className = 'modal sheet';
+  }
+  function binApply(X, when) { // `when`: when it was pressed, if that was on the watch a moment ago
+    var m = S.match; if (!m || role !== 'owner') return false;
+    var undo = { gid: m.gid, phase: m.phase, at: Date.now(), segs: JSON.stringify(m.segs), ok: m.ok, keeper: m.keeper, order: m.order.slice(), notice: m.notice, bins: JSON.stringify(m.bins || []) };
+    if (typeof when === 'number') asOf = Math.min(when, Date.now());
+    var r; try { r = sinBin(m, X); } finally { asOf = 0; }
+    bp = null;
+    if (!r) { renderGame(); return false; }
+    var b = r.bin, h = m.phase === 'h2' ? 1 : 0;
+    var back = b.h1 === 9 ? 'That takes it to full time.' : 'Their 5 minutes are up at ' + fmt2(b.em) + (b.eh !== h ? ' in the second half' : '') + '.';
+    var sat = r.moved.length || Object.keys(r.target).some(function (id) { return +id !== X && gameMins(m)[id] !== r.target[id]; });
+    m.notice = nm(X) + ' is in the sin bin for 5 minutes, so you play one short. ' + back + (sat ? ' ' + planMsg(m, r) : '');
+    undo.after = JSON.stringify(m.segs); swapUndo = undo;
+    lastBlock = curSeg(m); lastDue = subDue(m); lastSoon = subSoon(m);
+    save(); renderGame(); watchPush();
+    return true;
+  }
+  $('binBtn').addEventListener('click', function () { var m = S.match; if (!binOk(m)) return; pick = null; bp = bp ? null : true; renderBinPick(); });
+  $('binPick').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!bp) return;
+    if (e.target === $('binPick') || (b && b.getAttribute('data-cancel'))) { bp = null; renderBinPick(); return; }
+    var x = b ? b.getAttribute('data-bin') : null; if (x !== null) binApply(+x);
+  });
+  sheetPull($('binPick'), function () { bp = null; renderBinPick(); });
 
   // ---- score
   // Who to offer first when a goal goes in: outfield players on the pitch, most prolific first (goals for the scorer, assists for the pass),
@@ -8623,12 +8737,15 @@ html.wide #v-home > .hero { column-span: all; }
     var t = tally(m), cb = curSeg(m), on = onPitch(m, cb), changes = [], first = m.phase === 'pre' || m.phase === 'ht' ? cb : cb + 1;
     for (var i = Math.max(1, first); i < m.segs.length && changes.length < 40; i++) { // every change still to come: the watch may not hear from this phone again until full time
       var sw = swapAt(m, i); if (!sw.on.length && !sw.off.length) continue;
-      changes.push({ h: m.segs[i].h, from: m.segs[i].from, on: sw.on.map(nm), off: sw.off.map(nm) });
+      var ch = { h: m.segs[i].h, from: m.segs[i].from, on: sw.on.map(nm), off: sw.off.map(nm) }, bb = binBack(m, i);
+      if (bb) ch.early = Math.max(30, Math.ceil(m.segs[i].from * 60 - bb.em / 1000)); // (back from the sin bin: as soon as the five minutes are up)
+      changes.push(ch);
     }
     var acks = Object.keys(watchSeen).sort(function (a, b) { return watchSeen[b] - watchSeen[a] || (a < b ? -1 : 1); }).slice(0, 80); // presses from the watch this phone has dealt with, so it can stop repeating them
     var out = { live: true, gid: m.gid, acks: acks, due: subDue(m) >= 0, team: usOf(m), opp: m.opp, us: t.us, them: t.them, phase: m.phase, running: !!m.running, base: m.base || 0, t0: m.t0 || 0, half: m.half, periods: m.periods === 1 ? 1 : 2, lockUntil: lockUntil, changes: changes,
       color: /^#[0-9a-f]{6}$/i.test(S.color || '') ? S.color : DEFAULT_COLOR, // (the watch's Goal button wears the kit)
       players: pickOrder(m).map(function (id) { return { id: id, name: nm(id), on: on.indexOf(id) >= 0, gk: id === m.segs[cb].gk }; }) };
+    var bins = binsNow(m); if (bins.length) out.bins = bins.map(function (b) { return { id: b.p, name: nm(b.p), h: b.eh, end: b.em, last: b.h1 === 9 }; }); // (the sin bin's countdown)
     if (m.house || canType(m, 'b')) out.oppPlayers = pickOrder(m, false, 'b').map(function (id) { return { id: id, name: nm(id), on: true }; }); // (a friendly: who can score for the other side, so the watch asks for theirs too)
     // A message to the watch can't be much over 64 KB. A big squad's changes (up to 99 a side) can come near it, so the
     // furthest-off changes are left out until it fits; the next ones are always sent, and the rest follow as the game goes on.
@@ -8690,6 +8807,9 @@ html.wide #v-home > .hero { column-span: all; }
       if (m.events.some(function (e) { return !e.hl && typeof e.at === 'number' && Math.abs(e.at - raw) < LOCK_MS; })) return false; // the same goal, already logged on another phone
       var mayName = ev.us || m.house || canType(m, 'b'), sideOk = function (v) { v = ok(v); return v != null && (m.house ? sideOf(m, v) === (ev.us ? 'a' : 'b') : ev.us || typedIds(m, 'b').indexOf(v) >= 0) ? v : null; }; // (the other side's scorer too, in a friendly)
       addGoal(stampAt(m, stripNull({ us: !!ev.us, p: mayName ? sideOk(ev.p) : null, a: mayName ? sideOk(ev.a) : null }), when), raw);
+    } else if (ev.type === 'bin') { // the sin bin, from the wrist: from when it was pressed
+      seen(); var bx = ok(ev.p);
+      if (bx != null && (m.phase === 'h1' || m.phase === 'h2')) binApply(bx, when); // (someone already off the pitch, or a change waiting for Subs done: nothing happens)
     } else if (ev.type === 'hl') {
       seen();
       var hp = ev.pick ? ok(ev.p) : myPid != null && m.squad.indexOf(myPid) >= 0 ? myPid : null;
@@ -8808,7 +8928,12 @@ html.wide #v-home > .hero { column-span: all; }
     // waking with an out-of-date copy of the game, write that copy over the real one.)
     var half = (m.gid || '') + '|' + m.phase + '|' + (m.phase === 'h2' ? m.h2At : m.koAt);
     if (etKey !== half && elapsed(m) >= halfMs(m)) { etKey = half; if (role === 'owner' && elapsed(m) < halfMs(m) + 30000) beep(4); }
-    var cb = curSeg(m), due = subDue(m), soon = subSoon(m);
+    var cb = curSeg(m), due = subDue(m), soon = subSoon(m), binUp = binsNow(m).filter(function (b) { return binLeft(m, b) <= 0; }).length;
+    if (binUp !== lastBinUp) { // someone's five minutes in the sin bin are up: a tap, and the change to bring them back says so
+      var more = binUp > lastBinUp; lastBinUp = binUp;
+      if (more && role === 'owner' && Haptics) { try { Haptics.impact({ style: 'MEDIUM' }).catch(function () {}); } catch (e) {} }
+      renderGame(); watchPush(); return;
+    }
     if (soon !== lastSoon) { // 30 seconds before a change: show it (a light tap, not the full alarm), so it can be made early
       lastSoon = soon; if (soon >= 0 && role === 'owner' && Haptics) { try { Haptics.impact({ style: 'LIGHT' }).catch(function () {}); } catch (e) {} }
       if (due === lastDue && cb === lastBlock) { renderGame(); watchPush(); return; }

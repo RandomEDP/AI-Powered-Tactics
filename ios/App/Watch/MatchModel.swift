@@ -106,6 +106,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         if changed || save || outcome.becameDue || outcome.timeUp { keep() }
         if outcome.becameDue { buzzForSubs() }
         if outcome.timeUp { buzzForTime() }
+        if outcome.binUp { WKInterfaceDevice.current().play(.directionUp); say("Sin bin over") }
         if !(brain.state?.due ?? false) || !(brain.state?.live ?? false) { if askSubs { askSubs = false } }
         if waiting != brain.presses.count { waiting = brain.presses.count }
         for json in outcome.send { deliver(json, first: false) }
@@ -147,7 +148,7 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         for change in coming {
             let content = UNMutableNotificationContent()
             content.title = "Time for subs"
-            content.body = "Off: \(change.off.joined(separator: ", ")). On: \(change.on.joined(separator: ", "))."
+            content.body = [change.off.isEmpty ? "" : "Off: \(change.off.joined(separator: ", ")).", change.on.isEmpty ? "" : "On: \(change.on.joined(separator: ", "))."].filter { !$0.isEmpty }.joined(separator: " ")
             content.sound = .default
             let wait = TimeInterval(change.from * 60 - now)
             center.add(UNNotificationRequest(identifier: "change-\(change.id)", content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: wait, repeats: false)))
@@ -444,6 +445,11 @@ final class MatchModel: NSObject, ObservableObject, WCSessionDelegate, WKExtende
         askSubs = false
         press(brain.pressEnd(now: Date()))
         stayInFront()
+    }
+
+    /// One of ours to the sin bin, from the wrist.
+    func sinBin(_ player: Int) {
+        press(brain.pressBin(player: player, now: Date()))
     }
 
     /// The players have swapped: stop asking here straight away, and keep telling the phone until it has taken it in.
