@@ -228,6 +228,19 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `renderMinsLive` from `renderClock`, so it ticks) shows each player's minutes played so far (`playedMins`: a change
   waiting for Subs done leaves the old line-up on) and by full time. Everyone sees the table; only the gaffer's phone taps.
   The watch gets the new line-up and changes through the usual push; it has no swap of its own. Test: `nowswap.test.mjs`.
+- **The sin bin** (Ethan, 10 November 2026: "a button for someone getting sin binned on our team. It's a 5 min sin bin where
+  we only have 3 players"): Sin bin under Right now, beside Player injured or leaving (`#binBtn`, sheet `#binPick`, `binApply`) or on the watch (below the buttons
+  page's grid, `SinBinList`, press `bin` with `p`) picks an outfield player on the pitch. `sinBin` takes them out of `on`
+  and `bench` from this minute (`nowAt`) for five minutes of the game clock and puts nobody on: whoever would have come on in
+  their place (they were due a rest) waits on the bench, and the time owed to them is given back later (`rebalance`). What's
+  left at half time is served at the start of the second half. `m.bins` keeps `{p, h0, f0, h1, f1, eh, em}`: the stretch it
+  starts, the stretch they come back in (the first whole minute after the five minutes; `h1` 9 means not before full time)
+  and when the five minutes are up (`em` ms on half `eh`'s clock). Coming back is an ordinary change (`swapAt` counts someone
+  back from the sin bin as coming on), which can be made with Subs done as soon as the five minutes are up (`binBack`; the
+  watch gets `early` on the change). `binsIn` keeps an injury from refilling the gap. The countdown is `#binLine` under the
+  clock and a Sin bin row under Right now (`renderBins`); the watch gets `bins` and shows it on the glance
+  (`MatchState.binLine`), with a tap when the time's up (`binUp`). Undo (two minutes) puts it all back. Not for the keeper,
+  not at half time, not while a change waits for Subs done. Tests: `sinbin.test.mjs`, `tests/watch/main.swift` (29).
 - This is the most safety-critical code in the app. Any change needs `node tests/run.mjs watch link plugin match
   watchlink sync` to pass.
 

@@ -12,7 +12,27 @@ struct MatchState: Codable, Equatable {
         var from: Int       // minute of that half
         var on: [String]
         var off: [String]
+        var early: Int? = nil // seconds before `from` it can be made: someone back from the sin bin as soon as their five minutes are up (30 when not sent)
         var id: String { "\(h)-\(from)" }
+    }
+
+    /// One of ours in the sin bin (five minutes on the game clock, nobody on in their place). The phone sends the ones still on.
+    struct Bin: Codable, Equatable, Identifiable {
+        var id: Int          // the player
+        var name: String
+        var h: Int           // the half whose clock says when the five minutes are up
+        var end: Double      // milliseconds on that half's clock
+        var last: Bool = false // it takes them to full time: no coming back on
+
+        init(id: Int, name: String, h: Int, end: Double, last: Bool) { self.id = id; self.name = name; self.h = h; self.end = end; self.last = last }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(Int.self, forKey: .id)
+            name = (try? c.decode(String.self, forKey: .name)) ?? ""
+            h = (try? c.decode(Int.self, forKey: .h)) ?? 0
+            end = (try? c.decode(Double.self, forKey: .end)) ?? 0
+            last = (try? c.decode(Bool.self, forKey: .last)) ?? false
+        }
     }
 
     struct Player: Codable, Equatable, Identifiable {
@@ -49,6 +69,7 @@ struct MatchState: Codable, Equatable {
     var players: [Player] = []
     var oppPlayers: [Player] = [] // a friendly: who can score for the other side (their squad, or names typed in on the phone); empty: their goals log straight away
     var color: String = ""      // the team's kit colour, "#rrggbb", worn by Goal for us; empty from a phone on an older build
+    var bins: [Bin] = []        // the sin bin: who's in it and when their five minutes are up
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -70,6 +91,7 @@ struct MatchState: Codable, Equatable {
         changes = ((try? c.decode([Change].self, forKey: .changes)) ?? []).filter { ($0.h == 0 || $0.h == 1) && $0.from >= 0 && $0.from <= 200 }
         players = (try? c.decode([Player].self, forKey: .players)) ?? []
         oppPlayers = (try? c.decode([Player].self, forKey: .oppPlayers)) ?? []
+        bins = ((try? c.decode([Bin].self, forKey: .bins)) ?? []).filter { ($0.h == 0 || $0.h == 1) && $0.end.isFinite && $0.end >= 0 }
         let hex = (try? c.decode(String.self, forKey: .color)) ?? ""
         color = hex.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil ? hex : ""
     }
@@ -111,7 +133,27 @@ struct MatchState: Codable, Equatable {
     func changeSoon(at now: Date) -> Bool {
         guard playing, !due, let first = changes.first, first.h == halfIndex else { return false }
         let left = first.from * 60 - seconds(at: now)
-        return left > 0 && left <= 30
+        return left > 0 && left <= max(30, min(first.early ?? 30, 120))
+    }
+    /// Who can be sent to the sin bin: the outfield players on the pitch.
+    var binPlayers: [Player] { players.filter { $0.on && !$0.gk } }
+    /// Seconds of a sin bin still to go on the game clock (it stands still at half time).
+    func binLeft(_ bin: Bin, at now: Date) -> Int {
+        let h = phase == "pre" || phase == "h1" ? 0 : 1
+        if phase == "ft" { return 0 }
+        let clock = inPlay ? Double(seconds(at: now)) : 0
+        let end = bin.end / 1000
+        if bin.h == h { return Int(max(0, (end - clock).rounded(.up))) }
+        if bin.h > h { return Int(max(0, Double(half * 60) - clock) + end.rounded(.up)) }
+        return 0
+    }
+    /// What the watch says about the sin bin: "Sam back in 3:42", or that their time is up.
+    func binLine(at now: Date) -> String? {
+        guard live, !bins.isEmpty else { return nil }
+        return "Sin bin: " + bins.map { bin in
+            let left = binLeft(bin, at: now)
+            return left > 0 ? "\(bin.name) back in \(left / 60):\(left % 60 < 10 ? "0" : "")\(left % 60)" : bin.last ? "\(bin.name) until full time" : "\(bin.name)'s time is up"
+        }.joined(separator: ", ")
     }
     var inPlay: Bool { phase == "h1" || phase == "h2" }
     /// The watch app keeps itself on screen (a workout session) from when the game is set up until full time, so a raised
@@ -143,6 +185,7 @@ struct WatchBrain: Codable {
     struct Outcome: Equatable {
         var becameDue = false   // a change has just come due: buzz and ask
         var timeUp = false      // the half has just run out: buzz
+        var binUp = false       // someone's five minutes in the sin bin are up: tap
         var send: [String] = [] // events (JSON) to deliver to the phone now
     }
 
@@ -161,6 +204,8 @@ struct WatchBrain: Codable {
     private var claim: Claim?               // until the phone has caught up with the whistle
     private var ending: Ending?             // believed only when the phone says so again
     private var resumed: Resumed?           // until the phone's clock is running again too
+    private var binHeld: [MatchState.Bin]?  // sent to the sin bin here: shown until the phone has taken the press in (optional: older saved brains have none)
+    private var binsCalled: [String]?       // sin bins whose "time's up" tap has been given
 
     static let resendEvery: TimeInterval = 30 // (the phone keeps every press it receives, so this is only a safety net)
     static let believeAfter: TimeInterval = 20 // a lone "no game" that nothing has contradicted for this long is true
@@ -244,6 +289,18 @@ struct WatchBrain: Codable {
             }
         }
 
+        // Someone sent to the sin bin here: shown (and off the pitch) until the phone has dealt with the press.
+        if let mine = binHeld {
+            if !presses.contains(where: { $0.kind == "bin" }) {
+                binHeld = nil
+            } else {
+                for bin in mine where !game.bins.contains(where: { $0.id == bin.id }) {
+                    game.bins.append(bin)
+                    if let i = game.players.firstIndex(where: { $0.id == bin.id }) { game.players[i].on = false }
+                }
+            }
+        }
+
         // Changes confirmed here stay confirmed, whatever an out-of-date phone still lists.
         let listed = Set(game.changes.map { $0.id })
         presses.removeAll { $0.kind == "subs" && !listed.contains($0.change ?? "") } // the phone has moved past them
@@ -277,6 +334,12 @@ struct WatchBrain: Codable {
             if game.playing, !called.contains(game.phase), game.seconds(at: now) >= game.half * 60 {
                 called.insert(game.phase)
                 outcome.timeUp = true
+            }
+            if game.playing {
+                for bin in game.bins where !bin.last && game.binLeft(bin, at: now) <= 0 {
+                    let key = "\(bin.id)-\(bin.h)-\(Int(bin.end))"
+                    if !(binsCalled ?? []).contains(key) { binsCalled = (binsCalled ?? []) + [key]; outcome.binUp = true }
+                }
             }
         }
         presses.removeAll { now.timeIntervalSince($0.made) > WatchBrain.giveUpAfter }
@@ -358,6 +421,23 @@ struct WatchBrain: Codable {
         return Outcome(becameDue: game.due, send: [remember("subs", ["type": "subs", "change": first.id], now: now, change: first.id)])
     }
 
+    /// One of ours to the sin bin: off for five minutes of the game clock, and nobody on for them. Shown here at once; the
+    /// phone works out the rest (who sits out, when they come back) and sends it back.
+    mutating func pressBin(player: Int, now: Date) -> Outcome {
+        guard var game = state, game.live, game.inPlay, let who = game.binPlayers.first(where: { $0.id == player }) else { return Outcome() }
+        let half = Double(game.half) * 60000, e = Double(game.seconds(at: now)) * 1000
+        var h = game.halfIndex, end = e + 300_000
+        if end > half && h == 0 && game.periods != 1 { h = 1; end = e + 300_000 - max(e, half) }
+        let back = Int((end / 60000).rounded(.up))
+        let bin = MatchState.Bin(id: player, name: who.name, h: h, end: end, last: back >= game.half && !(h == 0 && game.periods != 1))
+        game.bins.removeAll { $0.id == player }
+        game.bins.append(bin)
+        if let i = game.players.firstIndex(where: { $0.id == player }) { game.players[i].on = false }
+        binHeld = (binHeld ?? []).filter { $0.id != player } + [bin]
+        state = game
+        return Outcome(send: [remember("bin", ["type": "bin", "p": player], now: now)])
+    }
+
     /// A goal. The score moves here at once. (Only while a half is being played: before kick-off the clock has to be started first.)
     /// `at` is when Goal was tapped, before the scorer was picked: the goal is timed from then, for the highlights (if it's
     /// within the last two minutes; otherwise from now). A goal tapped while the half was on still counts if the whistle went
@@ -414,6 +494,8 @@ struct WatchBrain: Codable {
         resumed = nil
         ending = nil
         presses = []
+        binHeld = nil
+        binsCalled = nil
     }
 
     private mutating func remember(_ kind: String, _ fields: [String: Any], now: Date, change: String? = nil, at: Date? = nil) -> String {
