@@ -66,7 +66,7 @@ await A.run(40000); await scan(A, 'the subs pop-up');
 if (await A.visible('#subPopDone')) await A.click('#subPopDone');
 await A.click('#outBtn'); await A.run(400); await scan(A, 'player injured or leaving');
 await A.page.evaluate(() => document.getElementById('outPicker').dispatchEvent(new MouseEvent('click', { bubbles: true }))); await A.run(200);
-await A.tap('#pitchNow button[data-now]'); await A.run(400); await scan(A, 'who goes in goal / comes on now');
+await A.tap('#teamBtn'); await A.run(400); await scan(A, 'change team');
 await A.tap('#nowPick button[data-cancel]'); await A.run(200);
 await A.tap('#binBtn'); await A.run(400); await scan(A, 'who\'s in the sin bin?');
 await A.tap('#binPick button[data-bin]'); await A.run(400); await scan(A, 'the sin bin countdown');
