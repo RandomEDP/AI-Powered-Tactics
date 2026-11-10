@@ -43,6 +43,7 @@
   window.__mockCalls = [];
   function rpc(name, a) {
     if (window.__offline) return fail('Failed to fetch', '');
+    if (window.__slow) return new Promise(() => {}); // (a weak signal: the call never answers)
     const d = load(); window.__mockCalls.push('rpc:' + name);
     if (name === 'get_team') {
       const t = d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()); if (!t) return ok(null);
