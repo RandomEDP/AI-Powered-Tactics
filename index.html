@@ -382,8 +382,9 @@ html.bigtext .dkrow .dk:not(.dk-undo) svg { display: none; } /* (at the big text
 .pickpop .chips .pick { border-radius: 16px; text-align: left; display: flex; align-items: center; gap: 8px; }
 .pickpop .chips .pick.wide { grid-column: 1 / -1; justify-content: center; }
 .pickpop .chips .pick small { margin-left: auto; }
-/* at the big text sizes a note like "bench" goes under the name, so the name isn't broken in the middle */
-html.bigtext :is(.pickpop .chips, .modal.sheet) .pick { flex-wrap: wrap; row-gap: 0; overflow-wrap: break-word; } html.bigtext :is(.pickpop .chips, .modal.sheet) .pick small { margin-left: 0; flex-basis: 100%; }
+/* a note like "from the bench" goes under the name when both don't fit (on a 390-point iPhone "Harrison" was broken in two next
+   to it), and always under it at the big text sizes */
+:is(.pickpop .chips, .modal.sheet) .pick { flex-wrap: wrap; row-gap: 0; overflow-wrap: break-word; } html.bigtext :is(.pickpop .chips, .modal.sheet) .pick small { margin-left: 0; flex-basis: 100%; }
 .phead { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .phead .link { min-height: 44px; text-decoration: none; color: var(--on); font-size: var(--t-body); }
 .pno { font-style: normal; font-weight: 800; font-stretch: 75%; color: var(--on); min-width: 1.4em; font-variant-numeric: tabular-nums; }
 .pickpop .pick { min-height: 52px; font-size: var(--t-body); } .pick small { font-weight: 500; opacity: .6; font-size: var(--t-cap); }
@@ -1018,15 +1019,15 @@ html.wide .app:has(> #v-cut:not([hidden]) .cutsplit) { max-width: none; }
 html:is(.wide, .rail) .cutprev video { aspect-ratio: 16 / 9; height: auto; max-height: max(200px, calc(100svh - 330px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); } /* (as big as leaves a few moments in view under it, as it stays at the top) */
 /* The game screen on a big screen (Ethan, on his open Duo: "we should use all the screen space ... two side phones"): the clock,
    the score and the buttons to log with on the left, kept in view; the changes, what's happened, who's on and the rota on the right. */
-html.wide .app:has(> #v-game:not([hidden])) { max-width: 1100px; }
-html.wide #v-game:not([hidden]) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--gut); row-gap: 0; align-items: start; padding-bottom: 0; }
-html.wide #v-game > * { grid-column: 2; min-width: 0; margin-bottom: 24px; } /* (the gap goes on each one: a row gap would be added under every row the left half spans) */
-html.wide #v-game > :is(.bar, #linkLine) { grid-column: 1 / -1; }
-html.wide #v-game > .gpane { grid-column: 1; grid-row: 2 / span 40; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 56px); } /* (clear of the small title bar) */
-html.wide #v-game > .gpane > .clock { margin-top: 0; }
-html.wide #v-game .dock { position: static; max-width: none; margin: 12px 0 0; padding: 0; background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
-html.wide #v-game .dk-us, html.wide #v-game .dk-them { min-height: 72px; font-size: var(--t-head); }
-html.wide #v-game .benchsheet { left: 50%; right: 0; max-width: none; margin: 0; }
+html.gamewide .app:has(> #v-game:not([hidden])) { max-width: 1100px; }
+html.gamewide #v-game:not([hidden]) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--gut); row-gap: 0; align-items: start; padding-bottom: 0; }
+html.gamewide #v-game > * { grid-column: 2; min-width: 0; margin-bottom: 24px; } /* (the gap goes on each one: a row gap would be added under every row the left half spans) */
+html.gamewide #v-game > :is(.bar, #linkLine) { grid-column: 1 / -1; }
+html.gamewide #v-game > .gpane { grid-column: 1; grid-row: 2 / span 40; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 56px); } /* (clear of the small title bar) */
+html.gamewide #v-game > .gpane > .clock { margin-top: 0; }
+html.gamewide #v-game .dock { position: static; max-width: none; margin: 12px 0 0; padding: 0; background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.gamewide #v-game .dk-us, html.gamewide #v-game .dk-them { min-height: 72px; font-size: var(--t-head); }
+html.gamewide #v-game .benchsheet { left: 50%; right: 0; max-width: none; margin: 0; }
 html.wide #v-home { display: block; columns: 2; column-gap: var(--gut); }
 html.wide #v-home > * { break-inside: avoid; margin: 0 0 24px; }
 html.wide #v-home > .hero { column-span: all; }
@@ -1841,7 +1842,12 @@ html.wide #v-home > .hero { column-span: all; }
     d.appendChild(pr); var cs = getComputedStyle(pr), L = parseFloat(cs.paddingLeft) || 0, R = parseFloat(cs.paddingRight) || 0; pr.remove();
     var wide = !d.classList.contains('bigtext') && w - (rail ? 2 * 92 + L + R : 32) >= 640; // (two columns of at least 300 points, and the gap)
     d.classList.toggle('rail', rail); d.classList.toggle('railL', rail && L > R); d.classList.toggle('wide', wide); // (the side with the camera and the system's controls on it)
-    return { rail: rail, left: rail && L > R, wide: wide };
+    // The game screen's two halves need the height for the clock and the goal buttons together, as the left half stays put: on a
+    // phone on its side (390 points tall) Goal for us was off the bottom until the right half was scrolled to its end, so a short
+    // screen keeps the usual game screen with the buttons along the bottom.
+    var game = wide && h >= 600;
+    d.classList.toggle('gamewide', game);
+    return { rail: rail, left: rail && L > R, wide: wide, game: game };
   }
   window.gafferLayout = duoLayout;
   duoLayout(); window.addEventListener('resize', duoLayout);
