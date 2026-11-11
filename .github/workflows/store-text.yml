@@ -15,6 +15,10 @@ on:
         description: Pictures too (replaces the App Store pictures with the ones in store/)
         type: boolean
         default: false
+      header:
+        description: Header and search pictures (puts store/4 Header and Search Results on every language missing them)
+        type: boolean
+        default: false
 
 jobs:
   text:
@@ -33,6 +37,10 @@ jobs:
       - name: Check the pictures
         if: inputs.pictures
         run: node scripts/asc-shots.mjs check
+
+      - name: Check the header and search pictures
+        if: inputs.header
+        run: node scripts/asc-header.mjs check
 
       - name: ${{ inputs.send && 'Send it to App Store Connect' || 'Show what would change' }}
         env:
@@ -55,3 +63,11 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: node scripts/asc-shots.mjs ${{ inputs.send && 'send' || 'show' }}
+
+      - name: ${{ inputs.send && 'Send the header and search pictures to App Store Connect' || 'Show what would change in the header and search pictures' }}
+        if: inputs.header
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: node scripts/asc-header.mjs ${{ inputs.send && 'send' || 'show' }}
