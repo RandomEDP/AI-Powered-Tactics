@@ -5,6 +5,7 @@
 //   node scripts/asc-header.mjs check     the pictures are there, the right size and with no see-through layer
 //   node scripts/asc-header.mjs show      what each language has now, and what would change
 //   node scripts/asc-header.mjs send      upload the pictures once and place them on every language missing one
+//   node scripts/asc-header.mjs renew     the same, and also replace the ones the version being got ready has
 // Needs ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_P8 in the environment for show and send.
 //
 // Apple's steps: the app's asset library (GET /v1/apps/{id}/assetLibrary), reserve each picture
@@ -50,7 +51,7 @@ export function problems(pics) {
   return bad;
 }
 
-export async function run(api, pics, { send = false, put = fetch, wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+export async function run(api, pics, { send = false, renew = false, put = fetch, wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
   const say = [];
   const app = (await api(`/v1/apps?filter[bundleId]=${BUNDLE_ID}`)).data[0];
   if (!app) throw new Error(`App Store Connect has no app with the bundle ID ${BUNDLE_ID}`);
@@ -69,8 +70,13 @@ export async function run(api, pics, { send = false, put = fetch, wait = (ms) =>
         if (good) {
           // what's there, in full, so a placement Apple still won't accept can be seen in the log
           let img = '';
-          try { const r = await api(`/v1/appAssetLibraryPlacements/${good.id}/image`); const a = r.data?.attributes || {}; img = `; picture ${a.fileName} ${a.state}${a.stateDetails ? ' ' + JSON.stringify(a.stateDetails) : ''}`; } catch (e) { img = `; picture unreadable (${e.status || e.message})`; }
+          try {
+            const rel = (await api(`/v1/appAssetLibraryPlacements/${good.id}/relationships/image`)).data;
+            img = `; picture ${rel ? rel.id : 'none'}`;
+            if (rel) { const a = (await api(`/v1/appAssetLibraryImages/${rel.id}`)).data.attributes; img += ` ${a.fileName} ${a.state}${a.stateDetails ? ' ' + JSON.stringify(a.stateDetails) : ''}`; }
+          } catch (e) { img += `; picture unreadable (${e.message.slice(0, 300)})`; }
           say.push(`${where}, ${p.name}: has one (${good.attributes.state}${good.attributes.placementGroup ? ', ' + good.attributes.placementGroup : ''}${img})`);
+          if (renew && EDITABLE.test(state)) todo.push({ loc, where, type, old: mine });
           continue;
         }
         const failed = mine.length ? ` (the one there failed: ${JSON.stringify(mine[0].attributes.stateDetails || null)})` : '';
@@ -80,17 +86,33 @@ export async function run(api, pics, { send = false, put = fetch, wait = (ms) =>
       }
     }
   }
+  if (!send) {
+    try { const lib = (await api(`/v1/apps/${app.id}/assetLibrary`)).data; const n = (await api(`/v1/appAssetLibraries/${lib.id}/images?limit=200`)).data || [];
+      say.push(`Asset library ${lib.id}: ${n.length} pictures (${n.map((x) => `${x.attributes.fileName} ${x.attributes.state}`).join(', ')})`);
+    } catch (e) { say.push(`Asset library unreadable: ${e.message.slice(0, 300)}`); }
+  }
   if (!send || !todo.length) return say;
 
   const lib = (await api(`/v1/apps/${app.id}/assetLibrary`)).data;
   const imgs = {};
   for (const type of new Set(todo.map((t) => t.type))) imgs[type] = await upload(api, put, wait, lib.id, pics[type], say);
   for (const t of todo) {
-    for (const o of t.old) await api(`/v1/appAssetLibraryPlacements/${o.id}`, 'DELETE');
-    const r = await api('/v1/appAssetLibraryPlacements', 'POST', { data: { type: 'appAssetLibraryPlacements', attributes: { placementType: t.type },
-      relationships: { image: { data: { type: 'appAssetLibraryImages', id: imgs[t.type] } },
+    const place = (img, group) => api('/v1/appAssetLibraryPlacements', 'POST', { data: { type: 'appAssetLibraryPlacements', attributes: { placementType: t.type, ...(group ? { placementGroup: group } : {}) },
+      relationships: { image: { data: { type: 'appAssetLibraryImages', id: img } },
         appStoreVersionLocalization: { data: { type: 'appStoreVersionLocalizations', id: t.loc.id } } } } });
-    say.push(`${t.where}, ${pics[t.type].name}: added (${r.data?.attributes?.state || 'placed'})`);
+    // what was there, so it can be put back if Apple won't take the new one
+    const back = [];
+    for (const o of t.old) {
+      try { const rel = (await api(`/v1/appAssetLibraryPlacements/${o.id}/relationships/image`)).data; if (rel) back.push({ img: rel.id, group: o.attributes.placementGroup }); } catch {}
+      await api(`/v1/appAssetLibraryPlacements/${o.id}`, 'DELETE');
+    }
+    let r;
+    try { r = await place(imgs[t.type], t.old[0]?.attributes?.placementGroup); }
+    catch (e) {
+      for (const b of back) { try { await place(b.img, b.group); say.push(`${t.where}, ${pics[t.type].name}: put the old one back`); } catch (e2) { say.push(`${t.where}, ${pics[t.type].name}: couldn't put the old one back (${e2.message.slice(0, 200)})`); } }
+      throw e;
+    }
+    say.push(`${t.where}, ${pics[t.type].name}: ${t.old.length ? 'replaced' : 'added'} (${r.data?.attributes?.state || 'placed'})`);
   }
   return say;
 }
@@ -126,7 +148,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const bad = problems(pics);
   if (bad.length) { for (const b of bad) console.error('::error::' + b); process.exit(1); }
   if (mode === 'check') { console.log('The header and search results pictures are fine.'); process.exit(0); }
-  if (mode !== 'show' && mode !== 'send') { console.error('Usage: asc-header.mjs check | show | send'); process.exit(2); }
+  if (!['show', 'send', 'renew'].includes(mode)) { console.error('Usage: asc-header.mjs check | show | send | renew'); process.exit(2); }
   for (const v of ['ASC_KEY_ID', 'ASC_ISSUER_ID', 'ASC_KEY_P8']) if (!process.env[v]) { console.error(`::error::The ${v} secret isn't set`); process.exit(1); }
-  for (const line of await run(client(), pics, { send: mode === 'send' })) console.log(line);
+  for (const line of await run(client(), pics, { send: mode !== 'show', renew: mode === 'renew' })) console.log(line);
 }
