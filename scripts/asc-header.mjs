@@ -66,7 +66,13 @@ export async function run(api, pics, { send = false, put = fetch, wait = (ms) =>
       for (const [type, p] of Object.entries(pics)) {
         const mine = have.filter((x) => x.attributes.placementType === type);
         const good = mine.find((x) => x.attributes.state !== 'FAILED');
-        if (good) { say.push(`${where}, ${p.name}: has one (${good.attributes.state})`); continue; }
+        if (good) {
+          // what's there, in full, so a placement Apple still won't accept can be seen in the log
+          let img = '';
+          try { const r = await api(`/v1/appAssetLibraryPlacements/${good.id}/image`); const a = r.data?.attributes || {}; img = `; picture ${a.fileName} ${a.state}${a.stateDetails ? ' ' + JSON.stringify(a.stateDetails) : ''}`; } catch (e) { img = `; picture unreadable (${e.status || e.message})`; }
+          say.push(`${where}, ${p.name}: has one (${good.attributes.state}${good.attributes.placementGroup ? ', ' + good.attributes.placementGroup : ''}${img})`);
+          continue;
+        }
         const failed = mine.length ? ` (the one there failed: ${JSON.stringify(mine[0].attributes.stateDetails || null)})` : '';
         if (!EDITABLE.test(state)) { say.push(`${where}, ${p.name}: none${failed}, but Apple has this version locked, so nothing changed`); continue; }
         say.push(`${where}, ${p.name}: none${failed}, ${send ? 'adding it' : 'would add ' + p.file}`);
