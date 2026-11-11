@@ -143,7 +143,7 @@ await A.click('#hlSheet .hlsheet [data-hldel]'); await A.run(1500);
 eq([(w.db().clips || []).length, files(), await A.visible('#hlList [data-hldel]'), await A.text('#hlList [data-cut]')], [0, 0, false, 'Cut from video'],
   'deleted: the clips are gone from Highlights and from storage (R2 too), and the game can be cut again from scratch');
 // a game with no footage: Cut from video and its Stats (Ethan's rework)
-eq(await A.page.$$eval('#hlList .hcard:first-child .hlacts button', (b) => b.map((x) => x.textContent)), ['Cut from video', 'Stats'], 'with no footage the game has Cut from video and Stats');
+eq(await A.page.$$eval('#hlList .hcard:first-child .hlacts button', (b) => b.map((x) => x.textContent)), ['Cut from video', 'Stats', 'Add a full-game link'], 'with no footage the game has Cut from video, Stats and (for the gaffer) Add a full-game link');
 await A.click('#hlList .hcard:first-child [data-hlm^="stats:"]'); await A.run(300);
 check(/Stats/.test(await A.text('#hlSheet .phead')) && /Moments/.test(await A.text('#hlSheet')) && (await A.page.$$('#hlSheet tbody tr')).length > 0, 'Stats shows the game\'s moments and each player\'s minutes, goals and assists');
 await A.click('#hlSheet .phead [data-hlmx]'); await A.run(200);

@@ -685,6 +685,8 @@ html.bigtext .ighead { flex-direction: column; align-items: flex-start; gap: 10p
 #mhPop .cliplist button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
 .mhbtn { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: 16px; padding: 16px; margin: 6px 0 10px; background: var(--on); color: var(--on-ink); font: inherit; }
 .mhbtn b { display: block; font-size: var(--t-body); } .mhbtn small { display: block; opacity: .85; font-size: var(--t-sub); margin-top: 2px; }
+.mhbtn.fullbtn { background: var(--on-soft); color: var(--on); margin-top: 0; } /* Watch the full game: the whole video where it's kept (GoPro, or an iPhone video's link) */
+.fullform input { width: 100%; }
 .gwstrip { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: var(--r-card); padding: 14px 16px; margin: 0 0 12px; min-height: 44px; background: var(--surface); color: var(--ink); font: inherit; }
 .gwstrip b { display: block; font-size: var(--t-body); } .gwstrip small { display: block; color: var(--muted); font-size: var(--t-sub); margin-top: 2px; }
 .gwcup { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--on); color: var(--on-ink); } .gwcup svg { width: 24px; height: 24px; }
@@ -2025,7 +2027,7 @@ html.wide #v-home > .hero { column-span: all; }
         return stripNull(o);
       });
       return stripNull({ id: g.id, opp: g.opp, friendly: g.friendly, us: g.us, them: g.them, half: g.half, koAt: g.ko_at, htAt: g.ht_at, h2At: g.h2_at,
-        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: sideKept(g.side), tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null, reel: g.reel || null, link: g.link || null, guests: g.guests || null });
+        ftAt: g.ft_at, at: g.finished_at, sync: g.sync, pre: g.pre, post: g.post, cap: g.cap, per: per, ev: ev, lu: g.lineups || null, periods: g.periods === 1 ? 1 : null, side: sideKept(g.side), tour: g.tournament_id || null, tourName: g.tournament || null, house: g.house || null, reel: g.reel || null, link: g.link || null, guests: g.guests || null, full: g.full_video || null });
     });
     s.match = d.live || null;
     return s;
@@ -5504,7 +5506,9 @@ html.wide #v-home > .hero { column-span: all; }
       (cutOk ? btn('data-cut="' + gi + '"', 'Cut again from a video') : '') +
       (cutOk && vids.some(function (c) { return typeof c.at === 'number'; }) ? btn('data-hlm="recut:' + gi + '"', 'Re-cut one goal') : '') +
       btn('data-hlm="remove:' + gi + '"', 'Remove goals') +
-      (fixGoals(r).length ? btn('data-fixg="' + gi + '"', 'Change stats') : '') + '</div>';
+      (fixGoals(r).length ? btn('data-fixg="' + gi + '"', 'Change stats') : '') +
+      btn('data-hlm="full:' + gi + '"', r.full ? 'Change the full-game link' : 'Add a full-game link') + '</div>';
+    else if (HLM.kind === 'full') body = fullSheet(r, gi, head, btn);
     else if (HLM.kind === 'remove') body = head('Remove goals', 'Take a goal or moment out of this game’s highlights. Its stats stay; the game’s one video is made again without it.') +
       '<ol class="hlrm">' + vids.slice().sort(function (a, b) { return (a.seq || 0) - (b.seq || 0); }).map(function (c) { var key = c.game_id + ':' + c.seq, armed = HLRM.key === key && Date.now() < HLRM.until;
         return '<li><span>' + esc(String(c.label || 'Highlight').replace(/\s{2,}/g, ' · ')) + '</span><button class="plain danger" type="button" data-hlrm="' + esc(key) + '"' + (HLRM.busy ? ' disabled' : '') + '>' + (armed ? 'Tap again' : 'Remove') + '</button></li>'; }).join('') + '</ol>' +
@@ -5762,13 +5766,14 @@ html.wide #v-home > .hero { column-span: all; }
           (GL.i === g.i && GL.msg ? '<p class="msg" role="status" id="glMsg">' + esc(GL.msg) + '</p>' : '') : '';
         // Ethan's rework (October 2026): with footage, Make a highlight (a reel you pick the clips for, or a beat highlight) and,
         // for gaffers, Edit footage (cut again, remove goals, change stats). With none, Cut from video and the game's Stats.
-        if (vids.length) html += mhButton(g.i, vids) + '<p class="msg mkline" data-mkline="' + esc(r.id) + '" hidden></p><details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' +
+        if (vids.length) html += mhButton(g.i, vids) + fullBtn(r, g.i) + '<p class="msg mkline" data-mkline="' + esc(r.id) + '" hidden></p><details class="allclips" data-hlopen="' + g.i + '"' + (HLOPEN[g.i] ? ' open' : '') + '><summary>' + (hasReel(r, vids) ? 'Skip to a moment' : 'Watch them one at a time') + '</summary>' + (hasReel(r, vids) ? reelPlayer(r, vids) : clipPlayer(vids)) + '</details>' +
           (RCp() || own ? '<div class="actions hlacts">' + (RCp() ? '<button class="plain tint" type="button" data-hlm="make:' + g.i + '">Make a highlight</button>' : '') + (own ? '<button class="plain" type="button" data-hlm="edit:' + g.i + '">Edit footage</button>' : '') + '</div>' : '') +
-          (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') + (HLRM.msg && HLRM.i === g.i ? '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status" id="hlRmMsg">' + esc(HLRM.msg) + '</p>' : '');
+          (FULL.msg && FULL.i === g.i && HLM.i !== g.i ? '<p class="msg' + (FULL.bad ? ' bad' : '') + '" role="status">' + esc(FULL.msg) + '</p>' : '') + (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '') + (HLRM.msg && HLRM.i === g.i ? '<p class="msg' + (HLRM.bad ? ' bad' : '') + '" role="status" id="hlRmMsg">' + esc(HLRM.msg) + '</p>' : '');
         else html += (ms.length ? '<ul>' + ms.map(function (m) { return '<li><span>' + minOf(m.e) + '</span><span>' + esc(m.text) + '</span></li>'; }).join('') + '</ul>' : '') +
           novid(!ms.length ? 'Nothing was logged in this game.' : !timed ? 'This game was played before moments were timed, so it can’t be cut into a reel.'
             : NET_GAME[net] ? NET_GAME[net] : own ? (NATIVE ? 'No footage for this game yet. Cut it from your GoPro or iPhone footage.' : 'No footage for this game yet. Open the iPhone app to cut it from your GoPro or iPhone footage.') : 'No footage for this game yet. Ask your gaffer to cut it.') +
-          '<div class="actions hlacts">' + (cutOk ? '<button class="plain primary" type="button" data-cut="' + g.i + '">Cut from video</button>' : '') + '<button class="plain" type="button" data-hlm="stats:' + g.i + '">Stats</button></div>' +
+          fullBtn(r, g.i) + '<div class="actions hlacts">' + (cutOk ? '<button class="plain primary" type="button" data-cut="' + g.i + '">Cut from video</button>' : '') + '<button class="plain" type="button" data-hlm="stats:' + g.i + '">Stats</button>' + (own && !r.full ? '<button class="plain" type="button" data-hlm="full:' + g.i + '">Add a full-game link</button>' : '') + '</div>' +
+          (FULL.msg && FULL.i === g.i && HLM.i !== g.i ? '<p class="msg' + (FULL.bad ? ' bad' : '') + '" role="status">' + esc(FULL.msg) + '</p>' : '') +
           (HLDEL.msg && HLDEL.i === g.i ? '<p class="msg" role="status">' + esc(HLDEL.msg) + '</p>' : '');
         if (HLM.i === g.i) sheet = hlSheet(r, g.i, vids, own, cutOk);
         html += guests + frLinksHtml(r, g.i) + linkClipsHtml(r) + '</div>';
@@ -6455,7 +6460,7 @@ html.wide #v-home > .hero { column-span: all; }
     var hj = e.target.closest('[data-hljump]'); // a friendly game in the list: down to its card
     if (hj) { var je = $('hlg-' + hj.getAttribute('data-hljump')); if (je) try { je.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (err) {} return; }
     var hm = e.target.closest('[data-hlm]'); // a game's sheet: Make a highlight, Edit footage, Remove goals, Stats
-    if (hm) { var hv = hm.getAttribute('data-hlm').split(':'), pk = hv[0].charAt(0) === 'p'; HLM = { i: pk ? -1 : +hv[1], kind: hv[0], pid: pk ? +hv[1] : null }; HLRM.msg = ''; if (hv[0] !== 'edit') HLDEL.msg = ''; renderHighlights(); return; }
+    if (hm) { var hv = hm.getAttribute('data-hlm').split(':'), pk = hv[0].charAt(0) === 'p'; HLM = { i: pk ? -1 : +hv[1], kind: hv[0], pid: pk ? +hv[1] : null }; HLRM.msg = ''; FULL = { i: -1, msg: '', bad: false, busy: false }; if (hv[0] !== 'edit') HLDEL.msg = ''; renderHighlights(); return; }
     if (e.target.hasAttribute && e.target.hasAttribute('data-hlmx')) { HLM.i = -1; HLM.pid = null; renderHighlights(); return; } // (Cancel, Done, or a tap outside it)
     var rcb = e.target.closest('[data-recut]');
     if (rcb) { if (!rcb.disabled) { var rck = rcb.getAttribute('data-recut'); hlSheetShut(); HLM.i = -1; HLM.pid = null; recutOpen(rck); } return; }
@@ -6464,6 +6469,8 @@ html.wide #v-home > .hero { column-span: all; }
       if (HLRM.key === rk && Date.now() < HLRM.until) hlRemoveClip(rr, rgi, rk);
       else { HLRM = { i: rgi, key: rk, until: Date.now() + 3000, busy: false, msg: '', bad: false }; renderHighlights(); setTimeout(function () { if (S.view === 'highlights') renderHighlights(); }, 3100); }
       return; }
+    var fs = e.target.closest('[data-fullsave],[data-fulloff]');
+    if (fs) { if (!fs.disabled) fullApply(+(fs.getAttribute('data-fullsave') || fs.getAttribute('data-fulloff')), fs.hasAttribute('data-fulloff')); return; }
     var sheet = e.target.closest('.hlsheet');
     if (sheet && e.target.closest('button') && !e.target.hasAttribute('data-hldel')) hlSheetShut(); // (a choice in a sheet closes it, then does what it says)
     var sk = e.target.closest('[data-seek]');
@@ -6758,7 +6765,7 @@ html.wide #v-home > .hero { column-span: all; }
     if (CUT.stage === 'done' || (CUT.stage === 'work' && CUT.msg)) CUT.seen = true; // (the bar's "ready" or "stopped" has been read)
     var one = CUT.only, html = '<p class="msg">' + esc(scoreLine(r, r.us, r.them)) + '</p>' + (one ? '<p class="note recutfor" id="cutOne">Re-cutting one clip: <b>' + esc(one.label) + '</b>. The rest of the game’s highlights stay as they are.</p>' : ''), live = CUT.cams.filter(function (k) { return k.src; }), busy = CUT.prog ? '<p class="msg busy" id="cutProg">' + esc(CUT.prog) + '</p>' : '<p class="msg busy" id="cutProg"></p>';
     if (CUT.stage === 'cams') {
-      html += '<section><h2>Where were the cameras?</h2><p class="note">Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.</p>' + camPitch(r) +
+      html += fullBtn(r, CUT.idx) + '<section><h2>Where were the cameras?</h2><p class="note">Tap the pitch where each camera was filming from, then pick its video. Drag a camera to move it. One camera is fine.</p>' + camPitch(r) +
         '<p class="note">Goals come from the camera nearest the goal they went in. Saves come from the one nearest ' + esc(usOf(r)) + '’s goal, and other highlights from the one nearest ' + esc(r.opp) + '’s goal.</p>';
       if (CUT.cams.length) html += '<ol class="camlist">' + CUT.cams.map(function (k) {
         return '<li><b>Camera ' + camNo(k) + '</b><span>' + esc(camAbout(k.src)) + '</span><span class="camacts"><button class="plain' + (k.src ? '' : ' primary') + '" type="button" data-cutdo="vid" data-cam="' + k.id + '">' + (k.src ? 'Change video' : 'Choose its video') + '</button>' +
@@ -6815,7 +6822,7 @@ html.wide #v-home > .hero { column-span: all; }
     else if (CUT.stage === 'done') html += '<p class="msg">' + CUT.n + (CUT.n === 1 ? ' clip is' : ' clips are') + ' now in Highlights for the whole team' + (CUT.voiced === true ? ', with commentary' : '') + '.</p>' + (CUT.voiced && CUT.voiced !== true ? '<p class="msg bad">The commentary couldn’t be added: ' + esc(CUT.voiced) + ' The clips were cut without it.</p>' : '') +
       (CUT.storeNote ? '<p class="note">' + esc(CUT.storeNote) + '</p>' : '') + (CUT.reelErr ? '<p class="msg bad">The full reel couldn’t be joined: ' + esc(CUT.reelErr) + ' The clips are all in Highlights; cut again to try the reel once more.</p>' : '') +
       '<div class="actions">' + (CUT.reel ? '<button class="plain primary" type="button" data-cutdo="share">Share the full reel</button>' : '') + '<button class="plain" type="button" data-cutdo="finish">Done</button></div>' +
-      '<p class="note">The full reel, with the outro card, is on this phone until you tap Done. Share it or save it to Photos first.</p>';
+      '<p class="note">The full reel, with the outro card, is on this phone until you tap Done. Share it or save it to Photos first.</p>' + fullBtn(r, CUT.idx);
     if (CUT.msg) html += '<p class="msg bad">' + esc(CUT.msg) + '</p>' + (CUT.stage === 'work' ? '<div class="actions"><button class="plain" type="button" data-cutdo="retry">Back</button></div>' : '');
     $('cutBody').innerHTML = html;
     var pvEl = $('cutPrev');
@@ -6932,8 +6939,56 @@ html.wide #v-home > .hero { column-span: all; }
       var at = g.two ? r.h2At : r.koAt, made = gpCreated({ captured: v.captured, duration: src.duration }, at);
       if (made != null) src.created = made;
       src.link = v.id; CUT.gp = null; CUT.prog = ''; camTake(r, k, g.two, src); camStore();
+      var fl = fullOk(g.link); if (fl && !r.full) fullSave(r, fl).then(function (ok) { if (ok && S.view === 'cut') renderCut(); }); // (the share link, kept with the game for Watch the full game; a second-half link doesn't replace the first)
     } catch (err) { if (CUT.gp !== g) return; g.busy = false; CUT.prog = ''; g.msg = (err && err.message) || 'The download stopped. Try again.'; }
     renderCut();
+  }
+  // ---- Watch the full game (Ethan, November 2026: "a button to view the full game. This would still be hosted on GoPro servers" (or an iPhone video's link)
+  // "and would just take you there"). A game keeps the link to its whole video
+  // (`r.full`, games.full_video, 0053): the share link a cut used (gpGet), or one a gaffer pastes in later (Edit footage, or
+  // Add a full-game link on a game without footage). Only the link is kept; the button opens it, so the video stays put.
+  var FULL = { i: -1, msg: '', bad: false, busy: false };
+  function fullOk(pasted) { // the address from whatever was pasted (a link inside a message too), or null
+    var m = String(pasted || '').match(/https?:\/\/[^\s"'<>]+/i), u = m ? m[0].replace(/[).,;!?]+$/, '') : '';
+    if (!u) return null;
+    u = u.replace(/^http:/i, 'https:');
+    try { var x = new URL(u); if (x.protocol !== 'https:' || !x.hostname || x.hostname.indexOf('.') < 0) return null; } catch (e) { return null; }
+    return u.length <= 500 ? u : null;
+  }
+  function fullWhere(u) { // where the video is kept, for the button's small line (GoPro, or wherever an iPhone video was put)
+    var h = ''; try { h = new URL(u).hostname.replace(/^www\./, ''); } catch (e) {}
+    return /(^|\.)gopro\.(com|app\.link)$/i.test(h) ? 'On GoPro' : /(^|\.)(youtube\.com|youtu\.be)$/i.test(h) ? 'On YouTube' : /(^|\.)icloud\.com$/i.test(h) ? 'On iCloud' : /(^|\.)photos\.(app\.goo\.gl|google\.com)$/i.test(h) ? 'On Google Photos' : h ? 'On ' + h : ''; // (GoPro or an iPhone's)
+  }
+  function fullBtn(r, gi) {
+    return r && r.full ? '<button class="mhbtn fullbtn" type="button" data-full="' + gi + '"><span class="mhplay" aria-hidden="true">▶</span><span><b>Watch the full game</b><small>' + esc(fullWhere(r.full)) + '</small></span></button>' : '';
+  }
+  function fullOpen(r) { if (r && r.full) try { window.open(r.full, '_blank'); } catch (e) { location.href = r.full; } }
+  document.addEventListener('click', function (e) { // Watch the full game, on any screen (Highlights or the cut): off to where the video is kept
+    var fb = e.target.closest && e.target.closest('[data-full]'); if (!fb) return;
+    e.stopPropagation(); fullOpen(S.results[+fb.getAttribute('data-full')]);
+  }, true);
+  async function fullSave(r, url) { // straight to the game's row, like its one video (a gaffer's phone); false if it didn't go
+    if (!r || !sb || !gafferHere()) return false;
+    try { await q(sb.from('games').update({ full_video: url || null }).eq('id', r.id)); } catch (e) { return false; }
+    S.results.forEach(function (x) { if (x.id === r.id) x.full = url || null; }); r.full = url || null; saveLocal(); ping('changed');
+    return true;
+  }
+  function fullSheet(r, gi, head, btn) { // the sheet for pasting it in (or changing or taking it off)
+    return head(r.full ? 'Full-game link' : 'Add a full-game link', 'Paste the share link to the whole game’s video and everyone in the team gets a Watch the full game button. The video stays where it is; Gaffer only keeps the link.') +
+      '<div class="hlsopts fullform"><p class="note">From GoPro Quik: open the video, tap Share, then Copy link. Filmed on an iPhone? Share it from Photos as an iCloud link, or paste a YouTube or Google Photos link.</p>' +
+      '<label class="field" for="fullLink">Link to the full game<input id="fullLink" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…" value="' + esc(FULL.i === gi && FULL.draft != null ? FULL.draft : r.full || '') + '"' + (FULL.busy ? ' disabled' : '') + '></label>' +
+      '<div class="actions"><button class="plain primary" type="button" data-fullsave="' + gi + '"' + (FULL.busy ? ' disabled' : '') + '>Save</button>' + (r.full ? '<button class="plain danger" type="button" data-fulloff="' + gi + '"' + (FULL.busy ? ' disabled' : '') + '>Take the link off</button>' : '') + '</div>' +
+      (FULL.msg && FULL.i === gi ? '<p class="msg' + (FULL.bad ? ' bad' : '') + '" role="status" id="fullMsg">' + esc(FULL.msg) + '</p>' : '') + '</div>';
+  }
+  async function fullApply(gi, off) {
+    var r = S.results[gi], el = $('fullLink'), draft = el ? el.value : null, url = off ? null : fullOk(draft);
+    if (!r || FULL.busy) return;
+    if (!off && !url) { FULL = { i: gi, msg: 'That doesn’t look like a link. Copy the share link and paste it here (it starts with https://).', bad: true, busy: false, draft: draft }; renderHighlights(); return; }
+    FULL = { i: gi, msg: off ? 'Taking the link off…' : 'Saving…', bad: false, busy: true, draft: draft }; renderHighlights();
+    var ok = await fullSave(r, url);
+    FULL = { i: gi, msg: ok ? (off ? 'The link is off this game.' : 'Saved. Everyone in the team can now watch the full game.') : 'Couldn’t save it. Check your signal and try again.', bad: !ok, busy: false, draft: ok ? null : draft };
+    if (ok) HLM.i = -1;
+    renderHighlights();
   }
   function camAdd(u, v) {
     if (CUT.cams.length >= CAM_MAX) { CUT.msg = 'Four cameras is the most.'; renderCut(); return; }
