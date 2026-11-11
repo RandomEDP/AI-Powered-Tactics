@@ -19,6 +19,10 @@ on:
         description: Header and search pictures (puts store/4 Header and Search Results on every language missing them)
         type: boolean
         default: false
+      renew:
+        description: With header, also replace the header and search pictures the version being got ready already has
+        type: boolean
+        default: false
 
 jobs:
   text:
@@ -70,4 +74,4 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-        run: node scripts/asc-header.mjs ${{ inputs.send && 'send' || 'show' }}
+        run: node scripts/asc-header.mjs ${{ !inputs.send && 'show' || inputs.renew && 'renew' || 'send' }}
