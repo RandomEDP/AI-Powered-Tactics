@@ -4,6 +4,8 @@
 #   files app), and the .aab that Google Play takes.
 # - Run manually ("Run workflow") with "Upload to Google Play" ticked: also sends the .aab to Google Play's internal
 #   testing track.
+# - Run manually with "Keep the .apk on a draft release" ticked: also puts the .apk on a draft GitHub release (only the
+#   repo's owners see drafts), so a cloud Claude session, which can't download run artifacts, can fetch it for Ethan.
 # Signing for Google Play needs these repository secrets (set on GitHub, never in the repo or in chat):
 #   ANDROID_KEYSTORE_B64      the upload key's keystore file, base64
 #   ANDROID_KEYSTORE_PASSWORD its password
@@ -27,6 +29,10 @@ on:
         description: Upload to Google Play (internal testing)
         type: boolean
         default: false
+      draft:
+        description: Keep the .apk on a draft release
+        type: boolean
+        default: false
 
 concurrency:
   group: android-${{ github.ref }}
@@ -36,6 +42,8 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
     env:
       HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
       HAS_PLAY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
@@ -101,6 +109,15 @@ jobs:
           name: gaffer-android-${{ github.run_number }}
           path: out/
           retention-days: 30
+
+      - name: Keep the .apk on a draft release
+        if: github.event_name == 'workflow_dispatch' && inputs.draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "android-${GITHUB_RUN_NUMBER}" --draft --target "$GITHUB_SHA" \
+            --title "Android build ${GITHUB_RUN_NUMBER}" --notes "Players' Android app, build ${GITHUB_RUN_NUMBER}. Draft only." \
+            "out/gaffer-android-${GITHUB_RUN_NUMBER}.apk"
 
       - name: Upload to Google Play (internal testing)
         if: github.event_name == 'workflow_dispatch' && inputs.play && env.HAS_KEY == 'true' && env.HAS_PLAY == 'true'
