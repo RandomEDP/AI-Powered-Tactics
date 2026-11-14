@@ -366,12 +366,16 @@
       Object.assign(r, { path: a.p_path ?? null, store: a.p_store === 'r2' ? 'r2' : null, marks: a.p_path == null ? [] : a.p_marks || [], made_by: uid(), made_at: Date.now() });
       store(d); return ok({ ok: true, old: old !== (a.p_path ?? null) && !(d.posts || []).some((x) => x.path === old && !x.removed_at) ? old : null });
     }
+    if (name === 'my_ad_free') { // (0054) on a team in ad_free_teams, as a linked player or a gaffer: no ads anywhere
+      if (!uid()) return fail('Sign in first', '42501');
+      return ok((d.ad_free_teams || []).some((f) => d.players.some((p) => p.team_id === f.team_id && p.user_id === uid()) || isOrg(d, f.team_id)));
+    }
     if (['ad_ticket', 'ad_claim', 'ad_nofill', 'ad_watched', 'my_unlocks'].includes(name)) { // rewarded ads (0032): your own reel, unlocked by a ticket Google's signed call grants (or, with trust_app, the app's word)
       d.unlocks = d.unlocks || []; const trust = d.ad_trust !== false;
       if (typeof window !== 'undefined' && window.__hang && window.__hang.server) return new Promise(() => {}); // (Gaffer's server never answering)
       const t = a.p_code ? d.teams.find((x) => x.code === String(a.p_code).trim().toUpperCase()) : null;
       if (name === 'ad_ticket') {
-        if (!uid()) return ok({ error: 'sign_in' }); if (!t) return ok({ error: 'no_team' });
+        if (!uid()) return ok({ error: 'sign_in' }); if ((d.ad_free_teams || []).some((f) => d.players.some((p) => p.team_id === f.team_id && p.user_id === uid()) || isOrg(d, f.team_id))) return ok({ error: 'not_needed' }); if (!t) return ok({ error: 'no_team' });
         const p = d.players.find((x) => x.team_id === t.id && x.user_id === uid()); if (a.p_kind !== 'reel' || !p) return ok({ error: 'not_allowed' });
         const nu = new RegExp('^' + t.id + '/players/' + p.pid + '/reel-([0-9]{1,16})\\.mp4$').exec(a.p_target || ''); // (0037: or a name for a new reel, picked in the last week)
         if (!(d.player_reels || []).some((r) => r.team_id === t.id && r.pid === p.pid && r.path === a.p_target) && !(nu && +nu[1] > Date.now() - 7 * 86400000 && +nu[1] < Date.now() + 86400000)) return ok({ error: 'no_reel' });

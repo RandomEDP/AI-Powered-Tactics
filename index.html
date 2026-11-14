@@ -2180,7 +2180,7 @@ html.wide #v-home > .hero { column-span: all; }
       roster = {}; (d.players || []).forEach(function (p) { roster[p.pid] = { claimed: !!p.claimed, gaffer: !!p.gaffer, last: p.last_name || '' }; });
       myPid = d.my_pid != null ? d.my_pid : null; fixtures = d.fixtures || []; clips = d.clips || []; preels = d.reels || []; setTimeout(clipsMove, 1500); mhRebind();
       if (S.view === 'home' || S.view === 'games') renderFixture();
-      renderTabs(); tpLoad(); passLoad(); voLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
+      renderTabs(); tpLoad(); passLoad(); afmLoad(); voLoad(); if (mkPending().length) setTimeout(mkResume, 1500); // (a made video that finished uploading while Gaffer was closed)
       try { localStorage.setItem(TKEY + code + ':roster', JSON.stringify({ roster: roster, myPid: myPid, fixtures: fixtures, clips: clips, reels: preels })); } catch (e) {}
       netGot(code);
       var org = !DROID && !!d.is_organiser;
@@ -9747,7 +9747,19 @@ html.wide #v-home > .hero { column-span: all; }
   // Your own reel on your card is unlocked on the server: Google's AdMob calls the ad-reward edge function, signed, when the
   // ad has been watched (0035_rewarded_ads.sql). Anything else stays on this phone, so its lock is on this phone too (adRun's
   // local). Never during a game, never for a paid team, and never for what Gaffer makes by itself in the background (mhMake).
-  function adFree() { return teamPaid(); } // THE check for "no ads here": a team with the team pass never sees one (teamPaid, from the team pot)
+  function adFree() { return teamPaid() || adFreeMe(); } // THE check for "no ads here": a team with the team pass never sees one (teamPaid, from the team pot), nor does anyone on an ad-free team (adFreeMe)
+  // Everyone on a team in ad_free_teams (0054; Ethan: "disable ads for all SOP members") never sees an ad, whichever team
+  // they have open. The server's answer is kept per account on this phone (apt-adfree), so it holds with no signal.
+  var AFM = { at: 0, busy: false }, AFMK = 'apt-adfree';
+  function adFreeMe() { return !!(me && passJ(AFMK)[me.id]); }
+  async function afmLoad(force) { // after each pull, at most once a minute
+    if (!sb || !me || AFM.busy || (!force && Date.now() - AFM.at < 60000)) return;
+    var uid = me.id, was = adFreeMe(), r = null; AFM.busy = true; AFM.at = Date.now();
+    try { r = await q(sb.rpc('my_ad_free')); } catch (e) {}
+    AFM.busy = false; if (!r || r.error || !me || me.id !== uid) return;
+    var all = passJ(AFMK); if (r.data) all[uid] = 1; else delete all[uid]; passPut(AFMK, all);
+    if (adFreeMe() !== was) { adDraw(); banSync(); }
+  }
   function adsOK() { return !DROID && !!(CFG.ads && CFG.ads.rewarded) && !!sb && !!me && !!A.active && !!plugin('AdMob'); } // an ad can be shown here: the iPhone app, signed in
   function freeTier() { return !adFree() && adsOK(); } // (the free tier's lock only applies where an ad can lift it)
   var UNL = { code: null, d: null, busy: false, at: 0 }, AD = { busy: false, kind: null, target: null, msg: '', bad: false, setup: false, on: false };

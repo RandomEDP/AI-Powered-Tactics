@@ -88,6 +88,19 @@ eq(await d.rpc(jake, 'ad_nofill', { p_ticket: await fresh(2) }), 'off', 'with th
 await d.admin(`update public.ad_settings set no_fill_unlock = true`);
 for (let i = 3; i < 12; i++) await d.rpc(jake, 'ad_nofill', { p_ticket: await fresh(i) });
 eq(await d.rpc(jake, 'ad_nofill', { p_ticket: await fresh(12) }), 'too_many', 'at most 10 reels a day unlock with no ad');
+// a whole team without ads (0054; Ethan, 14 November 2026: "can we disable ads for all SOP members"): every squad player
+// with an account and every gaffer, set in the dashboard only, and the server never locks their reel behind an ad
+eq([await d.rpc(jake, 'my_ad_free'), await d.rpc(ethan, 'my_ad_free'), await d.rpc(null, 'my_ad_free').catch(() => 'denied')], [false, false, 'denied'], 'nobody is ad-free to start with, and nobody signed out can ask');
+for (const who of [null, ethan, jake]) eq(await d.as(who, 'select count(*)::int n from public.ad_free_teams').then((r) => r[0].n, () => 'denied') === 0 || 'denied', true, 'nobody reads the ad-free teams directly');
+eq(await d.as(ethan, `insert into public.ad_free_teams (team_id) values ('${sop.id}')`).then(() => 'written', () => 'denied'), 'denied', 'a gaffer can\'t make their own team ad-free');
+await d.admin(`insert into public.ad_free_teams (team_id) values ($1)`, [sop.id]);
+eq([await d.rpc(jake, 'my_ad_free'), await d.rpc(ethan, 'my_ad_free'), await d.rpc(sam, 'my_ad_free')], [true, true, false], 'SOP made ad-free: its player and its gaffer are ad-free, someone outside the team isn\'t');
+eq(await d.rpc(jake, 'ad_ticket', { p_code: sop.code, p_kind: 'reel', p_target: `${sop.id}/players/2/reel-${Date.now() + 99}.mp4` }), { error: 'not_needed' }, 'and the server never asks them for an ad');
+check((await un(jake)).reels.includes(reel2), 'and their reel counts as unlocked, for builds from before (they only know the team pass)');
+const other = await d.rpc(sam, 'create_team', { p_name: 'Dog Squad', p_short: 'DOG', p_color: '#333333', p_crest: null, p_settings: {}, p_players: [{ pid: 1, name: 'Sam' }] });
+eq(await d.rpc(sam, 'my_ad_free'), false, '(a gaffer of another team still sees ads)');
+await d.admin(`delete from public.ad_free_teams where team_id = $1`, [sop.id]);
+eq(await d.rpc(jake, 'my_ad_free'), false, 'taking the team out brings the ads back');
 await d.admin(`update public.ad_settings set trust_app = true`);
 await d.admin(`delete from auth.users where id = $1`, [jake.id]);
 eq((await d.admin(`select count(*)::int n from public.ad_unlocks`))[0].n, 0, 'deleting an account deletes its unlocks');
@@ -333,5 +346,14 @@ await J.click('#rbClose'); await J.run(500);
 const db3 = w.db(); db3.team_pass = [{ team_id: tid, paid_until: Date.now() + 20 * 86400000, pot: 0 }]; w.setDb(db3);
 await J.page.reload(); await J.run(2000); await openMine();
 eq([await J.page.$$eval(mine + ' .reelp video', (v) => v.length), await J.page.$$eval(mine + ' [data-ad]', (b) => b.length), await J.page.evaluate(() => window.gafferTeamPaid())], [1, 0, true], 'a paid team: no ad, his reel plays');
+
+// everyone on an ad-free team (0054, SOP): no ad on his card even with the team pass gone, on whichever team he has open
+const db4 = w.db(); db4.team_pass = []; db4.ad_free_teams = [{ team_id: tid }]; w.setDb(db4);
+await J.page.reload(); await J.run(2000); await openMine();
+eq([await J.page.$$eval(mine + ' .reelp video', (v) => v.length), await J.page.$$eval(mine + ' [data-ad]', (b) => b.length), await J.page.evaluate(() => window.gafferTeamPaid())], [1, 0, false], 'an ad-free team: no ad, his reel plays, without any team pass');
+s0 = await shows();
+await J.click('#hlList [data-hlm="pmake:2"]'); await J.click('#hlSheet [data-preel="2"]'); await J.run(300); sh0 = await rc('share'); await J.click('#rbMake'); await J.run(4000);
+eq([await shows() - s0, await J.visible('#adAskPop'), await rc('share') - sh0], [0, false, 1], 'and making a reel asks for no ad: it goes straight to the share sheet');
+await J.click('#rbClose').catch(() => {}); await J.run(500);
 
 await done(A, J);
