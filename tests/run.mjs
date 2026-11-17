@@ -97,6 +97,11 @@ else {
     if (build.status !== 0) note('your own commentary', false, 'does not compile\n' + build.stderr);
     else { const r = spawnSync(path.join(tmp, 'voicecheck'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout); note('your own commentary', r.status === 0, lastLine(r.stdout)); }
   }
+  if (swiftHere && (want('follow') || want('vertical'))) { // highlights made vertical: the tall frame follows the play, pans steadily, jumps at a cut
+    const build = spawnSync('swiftc', [path.join(ROOT, 'plugins/reel-cutter/ios/Sources/ReelCutterPlugin/FollowPath.swift'), path.join(HERE, 'follow/main.swift'), '-o', path.join(tmp, 'followcheck')], { encoding: 'utf8' });
+    if (build.status !== 0) note('vertical highlights', false, 'does not compile\n' + build.stderr);
+    else { const r = spawnSync(path.join(tmp, 'followcheck'), { encoding: 'utf8' }); if (r.status !== 0) console.log(r.stdout); note('vertical highlights', r.status === 0, lastLine(r.stdout)); }
+  }
   if (swiftHere && (want('clip'))) { // Gaffer's App Clip: how it reads a friendly's personal link, what it hands the full app, the call it makes
     const build = spawnSync('swiftc', [path.join(ROOT, 'ios/App/Clip/ClipLogic.swift'), path.join(HERE, 'clip/main.swift'), '-o', path.join(tmp, 'cliptests')], { encoding: 'utf8' });
     if (build.status !== 0) note('App Clip logic', false, 'does not compile\n' + build.stderr);
