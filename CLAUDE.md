@@ -486,7 +486,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   `Segment` can carry its own `look`) and the end card tall over the wide one (`outroAt`). Each clip's graphics come from
   its game (`vSpans`, `vClipLook` → `clipLook`); a clip from a game this phone hasn't got just gets the blur. Sound and
   commentary are kept. Nothing is uploaded. The reel maker makes the reel as before and the vertical copy when it's shared
-  (`rbShareNow`, `RB.made`); a kept player reel stays landscape. Test: `vertical.test.mjs`.
+  (`rbShareNow`, `RB.made`). A player's reel kept on their card has **Share this reel** with the same choice (`playerReelPlayer`; `preelShape` matches its marks to the player's clips by title for their graphics and its end card, kept in `PRSH` by address for `clipShare`). Test: `vertical.test.mjs`.
 - **No signal or a weak one** (Ethan, November 2026: "when no signal it shows the highlights as no footage"): the phone's
   saved clips only count as up to date once the team has been read this time (`NET`, `netStart`/`netGot`/`netFail`,
   `netNow()`: '' / `wait` / `weak` / `none`; no answer in 8 s is weak). Until then, or when a read fails, Highlights shows

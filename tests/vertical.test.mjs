@@ -133,6 +133,21 @@ await A.click('#rbShare'); await A.run(300);
 eq([(await rc('tall')).length, (await rc('share')).slice(-1)[0]], [madeTall, '/phone/vertical/' + tr.file], 'and back to Vertical, the vertical one, not made again');
 await A.click('#rbClose'); await A.run(200);
 
+// ---------- a player's reel kept on their card (Ethan, November 2026: "It didn't give the option on player reels")
+db = w.db(); (db.player_reels = db.player_reels || []).push({ team_id: sop.id, pid: 3, path: sop.id + '/players/3/reel-1.mp4', store: 'r2', marks: [{ t: 0, label: '4\' Goal: Ethan (Jake)' }], made_at: new Date(T).toISOString() }); w.setDb(db);
+await A.page.reload(); await A.run(1500); await A.click('#tabs [data-tab="highlights"]'); await A.run(800);
+await A.click('#hlToggle [data-by="player"]'); await A.run(400);
+const pcard = '#hlList .hcard:has([data-hlm="pmake:3"]) .reelp';
+eq([await A.page.$$eval(pcard + ' [data-clipshare="reel"]', (b) => b.map((x) => x.textContent)), await A.page.$$eval(pcard + ' .shapeseg [aria-pressed="true"]', (b) => b.map((x) => x.textContent))], [['Share this reel'], ['Vertical']], 'a player\'s reel on their card has Share this reel, with Landscape or Vertical beside it');
+await shot(A, 'vertical-player-reel');
+await A.click(pcard + ' [data-clipshare="reel"]'); await A.run(500);
+tall = await rc('tall'); const tp = tall[tall.length - 1];
+eq([tail(tp.url), tp.spans.map((x) => x.at), tp.spans[0].lower && tp.spans[0].lower.title, tp.outroAt, tp.outro && tp.outro.kicker], ['reel-1.mp4', [0], 'Ethan', 14, 'Player reel'], 'Vertical makes the kept reel tall: each moment with its own bar, and its end card drawn tall');
+eq((await rc('share')).slice(-1)[0], '/phone/vertical/' + tp.file, 'then the share sheet');
+await A.click(pcard + ' [data-shape="wide"]'); await A.run(200);
+await A.click(pcard + ' [data-clipshare="reel"]'); await A.run(400);
+eq(tail((await rc('save')).slice(-1)[0].url), 'reel-1.mp4', 'Landscape shares the reel as it is');
+
 // ---------- the website and Android: no choice (the clip just opens)
 const W = await w.phone({ db: true, label: 'web' });
 await W.click('#createBtn'); await W.signUp('web@example.com');
