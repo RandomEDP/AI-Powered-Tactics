@@ -5209,7 +5209,8 @@ html.wide #v-home > .hero { column-span: all; }
     CS = { busy: true, src: c.src, key: key, path: null, job: 'cs-' + Date.now(), p: -1, msg: '', word: '', btn: btn }; clipShareSay();
     try {
       var file = 'gaffer-' + (String(c.label || 'highlight').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'highlight') + '.mp4', res;
-      if (tall) res = { path: await vertMake({ url: c.src, spans: [Object.assign({ at: 0 }, vClipLook(c))], file: file, job: CS.job }, function (w) { CS.word = w; clipShareSay(); }) };
+      var whole = PRSH[c.src]; // (a kept player reel: each of its clips, and its end card)
+      if (tall) res = { path: await vertMake(whole && whole.spans.length ? { url: c.src, spans: whole.spans, outro: whole.outro, outroAt: whole.outroAt, file: file, job: CS.job } : { url: c.src, spans: [Object.assign({ at: 0 }, vClipLook(c))], file: file, job: CS.job }, function (w) { CS.word = w; clipShareSay(); }) };
       else res = rc.saveVideo ? await rc.saveVideo({ url: c.src, file: file, job: CS.job }) : await rc.joinReel({ items: [{ url: c.src }], file: file, job: CS.job });
       CS.busy = false; CS.word = ''; CS.path = res && res.path;
       if (!CS.path) CS.msg = 'Couldn’t get the clip. Tap to try again.';
@@ -5545,8 +5546,21 @@ html.wide #v-home > .hero { column-span: all; }
   // A player's reel kept on their card: the same player as a game's reel, its moments underneath to skip to.
   function preelOf(pid) { return preels.filter(function (x) { return x.pid === pid && x.path; })[0] || null; }
   function canKeepReel(pid) { return !!(sb && me && CFG.clipsUrl && teamId && (gafferHere() || (myPid != null && myPid === pid))); } // the player themselves, or a gaffer
-  function playerReelPlayer(pr) {
-    return '<div class="vplayer reelp"><video controls playsinline preload="metadata" src="' + esc(clipUrl({ path: pr.path, store: pr.store })) + '"></video>' +
+  var PRSH = {}; // a kept player reel's clips, by its address: where each starts and its graphics, for making it vertical
+  function preelShape(pr, vids) { // each of the reel's moments matched to its clip by name (the reel keeps the clips' titles)
+    var used = {}, spans = [], end = null;
+    (pr.marks || []).forEach(function (m) {
+      if (typeof m.t !== 'number') return;
+      var c = (vids || []).filter(function (v, i) { return !used[i] && (v.title === m.label || v.label === m.label) && (used[i] = true); })[0];
+      spans.push(Object.assign({ at: m.t }, c ? vClipLook(c) : {}));
+      end = c && c.dur ? m.t + c.dur : null;
+    });
+    return { spans: spans, outroAt: end, outro: { kicker: 'Player reel', title: nm(pr.pid) + '’s highlights', sub: teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } };
+  }
+  function playerReelPlayer(pr, vids) {
+    var src = clipUrl({ path: pr.path, store: pr.store }); PRSH[src] = preelShape(pr, vids);
+    return '<div class="vplayer reelp"><video controls playsinline preload="metadata" src="' + esc(src) + '"></video>' +
+      '<div class="vtools">' + clipShareBtn(src, 'Player reel', 'reel') + shapeBox() + '</div>' +
       '<p class="note">' + (pr.made_at ? 'Their reel, made ' + esc(dayText(pr.made_at)) + '. ' : '') + 'Tap a moment to skip to it.</p><ol class="cliplist">' +
       (pr.marks || []).filter(function (m) { return typeof m.t === 'number'; }).map(function (m) { return '<li><button type="button" data-seek="' + m.t + '" aria-pressed="false">' + esc(m.label || 'Moment') + '</button></li>'; }).join('') + '</ol></div>';
   }
@@ -5872,7 +5886,7 @@ html.wide #v-home > .hero { column-span: all; }
         var mineNow = x.p.id === myPid && !!sb && !!me, hidBtn = mineNow && x.vids.length ? '<button class="plain danger" type="button" data-hide="1"' + (HIDE.busy ? ' disabled' : '') + '>Remove this clip from my highlights</button>' : '';
         var pr = preelOf(x.p.id);
         if (pr && reelLocked(pr)) html += '<div class="novid"><span>Your highlight reel is ready. Watch a 30-second ad to see it; it stays unlocked until you make a new one.</span></div>' + adBtn('reel', pr.path, 'Watch a 30-second ad');
-        else if (pr) html += playerReelPlayer(pr) + (canKeepReel(x.p.id) ? '<div class="actions"><button class="link" type="button" data-preeloff="' + x.p.id + '">Take this reel off ' + (x.p.id === myPid ? 'my' : esc(nm(x.p.id)) + '’s') + ' card</button></div>' : '');
+        else if (pr) html += playerReelPlayer(pr, x.vids) + (canKeepReel(x.p.id) ? '<div class="actions"><button class="link" type="button" data-preeloff="' + x.p.id + '">Take this reel off ' + (x.p.id === myPid ? 'my' : esc(nm(x.p.id)) + '’s') + ' card</button></div>' : '');
         if (x.vids.length) html += (pr ? '<details class="allclips"><summary>All ' + x.vids.length + (x.vids.length === 1 ? ' clip' : ' clips') + ', one by one</summary>' + clipPlayer(x.vids) + '</details>' : clipPlayer(x.vids)) +
           (RCp() || own ? '<div class="actions hlacts">' + (RCp() ? '<button class="plain tint" type="button" data-hlm="pmake:' + x.p.id + '">Make a highlight</button>' : '') + (own ? '<button class="plain" type="button" data-hlm="pedit:' + x.p.id + '">Edit footage</button>' : '') + '</div>' : '') + // (the same as a game's card: Ethan, October 2026)
           (hidBtn ? '<div class="actions">' + hidBtn + '</div>' : '');
