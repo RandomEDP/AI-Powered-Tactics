@@ -949,6 +949,9 @@ body.adbanned { padding-bottom: calc(var(--adban, 60px) + 16px + env(safe-area-i
 .say { background: var(--bg); border-radius: var(--r-ctl); padding: 10px 14px; font-size: var(--t-sub); font-style: italic; }
 .saybtn { align-self: flex-start; }
 .vtools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } .vtools:empty { display: none; }
+.shapebox { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } .shapeseg button.is { background: var(--on); color: var(--on-ink); }
+.rbcm .shapebox > .seg, .rbcm .shapebox > .aimsel { flex: 1 1 100%; }
+.aimsel { font: inherit; font-size: var(--t-sub); font-weight: 500; color: var(--ink); background: var(--fill); border: 0; border-radius: var(--r-ctl); padding: 0 10px; min-height: 44px; max-width: 100%; }
 .squad .sqrow { display: flex; align-items: baseline; justify-content: space-between; font-weight: 650; }
 .squad .sqrow b { font-size: var(--t-title); font-weight: 800; font-stretch: 75%; font-variant-numeric: tabular-nums; }
 .squad .sqstep { display: flex; align-items: center; gap: 10px; }
@@ -5117,39 +5120,102 @@ html.wide #v-home > .hero { column-span: all; }
   // as it is (score box, the bar along the bottom and Gaffer's mark already on it; with commentary when it's on) and opens
   // the share sheet. Nothing is made or uploaded, and a second tap on the same clip reuses the download. Off the iPhone app
   // it opens the clip to save. The clip played is the one picked in the list (data-src on the row aria-pressed, else the first).
-  var CS = { busy: false, src: '', path: null, job: '', p: -1, msg: '' };
-  function clipShareBtn(src, label, what) { // (src given: that clip; else the clip picked in this player's list)
-    var app = !!(RCp() && RCp().share), busy = CS.busy && (!src || CS.src === src);
-    return '<button class="plain tint" type="button" data-clipshare="' + (what || 'clip') + '"' + (src ? ' data-src="' + esc(src) + '" data-label="' + esc(label || '') + '"' : '') + (busy ? ' disabled' : '') + '>' +
-      (busy ? 'Getting it ready' + (CS.p >= 0 ? ', ' + CS.p + '%' : '…') : (app ? 'Share this ' : 'Save this ') + (what || 'clip')) + '</button>';
+  // ---- highlights made vertical (9:16) for Reels and TikTok, all on the phone (Ethan, November 2026: "a way to one exporting
+  // highlights in vertical phone mode all on device"). A choice kept per phone, beside every Share or save on the iPhone
+  // app (the reel maker, the whole-match player, Share this clip): Landscape, as the clips are made, or Vertical. Vertical
+  // hands the finished video to the plugin's verticalVideo (VerticalVideo.swift), which watches it a few times a second
+  // (the players and, when it's clear, the ball, with the player detector already in the app; and where the picture is
+  // moving), keeps a tall frame on the play with a steady pan (FollowPath.swift), and draws the score box, the bar and the
+  // end card again to fit a tall screen. Its sound and commentary are kept. Nothing is uploaded or sent anywhere. If it
+  // picks the wrong side, Keep it left / in the middle / right (AIM) fixes the frame instead of following.
+  var SHAPE = (function () { try { return localStorage.getItem('apt-shape') === 'tall' ? 'tall' : 'wide'; } catch (e) { return 'wide'; } })();
+  var AIM = (function () { try { var a = localStorage.getItem('apt-aim'); return /^(left|centre|right)$/.test(a || '') ? a : 'auto'; } catch (e) { return 'auto'; } })();
+  var AIMS = [['auto', 'Follow the play'], ['left', 'Keep it on the left'], ['centre', 'Keep it in the middle'], ['right', 'Keep it on the right']];
+  var VT = { busy: false, job: '', say: null }, TALL = {};
+  function vertOk() { var rc = RCp(); return !!(rc && rc.share); } // (the iPhone app: the website and Android just open the video)
+  function tallNow() { return SHAPE === 'tall' && vertOk(); }
+  function shapeInner() {
+    return '<div class="seg shapeseg" role="group" aria-label="Shape of the video">' + [['wide', 'Landscape'], ['tall', 'Vertical']].map(function (k) {
+      return '<button type="button" data-shape="' + k[0] + '" aria-pressed="' + (SHAPE === k[0]) + '"' + (SHAPE === k[0] ? ' class="is"' : '') + '>' + k[1] + '</button>'; }).join('') + '</div>' +
+      (SHAPE === 'tall' ? '<select class="aimsel" data-aim aria-label="Where the tall frame sits">' + AIMS.map(function (a) { return '<option value="' + a[0] + '"' + (AIM === a[0] ? ' selected' : '') + '>' + a[1] + '</option>'; }).join('') + '</select>' : '');
   }
+  function shapeBox() { return vertOk() ? '<div class="shapebox">' + shapeInner() + '</div>' : ''; }
+  function shapeDraw() { Array.prototype.forEach.call(document.querySelectorAll('.shapebox'), function (b) { b.innerHTML = shapeInner(); }); var n = $('rbShapeNote'); if (n) n.textContent = shapeNote(); }
+  function shapeNote() { return SHAPE === 'tall' ? 'Vertical (9:16) for Reels, TikTok and Stories. Your phone watches the video and keeps the play in the tall frame, with the score and the bar redrawn to fit. It takes a little longer.' : 'Landscape (16:9), as the clips were filmed.'; }
+  document.addEventListener('click', function (e) { // (before each screen's own handler)
+    var b = e.target.closest ? e.target.closest('[data-shape]') : null; if (!b) return;
+    e.stopPropagation(); var k = b.getAttribute('data-shape'); if (k !== 'wide' && k !== 'tall') return;
+    SHAPE = k; try { localStorage.setItem('apt-shape', k); } catch (err) {} shapeDraw();
+  }, true);
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t || !t.hasAttribute || !t.hasAttribute('data-aim')) return;
+    AIM = /^(left|centre|right)$/.test(t.value) ? t.value : 'auto'; try { localStorage.setItem('apt-aim', AIM); } catch (err) {} shapeDraw();
+  });
+  function vtWord(stage, pct) { return stage === 'fetch' ? 'Getting the video, ' + pct + '%…' : stage === 'look' ? 'Watching the play, ' + pct + '%…' : stage === 'tall' ? 'Making it vertical, ' + pct + '%…' : 'Adding the score and end card, ' + pct + '%…'; }
+  function vClipLook(c) { // a clip's score box and bar, worked out again from its game, to draw them for a tall screen
+    var r = c && S.results.filter(function (x) { return x.id === c.game_id; })[0]; if (!r || typeof c.at !== 'number') return {};
+    var pc = reelClips(r, 1e5, r.pre != null ? r.pre : PRE, r.post != null ? r.post : POST).filter(function (x) { return x.at === c.at; })[0];
+    if (!pc) return { look: lookFor(r) };
+    var l = clipLook(r, pc); return { look: lookFor(r), bug: l.bug, lower: l.lower };
+  }
+  function vSpans(list, starts) { // each clip's start in the video, with its graphics (games this phone hasn't got: just where it starts)
+    return list.map(function (c, i) { return typeof starts[i] === 'number' ? Object.assign({ at: starts[i] }, vClipLook(c)) : null; }).filter(Boolean);
+  }
+  function vEnd(list, starts) { // where the end card starts: after the last clip
+    var i = starts.length - 1; while (i >= 0 && typeof starts[i] !== 'number') i--;
+    return i >= 0 && list[i] && list[i].dur ? starts[i] + list[i].dur : null;
+  }
+  async function vertMake(o, say) { // o: { url | path, spans, outro, outroAt, file, key, job } -> the vertical video's path on this phone
+    var rc = RCp(); if (!rc) throw new Error('Open Gaffer on your iPhone to make it vertical.');
+    var key = (o.key || o.url || o.path) + '|' + AIM;
+    if (TALL[key]) return TALL[key];
+    while (VT.busy) await new Promise(function (r) { setTimeout(r, 300); }); // (one at a time; the phone does them in turn anyway)
+    VT = { busy: true, job: o.job || 'vt-' + Date.now(), say: say || null };
+    try {
+      var res = await rc.verticalVideo({ url: o.url || undefined, path: o.path || undefined, spans: o.spans || [], outro: o.outro || null, outroAt: o.outroAt != null ? o.outroAt : undefined, aim: AIM,
+        file: String(o.file || 'gaffer.mp4').replace(/\.mp4$/, '') + '-vertical.mp4', job: VT.job });
+      if (!res || !res.path) throw new Error('It couldn’t be made vertical.');
+      TALL[key] = res.path; return res.path;
+    } finally { VT.busy = false; VT.say = null; }
+  }
+  var CS = { busy: false, src: '', path: null, job: '', p: -1, msg: '' };
+  function clipShareBtn(src, label, what, row) { // (src given: that clip; else the clip picked in this player's list; row: its game and moment, for Vertical)
+    var app = !!(RCp() && RCp().share), busy = CS.busy && (!src || CS.src === src);
+    return '<button class="plain tint" type="button" data-clipshare="' + (what || 'clip') + '"' + (src ? ' data-src="' + esc(src) + '" data-label="' + esc(label || '') + '"' : '') +
+      (row && row.game_id ? ' data-g="' + esc(row.game_id) + '" data-at="' + (row.at || '') + '"' : '') + (busy ? ' disabled' : '') + '>' +
+      (busy ? csBusyText() : (app ? 'Share this ' : 'Save this ') + (what || 'clip')) + '</button>';
+  }
+  function csBusyText() { return CS.word || 'Getting it ready' + (CS.p >= 0 ? ', ' + CS.p + '%' : '…'); }
   function clipShareSay() { // (the buttons on screen, while one is being got ready, and if it went wrong)
     Array.prototype.forEach.call(document.querySelectorAll('[data-clipshare]'), function (b) {
       var w = b.getAttribute('data-clipshare'), app = !!(RCp() && RCp().share), mine = CS.busy && (!b.getAttribute('data-src') || b.getAttribute('data-src') === CS.src);
-      b.disabled = mine; b.textContent = mine ? 'Getting it ready' + (CS.p >= 0 ? ', ' + CS.p + '%' : '…') : CS.msg && b === CS.btn ? CS.msg : (app ? 'Share this ' : 'Save this ') + w;
+      b.disabled = mine; b.textContent = mine ? csBusyText() : CS.msg && b === CS.btn ? CS.msg : (app ? 'Share this ' : 'Save this ') + w;
     });
   }
   function clipPicked(b) { // the clip a share button means: its own, or the one picked in its player's list
-    if (b.getAttribute('data-src')) return { src: b.getAttribute('data-src'), label: b.getAttribute('data-label') || '' };
+    var said = function (x) { return { src: x.getAttribute('data-src'), label: x.getAttribute('data-label') || x.textContent || '', game_id: x.getAttribute('data-g') || null, at: x.getAttribute('data-at') ? +x.getAttribute('data-at') : null }; };
+    if (b.getAttribute('data-src')) return said(b);
     var box = b.closest('.vplayer'); if (!box) return null;
     var row = box.querySelector('[data-src][aria-pressed="true"]') || box.querySelector('[data-src]');
-    return row ? { src: row.getAttribute('data-src'), label: row.getAttribute('data-label') || row.textContent || '' } : null;
+    return row ? said(row) : null;
   }
   async function clipShare(c, btn) {
     if (!c || !c.src) return;
     var rc = RCp();
     if (!rc || !rc.share) { window.open(c.src, '_blank'); return; } // (the website and Android: the clip opens, to save or share from there)
     if (CS.busy) return;
-    if (CS.path && CS.src === c.src) { rateAfter(rc.share({ path: CS.path })); return; }
-    CS = { busy: true, src: c.src, path: null, job: 'cs-' + Date.now(), p: -1, msg: '', btn: btn }; clipShareSay();
+    var tall = tallNow(), key = c.src + (tall ? '|tall|' + AIM : '');
+    if (CS.path && CS.key === key) { rateAfter(rc.share({ path: CS.path })); return; }
+    CS = { busy: true, src: c.src, key: key, path: null, job: 'cs-' + Date.now(), p: -1, msg: '', word: '', btn: btn }; clipShareSay();
     try {
-      var file = 'gaffer-' + (String(c.label || 'highlight').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'highlight') + '.mp4';
-      var res = rc.saveVideo ? await rc.saveVideo({ url: c.src, file: file, job: CS.job }) : await rc.joinReel({ items: [{ url: c.src }], file: file, job: CS.job });
-      CS.busy = false; CS.path = res && res.path;
+      var file = 'gaffer-' + (String(c.label || 'highlight').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'highlight') + '.mp4', res;
+      if (tall) res = { path: await vertMake({ url: c.src, spans: [Object.assign({ at: 0 }, vClipLook(c))], file: file, job: CS.job }, function (w) { CS.word = w; clipShareSay(); }) };
+      else res = rc.saveVideo ? await rc.saveVideo({ url: c.src, file: file, job: CS.job }) : await rc.joinReel({ items: [{ url: c.src }], file: file, job: CS.job });
+      CS.busy = false; CS.word = ''; CS.path = res && res.path;
       if (!CS.path) CS.msg = 'Couldn’t get the clip. Tap to try again.';
       clipShareSay();
       if (CS.path) rateAfter(rc.share({ path: CS.path }));
-    } catch (e) { CS.busy = false; CS.msg = 'Couldn’t get the clip. Check your signal and tap to try again.'; clipShareSay(); }
+    } catch (e) { CS.busy = false; CS.word = ''; CS.msg = tall ? 'Couldn’t make it vertical: ' + ((e && e.message) || 'something went wrong.') + ' Tap to try again.' : 'Couldn’t get the clip. Check your signal and tap to try again.'; clipShareSay(); }
   }
   document.addEventListener('click', function (e) { // (before each screen's own handler, so nothing else takes the tap)
     var b = e.target.closest ? e.target.closest('[data-clipshare]') : null; if (!b) return;
@@ -5158,7 +5224,7 @@ html.wide #v-home > .hero { column-span: all; }
   function clipPlayer(list) { // one video that plays a list of clips back to back
     var voiced = list.some(function (c) { return c.vpath; }), on = voiced && sayOn;
     return '<div class="vplayer"><video controls playsinline preload="metadata" src="' + esc(clipSrc(list[0], on)) + '"></video>' +
-      '<div class="vtools">' + clipShareBtn() + (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') + '</div>' +
+      '<div class="vtools">' + clipShareBtn() + (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') + shapeBox() + '</div>' +
       '<ol class="cliplist">' + list.map(function (c, i) { return '<li><button type="button" data-clip="' + i + '" data-src="' + esc(clipSrc(c, on)) + '" data-label="' + esc(c.title || c.label || '') + '" data-g="' + esc(c.game_id || '') + '" data-at="' + (c.at || '') + '" aria-pressed="' + (i === 0) + '">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
   // ---- the whole match's highlights, full screen (Ethan: a big obvious button, with how long they last). Plays the reel
@@ -5401,15 +5467,24 @@ html.wide #v-home > .hero { column-span: all; }
     if (!MH) return; var r = MH.r, rc = RCp();
     if (!rc) { if (MH.reel) window.open(clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }), '_blank'); else { MK.msg = 'Open the iPhone app to save these highlights.'; mhDraw(); } return; }
     if (EX.busy) return;
-    if (EX.path && EX.gid === r.id + ':' + sayOn) { rateAfter(rc.share({ path: EX.path })); return; }
-    EX = { busy: true, path: null, gid: r.id + ':' + sayOn, job: 'ex-' + Date.now(), p: -1, msg: 'Getting the video onto your phone…', bad: false }; mhDraw();
+    var tall = tallNow(), gid = r.id + ':' + sayOn + (tall ? ':tall:' + AIM : '');
+    if (EX.path && EX.gid === gid) { rateAfter(rc.share({ path: EX.path })); return; }
+    EX = { busy: true, path: null, gid: gid, job: 'ex-' + Date.now(), p: -1, msg: tall ? 'Getting the video ready to make vertical…' : 'Getting the video onto your phone…', bad: false, tall: tall }; mhDraw();
     try {
-      var file = folderOf(r) + '-highlights.mp4', res;
-      if (MH.reel && rc.saveVideo) res = await rc.saveVideo({ url: clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }), file: file, job: EX.job });
-      else res = await rc.joinReel(MH.reel ? { items: [{ url: clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }) }], file: file, job: EX.job } : { items: MH.list.map(function (c) { return { url: clipSrc(c, sayOn) }; }), file: file, outro: endCard(r), job: EX.job });
+      var file = folderOf(r) + '-highlights.mp4', res, reelUrl = MH.reel ? clipUrl({ path: sayOn && r.reel.vpath ? r.reel.vpath : r.reel.path, store: r.reel.store }) : null;
+      var tallSay = function (w) { EX.msg = w; EX.p = -1; if (MH) mhDraw(); };
+      if (tall && MH.reel) { // the one video, made vertical straight from its address
+        var inReel = MH.list.filter(function (c) { return typeof c.reel_at === 'number'; }).sort(function (a, b) { return a.reel_at - b.reel_at; }), at = inReel.map(function (c) { return c.reel_at; });
+        res = { path: await vertMake({ url: reelUrl, spans: vSpans(inReel, at), outro: endCard(r), outroAt: vEnd(inReel, at), file: file, job: EX.job }, tallSay) };
+      } else if (MH.reel && rc.saveVideo) res = await rc.saveVideo({ url: reelUrl, file: file, job: EX.job });
+      else res = await rc.joinReel(MH.reel ? { items: [{ url: reelUrl }], file: file, job: EX.job } : { items: MH.list.map(function (c) { return { url: clipSrc(c, sayOn) }; }), file: file, outro: endCard(r), job: EX.job });
+      if (tall && !MH.reel && res && res.path) { // the clips joined first, then made vertical
+        var marks = (res.marks || []).map(function (m) { return typeof m === 'number' ? m : null; });
+        res = { path: await vertMake({ path: res.path, key: gid, spans: vSpans(MH.list, marks), outro: endCard(r), outroAt: vEnd(MH.list, marks), file: file, job: EX.job }, tallSay) };
+      }
       EX.path = res && res.path; EX.msg = '';
       if (EX.path) rateAfter(rc.share({ path: EX.path }));
-    } catch (e) { EX.msg = 'Couldn’t get it ready: ' + ((e && e.message) || 'something went wrong.'); EX.bad = true; }
+    } catch (e) { EX.msg = (tall ? 'Couldn’t make it vertical: ' : 'Couldn’t get it ready: ') + ((e && e.message) || 'something went wrong.'); EX.bad = true; }
     EX.busy = false; mhDraw();
   }
   function mhSrc() {
@@ -5432,9 +5507,9 @@ html.wide #v-home > .hero { column-span: all; }
     $('mhNow').textContent = 'Moment ' + (cur + 1) + ' of ' + list.length + ' · ' + mhTime(mhLength(MH.list)) + ' in all';
     var voiced = MH.reel ? !!MH.r.reel.vpath : MH.list.some(function (c) { return c.vpath; });
     var now = list[cur];
-    $('mhTools').innerHTML = '<button class="plain primary" type="button" data-mhsave="1"' + (EX.busy ? ' disabled' : '') + '>' + (EX.busy ? 'Getting it ready' + (EX.p >= 0 ? ', ' + EX.p + '%' : '…') : 'Save or share') + '</button>' +
-      (now ? clipShareBtn(clipSrc(now, sayOn), now.title || now.label || '', 'moment') : '') +
-      (voiced ? '<button class="plain saybtn" type="button" data-mhsay="1" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '');
+    $('mhTools').innerHTML = '<button class="plain primary" type="button" data-mhsave="1"' + (EX.busy ? ' disabled' : '') + '>' + (EX.busy ? (EX.tall ? 'Making it vertical…' : 'Getting it ready' + (EX.p >= 0 ? ', ' + EX.p + '%' : '…')) : 'Save or share') + '</button>' +
+      (now ? clipShareBtn(clipSrc(now, sayOn), now.title || now.label || '', 'moment', now) : '') +
+      (voiced ? '<button class="plain saybtn" type="button" data-mhsay="1" aria-pressed="' + sayOn + '">' + (sayOn ? 'Commentary on' : 'Commentary off') + '</button>' : '') + shapeBox();
     var ex = EX.msg && String(EX.gid).indexOf(MH.r.id + ':') === 0, mine = MK.gid === MH.r.id, say = ex ? EX.msg : mine && MK.busy ? 'Making this one video for everyone' + MK.part + ': ' + MK.prog + ' You don’t need to wait: it carries on while you use Gaffer, and the upload finishes even if you close the app. The clips play one after another until then.'
       : mine && MK.msg ? MK.msg : !MH.reel && !gafferHere() ? 'Playing the clips one after another. Your gaffer’s phone makes them one video next time they open this.' : '';
     $('mhMsg').hidden = !say; $('mhMsg').textContent = say; $('mhMsg').classList.toggle('bad', ex ? EX.bad : mine && MK.bad);
@@ -5463,9 +5538,9 @@ html.wide #v-home > .hero { column-span: all; }
   function reelPlayer(r, list) {
     var rl = r.reel, voiced = !!rl.vpath, on = voiced && sayOn;
     return '<div class="vplayer reelp"><video controls playsinline preload="metadata" src="' + esc(clipUrl({ path: on ? rl.vpath : rl.path, store: rl.store })) + '"></video>' +
-      '<div class="vtools">' + clipShareBtn() + (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') + '</div>' +
+      '<div class="vtools">' + clipShareBtn() + (voiced ? '<button class="plain saybtn" type="button" data-say="toggle" aria-pressed="' + on + '">' + (on ? 'Commentary on' : 'Commentary off') + '</button>' : '') + shapeBox() + '</div>' +
       '<p class="note">The full reel. Tap a moment to skip to it, or share the one playing on its own.</p><ol class="cliplist">' + list.filter(function (c) { return typeof c.reel_at === 'number'; }).sort(function (a, b) { return a.reel_at - b.reel_at; })
-        .map(function (c) { return '<li><button type="button" data-seek="' + c.reel_at + '" data-src="' + esc(clipSrc(c, on)) + '" data-label="' + esc(c.title || c.label || '') + '" aria-pressed="false">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
+        .map(function (c) { return '<li><button type="button" data-seek="' + c.reel_at + '" data-src="' + esc(clipSrc(c, on)) + '" data-label="' + esc(c.title || c.label || '') + '" data-g="' + esc(c.game_id || '') + '" data-at="' + (c.at || '') + '" aria-pressed="false">' + esc(c.title || c.label) + '</button></li>'; }).join('') + '</ol></div>';
   }
   // A player's reel kept on their card: the same player as a game's reel, its moments underneath to skip to.
   function preelOf(pid) { return preels.filter(function (x) { return x.pid === pid && x.path; })[0] || null; }
@@ -5936,6 +6011,7 @@ html.wide #v-home > .hero { column-span: all; }
         (RB.voice ? '<p class="note">A commentator calls each clip, with an intro and a sign-off.</p>' + voiceBox('rb')
           : RB.own ? '<p class="note" id="rbOwnNote">Once the reel’s made, it plays and you talk over it, like you’re on the telly. Record it again as often as you like, and the game’s sound is turned down under your voice.</p>' : '') + '</div>';
     }
+    if (vertOk()) html += '<div class="rbcm"><span class="rbcmh">Shape</span>' + shapeBox() + '<p class="note" id="rbShapeNote">' + esc(shapeNote()) + '</p></div>';
     html += '<p class="note" id="rbCount">' + on.length + (on.length === 1 ? ' clip' : ' clips') + ', about ' + Math.round(secs) + ' seconds, then an outro card.</p>' +
       '<p class="msg busy" id="rbProg">' + esc(RB.prog) + '</p>' + (RB.ad ? '<p class="msg" role="status" id="rbAd">' + esc(RB.ad) + '</p>' : '') + (RB.msg ? '<p class="msg' + (RB.bad ? ' bad' : '') + '" role="status" id="rbMsg">' + esc(RB.msg) + '</p>' : '') + (RB.note ? '<p class="msg bad">' + esc(RB.note) + '</p>' : '') +
       '<div class="actions">' + (RB.busy ? (AD.on || RB.unlocking ? '' : '<button class="plain" type="button" id="rbCancel"' + (RB.stop ? ' disabled' : '') + '>' + (RB.stop ? 'Stopping…' : 'Cancel') + '</button>') // (Cancel while it's made, except while the ad is up: Ethan asked)
@@ -5956,7 +6032,7 @@ html.wide #v-home > .hero { column-span: all; }
     var server = !gr && rbAd(), local = !server && adWanted(); // your own reel goes on your card, unlocked on the server; anything else is unlocked on this phone
     if ((server || local) && !(await adAsk(AD_ASK_REEL[0], AD_ASK_REEL[1]))) return;
     S.results.forEach(function (r) { byId[r.id] = r; });
-    RB.busy = true; RB.stop = false; RB.job = 'rb-' + Date.now(); RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.ad = ''; RB.locked = false; RB.srv = null; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
+    RB.busy = true; RB.stop = false; RB.job = 'rb-' + Date.now(); RB.bad = false; RB.msg = ''; RB.note = ''; RB.path = null; RB.made = null; RB.ad = ''; RB.locked = false; RB.srv = null; RB.prog = RB.voice && canVoice() ? 'Recording the commentary…' : 'Starting…'; renderRB();
     var ahead = null, adP = null, stop = function () { return RB.stop; }; // the ad plays while it's made (see aheadStart)
     if (server || local) {
       if (server) { ahead = await aheadStart(RB.pid); RB.srv = ahead.key; }
@@ -5993,6 +6069,8 @@ html.wide #v-home > .hero { column-span: all; }
         outro: gr ? endCard(gr) : { kicker: 'Player reel', title: who + '’s highlights', sub: RB.me ? rbMeTeams(list) : teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME } });
       if (RB.stop) { if (adP) { await adP; AD.busy = false; } rbStopped(); return; } // (it finished just as Cancel was tapped)
       RB.path = res && res.path; RB.msg = 'The reel is ready' + (said ? ', with commentary' : '') + '.'; RB.locked = !!adP;
+      var rbOutro = gr ? endCard(gr) : { kicker: 'Player reel', title: who + '’s highlights', sub: RB.me ? rbMeTeams(list) : teamName(), color: S.color, ink: inkColour(), crest: crest || null, app: APP_NAME };
+      RB.made = { list: list, marks: ((res && res.marks) || []).map(function (m) { return typeof m === 'number' ? m : null; }), outro: rbOutro, file: gr ? folderOf(gr) + '-highlights.mp4' : (slugify(who) || 'player') + '-highlights.mp4' };
       if (RB.path && RB.own && plugin('VoiceOver')) { // your own commentary: the reel plays and you talk over it (after the ad, if one's playing)
         if (adP) { RB.prog = 'Your reel is ready for when the ad ends. Then it’s over to you for the commentary.'; renderRB(); await adP; }
         if (RB.stop) { if (adP) AD.busy = false; rbStopped(); return; }
@@ -6000,7 +6078,7 @@ html.wide #v-home > .hero { column-span: all; }
         var mine = await micOpen(RB.path, (gr ? folderOf(gr) : slugify(who) || 'player') + '-commentary.mp4');
         if (mine && mine.path) { RB.path = mine.path; RB.msg = 'The reel is ready, with your commentary.'; } else RB.msg = 'The reel is ready, without your commentary.';
       }
-      if (RB.path && !adP) rateAfter(rc.share({ path: RB.path }));
+      if (RB.path && !adP) await rbShareNow();
       var kept = false;
       if (RB.path && res.marks && RB.pid != null && canKeepReel(RB.pid)) { // and on to their card in Highlights, to watch there
         RB.prog = 'Putting it on ' + (RB.pid === myPid ? 'your' : who + '’s') + ' card…'; renderRB();
@@ -6011,7 +6089,7 @@ html.wide #v-home > .hero { column-span: all; }
         var doneMsg = RB.msg; RB.msg = ''; RB.prog = 'Your reel is ready for when the ad ends…'; renderRB();
         var ad = await adP; AD.busy = false; RB.ad = ''; RB.msg = doneMsg;
         if (RB.stop) { rbStopped(); return; }
-        if (ad.r === 'unlocked' || ad.r === 'nofill') { RB.locked = false; rateAfter(rc.share({ path: RB.path })); }
+        if (ad.r === 'unlocked' || ad.r === 'nofill') { RB.locked = false; await rbShareNow(); }
         else if (ad.r === 'waiting') RB.msg = 'Thanks for watching. Google hasn’t confirmed the ad yet; your reel unlocks on your card in Highlights as soon as it does.';
         else if (server) { RB.msg = (ad.r === 'closed' ? 'The ad was closed before the end, so your reel is locked.' : ad.err) + (kept ? ' It’s on your card in Highlights: watch the ad there to see it.' : ''); RB.bad = ad.r !== 'closed'; }
         else { RB.msg = (ad.r === 'closed' ? 'The ad was closed before the end, so the reel is locked.' : ad.err) + ' Watch the ad to unlock it.'; RB.bad = ad.r !== 'closed'; }
@@ -6020,6 +6098,22 @@ html.wide #v-home > .hero { column-span: all; }
       }
     } catch (e) { if (RB.stop) { if (adP) { await adP; AD.busy = false; } rbStopped(); return; } RB.msg = (e && e.message) || 'Couldn’t make the reel.'; RB.bad = true; if (adP) { await adP; AD.busy = false; RB.ad = ''; } } // (an ad already watched counts for the next go)
     RB.busy = false; RB.prog = ''; renderRB();
+  }
+  async function rbShareNow() { // the reel to the share sheet: as it was made, or made vertical first (Shape: Vertical)
+    var rc = RCp(); if (!rc || !RB.path) return;
+    var out = RB.path;
+    if (tallNow() && RB.made) {
+      var was = RB.busy, msg = RB.msg; RB.busy = true; RB.stop = false; RB.prog = 'Making it vertical…'; renderRB();
+      try {
+        out = await vertMake({ path: RB.path, spans: vSpans(RB.made.list, RB.made.marks), outro: RB.made.outro, outroAt: vEnd(RB.made.list, RB.made.marks), file: RB.made.file, job: RB.job || 'rb-' + Date.now() },
+          function (w) { RB.prog = w; var pg = $('rbProg'); if (pg) pg.textContent = w; });
+        RB.msg = msg;
+      } catch (e) {
+        out = null; RB.msg = RB.stop ? 'Stopped. The landscape reel is still ready to share.' : 'Couldn’t make it vertical: ' + ((e && e.message) || 'something went wrong.') + ' Try again, or choose Landscape to share it as it is.'; RB.bad = !RB.stop;
+      }
+      RB.busy = was; RB.prog = ''; RB.stop = false; renderRB();
+    }
+    if (out) rateAfter(rc.share({ path: out }));
   }
   function rbCancel() { // stops the reel being made (the phone stops at its next clip, or part-way through joining them)
     if (!RB.busy || RB.stop || AD.on) return;
@@ -6032,7 +6126,7 @@ html.wide #v-home > .hero { column-span: all; }
     var got = null, err = null;
     try { got = RB.srv ? await adRun('reel', RB.srv, { say: rbAdSay }) : await adRun('make', null, { local: true, say: rbAdSay }); } catch (e) { err = e; }
     AD.busy = false; RB.busy = false; RB.unlocking = false; RB.ad = '';
-    if (got === 'unlocked' || got === 'nofill') { RB.locked = false; RB.msg = 'Unlocked.'; if (got === 'nofill') noAdPop(NOFILL_POP); rateAfter(rc.share({ path: RB.path })); if (RB.srv) { await unlLoad(true); adDraw(); } }
+    if (got === 'unlocked' || got === 'nofill') { RB.locked = false; RB.msg = 'Unlocked.'; if (got === 'nofill') noAdPop(NOFILL_POP); renderRB(); await rbShareNow(); if (RB.srv) { await unlLoad(true); adDraw(); } }
     else if (got === 'waiting') RB.msg = 'Thanks for watching. Google hasn’t confirmed the ad yet; your reel unlocks on your card in Highlights as soon as it does.';
     else if (got === 'closed') RB.msg = 'The ad was closed before the end, so the reel is still locked.';
     else { RB.msg = (err && err.message) || 'Something went wrong with the ad. Try again.'; RB.bad = true; }
@@ -6045,7 +6139,7 @@ html.wide #v-home > .hero { column-span: all; }
     else if (b.id === 'rbMake') rbMake();
     else if (b.id === 'rbCancel') rbCancel();
     else if (b.id === 'rbUnlock') rbUnlock();
-    else if (b.id === 'rbShare') { var rc = RCp(); if (rc && RB.path) rateAfter(rc.share({ path: RB.path })); }
+    else if (b.id === 'rbShare') { if (!RB.busy) rbShareNow(); }
     else if (b.id === 'rbCmNone' || b.id === 'rbVoice' || b.id === 'rbOwn') { if (RB.busy) return; RB.voice = b.id === 'rbVoice'; RB.own = b.id === 'rbOwn'; RB.path = null; RB.msg = ''; RB.note = ''; renderRB(); }
     else if (b.hasAttribute('data-rbprev')) { RB.pv = b.getAttribute('data-rbprev'); renderRB(); var v = $('rbPrev'); if (v) try { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } catch (err) {} }
   });
@@ -6519,6 +6613,7 @@ html.wide #v-home > .hero { column-span: all; }
     if (NP.busy && NP.kind === 'own' && (d.stage === 'trim' || (d.stage === 'copy' && !cutBusy()))) { npProg(d.stage === 'trim' ? 'Getting your clip ready, ' + pct + '%…' : 'Reading the video, ' + pct + '%…'); return; }
     if (TR.picking && d.stage === 'copy') { TR.pickProg = 'Reading the video, ' + pct + '%'; var tp = $('trPick'); if (tp) tp.textContent = TR.pickProg; }
     if (SO.busy && d.job === SO.job) { SO.prog = d.stage === 'fetch' ? 'Getting your post, ' + pct + '%…' : d.stage === 'tall' ? 'Making it tall, ' + pct + '%…' : 'Adding the end card, ' + pct + '%…'; socDraw(); return; }
+    if (VT.busy && d.job === VT.job && d.stage !== 'reel') { if (VT.say) VT.say(vtWord(d.stage, pct)); return; } // (made vertical: its own words)
     if (CS.busy && d.job === CS.job) { var cp = d.stage === 'save' || d.stage === 'fetch' ? pct : -1; if (cp !== CS.p) { CS.p = cp; clipShareSay(); } return; }
     if (EX.busy && d.job === EX.job) { var ep = d.stage === 'save' || d.stage === 'fetch' && (d.n || 1) === 1 ? pct : -1; if (ep !== EX.p) { EX.p = ep; EX.msg = ep >= 0 ? 'Getting the video onto your phone, ' + ep + '%…' : 'Getting the video ready to save…'; if (MH) mhDraw(); } return; }
     var mkJob = d.job === 'mk'; // (the plugin says whose join it is; the game's one video can be waiting behind someone's reel, or the other way round)

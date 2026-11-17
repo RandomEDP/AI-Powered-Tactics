@@ -39,6 +39,11 @@ import UniformTypeIdentifiers
 ///                                                  video across the frame over a blurred copy of itself, Gaffer's mark
 ///                                                  top right from the first frame, then the end card with the App Store
 ///                                                  badge -> { path, size }; "progress" { stage: "fetch" | "tall" | "card", p, job }
+///   verticalVideo({ url | path, file, job, spans?, outro?, outroAt?, aim? })   a finished highlights video made vertical
+///                                                  (9:16) for Reels and TikTok, on the phone: the tall frame follows the play
+///                                                  (VerticalVideo.swift, FollowPath.swift), its sound and commentary kept, the
+///                                                  graphics drawn again to fit -> { path, size }; "progress" { stage:
+///                                                  "fetch" | "look" | "tall" | "card", p, job }
 ///   bgStart({ title, subtitle }) -> { started }    iOS's own progress card (iOS 26 and later) while highlights are cut, so
 ///                                                  the cut carries on with Gaffer put away (ContinuedWork.swift); started
 ///                                                  is false on an older iOS or if iOS says no. bgUpdate({ title?, subtitle, p })
@@ -66,6 +71,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         CAPPluginMethod(name: "relabel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "beatEdit", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "socialVideo", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "verticalVideo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "cancel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "bgStart", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "bgUpdate", returnType: CAPPluginReturnPromise),
@@ -76,14 +82,14 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     private var pickCall: CAPPluginCall?
     private var pickSlot = 1
     private var copyObservation: NSKeyValueObservation?
-    private let queue = DispatchQueue(label: "reelcutter.work", qos: .userInitiated)
+    let queue = DispatchQueue(label: "reelcutter.work", qos: .userInitiated)
     /// Save or share's plain downloads: their own queue, so a finished video isn't kept waiting behind a cut or a join.
     private let saveQueue = DispatchQueue(label: "reelcutter.save", qos: .userInitiated)
     /// Videos used where they are in Photos, by path. iOS only lets the app read such a file while Photos' own handle on it
     /// (this asset) is kept: let go of it and opening the path again finds no video in it. Only touched on `queue`.
     private var picked: [String: AVURLAsset] = [:]
 
-    private struct Segment {
+    struct Segment {
         let asset: AVAsset
         let start: Double
         let dur: Double
@@ -93,9 +99,10 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         var voiced = false             // the line is already in the footage's own sound (a finished clip), so it isn't laid again
         var bug: ReelBug? = nil        // the score box with the match clock (ReelGraphics.swift)
         var lower: ReelLower? = nil    // the bar along the bottom saying what the moment is
+        var look: ReelLook? = nil      // this stretch's own teams and colours (a player's reel made tall mixes games)
     }
 
-    private struct CutError: LocalizedError {
+    struct CutError: LocalizedError {
         let message: String
         var errorDescription: String? { message }
     }
@@ -104,7 +111,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         FileManager.default.temporaryDirectory.appendingPathComponent("reelcutter", isDirectory: true)
     }
 
-    private func ensureWorkDir() throws -> URL {
+    func ensureWorkDir() throws -> URL {
         let dir = workDir
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
@@ -483,7 +490,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     /// Makes a finished clip smaller (about 2 Mbit/s, which looks the same on a phone) by encoding it again, if it's
     /// bigger than that. The export the clip comes from runs at about 5 Mbit/s, which filled the team's storage fast.
     /// If anything goes wrong the clip is left as it was.
-    private func shrink(_ file: URL, bitRate: Int = 2_000_000) {
+    func shrink(_ file: URL, bitRate: Int = 2_000_000) {
         let asset = AVURLAsset(url: file)
         let seconds = CMTimeGetSeconds(asset.duration)
         guard seconds.isFinite, seconds > 0, Double(fileSize(file)) * 8 / seconds > Double(bitRate) * 1.3,
@@ -553,7 +560,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     private let stopLock = NSLock()
     private var stopJobs = Set<String>()
     /// Asked by `run` and the clip fetching while a job is under way (only touched on `queue`, one job at a time).
-    private var stopNow: (() -> Bool)?
+    var stopNow: (() -> Bool)?
     @objc public func bgStart(_ call: CAPPluginCall) {
         let title = call.getString("title") ?? "Cutting highlights", subtitle = call.getString("subtitle") ?? ""
         ContinuedWork.shared.onEnded = { [weak self] in // (the cut carries on: only Gaffer's own Stop, cancel({job: "cut"}), stops it)
@@ -578,13 +585,13 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         stopLock.lock(); stopJobs.insert(job); stopLock.unlock()
         call.resolve()
     }
-    private func stopAsked(_ job: String) -> Bool {
+    func stopAsked(_ job: String) -> Bool {
         guard !job.isEmpty else { return false }
         stopLock.lock(); defer { stopLock.unlock() }
         return stopJobs.contains(job)
     }
-    private func stopForget(_ job: String) { stopLock.lock(); stopJobs.remove(job); stopLock.unlock() }
-    private func checkStop() throws { if stopNow?() == true { throw CutError(message: "Stopped. Nothing was made.") } }
+    func stopForget(_ job: String) { stopLock.lock(); stopJobs.remove(job); stopLock.unlock() }
+    func checkStop() throws { if stopNow?() == true { throw CutError(message: "Stopped. Nothing was made.") } }
 
     @objc public func joinReel(_ call: CAPPluginCall) {
         guard let raw = call.options["items"] as? [[String: Any]], !raw.isEmpty else { call.reject("No clips to join"); return }
@@ -1024,7 +1031,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     }
 
     /// Downloads a file, waiting for it (this runs on the cutting queue, never the main thread).
-    private func fetch(_ remote: URL, to local: URL, wait: Double = 300, progress: @escaping (Double) -> Void) throws {
+    func fetch(_ remote: URL, to local: URL, wait: Double = 300, progress: @escaping (Double) -> Void) throws {
         let done = DispatchSemaphore(value: 0)
         var failure: Error?
         let task = URLSession.shared.downloadTask(with: remote) { file, response, error in
@@ -1040,7 +1047,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         if let failure = failure { throw failure }
     }
 
-    private func fileSize(_ url: URL) -> Int {
+    func fileSize(_ url: URL) -> Int {
         let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
         return (attributes?[.size] as? NSNumber)?.intValue ?? 0
     }
@@ -1049,7 +1056,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     /// each stretch's caption while it plays, and (for a reel) an outro card at the end.
     /// `outroOver`: the end card covers the last that many seconds of the footage instead of being added after it (a beat
     /// edit, whose music carries on under the card).
-    private func export(segments: [Segment], watermark: String, outro: [String: Any]?, to out: URL, intro: AVURLAsset? = nil, signOff: AVURLAsset? = nil,
+    func export(segments: [Segment], watermark: String, outro: [String: Any]?, to out: URL, intro: AVURLAsset? = nil, signOff: AVURLAsset? = nil,
                         look: ReelLook? = nil, outroOver: Double? = nil, preset: String = AVAssetExportPreset960x540, progress: @escaping (Double) -> Void) throws {
         guard let firstAsset = segments.first?.asset, let firstVideo = firstAsset.tracks(withMediaType: .video).first else {
             throw CutError(message: ReelCutterPlugin.unreadable)
@@ -1085,7 +1092,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
 
         let scale: CMTimeScale = 600
         var cursor = CMTime.zero
-        var spans: [(at: Double, dur: Double, caption: String, bug: ReelBug?, lower: ReelLower?)] = []
+        var spans: [(at: Double, dur: Double, caption: String, bug: ReelBug?, lower: ReelLower?, look: ReelLook?)] = []
         var placed: [(at: CMTime, track: AVAssetTrack)] = [] // which camera's footage starts where, for fitting each into the frame
         for segment in segments {
             guard let sourceVideo = segment.asset.tracks(withMediaType: .video).first else {
@@ -1100,7 +1107,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
             if let audio = audio, let sourceAudio = segment.asset.tracks(withMediaType: .audio).first {
                 try? audio.insertTimeRange(range, of: sourceAudio, at: cursor)
             }
-            spans.append((at: CMTimeGetSeconds(cursor), dur: dur, caption: segment.caption, bug: segment.bug, lower: segment.lower))
+            spans.append((at: CMTimeGetSeconds(cursor), dur: dur, caption: segment.caption, bug: segment.bug, lower: segment.lower, look: segment.look ?? look))
             placed.append((at: cursor, track: sourceVideo))
             if !segment.voiced { say(segment.voice, at: CMTimeGetSeconds(cursor) + segment.voiceAt, before: CMTimeGetSeconds(cursor) + dur) }
             else if segment.voice != nil { speechEnd = max(speechEnd, CMTimeGetSeconds(cursor) + segment.voiceAt + length(segment.voice) + 0.15) } // (keep the sign-off clear of it)
@@ -1159,14 +1166,26 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
         let unit = min(size.width, size.height) / 100 // 1% of the shorter side, so text scales with the footage
         let margin = unit * 3.5
 
-        if !watermark.isEmpty { parent.addSublayer(ReelGraphics.brand(watermark, u: unit, size: size, margin: margin)) }
+        // A tall video (made vertical for Reels and TikTok) keeps its graphics clear of what those apps put on top: the score
+        // box and Gaffer's mark come down from the very top, and the bar along the bottom sits above their captions.
+        let tall = size.height > size.width * 1.2
+        let topRoom = tall ? size.height * 0.085 : 0, bottomRoom = tall ? size.height * 0.17 : 0
+        let upper = CGSize(width: size.width, height: size.height - topRoom)
+        let anyBug = spans.contains { $0.bug != nil && $0.look != nil }
+        if !watermark.isEmpty {
+            let mark = ReelGraphics.brand(watermark, u: unit, size: upper, margin: margin)
+            if tall && anyBug { mark.frame.origin.y -= unit * 8.5 } // (under the score box, which takes most of a tall frame's width)
+            parent.addSublayer(mark)
+        }
 
         for span in spans {
-            if let bug = span.bug, let look = look {
-                parent.addSublayer(ReelGraphics.scoreBug(bug, look: look, from: span.at, dur: span.dur, u: unit, size: size, margin: margin))
+            if let bug = span.bug, let look = span.look {
+                parent.addSublayer(ReelGraphics.scoreBug(bug, look: look, from: span.at, dur: span.dur, u: unit, size: upper, margin: margin))
             }
             if let lower = span.lower {
-                parent.addSublayer(ReelGraphics.lowerThird(lower, look: look, from: span.at, dur: span.dur, u: unit, size: size, margin: margin))
+                let bar = ReelGraphics.lowerThird(lower, look: span.look, from: span.at, dur: span.dur, u: unit, size: size, margin: margin)
+                bar.frame.origin.y += bottomRoom
+                parent.addSublayer(bar)
             } else if !span.caption.isEmpty {
                 let caption = pill(text: span.caption, fontSize: unit * 4.2, weight: .bold, maxWidth: size.width * 0.8, unit: unit)
                 caption.frame.origin = CGPoint(x: margin, y: margin)
@@ -1212,7 +1231,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     }
 
     /// Runs an export to the end, reporting how far it's got, and stops it if it gets nowhere for three minutes.
-    private func run(_ session: AVAssetExportSession, progress: @escaping (Double) -> Void) throws {
+    func run(_ session: AVAssetExportSession, progress: @escaping (Double) -> Void) throws {
         let done = DispatchSemaphore(value: 0)
         session.exportAsynchronously { done.signal() }
         var best: Float = -1, movedAt = Date()
@@ -1250,7 +1269,7 @@ public class ReelCutterPlugin: CAPPlugin, CAPBridgedPlugin, PHPickerViewControll
     }
 
     /// Where a track's frames land once turned the right way up (the rect can start off the origin).
-    private static func upright(_ track: AVAssetTrack) -> CGRect {
+    static func upright(_ track: AVAssetTrack) -> CGRect {
         CGRect(origin: .zero, size: track.naturalSize).applying(track.preferredTransform)
     }
 

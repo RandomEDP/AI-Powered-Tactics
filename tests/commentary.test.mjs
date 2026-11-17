@@ -47,7 +47,7 @@ const pressed = (sel) => A.page.getAttribute(sel, 'aria-pressed');
 // ---------- the choice: a game's reel offers None, AI voice and Your voice, one at a time
 await A.click('#mHighlights'); await A.run(300);
 await A.click('#hlList [data-hlm="make:0"]'); await A.click('#hlSheet [data-greel="0"]'); await A.run(300);
-eq(await A.page.$$eval('#rbBody .rbcm .seg button', (b) => b.map((x) => x.textContent + (x.getAttribute('aria-pressed') === 'true' ? '*' : ''))), ['None*', 'AI voice', 'Your voice'],
+eq(await A.page.$$eval('#rbBody .rbcm .seg:not(.shapeseg) button', (b) => b.map((x) => x.textContent + (x.getAttribute('aria-pressed') === 'true' ? '*' : ''))), ['None*', 'AI voice', 'Your voice'],
   'Commentary: None, AI voice or Your voice, as one segmented choice (None to start)');
 await A.click('#rbVoice'); await A.run(100);
 eq([await pressed('#rbVoice'), await pressed('#rbOwn'), await A.visible('#rbVoiceName')], ['true', 'false', true], 'AI voice: the voices to pick from');

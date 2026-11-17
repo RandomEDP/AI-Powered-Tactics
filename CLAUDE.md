@@ -136,7 +136,7 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
 
 | Class | What it does |
 |---|---|
-| `ReelCutterPlugin` | `saveVideo({url, file, job})` (a finished video downloaded as it is, for Save or share), `beatEdit` (a beat edit, see Highlights; the plan is read by `BeatEdit.swift`), `pickVideo({slot})`, `trimVideo({path, start, dur, file})` (your own short clip for posting: up to 30 s, 720p, about 3 Mbit/s), `socialVideo` (a post made tall for social media), `fetchVideo({url, key, size})` (a GoPro link's video, or an iPhone's shared the same way, downloaded in the background, `BackgroundDownloads.swift`), `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
+| `ReelCutterPlugin` | `saveVideo({url, file, job})` (a finished video downloaded as it is, for Save or share), `beatEdit` (a beat edit, see Highlights; the plan is read by `BeatEdit.swift`), `pickVideo({slot})`, `trimVideo({path, start, dur, file})` (your own short clip for posting: up to 30 s, 720p, about 3 Mbit/s), `socialVideo` (a post made tall for social media), `verticalVideo` (highlights made vertical, following the play: `VerticalVideo.swift`, `FollowPath.swift`), `fetchVideo({url, key, size})` (a GoPro link's video, or an iPhone's shared the same way, downloaded in the background, `BackgroundDownloads.swift`), `cut({clips:[{path,start,dur,caption,file,voice,voiceAt,bug,lower}], look, outro, …})`, `joinReel`, `share`, `shareText({text,url})`, `cleanup`. Uses AVFoundation. Footage from different cameras is turned upright and fitted to one frame. The graphics are in `ReelGraphics.swift` (see Highlights) |
 | `WatchLinkPlugin` | The phone side of the watch link. It keeps a durable inbox of watch presses (UserDefaults `watchlink.inbox`), `push({state, seen})` and `pending()` |
 | `ChatQuietPlugin` | Wraps the push notification handler so the open team chat's messages arrive without banner or sound, and so do the team's goals while its live stream is on screen. JS calls it as `ChatQuiet.quiet({code, live})` from `renderTabs()`/`renderLive()` via `chatQuiet()` |
 | `GameCalendarPlugin` | The "add to calendar" sheet |
@@ -470,6 +470,23 @@ The plugin classes in `plugins/reel-cutter/ios/Sources/ReelCutterPlugin/`:
   already on it; the commentary copy while Commentary is on), then the share sheet; a second tap reuses it. Nothing is made
   or uploaded. One document capture-phase listener (`[data-clipshare]`, `clipShare`, `CS`, `clipPicked`) handles every
   screen. Off the iPhone app it's **Save this clip** and opens the clip. Test: `shareclip.test.mjs`.
+- **Vertical for Reels and TikTok** (Ethan, November 2026: "a way to one exporting highlights in vertical phone mode all on
+  device"): beside every Share or save on the iPhone app (the clip lists' and a game's reel's Share this clip, the
+  whole-match player's Save or share and Share this moment, the reel maker's Shape) is **Landscape / Vertical** (`shapeBox`,
+  `.shapeseg`, `data-shape`, `SHAPE` in `apt-shape`), and with Vertical **Follow the play** or keep the frame on the left,
+  middle or right (`.aimsel`, `data-aim`, `AIM` in `apt-aim`). Vertical hands the finished video to the plugin's
+  `verticalVideo({url | path, spans, outro, outroAt, aim, file, job})` (`vertMake`, cached in `TALL`; progress through `VT`,
+  `vtWord`): `VerticalVideo.swift` looks a few times a second (`VerticalLook.samples`: the YOLOX player detector already in
+  the app finds the players and, at 0.45 or surer, the ball, `Spotter`; and the change since the last look, in 32 strips),
+  `FollowPath.swift` (plain Foundation, `tests/follow/main.swift`) picks where the tall window sits (most play inside it,
+  movement and the ball counting for more around each moment, a stray look ignored, smoothed both ways, never faster than
+  0.45 widths a second, jumping at each clip's start), every frame is cut to it at full height (1080×1920, 720×1280 from
+  960×540 clips) with the strips where the wide graphics were softly blurred (`bandMask`), then `export` draws the score box,
+  the bar and Gaffer's mark again for a tall screen (clear of the apps' own top and bottom: `tall` in `export`; a
+  `Segment` can carry its own `look`) and the end card tall over the wide one (`outroAt`). Each clip's graphics come from
+  its game (`vSpans`, `vClipLook` → `clipLook`); a clip from a game this phone hasn't got just gets the blur. Sound and
+  commentary are kept. Nothing is uploaded. The reel maker makes the reel as before and the vertical copy when it's shared
+  (`rbShareNow`, `RB.made`); a kept player reel stays landscape. Test: `vertical.test.mjs`.
 - **No signal or a weak one** (Ethan, November 2026: "when no signal it shows the highlights as no footage"): the phone's
   saved clips only count as up to date once the team has been read this time (`NET`, `netStart`/`netGot`/`netFail`,
   `netNow()`: '' / `wait` / `weak` / `none`; no answer in 8 s is weak). Until then, or when a read fails, Highlights shows
